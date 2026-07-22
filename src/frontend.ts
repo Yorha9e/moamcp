@@ -280,7 +280,20 @@ export const FRONTEND_HTML = `<!doctype html>
   if (!taskId) { setBadge('pick a task', ''); showPicker(); return; }
   renderAgents();
   var es = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
-  es.onopen = function () { document.getElementById('conn').textContent = '● sse'; };
+  es.onopen = function () {
+    document.getElementById('conn').textContent = '● sse';
+    // The Bus replays the event log on subscribe. If nothing arrives within
+    // a few seconds the task either hasn't started or the Bus restarted
+    // (event log is in-memory) — show a useful hint instead of "connecting" forever.
+    setTimeout(function () {
+      if (agents.length > 0) return; // task_initialized already received
+      setBadge('waiting', '');
+      document.getElementById('config').innerHTML =
+        '<span class="hint">Connected, but no events for task <b>' + taskId + '</b> yet. ' +
+        'The debate may not have started, or the Bus process restarted (event log is in-memory). ' +
+        '<a href="/" style="color:#7cc7ff">Back to task picker</a></span>';
+    }, 3000);
+  };
   es.onerror = function () { document.getElementById('conn').textContent = '○ reconnecting'; };
   es.onmessage = function (m) { try { onEvent(JSON.parse(m.data)); } catch (_) {} };
 })();
