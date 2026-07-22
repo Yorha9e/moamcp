@@ -403,15 +403,19 @@ describe('card_url', () => {
     expect(url.searchParams.get('task_id')).toBe('a&b?c#d e/f');
   });
 
-  it('moa_init returns card_url with a factory, plain {ok:true} without (backward compatible)', () => {
+  it('moa_init returns the agents dispatch map, plus card_url only when a factory is set', () => {
     const weird = 'weird&id?x#y';
     const hub = new DebateHub({ cardUrlFactory: (id) => cardUrl(9999, id) });
     const withUrl = hub.init(weird, { agents: ['a'] });
-    expect(withUrl).toEqual({ ok: true, card_url: `http://127.0.0.1:9999/?task_id=${encodeURIComponent(weird)}` });
+    expect(withUrl).toEqual({
+      ok: true,
+      agents: [{ id: 'a' }],
+      card_url: `http://127.0.0.1:9999/?task_id=${encodeURIComponent(weird)}`,
+    });
     expect(new URL(withUrl.card_url as string).searchParams.get('task_id')).toBe(weird);
 
     const plain = new DebateHub().init('plain-task', { agents: ['a'] });
-    expect(plain).toEqual({ ok: true });
+    expect(plain).toEqual({ ok: true, agents: [{ id: 'a' }] });
     expect('card_url' in plain).toBe(false);
   });
 });

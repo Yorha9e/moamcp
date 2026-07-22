@@ -24,6 +24,8 @@ export function defaultLogsDir(): string {
 
 export interface AgentSpec {
   id: string;
+  /** kimi-code subagent binding slot name; returned to orchestrator for model dispatch. */
+  binding_slot?: string;
   [key: string]: unknown;
 }
 
@@ -123,12 +125,19 @@ export class DebateHub {
   // ---- control tools (orchestrator) ----
 
   /**
-   * Returns `{ok}` — plus `card_url` when a `cardUrlFactory` was injected
-   * (port-discovery design §3.4; additive field, older callers ignore it).
+   * Returns `{ok, agents}` — `agents` is the dispatch map `[{id, binding_slot?}]`
+   * the orchestrator uses to spawn each debater with its bound model. Plus
+   * `card_url` when a `cardUrlFactory` was injected (port-discovery design
+   * §3.4; additive field, older callers ignore it).
    */
-  init(taskId: string, preset: PresetConfig): { ok: true; card_url?: string } {
+  init(taskId: string, preset: PresetConfig): { ok: true; card_url?: string; agents: Array<{ id: string; binding_slot?: string }> } {
     if (this.tasks.has(taskId)) throw new Error(`task already exists: ${taskId}`);
     const agents = (preset.agents ?? []).map((a) => (typeof a === 'string' ? { id: a } : a));
+    const agentDispatch = agents.map((a) => {
+      const entry: { id: string; binding_slot?: string } = { id: a.id };
+      if (a.binding_slot !== undefined) entry.binding_slot = a.binding_slot;
+      return entry;
+    });
     if (agents.length === 0) throw new Error('preset_config.agents must be a non-empty list');
     const ids = new Set<string>();
     for (const a of agents) {
@@ -165,8 +174,8 @@ export class DebateHub {
       rounds: preset.debate?.rounds ?? 2,
       extras,
     });
-    if (this.cardUrlFactory === undefined) return { ok: true };
-    return { ok: true, card_url: this.cardUrlFactory(taskId) };
+    if (this.cardUrlFactory === undefined) return { ok: true, agents: agentDispatch };
+    return { ok: true, card_url: this.cardUrlFactory(taskId), agents: agentDispatch };
   }
 
   async startDebate(taskId: string, referenceResults: unknown): Promise<{ ok: true }> {

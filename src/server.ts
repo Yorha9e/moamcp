@@ -65,14 +65,14 @@ const AGENT_ID = { type: 'string', description: 'Debate agent id (must be in pre
 const TOOLS = [
   {
     name: 'moa_init',
-    description: 'Initialize task state: agent list + debate params from an inline preset config. Returns {ok, card_url} with the debate card URL.',
+    description: 'Initialize task state: agent list + debate params from an inline preset config. Returns {ok, card_url, agents} where agents is the dispatch map [{id, binding_slot?}] - use binding_slot to dispatch each debater with the correct model.',
     inputSchema: {
       type: 'object',
       properties: {
         task_id: TASK_ID,
         preset_config: {
           type: 'object',
-          description: 'Inline preset: { agents: (string|{id,...})[], debate?: { rounds?: number } }',
+          description: 'Inline preset: { agents: (string|{id, binding_slot?, ...})[], debate?: { rounds?: number } }',
         },
       },
       required: ['task_id', 'preset_config'],

@@ -43,7 +43,7 @@ it('runs a full 3-agent, 1-round mailbox debate and archives it', async () => {
 
   // init + start_debate
   expect(await call('moa_init', { task_id: task, preset_config: { agents, debate: { rounds: 1 } } }))
-    .toEqual({ ok: true });
+    .toEqual({ ok: true, agents: [{ id: 'agent_A' }, { id: 'agent_B' }, { id: 'agent_C' }] });
   expect(await call('moa_start_debate', { task_id: task, reference_results: ['ref A', 'ref B'] }))
     .toEqual({ ok: true });
 
@@ -122,4 +122,11 @@ it('suspended wait returns {status:"timeout", retry:true} at the safety cap', as
   // a2 is not the speaker; nobody submits → cap fires (hub configured with 300ms).
   const res = await call('moa_wait_turn', { task_id: 'smoke-2', agent_id: 'a2' });
   expect(res).toEqual({ status: 'timeout', retry: true });
+});
+
+it('init returns the agents dispatch map, preserving binding_slot from object entries', async () => {
+  expect(await call('moa_init', {
+    task_id: 'smoke-3',
+    preset_config: { agents: [{ id: 'x', binding_slot: 'slot_1' }, 'y'], debate: { rounds: 1 } },
+  })).toEqual({ ok: true, agents: [{ id: 'x', binding_slot: 'slot_1' }, { id: 'y' }] });
 });
