@@ -1,0 +1,26 @@
+{
+  "name": "moamcp",
+  "version": "0.1.0",
+  "description": "Mailbox-style multi-agent debate hub, exposed as an MCP server over stdio",
+  "type": "module",
+  "bin": {
+    "moamcp": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "kimi.plugin.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
+  }
+}
