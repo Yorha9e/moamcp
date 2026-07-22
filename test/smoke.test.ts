@@ -11,6 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { DebateHub } from '../src/state.js';
+import { Bus } from '../src/bus.js';
 
 let client: Client;
 let logsDir: string;
@@ -129,4 +130,42 @@ it('init returns the agents dispatch map, preserving binding_slot from object en
     task_id: 'smoke-3',
     preset_config: { agents: [{ id: 'x', binding_slot: 'slot_1' }, 'y'], debate: { rounds: 1 } },
   })).toEqual({ ok: true, agents: [{ id: 'x', binding_slot: 'slot_1' }, { id: 'y' }] });
+});
+
+it('moa_status without a Bus reports no bus info and empty tasks', async () => {
+  // The shared server in this file is created without a Bus instance.
+  const status = await call('moa_status', {});
+  expect(status.bus).toBeUndefined();
+  expect(status.tasks).toEqual([]);
+  expect(typeof status.pid).toBe('number');
+  expect(typeof status.uptime_s).toBe('number');
+});
+
+it('moa_status returns the Bus status when the server is wired to a Bus', async () => {
+  const statusCwd = await mkdtemp(join(tmpdir(), 'moamcp-status-'));
+  const statusLogs = await mkdtemp(join(tmpdir(), 'moamcp-status-logs-'));
+  const statusBus = new Bus({ port: 0, cwd: statusCwd, logsDir: statusLogs });
+  await statusBus.start();
+  const statusHub = new DebateHub({ logsDir: statusLogs, emit: (taskId, event) => statusBus.publish(taskId, event) });
+  const statusServer = createServer(statusHub, statusBus);
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await statusServer.connect(serverTransport);
+  const statusClient = new Client({ name: 'status-test', version: '0.0.1' });
+  await statusClient.connect(clientTransport);
+  try {
+    const res = await statusClient.callTool({ name: 'moa_status', arguments: {} });
+    const status = JSON.parse((res.content as Array<{ type: string; text: string }>)[0].text);
+    expect(status.bus).toEqual({ port: statusBus.actualPort, mode: statusBus.mode });
+    expect(Number.isInteger(status.bus.port)).toBe(true);
+    expect(status.bus.port).toBeGreaterThan(0);
+    expect(['own', 'reuse']).toContain(status.bus.mode);
+    expect(Array.isArray(status.tasks)).toBe(true);
+    expect(typeof status.pid).toBe('number');
+    expect(typeof status.uptime_s).toBe('number');
+  } finally {
+    await statusClient.close();
+    await statusBus.stop();
+    await rm(statusCwd, { recursive: true, force: true });
+    await rm(statusLogs, { recursive: true, force: true });
+  }
 });

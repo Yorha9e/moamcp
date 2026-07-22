@@ -123,9 +123,17 @@ const TOOLS = [
       required: ['task_id'],
     },
   },
+  {
+    name: 'moa_status',
+    description: 'Get the current Bus status: port, mode (own/reuse), active tasks, process info. Use this to discover the Bus port for the debate card URL.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
 
-export function createServer(hub: DebateHub = new DebateHub()): Server {
+export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus): Server {
   const server = new Server(
     { name: 'moamcp', version: '0.1.0' },
     { capabilities: { tools: {} } },
@@ -152,6 +160,14 @@ export function createServer(hub: DebateHub = new DebateHub()): Server {
         break;
       case 'moa_complete':
         result = await hub.complete(a.task_id as string);
+        break;
+      case 'moa_status':
+        result = {
+          bus: bus ? { port: bus.actualPort, mode: bus.mode } : undefined,
+          tasks: bus?.activeTasks() ?? [],
+          pid: process.pid,
+          uptime_s: Math.round(process.uptime()),
+        };
         break;
       default:
         throw new Error(`unknown tool: ${name}`);
@@ -204,7 +220,7 @@ async function main(): Promise<void> {
     emit,
     cardUrlFactory: (taskId) => cardUrl(startResult.port, taskId),
   });
-  const server = createServer(hub);
+  const server = createServer(hub, bus);
   await server.connect(new StdioServerTransport());
   if (startResult.mode === 'reuse') {
     console.error(
@@ -219,9 +235,31 @@ async function main(): Promise<void> {
   const { rmSync } = await import('node:fs');
   const { join } = await import('node:path');
   process.on('exit', () => rmSync(join(process.cwd(), 'bus.port'), { force: true }));
+  let shuttingDown = false;
   const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     void bus.stop().finally(() => process.exit(0));
   };
+  // Shutdown when the MCP transport closes (parent exited / stdin closed).
+  server.onclose = () => shutdown();
+  process.stdin.on('close', () => shutdown());
+  process.stdin.on('end', () => shutdown());
+
+  // Parent death watchdog: if the spawning process dies, exit.
+  // On Windows, stdin close is not always delivered reliably.
+  if (process.ppid) {
+    const parentPid = process.ppid;
+    const watchdog = setInterval(() => {
+      try {
+        process.kill(parentPid, 0);
+      } catch {
+        clearInterval(watchdog);
+        shutdown();
+      }
+    }, 5000);
+    watchdog.unref(); // Don't keep the process alive just for the watchdog.
+  }
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 }
