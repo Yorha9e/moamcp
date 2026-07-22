@@ -5,6 +5,9 @@
  * preset/config snapshot, per-agent status chips, the live transcript, and
  * a verdict panel. After archival (task_closed) the card pulls result.json
  * and can load the full transcript via the Bus's /archive endpoint.
+ * Without a task_id the card renders a task picker instead: it lists the
+ * Bus's active tasks (GET /tasks) and each entry jumps to ?task_id=<id>
+ * (port-discovery design §3.4).
  */
 export const FRONTEND_HTML = `<!doctype html>
 <html lang="zh">
@@ -60,6 +63,11 @@ export const FRONTEND_HTML = `<!doctype html>
   #fullBtn:hover { background: #14342a; }
   #empty { color: #5b6270; text-align: center; padding: 30px 0; }
   #conn { font-size: 12px; color: #5b6270; }
+  /* task picker (shown when the card is opened without ?task_id) */
+  .hint { color: #5b6270; }
+  #picker h2 { font-size: 14px; color: #e6e9ee; margin-bottom: 8px; }
+  .task-item { display: block; width: 100%; text-align: left; padding: 8px 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #2a3140; background: #1d222c; color: #7cc7ff; font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; }
+  .task-item:hover { border-color: #4ade80; color: #4ade80; }
 </style>
 </head>
 <body>
@@ -70,6 +78,10 @@ export const FRONTEND_HTML = `<!doctype html>
     <span id="conn"></span>
     <span class="badge" id="badge">connecting</span>
   </header>
+  <div class="card" id="picker" hidden>
+    <h2>活跃任务</h2>
+    <div id="pickerList"><span class="hint">loading…</span></div>
+  </div>
   <div class="card" id="progress">
     <span class="step" id="st0">初始化</span><span class="link" id="lk0"></span>
     <span class="step" id="st1">辩论中</span><span class="link" id="lk1"></span>
@@ -77,7 +89,7 @@ export const FRONTEND_HTML = `<!doctype html>
     <span class="step" id="st3">已归档</span>
   </div>
   <div class="card" id="config"><span style="color:#5b6270">waiting for task_initialized…</span></div>
-  <div class="card"><div id="agents"></div></div>
+  <div class="card" id="agentsCard"><div id="agents"></div></div>
   <div class="card" id="meta">
     <span>Round <b id="round">–</b> / <b id="rounds">–</b></span>
     <span>Speaker <b id="speaker">–</b></span>
@@ -240,7 +252,32 @@ export const FRONTEND_HTML = `<!doctype html>
       onClosed(e);
     }
   }
-  if (!taskId) { setBadge('missing task_id', 'closed'); return; }
+  function showPicker() {
+    ['progress', 'agentsCard', 'meta', 'verdict'].forEach(function (id) { document.getElementById(id).hidden = true; });
+    document.getElementById('config').innerHTML = '<span class="hint">no task_id in URL — pick an active task:</span>';
+    document.getElementById('picker').hidden = false;
+    fetch('/tasks')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var list = document.getElementById('pickerList');
+        list.innerHTML = '';
+        var tasks = (data && data.tasks) || [];
+        if (!tasks.length) { list.innerHTML = '<span class="hint">no active tasks right now</span>'; return; }
+        tasks.forEach(function (id) {
+          var btn = document.createElement('button');
+          btn.className = 'task-item';
+          btn.textContent = id;
+          btn.addEventListener('click', function () {
+            location.href = '/?task_id=' + encodeURIComponent(id);
+          });
+          list.appendChild(btn);
+        });
+      })
+      .catch(function () {
+        document.getElementById('pickerList').innerHTML = '<span class="hint">failed to load /tasks</span>';
+      });
+  }
+  if (!taskId) { setBadge('pick a task', ''); showPicker(); return; }
   renderAgents();
   var es = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
   es.onopen = function () { document.getElementById('conn').textContent = '● sse'; };

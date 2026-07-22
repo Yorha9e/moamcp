@@ -5,9 +5,22 @@
  * agent list; debate ends after `rounds` full rounds. Long-poll waiters are
  * stored as pending promises per task and resolved by submit/complete.
  */
+import { join } from 'node:path';
+import { moamcpHome } from './registry.js';
 
 /** Safety cap for a single moa_wait_turn call (design doc §4c.4: 30min client timeout). */
 export const DEFAULT_WAIT_CAP_MS = 25 * 60 * 1000;
+
+/**
+ * Archive root: `MOAMCP_LOGS_DIR` if set, else `<MOAMCP_HOME|~/.moamcp>/logs`
+ * (port-discovery design §3.1 — a fixed root is what lets reuse mode serve a
+ * reuser's archives from the owning Bus). Read at call time so tests can
+ * redirect it. Archives written by older versions under `./logs` are NOT
+ * migrated; point `MOAMCP_LOGS_DIR` at the old root to read them.
+ */
+export function defaultLogsDir(): string {
+  return process.env.MOAMCP_LOGS_DIR ?? join(moamcpHome(), 'logs');
+}
 
 export interface AgentSpec {
   id: string;
@@ -67,9 +80,12 @@ export interface DebateTask {
 
 export interface HubOptions {
   waitCapMs?: number;
+  /** Archive root. Default `defaultLogsDir()` (`MOAMCP_LOGS_DIR` or `<MOAMCP_HOME|~/.moamcp>/logs`). */
   logsDir?: string;
   /** Domain-event sink (wired to the Bus by the server). Additive: payload-free core stays unchanged. */
   emit?: (taskId: string, event: DomainEvent) => void;
+  /** Builds the debate-card URL returned by moa_init (injected by the server once the port is known). */
+  cardUrlFactory?: (taskId: string) => string;
 }
 
 /** Domain events emitted by the hub; the Bus adds task_id/ts when fanning out. */
@@ -91,11 +107,13 @@ export class DebateHub {
   private readonly waitCapMs: number;
   private readonly logsDir: string;
   private readonly emitFn?: (taskId: string, event: DomainEvent) => void;
+  private readonly cardUrlFactory?: (taskId: string) => string;
 
   constructor(opts: HubOptions = {}) {
     this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
-    this.logsDir = opts.logsDir ?? 'logs';
+    this.logsDir = opts.logsDir ?? defaultLogsDir();
     this.emitFn = opts.emit;
+    this.cardUrlFactory = opts.cardUrlFactory;
   }
 
   private emit(taskId: string, event: DomainEvent): void {
@@ -104,7 +122,11 @@ export class DebateHub {
 
   // ---- control tools (orchestrator) ----
 
-  init(taskId: string, preset: PresetConfig): { ok: true } {
+  /**
+   * Returns `{ok}` — plus `card_url` when a `cardUrlFactory` was injected
+   * (port-discovery design §3.4; additive field, older callers ignore it).
+   */
+  init(taskId: string, preset: PresetConfig): { ok: true; card_url?: string } {
     if (this.tasks.has(taskId)) throw new Error(`task already exists: ${taskId}`);
     const agents = (preset.agents ?? []).map((a) => (typeof a === 'string' ? { id: a } : a));
     if (agents.length === 0) throw new Error('preset_config.agents must be a non-empty list');
@@ -143,7 +165,8 @@ export class DebateHub {
       rounds: preset.debate?.rounds ?? 2,
       extras,
     });
-    return { ok: true };
+    if (this.cardUrlFactory === undefined) return { ok: true };
+    return { ok: true, card_url: this.cardUrlFactory(taskId) };
   }
 
   async startDebate(taskId: string, referenceResults: unknown): Promise<{ ok: true }> {
