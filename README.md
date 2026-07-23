@@ -3,7 +3,7 @@
 MOA（Multi-Agent Orchestration，多代理辩论）MCP 插件，为 [Kimi Code CLI](https://github.com/MoonshotAI/kimi-code) 与其社区版 [omkc](https://github.com/Yorha9e/oh-my-kimi-code) 提供结构化的多代理辩论能力：多个子代理以轮转辩论的方式交叉审查同一目标（安全审计、设计评审、高风险改动的正确性核验），分歧与结论全程可视。
 
 - **邮箱式辩论枢纽**：辩手通过 MCP 工具收发轮次（`moa_wait_turn` 长轮询 / `moa_submit_turn` 提交），状态机保证严格的轮转顺序，辩手之间互不串供。
-- **辩论卡片**：同进程拉起一个本地 HTTP Bus（SSE + 静态页面），`moa_init` 返回 `card_url`，浏览器打开即可实时观看阶段进度、各 agent 状态、逐轮发言与最终裁决；不带 `task_id` 打开是任务选择页。
+- **辩论卡片**：同进程拉起一个本地 HTTP Bus（SSE + 静态页面），`moa_init` 返回 `card_url`，浏览器打开即可实时观看进度条（共识 → Reference → 辩论 R N/M → 聚合 → 结论）、preset/配置快照、辩手阵容、逐轮 transcript 与裁决 + findings；探测到 omkc-status 时还会多出 agent 状态墙与工具调用日志两个可选面板（见下）。不带 `task_id` 打开是任务选择页（每 3s 静默刷新任务列表，无任务时不闪屏）。
 - **三层归档**：`moa_complete` 落盘 `probe.json`（辩手档案）/ `events.jsonl`（全量事件流）/ `result.json`（裁决），事后可完整回放。
 - **多实例共存**：实例注册表 + 端口退让 + Bus 复用，同机开多个 CLI 会话不会端口打架，也不会留下孤儿 Bus。
 
@@ -152,13 +152,15 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 
 | 端点 | 说明 |
 |---|---|
-| `GET /?task_id=<id>` | 辩论卡片：阶段进度、preset、agent 状态、实时发言流、裁决。不带 `task_id` 时为任务选择页 |
+| `GET /?task_id=<id>` | 辩论卡片：进度条、preset/配置快照（含实时 round/speaker）、辩手阵容、实时发言流、裁决 + findings。不带 `task_id` 时为任务选择页 |
 | `GET /tasks` | `{tasks: string[]}` 活跃任务列表（健康探针也用它） |
 | `GET /subscribe?task_id=<id>` | SSE 事件流；迟到订阅者自动重放（每任务保留最近 200 帧） |
 | `GET /archive?task_id=<id>&file=...` | `moa_complete` 后的归档文件（白名单：`probe.json` / `events.jsonl` / `result.json`，防路径穿越） |
 | `POST /publish` | `{task_id, event}` 事件扇入（复用模式转发 / 预留） |
 
 Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
+
+卡片另有两块**可选**面板——agent 状态墙与工具调用日志，数据来自 **omkc-status** 状态服务（见伴生项目）。卡片自动探测 `http://127.0.0.1:39627/health`（500ms 超时）：可达则订阅其 SSE `/events`（首帧为全量 snapshot，可能数百 KB，解析容错；之后是逐 agent 增量帧），每个 agent 一行展示 model、busy/phase、context tokens、最近工具调用（`stale` 半透明、`isError` 标红），`scan.scanning` 时显示"扫描中…"；不可达则两面板完全静默隐藏、断线 3 次才退避重探。装插件即可用，omkc-status 只是可选增强而非依赖。
 
 ### 端口规则与实例发现
 
@@ -181,7 +183,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 ## 伴生项目
 
 - [oh-my-kimi-code](https://github.com/Yorha9e/oh-my-kimi-code) —— Kimi Code 社区 fork（omkc）：子代理模型绑定全家桶、内置 MOA 角色 profile、桌面悬浮卡片 moa-card。moamcp 的完整形态依赖它。
-- **omkc-status** —— 独立状态服务：只读监听会话持久化文件，对外提供 HTTP `/state` 与 SSE `/events`，不依赖 CLI 进程存活。（仓库待发布）
+- **omkc-status** —— 独立状态服务：只读监听会话持久化文件，对外提供 HTTP `/state` 与 SSE `/events`，不依赖 CLI 进程存活。辩论卡片的 agent 状态墙与工具调用日志面板会自动接入它作为可选数据源。（仓库待发布）
 - **kimi-copilot** —— 桌面悬浮卡片（moa-card widget 的独立演进版本）。（仓库待发布）
 
 ## 开发

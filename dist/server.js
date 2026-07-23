@@ -15936,7 +15936,7 @@ var FRONTEND_HTML = `<!doctype html>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
   body { background: #0e1014; color: #d7dae0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
-  .wrap { max-width: 860px; margin: 0 auto; }
+  .wrap { max-width: 880px; margin: 0 auto; }
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   header h1 { font-size: 17px; font-weight: 600; }
   header .task { color: #8b919c; font-family: ui-monospace, monospace; font-size: 13px; }
@@ -15945,45 +15945,75 @@ var FRONTEND_HTML = `<!doctype html>
   .badge.done { background: #1c2a44; color: #60a5fa; }
   .badge.closed { background: #3a2323; color: #f87171; }
   .card { background: #161a21; border: 1px solid #232936; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .sec-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #5b6270; margin-bottom: 10px; }
+  .sec-title .aux { margin-left: auto; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; }
+  .hint { color: #5b6270; }
   /* stage progress bar */
   #progress { display: flex; align-items: center; gap: 6px; }
-  .step { padding: 3px 12px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; }
+  .step { padding: 3px 12px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; transition: color .25s, border-color .25s, background .25s; }
   .step.active { border-color: #4ade80; color: #4ade80; }
   .step.done { background: #14342a; border-color: #1f4d3a; color: #4ade80; }
-  .link { flex: 1; height: 2px; background: #2a3140; min-width: 12px; }
+  .link { flex: 1; height: 2px; background: #2a3140; min-width: 10px; transition: background .25s; }
   .link.done { background: #1f4d3a; }
-  /* preset / config panel */
-  #config { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
-  #config b { color: #e6e9ee; font-weight: 600; }
-  /* agent status chips */
+  /* preset / config panel (moa_init snapshot) */
+  #configBody { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
+  #configBody b { color: #e6e9ee; font-weight: 600; }
+  /* round / speaker / turns meta (lives inside the config card, design \xA75.1) */
+  #meta { display: flex; gap: 18px; color: #9aa3b2; font-size: 13px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #232936; }
+  #meta b { color: #e6e9ee; font-weight: 600; }
+  /* debater roster chips */
   #agents { display: flex; flex-wrap: wrap; gap: 8px; }
-  .agent { padding: 5px 12px; border-radius: 8px; background: #1d222c; border: 1px solid #2a3140; font-family: ui-monospace, monospace; font-size: 13px; }
+  .agent { padding: 5px 12px; border-radius: 8px; background: #1d222c; border: 1px solid #2a3140; font-family: ui-monospace, monospace; font-size: 13px; transition: border-color .25s, color .25s, box-shadow .25s; }
   .agent .sub { color: #5b6270; margin-left: 6px; font-size: 12px; }
   .agent.speaking { border-color: #4ade80; color: #4ade80; box-shadow: 0 0 8px #4ade8033; }
   .agent.speaking .sub { color: #4ade80; }
-  /* round / speaker / turns meta */
-  #meta { display: flex; gap: 18px; color: #9aa3b2; font-size: 13px; }
-  #meta b { color: #e6e9ee; font-weight: 600; }
+  #empty { color: #5b6270; padding: 4px 0; }
+  /* omkc-status agent wall (optional section) */
+  .omkc-scan { padding: 1px 8px; border-radius: 999px; background: #3a2f1c; color: #fbbf24; font-size: 11px; letter-spacing: 0; text-transform: none; }
+  .omkc-list { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .omkc-row { display: grid; grid-template-columns: minmax(110px, 1.1fr) minmax(130px, 1.4fr) 86px 100px minmax(120px, 1.5fr); gap: 10px; align-items: center; padding: 3px 8px; border-radius: 6px; transition: opacity .3s, background .15s; }
+  .omkc-row:hover { background: #1d222c; }
+  .omkc-row.stale { opacity: .4; }
+  .omkc-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .omkc-row .omkc-id { color: #7cc7ff; }
+  .omkc-st { justify-self: start; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 18px; }
+  .omkc-st.on { background: #14342a; color: #4ade80; }
+  .omkc-st.off { background: #262b36; color: #8b919c; }
+  .omkc-tok { color: #9aa3b2; }
+  .omkc-tool { color: #9aa3b2; }
+  .omkc-tool.err { color: #f87171; }
+  /* tool call log (optional section, same omkc-status source) */
+  .tool-log { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .tool-row { display: flex; gap: 10px; padding: 2px 8px; border-radius: 6px; }
+  .tool-row:hover { background: #1d222c; }
+  .tool-ts { color: #5b6270; }
+  .tool-agent { color: #7cc7ff; min-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tool-name { color: #d7dae0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tool-err { color: #f87171; white-space: nowrap; }
+  .tool-empty { color: #5b6270; padding: 4px 8px; }
   /* transcript */
   .round-sep { display: flex; align-items: center; gap: 10px; color: #5b6270; font-size: 12px; margin: 16px 0 4px; }
+  .round-sep:first-child { margin-top: 0; }
   .round-sep::before, .round-sep::after { content: ''; flex: 1; height: 1px; background: #232936; }
   .turn { border-left: 3px solid #2a3140; padding: 8px 12px; margin: 10px 0; }
   .turn .head { display: flex; gap: 10px; font-size: 12px; color: #8b919c; margin-bottom: 4px; }
   .turn .who { color: #7cc7ff; font-family: ui-monospace, monospace; }
   .turn .text { white-space: pre-wrap; word-break: break-word; }
+  .transcript-empty { color: #5b6270; font-size: 13px; }
   /* verdict */
   #verdict { border-color: #2f4a3b; background: #12211a; }
-  #verdict h2 { font-size: 14px; color: #4ade80; margin-bottom: 8px; }
+  #verdict h2 { font-size: 14px; color: #4ade80; margin-bottom: 8px; letter-spacing: .08em; }
   #verdict .row { font-size: 13px; color: #b9c6b9; margin-bottom: 4px; }
   #verdict .row b { color: #e6e9ee; font-weight: 600; }
-  #fullBtn { margin-top: 8px; padding: 4px 14px; border-radius: 6px; border: 1px solid #2f4a3b; background: transparent; color: #4ade80; font-size: 12px; cursor: pointer; }
+  #verdictFindings { margin: 8px 0; border-top: 1px dashed #2f4a3b; padding-top: 8px; }
+  .findings-head { font-size: 12px; color: #4ade80; font-family: ui-monospace, monospace; margin-bottom: 4px; }
+  .findings-text { white-space: pre-wrap; word-break: break-word; font-size: 13px; color: #c7d2c7; max-height: 240px; overflow-y: auto; }
+  #fullBtn { margin-top: 8px; padding: 4px 14px; border-radius: 6px; border: 1px solid #2f4a3b; background: transparent; color: #4ade80; font-size: 12px; cursor: pointer; transition: background .15s; }
   #fullBtn:hover { background: #14342a; }
-  #empty { color: #5b6270; text-align: center; padding: 30px 0; }
   #conn { font-size: 12px; color: #5b6270; }
   /* task picker (shown when the card is opened without ?task_id) */
-  .hint { color: #5b6270; }
   #picker h2 { font-size: 14px; color: #e6e9ee; margin-bottom: 8px; }
-  .task-item { display: block; width: 100%; text-align: left; padding: 8px 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #2a3140; background: #1d222c; color: #7cc7ff; font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; }
+  .task-item { display: block; width: 100%; text-align: left; padding: 8px 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #2a3140; background: #1d222c; color: #7cc7ff; font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; transition: border-color .15s, color .15s; }
   .task-item:hover { border-color: #4ade80; color: #4ade80; }
 </style>
 </head>
@@ -16000,42 +16030,70 @@ var FRONTEND_HTML = `<!doctype html>
     <div id="pickerList"><span class="hint">loading\u2026</span></div>
   </div>
   <div class="card" id="progress">
-    <span class="step" id="st0">\u521D\u59CB\u5316</span><span class="link" id="lk0"></span>
-    <span class="step" id="st1">\u8FA9\u8BBA\u4E2D</span><span class="link" id="lk1"></span>
-    <span class="step" id="st2">\u8FA9\u8BBA\u5B8C\u6210</span><span class="link" id="lk2"></span>
-    <span class="step" id="st3">\u5DF2\u5F52\u6863</span>
+    <span class="step" id="st0">\u5171\u8BC6</span><span class="link" id="lk0"></span>
+    <span class="step" id="st1">Reference</span><span class="link" id="lk1"></span>
+    <span class="step" id="st2">\u8FA9\u8BBA</span><span class="link" id="lk2"></span>
+    <span class="step" id="st3">\u805A\u5408</span><span class="link" id="lk3"></span>
+    <span class="step" id="st4">\u7ED3\u8BBA</span>
   </div>
-  <div class="card" id="config"><span style="color:#5b6270">waiting for task_initialized\u2026</span></div>
-  <div class="card" id="agentsCard"><div id="agents"></div></div>
-  <div class="card" id="meta">
-    <span>Round <b id="round">\u2013</b> / <b id="rounds">\u2013</b></span>
-    <span>Speaker <b id="speaker">\u2013</b></span>
-    <span>Turns <b id="turns">0</b></span>
+  <div class="card" id="config">
+    <div class="sec-title">\u6A21\u5F0F / \u914D\u7F6E</div>
+    <div id="configBody"><span class="hint">waiting for task_initialized\u2026</span></div>
+    <div id="meta">
+      <span>Round <b id="round">\u2013</b> / <b id="rounds">\u2013</b></span>
+      <span>Speaker <b id="speaker">\u2013</b></span>
+      <span>Turns <b id="turns">0</b></span>
+    </div>
   </div>
-  <div id="transcript"></div>
+  <div class="card" id="agentsCard">
+    <div class="sec-title">\u8FA9\u624B</div>
+    <div id="agents"></div>
+  </div>
+  <div class="card" id="omkcCard" hidden>
+    <div class="sec-title">Agent \u72B6\u6001<span class="omkc-scan" id="omkcScan" hidden></span><span class="aux hint" id="omkcCount"></span></div>
+    <div class="omkc-list" id="omkcAgents"></div>
+  </div>
+  <div class="card" id="transcriptCard">
+    <div class="sec-title">\u8FA9\u8BBA transcript</div>
+    <div id="transcript"><span class="transcript-empty">\u5C1A\u65E0\u53D1\u8A00\uFF0C\u7B49\u5F85\u8FA9\u8BBA\u5F00\u59CB\u2026</span></div>
+  </div>
   <div class="card" id="verdict" hidden>
-    <h2>DEBATE COMPLETE</h2>
+    <h2>VERDICT</h2>
     <div class="row" id="verdictBody"></div>
+    <div id="verdictFindings"></div>
     <div class="row" id="verdictStats"></div>
     <button id="fullBtn" hidden>\u52A0\u8F7D\u5B8C\u6574 transcript</button>
+  </div>
+  <div class="card" id="omkcToolsCard" hidden>
+    <div class="sec-title">\u5DE5\u5177\u8C03\u7528\u65E5\u5FD7<span class="aux hint" id="toolCount"></span></div>
+    <div class="tool-log" id="toolLog"><span class="tool-empty">\u7B49\u5F85\u5DE5\u5177\u8C03\u7528\u2026</span></div>
   </div>
 </div>
 <script>
 (function () {
   var taskId = new URLSearchParams(location.search).get('task_id') || '';
   document.getElementById('taskId').textContent = taskId || '(no task_id)';
-  var agents = [], turns = 0, rounds = '\u2013', lastRound = 0, speaking = null;
+  var agents = [], turns = 0, rounds = '\u2013', curRound = '\u2013', lastRound = 0, speaking = null;
   var badge = document.getElementById('badge');
   function setBadge(text, cls) { badge.textContent = text; badge.className = 'badge ' + cls; }
-  function setStage(n) {
-    for (var i = 0; i < 4; i++) {
+
+  // ---- stage progress: \u5171\u8BC6 \u2192 Reference \u2192 \u8FA9\u8BBA R N/M \u2192 \u805A\u5408 \u2192 \u7ED3\u8BBA ----
+  var STEPS = 5;
+  function setStage(n) { // steps < n are done, step n is active; n === STEPS \u2192 all done
+    for (var i = 0; i < STEPS; i++) {
       document.getElementById('st' + i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
-      if (i < 3) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
+      if (i < STEPS - 1) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
     }
   }
+  function setDebateLabel() {
+    document.getElementById('st2').textContent =
+      rounds === '\u2013' ? '\u8FA9\u8BBA' : '\u8FA9\u8BBA ' + curRound + '/' + rounds;
+  }
+
+  // ---- preset / config snapshot (task_initialized) ----
   function renderConfig(extras) {
-    var box = document.getElementById('config');
-    box.innerHTML = '';
+    var box = document.getElementById('configBody');
+    box.textContent = '';
     function row(k, v) {
       var s = document.createElement('span');
       s.appendChild(document.createTextNode(k + ' '));
@@ -16057,8 +16115,14 @@ var FRONTEND_HTML = `<!doctype html>
   }
   function renderAgents() {
     var box = document.getElementById('agents');
-    if (!agents.length) { box.innerHTML = '<span id="empty">waiting for task_initialized\u2026</span>'; return; }
-    box.innerHTML = '';
+    box.textContent = '';
+    if (!agents.length) {
+      var empty = document.createElement('span');
+      empty.id = 'empty';
+      empty.textContent = 'waiting for task_initialized\u2026';
+      box.appendChild(empty);
+      return;
+    }
     for (var i = 0; i < agents.length; i++) {
       var a = agents[i];
       var chip = document.createElement('span');
@@ -16078,6 +16142,13 @@ var FRONTEND_HTML = `<!doctype html>
     document.getElementById('speaker').textContent = speaker || '\u2013';
     document.getElementById('turns').textContent = String(turns);
   }
+
+  // ---- transcript (per-round grouped; everything via textContent) ----
+  function clearTranscriptEmpty() {
+    var box = document.getElementById('transcript');
+    var placeholder = box.querySelector('.transcript-empty');
+    if (placeholder) box.removeChild(placeholder);
+  }
   function addRoundSep(round) {
     var div = document.createElement('div');
     div.className = 'round-sep';
@@ -16085,50 +16156,91 @@ var FRONTEND_HTML = `<!doctype html>
     document.getElementById('transcript').appendChild(div);
   }
   function addTurn(who, round, turn, text, ts) {
+    clearTranscriptEmpty();
     if (round !== lastRound) { lastRound = round; addRoundSep(round); }
     var div = document.createElement('div');
     div.className = 'turn';
     var head = document.createElement('div');
     head.className = 'head';
-    head.innerHTML = '<span class="who"></span><span>round ' + round + ' \xB7 turn ' + turn + '</span><span>' + (ts || '') + '</span>';
-    head.querySelector('.who').textContent = who;
+    var w = document.createElement('span');
+    w.className = 'who';
+    w.textContent = who == null ? '\u2013' : String(who);
+    var meta = document.createElement('span');
+    meta.textContent = 'round ' + round + ' \xB7 turn ' + turn;
+    head.appendChild(w);
+    head.appendChild(meta);
+    if (ts) {
+      var t = document.createElement('span');
+      t.textContent = String(ts);
+      head.appendChild(t);
+    }
     var body = document.createElement('div');
     body.className = 'text';
     body.textContent = text || '';
-    div.appendChild(head); div.appendChild(body);
+    div.appendChild(head);
+    div.appendChild(body);
     document.getElementById('transcript').appendChild(div);
     div.scrollIntoView({ block: 'nearest' });
   }
   function bumpAgent(id) {
     for (var i = 0; i < agents.length; i++) if (agents[i].id === id) agents[i].turns++;
   }
+
+  // ---- archive helpers & verdict ----
   function loadArchive(file, cb) {
     fetch('/archive?task_id=' + encodeURIComponent(taskId) + '&file=' + file)
       .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
       .then(cb)
       .catch(function () {});
   }
+  function putStat(box, k, v) {
+    box.appendChild(document.createTextNode(k + ' '));
+    var b = document.createElement('b');
+    b.textContent = v;
+    box.appendChild(b);
+    box.appendChild(document.createTextNode(' \xB7 '));
+  }
   function onClosed(e) {
-    speaking = null; renderAgents(); setBadge('closed', 'closed'); setStage(3);
-    var v = document.getElementById('verdict'); v.hidden = false;
+    speaking = null; renderAgents(); setBadge('closed', 'closed'); setStage(STEPS);
+    document.getElementById('verdict').hidden = false;
     loadArchive('result.json', function (text) {
       var r;
       try { r = JSON.parse(text); } catch (_) { return; }
-      document.getElementById('verdictBody').innerHTML =
-        'status <b></b> \xB7 rounds <b></b> \xB7 turns <b></b>';
-      var bs = document.getElementById('verdictBody').querySelectorAll('b');
-      bs[0].textContent = r.status || '\u2013';
-      bs[1].textContent = (r.rounds_completed != null ? r.rounds_completed : '\u2013') + ' / ' + (r.rounds_configured != null ? r.rounds_configured : '\u2013');
-      bs[2].textContent = r.turns != null ? String(r.turns) : '\u2013';
+      var vb = document.getElementById('verdictBody');
+      vb.textContent = '';
+      putStat(vb, 'status', r.status || '\u2013');
+      putStat(vb, 'rounds', (r.rounds_completed != null ? r.rounds_completed : '\u2013') + ' / ' + (r.rounds_configured != null ? r.rounds_configured : '\u2013'));
+      putStat(vb, 'turns', r.turns != null ? String(r.turns) : '\u2013');
       document.getElementById('verdictStats').textContent =
         'finished at ' + (r.finished_at || '\u2013') + ' \xB7 archive: ' + (e.archive || 'logs/' + taskId);
       document.getElementById('fullBtn').hidden = false;
+    });
+    // findings: the last archived turn carries the synthesized conclusion.
+    loadArchive('events.jsonl', function (text) {
+      var lines = text.split('\\n');
+      for (var i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i]) continue;
+        var t;
+        try { t = JSON.parse(lines[i]); } catch (_) { continue; }
+        var box = document.getElementById('verdictFindings');
+        box.textContent = '';
+        var h = document.createElement('div');
+        h.className = 'findings-head';
+        h.textContent = 'FINDINGS \xB7 ' + (t.speaker || '\u2013') + ' \xB7 round ' + (t.round != null ? t.round : '\u2013');
+        var c = document.createElement('div');
+        c.className = 'findings-text';
+        var content = String(t.content || '');
+        c.textContent = content.length > 1200 ? content.slice(0, 1200) + '\u2026' : content;
+        box.appendChild(h);
+        box.appendChild(c);
+        break;
+      }
     });
   }
   document.getElementById('fullBtn').addEventListener('click', function () {
     this.hidden = true;
     loadArchive('events.jsonl', function (text) {
-      document.getElementById('transcript').innerHTML = '';
+      document.getElementById('transcript').textContent = '';
       lastRound = 0;
       var lines = text.split('\\n');
       for (var i = 0; i < lines.length; i++) {
@@ -16140,79 +16252,362 @@ var FRONTEND_HTML = `<!doctype html>
       }
     });
   });
+
+  // ---- Bus domain events ----
   function onEvent(e) {
     if (e.type === 'task_initialized') {
       var specs = e.agent_specs || (e.agents || []).map(function (id) { return { id: id }; });
       agents = specs.map(function (s) {
-        return { id: s.id, tag: s.role || s.model || '', turns: 0 };
+        return { id: s.id, tag: s.role || s.model || s.binding_slot || '', turns: 0 };
       });
       rounds = e.rounds || '\u2013';
+      curRound = '\u2013';
       speaking = null;
       renderAgents(); renderConfig(e.extras); setMeta('\u2013', null);
-      setStage(0); setBadge('initialized', 'live');
+      setDebateLabel(); setStage(1); setBadge('initialized', 'live');
     } else if (e.type === 'debate_started') {
       rounds = e.rounds || rounds;
-      setMeta(1, null); setStage(1); setBadge('debating', 'live');
+      curRound = 1;
+      setDebateLabel(); setMeta(1, null); setStage(2); setBadge('debating', 'live');
     } else if (e.type === 'turn_submitted') {
       turns++; bumpAgent(e.agent_id); speaking = null;
       addTurn(e.agent_id, e.round, e.turn, e.excerpt, e.ts);
-      renderAgents(); setMeta(e.round, null);
+      renderAgents();
+      curRound = e.round; setDebateLabel(); setMeta(e.round, null);
     } else if (e.type === 'turn_advanced') {
       speaking = e.speaker;
-      renderAgents(); setMeta(e.round, e.speaker);
+      renderAgents();
+      curRound = e.round; setDebateLabel(); setMeta(e.round, e.speaker);
     } else if (e.type === 'debate_complete') {
-      speaking = null; renderAgents(); setStage(2); setBadge('debate complete', 'done');
-      var v = document.getElementById('verdict'); v.hidden = false;
+      speaking = null; renderAgents(); setStage(3); setBadge('debate complete', 'done');
+      document.getElementById('verdict').hidden = false;
       document.getElementById('verdictBody').textContent =
         'Rounds: ' + (e.rounds || '\u2013') + ' \xB7 Turns: ' + (e.turns || turns) + ' \u2014 transcript archived on moa_complete.';
     } else if (e.type === 'task_closed') {
       onClosed(e);
     }
   }
-  function showPicker() {
-    ['progress', 'agentsCard', 'meta', 'verdict'].forEach(function (id) { document.getElementById(id).hidden = true; });
-    document.getElementById('config').innerHTML = '<span class="hint">no task_id in URL \u2014 pick an active task:</span>';
-    document.getElementById('picker').hidden = false;
+
+  // ---- task picker: silent 3s refresh, re-render only on real changes ----
+  var pickerSig = null, pickerErrShown = false;
+  function renderPickerList(tasks) {
+    var list = document.getElementById('pickerList');
+    list.textContent = '';
+    if (!tasks.length) {
+      var hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = '\u6682\u65E0\u6D3B\u8DC3\u4EFB\u52A1';
+      list.appendChild(hint);
+      return;
+    }
+    tasks.forEach(function (id) {
+      var btn = document.createElement('button');
+      btn.className = 'task-item';
+      btn.textContent = id;
+      btn.addEventListener('click', function () {
+        location.href = '/?task_id=' + encodeURIComponent(id);
+      });
+      list.appendChild(btn);
+    });
+  }
+  function refreshTasks() {
     fetch('/tasks')
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        var list = document.getElementById('pickerList');
-        list.innerHTML = '';
         var tasks = (data && data.tasks) || [];
-        if (!tasks.length) { list.innerHTML = '<span class="hint">no active tasks right now</span>'; return; }
-        tasks.forEach(function (id) {
-          var btn = document.createElement('button');
-          btn.className = 'task-item';
-          btn.textContent = id;
-          btn.addEventListener('click', function () {
-            location.href = '/?task_id=' + encodeURIComponent(id);
-          });
-          list.appendChild(btn);
-        });
+        var sig = JSON.stringify(tasks);
+        if (sig === pickerSig && !pickerErrShown) return; // unchanged \u2192 do not touch the DOM
+        pickerSig = sig;
+        pickerErrShown = false;
+        renderPickerList(tasks);
       })
       .catch(function () {
-        document.getElementById('pickerList').innerHTML = '<span class="hint">failed to load /tasks</span>';
+        if (pickerErrShown) return;
+        pickerErrShown = true;
+        var list = document.getElementById('pickerList');
+        list.textContent = '';
+        var hint = document.createElement('span');
+        hint.className = 'hint';
+        hint.textContent = 'failed to load /tasks';
+        list.appendChild(hint);
       });
   }
+  function showPicker() {
+    ['progress', 'config', 'agentsCard', 'transcriptCard', 'verdict'].forEach(function (id) {
+      document.getElementById(id).hidden = true;
+    });
+    document.getElementById('picker').hidden = false;
+    refreshTasks();
+    setInterval(refreshTasks, 3000);
+  }
+
+  // ---- optional omkc-status agent wall + tool call log ----
+  // Optional enhancement from the omkc ecosystem, never a dependency:
+  // probe http://127.0.0.1:39627/health (500ms); when absent, both sections
+  // stay hidden with zero trace. When present, subscribe to its SSE /events:
+  // the first 'snapshot' frame is the full state (can be hundreds of KB \u2014
+  // parsing stays tolerant), afterwards per-agent 'agent' delta frames.
+  var OMKC = 'http://127.0.0.1:39627';
+  var omkcRows = new Map();  // 'sessionId:agentId' -> row element
+  var toolSeen = new Map();  // 'sessionId:agentId' -> last rendered lastToolCall.ts
+  var omkcEs = null, omkcFails = 0, omkcReprobe = null, omkcHealthPoll = null;
+
+  function fetchWithTimeout(url, ms) {
+    return new Promise(function (resolve, reject) {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); reject(new Error('timeout')); }, ms);
+      fetch(url, { signal: ctrl.signal }).then(function (r) {
+        clearTimeout(timer);
+        resolve(r);
+      }, function (err) {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+  function probeOmkc() {
+    return fetchWithTimeout(OMKC + '/health', 500).then(function (r) {
+      if (!r.ok) throw new Error('health HTTP ' + r.status);
+      return r.json();
+    }).then(function (h) {
+      if (!h || h.ok !== true) throw new Error('not omkc-status');
+      return h;
+    });
+  }
+  function omkcShow(on) {
+    document.getElementById('omkcCard').hidden = !on;
+    document.getElementById('omkcToolsCard').hidden = !on;
+  }
+  function setOmkcScan(scanning) {
+    var chip = document.getElementById('omkcScan');
+    chip.hidden = !scanning;
+    chip.textContent = '\u626B\u63CF\u4E2D\u2026';
+  }
+  function omkcKey(a) { return (a.sessionId || '') + ':' + (a.agentId || ''); }
+  function fmtTok(n) {
+    n = Number(n);
+    if (!isFinite(n)) return '\u2013';
+    return n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'k' : String(n);
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function fillAgentRow(el, a) {
+    var cells = el.children; // [id, model, status, tokens, tool]
+    cells[0].textContent = String(a.agentId || '?') + (a.kind === 'sub' ? ' \u2937' : '');
+    cells[0].title = (a.sessionId || '') + (a.home ? ' @ ' + a.home : '');
+    cells[1].textContent = a.model || '\u2013';
+    var busyish = a.busy === true || (!!a.phase && a.phase !== 'idle' && a.phase !== 'completed' && a.phase !== 'suspended');
+    cells[2].textContent = a.phase || (a.busy ? 'busy' : 'idle');
+    cells[2].className = 'omkc-st ' + (busyish ? 'on' : 'off');
+    cells[3].textContent = a.contextTokens != null
+      ? fmtTok(a.contextTokens) + ' / ' + fmtTok(a.maxContextTokens)
+      : '\u2013';
+    var tc = a.lastToolCall;
+    if (tc && tc.name) {
+      cells[4].textContent = String(tc.name) + (tc.isError ? ' \u2717' : '');
+      cells[4].className = 'omkc-tool' + (tc.isError ? ' err' : '');
+    } else {
+      cells[4].textContent = '\u2013';
+      cells[4].className = 'omkc-tool';
+    }
+    if (a.stale) el.classList.add('stale'); else el.classList.remove('stale');
+  }
+  function newRow() {
+    var el = document.createElement('div');
+    el.className = 'omkc-row';
+    for (var i = 0; i < 5; i++) {
+      var c = document.createElement('span');
+      if (i === 0) c.className = 'omkc-id';
+      if (i === 3) c.className = 'omkc-tok';
+      el.appendChild(c);
+    }
+    return el;
+  }
+  function upsertAgent(a) {
+    if (!a || typeof a !== 'object' || !a.agentId) return;
+    var key = omkcKey(a);
+    var el = omkcRows.get(key);
+    if (!el) {
+      el = newRow();
+      omkcRows.set(key, el);
+      // late-arriving agents are the most recent \u2014 slot them on top.
+      var box = document.getElementById('omkcAgents');
+      box.insertBefore(el, box.firstChild);
+    }
+    fillAgentRow(el, a);
+    maybeLogTool(key, a, false);
+  }
+  function applyOmkcSnapshot(snap) {
+    // The snapshot can be very large (machine-wide agent list); parse and
+    // render defensively \u2014 a malformed entry must not kill the whole wall.
+    var list = (snap && snap.agents) || [];
+    if (!list.length) return;
+    omkcRows.clear();
+    var box = document.getElementById('omkcAgents');
+    box.textContent = '';
+    var sorted = [];
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (a && typeof a === 'object' && a.agentId) sorted.push(a);
+    }
+    sorted.sort(function (x, y) { return (y.lastSeen || 0) - (x.lastSeen || 0); });
+    var frag = document.createDocumentFragment();
+    for (var j = 0; j < sorted.length; j++) {
+      var el = newRow();
+      omkcRows.set(omkcKey(sorted[j]), el);
+      fillAgentRow(el, sorted[j]);
+      frag.appendChild(el);
+      maybeLogTool(omkcKey(sorted[j]), sorted[j], true);
+    }
+    box.appendChild(frag);
+    document.getElementById('omkcCount').textContent = sorted.length + ' \u4E2A agent';
+    setOmkcScan(!!(snap.scan && snap.scan.scanning === true));
+  }
+  function maybeLogTool(key, a, seed) {
+    var tc = a.lastToolCall;
+    if (!tc || !tc.name || !tc.ts) return;
+    var last = toolSeen.get(key) || 0;
+    if (tc.ts <= last) return;
+    if (seed && Date.now() - Number(tc.ts) > 5 * 60 * 1000) return; // seed: last 5 min only
+    toolSeen.set(key, Number(tc.ts));
+    addToolRow(a, tc, seed);
+  }
+  function addToolRow(a, tc, seed) {
+    var box = document.getElementById('toolLog');
+    var placeholder = box.querySelector('.tool-empty');
+    if (placeholder) box.removeChild(placeholder);
+    var row = document.createElement('div');
+    row.className = 'tool-row';
+    var t = document.createElement('span');
+    t.className = 'tool-ts';
+    var d = new Date(Number(tc.ts));
+    t.textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+    var who = document.createElement('span');
+    who.className = 'tool-agent';
+    who.textContent = String(a.agentId || '?');
+    var name = document.createElement('span');
+    name.className = 'tool-name';
+    name.textContent = String(tc.name) + (tc.description ? ' \u2014 ' + String(tc.description) : '');
+    row.appendChild(t);
+    row.appendChild(who);
+    row.appendChild(name);
+    if (tc.isError) {
+      var err = document.createElement('span');
+      err.className = 'tool-err';
+      err.textContent = '\u2717 error';
+      row.appendChild(err);
+    }
+    if (seed) box.appendChild(row); // snapshot seed: append in lastSeen-desc order
+    else box.insertBefore(row, box.firstChild); // live: newest on top
+    while (box.children.length > 150) box.removeChild(box.lastChild);
+    document.getElementById('toolCount').textContent = box.children.length + ' \u6761';
+  }
+  function omkcConnect() {
+    if (omkcEs) { omkcEs.close(); omkcEs = null; }
+    omkcEs = new EventSource(OMKC + '/events');
+    omkcEs.addEventListener('snapshot', function (m) {
+      omkcFails = 0;
+      try { applyOmkcSnapshot(JSON.parse(m.data)); } catch (_) { /* tolerant: wait for deltas */ }
+    });
+    omkcEs.addEventListener('agent', function (m) {
+      omkcFails = 0;
+      try { upsertAgent(JSON.parse(m.data)); } catch (_) {}
+    });
+    omkcEs.onerror = function () {
+      if (omkcEs) { omkcEs.close(); omkcEs = null; }
+      omkcFails++;
+      // Same E1 rule as the Bus SSE: 1-2 transient errors retry quickly;
+      // 3 consecutive failures read as "service gone" \u2014 hide both sections
+      // silently and re-probe on a slow cadence until it returns.
+      if (omkcFails < 3) { setTimeout(omkcConnect, 1000); return; }
+      omkcShow(false);
+      setOmkcScan(false);
+      if (!omkcReprobe) {
+        omkcReprobe = setInterval(function () {
+          probeOmkc().then(function () {
+            clearInterval(omkcReprobe);
+            omkcReprobe = null;
+            omkcFails = 0;
+            omkcShow(true);
+            omkcConnect();
+          }, function () {});
+        }, 30000);
+      }
+    };
+  }
+
+  // ---- bootstrap ----
+  probeOmkc().then(function () {
+    omkcShow(true);
+    omkcConnect();
+    // Keep the \u626B\u63CF\u4E2D badge fresh (scan state only rides on snapshots).
+    if (!omkcHealthPoll) {
+      omkcHealthPoll = setInterval(function () {
+        if (!omkcEs) return; // hidden / re-probing \u2014 skip
+        probeOmkc().then(function (h) { setOmkcScan(h.scanning === true); }, function () {});
+      }, 15000);
+    }
+  }, function () { /* omkc-status not installed \u2014 sections stay hidden */ });
+
   if (!taskId) { setBadge('pick a task', ''); showPicker(); return; }
+
   renderAgents();
-  var es = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
-  es.onopen = function () {
-    document.getElementById('conn').textContent = '\u25CF sse';
-    // The Bus replays the event log on subscribe. If nothing arrives within
-    // a few seconds the task either hasn't started or the Bus restarted
-    // (event log is in-memory) \u2014 show a useful hint instead of "connecting" forever.
-    setTimeout(function () {
-      if (agents.length > 0) return; // task_initialized already received
-      setBadge('waiting', '');
-      document.getElementById('config').innerHTML =
-        '<span class="hint">Connected, but no events for task <b>' + taskId + '</b> yet. ' +
-        'The debate may not have started, or the Bus process restarted (event log is in-memory). ' +
-        '<a href="/" style="color:#7cc7ff">Back to task picker</a></span>';
-    }, 3000);
-  };
-  es.onerror = function () { document.getElementById('conn').textContent = '\u25CB reconnecting'; };
-  es.onmessage = function (m) { try { onEvent(JSON.parse(m.data)); } catch (_) {} };
+  setStage(0);
+  setDebateLabel();
+  var sse = null, sseFails = 0, sseDelay = 800, gotAny = false, waitingShown = false;
+  function setConn(text) { document.getElementById('conn').textContent = text; }
+  function showWaitingHint() {
+    if (waitingShown) return;
+    waitingShown = true;
+    setBadge('waiting', '');
+    var box = document.getElementById('configBody');
+    box.textContent = '';
+    var span = document.createElement('span');
+    span.className = 'hint';
+    span.appendChild(document.createTextNode('\u5DF2\u8FDE\u63A5\uFF0C\u4F46\u4EFB\u52A1 '));
+    var b = document.createElement('b');
+    b.textContent = taskId;
+    span.appendChild(b);
+    span.appendChild(document.createTextNode(' \u8FD8\u6CA1\u6709\u4EFB\u4F55\u4E8B\u4EF6\u3002\u8FA9\u8BBA\u53EF\u80FD\u5C1A\u672A\u5F00\u59CB\uFF0C\u6216 Bus \u8FDB\u7A0B\u91CD\u542F\u8FC7\uFF08\u4E8B\u4EF6\u65E5\u5FD7\u5728\u5185\u5B58\u4E2D\uFF09\u3002'));
+    var a = document.createElement('a');
+    a.href = '/';
+    a.style.color = '#7cc7ff';
+    a.textContent = '\u8FD4\u56DE\u4EFB\u52A1\u5217\u8868';
+    span.appendChild(a);
+    box.appendChild(span);
+  }
+  function connect() {
+    sse = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
+    sse.onopen = function () {
+      sseFails = 0;
+      sseDelay = 800;
+      setConn('\u25CF sse');
+      // The Bus replays the event log on subscribe. If nothing arrives within
+      // a few seconds the task either hasn't started or the Bus restarted
+      // (event log is in-memory) \u2014 show a useful hint instead of "connecting" forever.
+      setTimeout(function () {
+        if (!gotAny) showWaitingHint();
+      }, 3000);
+    };
+    sse.onmessage = function (m) {
+      gotAny = true;
+      sseFails = 0;
+      try { onEvent(JSON.parse(m.data)); } catch (_) {}
+    };
+    sse.onerror = function () {
+      if (sse) { sse.close(); sse = null; }
+      sseFails++;
+      // E1 lesson: one transient error must not tear the session down \u2014
+      // retry quickly twice, and only after 3 consecutive failures enter
+      // exponential backoff (800ms doubling, capped at 15s).
+      var delay = sseFails < 3 ? 800 : Math.min(15000, sseDelay * 2);
+      sseDelay = delay;
+      setConn(sseFails < 3
+        ? '\u25CB \u77AC\u65AD ' + sseFails + '/3'
+        : '\u25CB \u91CD\u8FDE\u9000\u907F ' + Math.round(delay / 100) / 10 + 's');
+      setTimeout(connect, delay);
+    };
+  }
+  connect();
 })();
 </script>
 </body>

@@ -2,3 +2,4 @@ node_modules/
 logs/
 bus.port
 *.log
+.tmp/
