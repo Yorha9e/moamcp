@@ -103,13 +103,22 @@ const TOOLS = [
   },
   {
     name: 'moa_submit_turn',
-    description: 'Submit this agent\'s turn content. Validates turn order ({error:"not_your_turn"} otherwise), advances to the next speaker.',
+    description:
+      'Submit this agent\'s turn content. Validates turn order ({error:"not_your_turn"} otherwise), advances to the next speaker. ' +
+      'Pass signoff:true to cast an early-close (unanimous signoff) vote; when every agent has signed off the debate closes early ' +
+      '({debate_complete:true, early:true, reason:"unanimous_signoff"}). Any normal (non-signoff) submission counts as dissent and resets accumulated signoffs.',
     inputSchema: {
       type: 'object',
       properties: {
         task_id: TASK_ID,
         agent_id: AGENT_ID,
-        content: { type: 'string', description: 'The agent\'s debate contribution for this turn' },
+        content: { type: 'string', description: 'The agent\'s debate contribution for this turn (the signoff statement when signoff is true)' },
+        signoff: {
+          type: 'boolean',
+          description:
+            'True to cast an early-close (unanimous signoff) vote instead of a normal turn; content carries the signoff statement. ' +
+            'A normal (non-signoff) submission is a dissent that clears all accumulated signoffs.',
+        },
       },
       required: ['task_id', 'agent_id', 'content'],
     },
@@ -156,7 +165,7 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus): Serve
         result = await hub.waitTurn(a.task_id as string, a.agent_id as string);
         break;
       case 'moa_submit_turn':
-        result = await hub.submitTurn(a.task_id as string, a.agent_id as string, a.content as string);
+        result = await hub.submitTurn(a.task_id as string, a.agent_id as string, a.content as string, a.signoff === true);
         break;
       case 'moa_complete':
         result = await hub.complete(a.task_id as string);

@@ -4,8 +4,14 @@
  * SSE stream and renders, per design doc §5.1: a stage progress bar
  * (共识 → Reference → 辩论 R N/M → 聚合 → 结论) with all five steps always
  * visible and an explicit three-state dot per step (✓ done / pulsing green
- * active / hollow grey pending), a live 辩论 N/M label and a hover/focus
- * tooltip explaining each stage, the preset/config snapshot
+ * active / hollow grey pending). Every pill is clickable (pending stages
+ * included): it smooth-scrolls to the stage's content section with a brief
+ * outline flash and opens a detail row under the bar — entry time and state,
+ * the reference_results snapshot summary, live round/speaker/turn counts, or
+ * the one-line VERDICT; a stage that has not started says so and names what
+ * brings it in. Same pill again, or a click anywhere else, closes the row.
+ * Also: a live 辩论 N/M label and a hover/focus tooltip explaining each
+ * stage, the preset/config snapshot
  * from moa_init (with live round/speaker meta), the debater roster chips,
  * the per-round transcript, and a verdict panel that pulls result.json plus
  * the final turn (findings) from the archive on task_closed.
@@ -54,7 +60,7 @@ export const FRONTEND_HTML = `<!doctype html>
      green, done = filled green with ✓. Connectors shrink, steps never
      wrap, so the row self-fits inside the card down to narrow widths. */
   #progress { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
-  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: default; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
+  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: pointer; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
   .step:hover { transform: translateY(-1px); border-color: #39415a; }
   .step:focus-visible { outline: 1px solid #4ade8066; outline-offset: 2px; }
   .step .dot { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #39404f; background: transparent; color: #0e1014; font-size: 9px; line-height: 1; transition: background .25s, border-color .25s; }
@@ -79,6 +85,20 @@ export const FRONTEND_HTML = `<!doctype html>
     .step .dot { width: 12px; height: 12px; font-size: 8px; }
     .link { min-width: 4px; }
   }
+  /* clicked pill: blue ring marks which stage's detail row is open */
+  .step[aria-expanded="true"] { border-color: #60a5fa; box-shadow: 0 0 10px #60a5fa33; }
+  /* stage detail row: expands under the progress bar on pill click */
+  #stageDetail { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: #1d222c; border: 1px solid #2a3140; font-size: 12px; line-height: 1.6; color: #b7bec9; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; animation: detailIn .18s ease-out; }
+  #stageDetail .sd-name { color: #7cc7ff; font-weight: 600; white-space: nowrap; }
+  #stageDetail .sd-state { padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 18px; white-space: nowrap; }
+  #stageDetail .sd-state.done { background: #14342a; color: #4ade80; }
+  #stageDetail .sd-state.active { background: #14342a; color: #4ade80; animation: dotPulse 1.5s ease-in-out infinite; }
+  #stageDetail .sd-state.pending { background: #262b36; color: #8b919c; }
+  #stageDetail .sd-text { flex: 1 1 100%; word-break: break-word; white-space: pre-wrap; }
+  @keyframes detailIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  /* click a pill → its target card gets a ~1.6s outline flash on landing */
+  .card.flash { outline: 2px solid transparent; animation: cardFlash 1.6s ease-out; }
+  @keyframes cardFlash { 0% { outline-color: #60a5fa; } 60% { outline-color: #60a5fa80; } 100% { outline-color: transparent; } }
   /* preset / config panel (moa_init snapshot) */
   #configBody { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
   #configBody b { color: #e6e9ee; font-weight: 600; }
@@ -120,10 +140,13 @@ export const FRONTEND_HTML = `<!doctype html>
   .round-sep:first-child { margin-top: 0; }
   .round-sep::before, .round-sep::after { content: ''; flex: 1; height: 1px; background: #232936; }
   .turn { border-left: 3px solid #2a3140; padding: 8px 12px; margin: 10px 0; }
-  .turn .head { display: flex; gap: 10px; font-size: 12px; color: #8b919c; margin-bottom: 4px; }
+  .turn.signoff { border-left-color: #4ade80; background: #14342a33; }
+  .turn .head { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #8b919c; margin-bottom: 4px; }
   .turn .who { color: #7cc7ff; font-family: ui-monospace, monospace; }
   .turn .text { white-space: pre-wrap; word-break: break-word; }
+  .signoff-badge { padding: 0 7px; border-radius: 999px; background: #14342a; color: #4ade80; font-size: 11px; border: 1px solid #1f4d3a; white-space: nowrap; }
   .transcript-empty { color: #5b6270; font-size: 13px; }
+  .early-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #1c2a44; color: #60a5fa; font-size: 12px; margin-right: 8px; }
   /* verdict */
   #verdict { border-color: #2f4a3b; background: #12211a; }
   #verdict h2 { font-size: 14px; color: #4ade80; margin-bottom: 8px; letter-spacing: .08em; }
@@ -156,12 +179,13 @@ export const FRONTEND_HTML = `<!doctype html>
   <div class="card" id="progressCard">
     <div class="sec-title">阶段进度<span class="aux hint" id="stageHint">等待任务初始化…</span></div>
     <div id="progress">
-      <span class="step" id="st0" data-tip="共识 — 文件共识准备" aria-label="共识：文件共识准备" tabindex="0"><span class="dot"></span><span class="lb">共识</span></span><span class="link" id="lk0"></span>
-      <span class="step" id="st1" data-tip="Reference — 参考池" aria-label="Reference：参考池" tabindex="0"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
-      <span class="step" id="st2" data-tip="辩论 — 辩手轮流发言" aria-label="辩论：辩手轮流发言" tabindex="0"><span class="dot"></span><span class="lb" id="st2lb">辩论</span></span><span class="link" id="lk2"></span>
-      <span class="step" id="st3" data-tip="聚合 — 汇总裁决" aria-label="聚合：汇总裁决" tabindex="0"><span class="dot"></span><span class="lb">聚合</span></span><span class="link" id="lk3"></span>
-      <span class="step" id="st4" data-tip="结论 — VERDICT 输出" aria-label="结论：VERDICT 输出" tabindex="0"><span class="dot"></span><span class="lb">结论</span></span>
+      <span class="step" id="st0" data-tip="共识 — 文件共识准备 · 点击查看详情" aria-label="共识：文件共识准备" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">共识</span></span><span class="link" id="lk0"></span>
+      <span class="step" id="st1" data-tip="Reference — 参考池 · 点击查看详情" aria-label="Reference：参考池" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
+      <span class="step" id="st2" data-tip="辩论 — 辩手轮流发言 · 点击查看详情" aria-label="辩论：辩手轮流发言" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" id="st2lb">辩论</span></span><span class="link" id="lk2"></span>
+      <span class="step" id="st3" data-tip="聚合 — 汇总裁决 · 点击查看详情" aria-label="聚合：汇总裁决" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">聚合</span></span><span class="link" id="lk3"></span>
+      <span class="step" id="st4" data-tip="结论 — VERDICT 输出 · 点击查看详情" aria-label="结论：VERDICT 输出" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">结论</span></span>
     </div>
+    <div id="stageDetail" role="region" aria-live="polite" hidden></div>
   </div>
   <div class="card" id="config">
     <div class="sec-title">模式 / 配置</div>
@@ -210,18 +234,151 @@ export const FRONTEND_HTML = `<!doctype html>
   // hint names the meaning of the current stage.
   var STEPS = 5;
   var STAGE_TIPS = ['共识：文件共识准备', 'Reference：参考池', '辩论：辩手轮流发言', '聚合：汇总裁决', '结论：VERDICT 输出'];
-  function setStage(n) { // steps < n are done, step n is active; n === STEPS → all done
+  var stageNow = 0;                                  // mirrors setStage: < stageNow done, === active
+  var stageEnteredAt = [null, null, null, null, null]; // per-stage arrival time (ISO), for the detail row
+  function setStage(n, ts) { // steps < n are done, step n is active; n === STEPS → all done
+    stageNow = n;
+    var entered = ts || new Date().toISOString();
+    if (n >= STEPS) { if (!stageEnteredAt[STEPS - 1]) stageEnteredAt[STEPS - 1] = entered; }
+    else if (!stageEnteredAt[n]) stageEnteredAt[n] = entered;
     for (var i = 0; i < STEPS; i++) {
       document.getElementById('st' + i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
       if (i < STEPS - 1) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
     }
     document.getElementById('stageHint').textContent =
       n >= STEPS ? '全部完成 — 结论已输出 VERDICT' : '当前：' + STAGE_TIPS[n];
+    if (detailOpen >= 0) renderStageDetail(detailOpen); // keep an open detail row in sync
   }
   function setDebateLabel() {
     document.getElementById('st2lb').textContent =
       rounds === '–' ? '辩论' : '辩论 ' + curRound + '/' + rounds;
   }
+
+  // ---- clickable stages: pill click → scroll + outline flash + detail row ----
+  // Stage → section: 共识 → 配置区 (task_initialized snapshot), Reference →
+  // 辩手 roster, 辩论 → transcript, 聚合/结论 → VERDICT 区. Pending pills are
+  // clickable too — the detail row says the stage has not started and names
+  // what brings it in. Same pill again (or a click anywhere else) closes.
+  var STAGE_NAMES = ['共识', 'Reference', '辩论', '聚合', '结论'];
+  var STAGE_TARGETS = ['config', 'agentsCard', 'transcriptCard', 'verdict', 'verdict'];
+  var initExtras = null;   // task_initialized extras snapshot (may carry reference_results)
+  var verdictSummary = ''; // one-line VERDICT once task_closed lands
+  var detailOpen = -1;     // stage index whose detail row is open, -1 = closed
+
+  function fmtClock(iso) {
+    if (!iso) return '–';
+    var d = new Date(iso);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+  function refSnippet() {
+    var rr = initExtras ? initExtras.reference_results : null;
+    if (rr == null) return null;
+    var s = typeof rr === 'string' ? rr : JSON.stringify(rr);
+    if (s == null) return null;
+    return s.length > 500 ? s.slice(0, 500) + '…' : s;
+  }
+  function stageDetail(i) { // → { state: 'done'|'active'|'pending', text }
+    var state = i < stageNow ? 'done' : (i === stageNow ? 'active' : 'pending');
+    var at = '进入于 ' + fmtClock(stageEnteredAt[i]);
+    if (state === 'pending') {
+      var why = [
+        '等待页面连接建立（载入即进入）',
+        '等待 moa_init 完成任务初始化（task_initialized）',
+        '等待 moa_start_debate 注入参考池并开赛（debate_started）',
+        '等待最后一名辩手提交（debate_complete）',
+        '等待 moa_complete 写入三层归档（task_closed）'
+      ][i];
+      return { state: 'pending', text: '该阶段尚未开始 — ' + why };
+    }
+    if (i === 0) {
+      return { state: state, text: at + ' · ' + (state === 'done'
+        ? '任务已初始化，共识准备完成'
+        : '已连接，等待 moa_init 初始化任务') };
+    }
+    if (i === 1) {
+      var ref = refSnippet();
+      return { state: state, text: at + ' · ' + (ref != null
+        ? 'reference_results 摘要：' + ref
+        : '快照未携带 reference_results（由 moa_start_debate 直接注入辩手上下文，不经卡片）') };
+    }
+    if (i === 2) {
+      return { state: state, text: 'Round ' + curRound + '/' + rounds +
+        ' · 当前发言人 ' + (speaking || '–') + ' · 已提交 ' + turns + ' 个 turn' };
+    }
+    if (i === 3) {
+      return { state: state, text: at + '（debate_complete）· ' + (state === 'done'
+        ? '归档已写入，裁决已输出'
+        : '汇总中 — 等待 moa_complete 写入归档') };
+    }
+    return { state: state, text: verdictSummary || (at + ' · 归档已写入，VERDICT 详情加载中…') };
+  }
+  function renderStageDetail(i) {
+    var box = document.getElementById('stageDetail');
+    box.textContent = '';
+    var info = stageDetail(i);
+    var name = document.createElement('span');
+    name.className = 'sd-name';
+    name.textContent = STAGE_NAMES[i];
+    var chip = document.createElement('span');
+    chip.className = 'sd-state ' + info.state;
+    chip.textContent = info.state === 'done' ? '完成' : (info.state === 'active' ? '进行中' : '未开始');
+    var text = document.createElement('span');
+    text.className = 'sd-text';
+    text.textContent = info.text;
+    box.appendChild(name);
+    box.appendChild(chip);
+    box.appendChild(text);
+  }
+  function syncStepAria() {
+    for (var i = 0; i < STEPS; i++) {
+      document.getElementById('st' + i).setAttribute('aria-expanded', detailOpen === i ? 'true' : 'false');
+    }
+  }
+  function closeStageDetail() {
+    if (detailOpen < 0) return;
+    detailOpen = -1;
+    document.getElementById('stageDetail').hidden = true;
+    syncStepAria();
+  }
+  function refreshDetailIfOpen(i) { if (detailOpen === i) renderStageDetail(i); }
+  function flashCard(el) {
+    el.classList.remove('flash');
+    void el.offsetWidth; // force reflow so back-to-back clicks replay the animation
+    el.classList.add('flash');
+    el.addEventListener('animationend', function done() {
+      el.classList.remove('flash');
+      el.removeEventListener('animationend', done);
+    });
+  }
+  function toggleStage(i) {
+    if (detailOpen === i) { closeStageDetail(); return; }
+    detailOpen = i;
+    renderStageDetail(i);
+    document.getElementById('stageDetail').hidden = false;
+    syncStepAria();
+    var target = document.getElementById(STAGE_TARGETS[i]);
+    if (target && !target.hidden) { // e.g. the VERDICT card only exists post-debate_complete
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      flashCard(target);
+    }
+  }
+  for (var si = 0; si < STEPS; si++) {
+    (function (i) {
+      var el = document.getElementById('st' + i);
+      el.addEventListener('click', function () { toggleStage(i); });
+      el.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleStage(i); }
+      });
+    })(si);
+  }
+  // a click outside pills / detail row closes the row (pill clicks bubble up
+  // here too — closest('.step') keeps them from closing what they just opened)
+  document.addEventListener('click', function (ev) {
+    if (detailOpen < 0) return;
+    var t = ev.target;
+    if (t && t.closest && (t.closest('.step') || t.closest('#stageDetail'))) return;
+    closeStageDetail();
+  });
 
   // ---- preset / config snapshot (task_initialized) ----
   function renderConfig(extras) {
@@ -288,19 +445,27 @@ export const FRONTEND_HTML = `<!doctype html>
     div.textContent = 'Round ' + round;
     document.getElementById('transcript').appendChild(div);
   }
-  function addTurn(who, round, turn, text, ts) {
+  function addTurn(who, round, turn, text, ts, signoff) {
     clearTranscriptEmpty();
     if (round !== lastRound) { lastRound = round; addRoundSep(round); }
     var div = document.createElement('div');
-    div.className = 'turn';
+    div.className = 'turn' + (signoff ? ' signoff' : '');
     var head = document.createElement('div');
     head.className = 'head';
     var w = document.createElement('span');
     w.className = 'who';
     w.textContent = who == null ? '–' : String(who);
+    if (signoff) {
+      var sb = document.createElement('span');
+      sb.className = 'signoff-badge';
+      sb.textContent = '✍ 签字';
+      head.appendChild(w);
+      head.appendChild(sb);
+    } else {
+      head.appendChild(w);
+    }
     var meta = document.createElement('span');
     meta.textContent = 'round ' + round + ' · turn ' + turn;
-    head.appendChild(w);
     head.appendChild(meta);
     if (ts) {
       var t = document.createElement('span');
@@ -334,19 +499,36 @@ export const FRONTEND_HTML = `<!doctype html>
     box.appendChild(document.createTextNode(' · '));
   }
   function onClosed(e) {
-    speaking = null; renderAgents(); setBadge('closed', 'closed'); setStage(STEPS);
+    speaking = null; renderAgents(); setBadge('closed', 'closed');
+    verdictSummary = '归档已写入 · ' + (e.archive || 'logs/' + taskId);
+    setStage(STEPS, e.ts);
     document.getElementById('verdict').hidden = false;
     loadArchive('result.json', function (text) {
       var r;
       try { r = JSON.parse(text); } catch (_) { return; }
       var vb = document.getElementById('verdictBody');
       vb.textContent = '';
+      if (r.early === true) {
+        var eb = document.createElement('span');
+        eb.className = 'early-badge';
+        eb.textContent = '提前闭合（全体签字）· ' + (r.reason || 'unanimous_signoff');
+        vb.appendChild(eb);
+      }
       putStat(vb, 'status', r.status || '–');
       putStat(vb, 'rounds', (r.rounds_completed != null ? r.rounds_completed : '–') + ' / ' + (r.rounds_configured != null ? r.rounds_configured : '–'));
       putStat(vb, 'turns', r.turns != null ? String(r.turns) : '–');
-      document.getElementById('verdictStats').textContent =
-        'finished at ' + (r.finished_at || '–') + ' · archive: ' + (e.archive || 'logs/' + taskId);
+      var statsText = 'finished at ' + (r.finished_at || '–') + ' · archive: ' + (e.archive || 'logs/' + taskId);
+      if (r.signoffs && typeof r.signoffs === 'object') {
+        var signers = Object.keys(r.signoffs);
+        if (signers.length) statsText += ' · ✍ 签字: ' + signers.join(', ');
+      }
+      document.getElementById('verdictStats').textContent = statsText;
       document.getElementById('fullBtn').hidden = false;
+      verdictSummary = (r.early === true ? '提前闭合（全体签字） · ' : 'VERDICT · ') + 'status ' + (r.status || '–') + ' · rounds ' +
+        (r.rounds_completed != null ? r.rounds_completed : '–') + '/' +
+        (r.rounds_configured != null ? r.rounds_configured : '–') + ' · turns ' +
+        (r.turns != null ? r.turns : '–');
+      refreshDetailIfOpen(4);
     });
     // findings: the last archived turn carries the synthesized conclusion.
     loadArchive('events.jsonl', function (text) {
@@ -380,7 +562,7 @@ export const FRONTEND_HTML = `<!doctype html>
         if (!lines[i]) continue;
         try {
           var t = JSON.parse(lines[i]);
-          addTurn(t.speaker, t.round, t.turn, t.content, t.timestamp);
+          addTurn(t.speaker, t.round, t.turn, t.content, t.timestamp, t.signoff === true);
         } catch (_) {}
       }
     });
@@ -396,27 +578,45 @@ export const FRONTEND_HTML = `<!doctype html>
       rounds = e.rounds || '–';
       curRound = '–';
       speaking = null;
+      initExtras = e.extras || null;
       renderAgents(); renderConfig(e.extras); setMeta('–', null);
-      setDebateLabel(); setStage(1); setBadge('initialized', 'live');
+      setDebateLabel(); setStage(1, e.ts); setBadge('initialized', 'live');
     } else if (e.type === 'debate_started') {
       rounds = e.rounds || rounds;
       curRound = 1;
-      setDebateLabel(); setMeta(1, null); setStage(2); setBadge('debating', 'live');
+      setDebateLabel(); setMeta(1, null); setStage(2, e.ts); setBadge('debating', 'live');
     } else if (e.type === 'turn_submitted') {
       turns++; bumpAgent(e.agent_id); speaking = null;
       // Prefer the full content; fall back to excerpt for older replay buffers.
-      addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts);
+      addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts, e.signoff === true);
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, null);
+      refreshDetailIfOpen(2);
     } else if (e.type === 'turn_advanced') {
       speaking = e.speaker;
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, e.speaker);
+      refreshDetailIfOpen(2);
     } else if (e.type === 'debate_complete') {
-      speaking = null; renderAgents(); setStage(3); setBadge('debate complete', 'done');
+      speaking = null; renderAgents(); setStage(3, e.ts); setBadge('debate complete', 'done');
       document.getElementById('verdict').hidden = false;
-      document.getElementById('verdictBody').textContent =
-        'Rounds: ' + (e.rounds || '–') + ' · Turns: ' + (e.turns || turns) + ' — transcript archived on moa_complete.';
+      var vbLive = document.getElementById('verdictBody');
+      vbLive.textContent = '';
+      if (e.early === true) {
+        var ebLive = document.createElement('span');
+        ebLive.className = 'early-badge';
+        ebLive.textContent = '提前闭合（全体签字）';
+        vbLive.appendChild(ebLive);
+      }
+      vbLive.appendChild(document.createTextNode(
+        'Rounds: ' + (e.rounds || '–') + ' · Turns: ' + (e.turns || turns) +
+        (e.early === true ? ' · reason: ' + (e.reason || 'unanimous_signoff') : '') +
+        ' — transcript archived on moa_complete.'));
+    } else if (e.type === 'signoff_reset') {
+      // A dissent wiped the accumulated signoffs; surface it in the stage hint.
+      document.getElementById('stageHint').textContent =
+        '签字清零（' + (e.agent_id || '–') + ' 提出异议）— 辩论按原轮次继续';
+      refreshDetailIfOpen(2);
     } else if (e.type === 'task_closed') {
       onClosed(e);
     }

@@ -31,6 +31,27 @@ export const SUBMISSION_PROTOCOL = [
 ].join('\n');
 
 /**
+ * Unanimous-signoff early-close protocol, appended after SUBMISSION_PROTOCOL on
+ * every wait_turn prompt. Codifies the pattern debaters already converge on
+ * organically: once the debate has clearly reached consensus, anyone may
+ * propose a signoff round and the debate closes early when everyone signs,
+ * instead of burning the remaining scheduled rounds. The live N/M vote count is
+ * prepended by buildPrompt; the rules below are static.
+ */
+export const SIGNOFF_PROTOCOL = [
+  '## ✍ UNANIMOUS SIGNOFF / 全体签字提前闭合',
+  '',
+  '- When the debate has genuinely converged and more rounds would only repeat already-settled points, submit with `signoff: true` (put your final position / signoff statement in `content`) to cast an early-close vote.',
+  '  当辩论已真正达成共识、继续下去只会重复已有结论时，在 `moa_submit_turn` 传 `signoff: true`（`content` 写你的最终立场 / 签字陈词）投提前闭合票。',
+  '- Once EVERY debater has signed off, the debate closes immediately and is archived with `early: true, reason: "unanimous_signoff"` — no need to run out the scheduled rounds.',
+  '  全体辩手都签字后，辩论立即提前闭合归档（`early: true, reason: "unanimous_signoff"`），无需跑满排定轮次。',
+  '- Dissent: submitting a NORMAL turn (no `signoff`) counts as an objection and clears ALL accumulated signoffs; the debate then continues on its original schedule.',
+  '  异议：提交一次**普通发言**（不传 `signoff`）即视为异议，已积累的签字全部清零，辩论按原轮次继续。',
+  '- Do not sign off just to make up numbers — keep submitting normal turns until there is real consensus.',
+  '  不要为凑数而签字——未达成共识前继续提交普通发言推进辩论。',
+].join('\n');
+
+/**
  * Archive root: `MOAMCP_LOGS_DIR` if set, else `<MOAMCP_HOME|~/.moamcp>/logs`
  * (port-discovery design §3.1 — a fixed root is what lets reuse mode serve a
  * reuser's archives from the owning Bus). Read at call time so tests can
@@ -61,6 +82,8 @@ export interface TurnRecord {
   speaker: string;
   content: string;
   timestamp: string;
+  /** Present (true) when this turn was a unanimous-signoff early-close vote. */
+  signoff?: boolean;
 }
 
 export interface FullContext {
@@ -97,6 +120,14 @@ export interface DebateTask {
   probes: Record<string, unknown>;
   waiters: Set<Waiter>;
   createdAt: string;
+  /**
+   * Unanimous-signoff early-close votes: agentId → signoff statement. A signoff
+   * turn records a vote; any normal (non-signoff) turn is a dissent that clears
+   * the map. When the size reaches the agent count the debate closes early.
+   */
+  signoffs: Map<string, string>;
+  /** Set when the debate closed early via unanimous signoff (drives result.json). */
+  earlyClose?: { reason: 'unanimous_signoff' };
 }
 
 export interface HubOptions {
@@ -116,6 +147,7 @@ export interface DomainEvent {
     | 'debate_started'
     | 'turn_submitted'
     | 'turn_advanced'
+    | 'signoff_reset'
     | 'debate_complete'
     | 'task_closed';
   [key: string]: unknown;
@@ -181,6 +213,7 @@ export class DebateHub {
       probes,
       waiters: new Set(),
       createdAt: new Date().toISOString(),
+      signoffs: new Map(),
     });
     const extras: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(preset)) {
@@ -206,6 +239,8 @@ export class DebateHub {
       task.round = 1;
       task.turnIndex = 0;
       task.turn = 1;
+      task.signoffs.clear();
+      task.earlyClose = undefined;
       this.emit(taskId, { type: 'debate_started', agents: task.agentIds, rounds: task.rounds });
       return { ok: true as const };
     });
@@ -253,7 +288,11 @@ export class DebateHub {
     taskId: string,
     agentId: string,
     content: string,
-  ): Promise<{ accepted: true; debate_complete?: boolean; next_speaker?: string; round?: number } | { error: string }> {
+    signoff = false,
+  ): Promise<
+    | { accepted: true; debate_complete?: boolean; early?: boolean; reason?: string; next_speaker?: string; round?: number }
+    | { error: string }
+  > {
     return this.enqueue(taskId, () => {
       const task = this.getTask(taskId);
       if (!task.agentIds.includes(agentId)) throw new Error(`unknown agent_id: ${agentId}`);
@@ -261,13 +300,15 @@ export class DebateHub {
       if (this.currentSpeaker(task) !== agentId) {
         return { error: 'not_your_turn' };
       }
-      task.transcript.push({
+      const record: TurnRecord = {
         turn: task.turn,
         round: task.round,
         speaker: agentId,
         content,
         timestamp: new Date().toISOString(),
-      });
+      };
+      if (signoff) record.signoff = true;
+      task.transcript.push(record);
       this.emit(taskId, {
         type: 'turn_submitted',
         agent_id: agentId,
@@ -277,7 +318,37 @@ export class DebateHub {
         // older subscribers that only read `excerpt`.
         content,
         excerpt: content.length > 200 ? content.slice(0, 200) + '…' : content,
+        ...(signoff ? { signoff: true } : {}),
       });
+      // Unanimous-signoff bookkeeping: a signoff turn casts an early-close vote;
+      // any normal (non-signoff) turn is a dissent that wipes accumulated votes.
+      if (signoff) {
+        task.signoffs.set(agentId, content);
+      } else if (task.signoffs.size > 0) {
+        const resetFrom = task.signoffs.size;
+        task.signoffs.clear();
+        this.emit(taskId, {
+          type: 'signoff_reset',
+          agent_id: agentId,
+          round: task.round,
+          reset_from: resetFrom,
+        });
+      }
+      // Unanimous signoff → early close, ahead of the normal round advance.
+      if (task.signoffs.size === task.agentIds.length) {
+        task.status = 'complete';
+        task.earlyClose = { reason: 'unanimous_signoff' };
+        this.emit(taskId, {
+          type: 'debate_complete',
+          rounds: task.rounds,
+          turns: task.transcript.length,
+          early: true,
+          reason: 'unanimous_signoff',
+          signoffs: Object.fromEntries(task.signoffs),
+        });
+        this.wakeAll(task, { status: 'debate_complete', transcript: task.transcript });
+        return { accepted: true as const, debate_complete: true, early: true, reason: 'unanimous_signoff' };
+      }
       // Advance round-robin.
       task.turn += 1;
       task.turnIndex += 1;
@@ -315,22 +386,27 @@ export class DebateHub {
       );
       // Layer 2: full transcript, one JSON record per line.
       await writeFile(resolve(dir, 'events.jsonl'), task.transcript.map((t) => JSON.stringify(t)).join('\n') + '\n');
-      // Layer 3: final state.
-      await writeFile(
-        resolve(dir, 'result.json'),
-        JSON.stringify(
-          {
-            task_id: taskId,
-            status: task.status,
-            rounds_configured: task.rounds,
-            rounds_completed: task.status === 'complete' || task.status === 'closed' ? task.rounds : task.round - 1,
-            turns: task.transcript.length,
-            finished_at: finishedAt,
-          },
-          null,
-          2,
-        ),
-      );
+      // Layer 3: final state. An early unanimous-signoff close records the
+      // rounds actually run (the signoff round terminates the debate, so it is
+      // not counted as a completed debate round) plus the signoff roster.
+      const result: Record<string, unknown> = {
+        task_id: taskId,
+        status: task.status,
+        rounds_configured: task.rounds,
+        rounds_completed: task.earlyClose
+          ? task.round - 1
+          : task.status === 'complete' || task.status === 'closed'
+            ? task.rounds
+            : task.round - 1,
+        turns: task.transcript.length,
+        finished_at: finishedAt,
+      };
+      if (task.earlyClose) {
+        result.early = true;
+        result.reason = task.earlyClose.reason;
+        result.signoffs = Object.fromEntries(task.signoffs);
+      }
+      await writeFile(resolve(dir, 'result.json'), JSON.stringify(result, null, 2));
       task.status = 'closed';
       this.wakeAll(task, { status: 'closed' });
       this.emit(taskId, { type: 'task_closed', archive: dir, turns: task.transcript.length });
@@ -371,7 +447,16 @@ export class DebateHub {
     } else {
       round = `Round ${task.round} (final): 考虑所有质疑后，重新给出最终结论`;
     }
-    return `${round}\n\n${SUBMISSION_PROTOCOL}`;
+    return `${round}\n\n${SUBMISSION_PROTOCOL}\n\n${this.signoffStatus(task)}\n\n${SIGNOFF_PROTOCOL}`;
+  }
+
+  /** Live signoff tally line prepended to the signoff protocol (N/M votes so far). */
+  private signoffStatus(task: DebateTask): string {
+    const signed = task.signoffs.size;
+    const total = task.agentIds.length;
+    return signed > 0
+      ? `当前已有 ${signed}/${total} 个辩手签字同意提前闭合。你可以签字同意（\`signoff: true\`）促成提前闭合，或提交普通发言继续辩论（视为异议，清零已有签字）。`
+      : `目前尚无辩手签字（0/${total}）。你可以签字同意提前闭合（\`signoff: true\`），或提交普通发言继续辩论。`;
   }
 
   private wakeSpeaker(task: DebateTask, speakerId: string): void {

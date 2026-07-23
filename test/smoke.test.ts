@@ -182,3 +182,127 @@ it('wait_turn prompt carries the submission protocol (submit only via moa_submit
   expect(turn.prompt).toContain('moa_wait_turn');
   expect(turn.prompt).toContain('not_your_turn');
 });
+
+it('unanimous signoff closes the debate early (3 agents, 5 rounds, all sign off in round 2)', async () => {
+  const task = 'signoff-early';
+  const agents = ['sa', 'sb', 'sc'];
+  await call('moa_init', { task_id: task, preset_config: { agents, debate: { rounds: 5 } } });
+  await call('moa_start_debate', { task_id: task, reference_results: [] });
+
+  // Round 1: ordinary debate.
+  for (const id of agents) {
+    expect(await call('moa_submit_turn', { task_id: task, agent_id: id, content: `${id} r1` })).toMatchObject({ accepted: true });
+  }
+
+  // Round 2 opens on sa; the prompt now carries the signoff protocol and a 0/3 tally.
+  const aTurn = await call('moa_wait_turn', { task_id: task, agent_id: 'sa' });
+  expect(aTurn.status).toBe('your_turn');
+  expect(aTurn.round).toBe(2);
+  expect(aTurn.prompt).toContain('UNANIMOUS SIGNOFF');
+  expect(aTurn.prompt).toContain('0/3');
+
+  // All three sign off; the third signature triggers the early close.
+  expect(await call('moa_submit_turn', { task_id: task, agent_id: 'sa', content: 'sa signs', signoff: true }))
+    .toMatchObject({ accepted: true, next_speaker: 'sb' });
+  const bTurn = await call('moa_wait_turn', { task_id: task, agent_id: 'sb' });
+  expect(bTurn.prompt).toContain('1/3'); // sa's vote is now visible
+  expect(await call('moa_submit_turn', { task_id: task, agent_id: 'sb', content: 'sb signs', signoff: true }))
+    .toMatchObject({ accepted: true, next_speaker: 'sc' });
+  const cSubmit = await call('moa_submit_turn', { task_id: task, agent_id: 'sc', content: 'sc signs', signoff: true });
+  expect(cSubmit).toMatchObject({ accepted: true, debate_complete: true, early: true, reason: 'unanimous_signoff' });
+
+  // A late waiter is woken with debate_complete and the full 6-turn transcript.
+  const late = await call('moa_wait_turn', { task_id: task, agent_id: 'sa' });
+  expect(late.status).toBe('debate_complete');
+  expect(late.transcript).toHaveLength(6);
+
+  // Archive carries early / reason / signoffs; signoff turns are flagged in events.jsonl.
+  const done = await call('moa_complete', { task_id: task });
+  expect(done.ok).toBe(true);
+  const result = JSON.parse(await readFile(join(logsDir, task, 'result.json'), 'utf8'));
+  expect(result).toMatchObject({ task_id: task, early: true, reason: 'unanimous_signoff', rounds_configured: 5, rounds_completed: 1 });
+  expect(result.signoffs).toEqual({ sa: 'sa signs', sb: 'sb signs', sc: 'sc signs' });
+  const events = (await readFile(join(logsDir, task, 'events.jsonl'), 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+  expect(events).toHaveLength(6);
+  expect(events.filter((e: any) => e.signoff === true)).toHaveLength(3);
+});
+
+it('a normal (non-signoff) submission is a dissent that resets accumulated signoffs', async () => {
+  const task = 'signoff-dissent';
+  const agents = ['da', 'db', 'dc'];
+  await call('moa_init', { task_id: task, preset_config: { agents, debate: { rounds: 3 } } });
+  await call('moa_start_debate', { task_id: task, reference_results: [] });
+
+  // Round 1: ordinary debate.
+  for (const id of agents) await call('moa_submit_turn', { task_id: task, agent_id: id, content: `${id} r1` });
+
+  // Round 2: da and db sign off, then dc dissents with a normal turn.
+  expect(await call('moa_submit_turn', { task_id: task, agent_id: 'da', content: 'da signs', signoff: true })).toMatchObject({ accepted: true });
+  expect(await call('moa_submit_turn', { task_id: task, agent_id: 'db', content: 'db signs', signoff: true })).toMatchObject({ accepted: true });
+  const dcDissent = await call('moa_submit_turn', { task_id: task, agent_id: 'dc', content: 'dc disagrees, keep debating' });
+  expect(dcDissent).toMatchObject({ accepted: true, next_speaker: 'da', round: 3 }); // debate continues
+
+  // The signoffs were wiped: round 3 opens with a 0/3 tally.
+  const daTurn = await call('moa_wait_turn', { task_id: task, agent_id: 'da' });
+  expect(daTurn.status).toBe('your_turn');
+  expect(daTurn.round).toBe(3);
+  expect(daTurn.prompt).toContain('0/3');
+
+  // Round 3 runs out normally → ordinary (non-early) close.
+  await call('moa_submit_turn', { task_id: task, agent_id: 'da', content: 'da r3' });
+  await call('moa_submit_turn', { task_id: task, agent_id: 'db', content: 'db r3' });
+  const dcClose = await call('moa_submit_turn', { task_id: task, agent_id: 'dc', content: 'dc r3' });
+  expect(dcClose.debate_complete).toBe(true);
+  expect(dcClose.early).toBeUndefined();
+
+  const done = await call('moa_complete', { task_id: task });
+  expect(done.ok).toBe(true);
+  const result = JSON.parse(await readFile(join(logsDir, task, 'result.json'), 'utf8'));
+  expect(result).toMatchObject({ rounds_configured: 3, rounds_completed: 3 });
+  expect(result.early).toBeUndefined();
+  expect(result.signoffs).toBeUndefined();
+});
+
+it('a full-rounds debate with no signoff still closes on schedule', async () => {
+  const task = 'signoff-full';
+  const agents = ['fa', 'fb'];
+  await call('moa_init', { task_id: task, preset_config: { agents, debate: { rounds: 2 } } });
+  await call('moa_start_debate', { task_id: task, reference_results: [] });
+  for (let r = 0; r < 2; r++) {
+    for (const id of agents) await call('moa_submit_turn', { task_id: task, agent_id: id, content: `${id} r${r + 1}` });
+  }
+  const late = await call('moa_wait_turn', { task_id: task, agent_id: 'fa' });
+  expect(late.status).toBe('debate_complete');
+  expect(late.transcript).toHaveLength(4);
+
+  const done = await call('moa_complete', { task_id: task });
+  expect(done.ok).toBe(true);
+  const result = JSON.parse(await readFile(join(logsDir, task, 'result.json'), 'utf8'));
+  expect(result).toMatchObject({ rounds_configured: 2, rounds_completed: 2, turns: 4 });
+  expect(result.early).toBeUndefined();
+});
+
+it('emits the signoff event sequence: signoff turns, signoff_reset on dissent, early debate_complete', async () => {
+  const events: Array<Record<string, unknown>> = [];
+  const hub = new DebateHub({ waitCapMs: 300, logsDir, emit: (_t, e) => events.push(e) });
+  hub.init('evt-signoff', { agents: ['x', 'y'], debate: { rounds: 4 } });
+  await hub.startDebate('evt-signoff', []);
+
+  // Round 1: ordinary turns.
+  await hub.submitTurn('evt-signoff', 'x', 'x r1');
+  await hub.submitTurn('evt-signoff', 'y', 'y r1');
+  // Round 2: x signs off, y dissents → signoff_reset.
+  await hub.submitTurn('evt-signoff', 'x', 'x signs', true);
+  await hub.submitTurn('evt-signoff', 'y', 'y disagrees');
+  const reset = events.find((e) => e.type === 'signoff_reset');
+  expect(reset).toMatchObject({ agent_id: 'y', reset_from: 1 });
+  // Round 3: both sign off → early debate_complete with the signoff roster.
+  await hub.submitTurn('evt-signoff', 'x', 'x signs again', true);
+  const earlyClose = await hub.submitTurn('evt-signoff', 'y', 'y signs', true);
+  expect(earlyClose).toMatchObject({ accepted: true, debate_complete: true, early: true, reason: 'unanimous_signoff' });
+  const complete = events.find((e) => e.type === 'debate_complete');
+  expect(complete).toMatchObject({ early: true, reason: 'unanimous_signoff' });
+  expect(complete?.signoffs).toEqual({ x: 'x signs again', y: 'y signs' });
+  // Every signoff turn rode the wire with signoff:true (x r2, x r3, y r3).
+  expect(events.filter((e) => e.type === 'turn_submitted' && e.signoff === true)).toHaveLength(3);
+});

@@ -15691,6 +15691,18 @@ var SUBMISSION_PROTOCOL = [
   "- A `not_your_turn` error means your turn was already handled \u2014 do NOT retry submit; go back to `moa_wait_turn` and wait.",
   "  `not_your_turn` \u9519\u8BEF = \u4F60\u7684\u56DE\u5408\u5DF2\u88AB\u5904\u7406\uFF0C\u4E0D\u8981\u91CD\u8BD5\u63D0\u4EA4\uFF0C\u56DE\u5230 `moa_wait_turn` \u7B49\u5F85\u3002"
 ].join("\n");
+var SIGNOFF_PROTOCOL = [
+  "## \u270D UNANIMOUS SIGNOFF / \u5168\u4F53\u7B7E\u5B57\u63D0\u524D\u95ED\u5408",
+  "",
+  "- When the debate has genuinely converged and more rounds would only repeat already-settled points, submit with `signoff: true` (put your final position / signoff statement in `content`) to cast an early-close vote.",
+  "  \u5F53\u8FA9\u8BBA\u5DF2\u771F\u6B63\u8FBE\u6210\u5171\u8BC6\u3001\u7EE7\u7EED\u4E0B\u53BB\u53EA\u4F1A\u91CD\u590D\u5DF2\u6709\u7ED3\u8BBA\u65F6\uFF0C\u5728 `moa_submit_turn` \u4F20 `signoff: true`\uFF08`content` \u5199\u4F60\u7684\u6700\u7EC8\u7ACB\u573A / \u7B7E\u5B57\u9648\u8BCD\uFF09\u6295\u63D0\u524D\u95ED\u5408\u7968\u3002",
+  '- Once EVERY debater has signed off, the debate closes immediately and is archived with `early: true, reason: "unanimous_signoff"` \u2014 no need to run out the scheduled rounds.',
+  '  \u5168\u4F53\u8FA9\u624B\u90FD\u7B7E\u5B57\u540E\uFF0C\u8FA9\u8BBA\u7ACB\u5373\u63D0\u524D\u95ED\u5408\u5F52\u6863\uFF08`early: true, reason: "unanimous_signoff"`\uFF09\uFF0C\u65E0\u9700\u8DD1\u6EE1\u6392\u5B9A\u8F6E\u6B21\u3002',
+  "- Dissent: submitting a NORMAL turn (no `signoff`) counts as an objection and clears ALL accumulated signoffs; the debate then continues on its original schedule.",
+  "  \u5F02\u8BAE\uFF1A\u63D0\u4EA4\u4E00\u6B21**\u666E\u901A\u53D1\u8A00**\uFF08\u4E0D\u4F20 `signoff`\uFF09\u5373\u89C6\u4E3A\u5F02\u8BAE\uFF0C\u5DF2\u79EF\u7D2F\u7684\u7B7E\u5B57\u5168\u90E8\u6E05\u96F6\uFF0C\u8FA9\u8BBA\u6309\u539F\u8F6E\u6B21\u7EE7\u7EED\u3002",
+  "- Do not sign off just to make up numbers \u2014 keep submitting normal turns until there is real consensus.",
+  "  \u4E0D\u8981\u4E3A\u51D1\u6570\u800C\u7B7E\u5B57\u2014\u2014\u672A\u8FBE\u6210\u5171\u8BC6\u524D\u7EE7\u7EED\u63D0\u4EA4\u666E\u901A\u53D1\u8A00\u63A8\u8FDB\u8FA9\u8BBA\u3002"
+].join("\n");
 function defaultLogsDir() {
   return process.env.MOAMCP_LOGS_DIR ?? join2(moamcpHome(), "logs");
 }
@@ -15749,7 +15761,8 @@ var DebateHub = class {
       transcript: [],
       probes,
       waiters: /* @__PURE__ */ new Set(),
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      signoffs: /* @__PURE__ */ new Map()
     });
     const extras = {};
     for (const [k, v] of Object.entries(preset)) {
@@ -15774,6 +15787,8 @@ var DebateHub = class {
       task.round = 1;
       task.turnIndex = 0;
       task.turn = 1;
+      task.signoffs.clear();
+      task.earlyClose = void 0;
       this.emit(taskId, { type: "debate_started", agents: task.agentIds, rounds: task.rounds });
       return { ok: true };
     });
@@ -15810,7 +15825,7 @@ var DebateHub = class {
     });
     return outcome.kind === "now" ? outcome.payload : outcome.promise;
   }
-  async submitTurn(taskId, agentId, content) {
+  async submitTurn(taskId, agentId, content, signoff = false) {
     return this.enqueue(taskId, () => {
       const task = this.getTask(taskId);
       if (!task.agentIds.includes(agentId)) throw new Error(`unknown agent_id: ${agentId}`);
@@ -15818,13 +15833,15 @@ var DebateHub = class {
       if (this.currentSpeaker(task) !== agentId) {
         return { error: "not_your_turn" };
       }
-      task.transcript.push({
+      const record2 = {
         turn: task.turn,
         round: task.round,
         speaker: agentId,
         content,
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
+      };
+      if (signoff) record2.signoff = true;
+      task.transcript.push(record2);
       this.emit(taskId, {
         type: "turn_submitted",
         agent_id: agentId,
@@ -15833,8 +15850,35 @@ var DebateHub = class {
         // Full text for the card; excerpt kept for backward compatibility with
         // older subscribers that only read `excerpt`.
         content,
-        excerpt: content.length > 200 ? content.slice(0, 200) + "\u2026" : content
+        excerpt: content.length > 200 ? content.slice(0, 200) + "\u2026" : content,
+        ...signoff ? { signoff: true } : {}
       });
+      if (signoff) {
+        task.signoffs.set(agentId, content);
+      } else if (task.signoffs.size > 0) {
+        const resetFrom = task.signoffs.size;
+        task.signoffs.clear();
+        this.emit(taskId, {
+          type: "signoff_reset",
+          agent_id: agentId,
+          round: task.round,
+          reset_from: resetFrom
+        });
+      }
+      if (task.signoffs.size === task.agentIds.length) {
+        task.status = "complete";
+        task.earlyClose = { reason: "unanimous_signoff" };
+        this.emit(taskId, {
+          type: "debate_complete",
+          rounds: task.rounds,
+          turns: task.transcript.length,
+          early: true,
+          reason: "unanimous_signoff",
+          signoffs: Object.fromEntries(task.signoffs)
+        });
+        this.wakeAll(task, { status: "debate_complete", transcript: task.transcript });
+        return { accepted: true, debate_complete: true, early: true, reason: "unanimous_signoff" };
+      }
       task.turn += 1;
       task.turnIndex += 1;
       if (task.turnIndex >= task.agentIds.length) {
@@ -15867,21 +15911,20 @@ var DebateHub = class {
         JSON.stringify({ task_id: taskId, created_at: task.createdAt, agents: task.probes }, null, 2)
       );
       await writeFile2(resolve2(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
-      await writeFile2(
-        resolve2(dir, "result.json"),
-        JSON.stringify(
-          {
-            task_id: taskId,
-            status: task.status,
-            rounds_configured: task.rounds,
-            rounds_completed: task.status === "complete" || task.status === "closed" ? task.rounds : task.round - 1,
-            turns: task.transcript.length,
-            finished_at: finishedAt
-          },
-          null,
-          2
-        )
-      );
+      const result = {
+        task_id: taskId,
+        status: task.status,
+        rounds_configured: task.rounds,
+        rounds_completed: task.earlyClose ? task.round - 1 : task.status === "complete" || task.status === "closed" ? task.rounds : task.round - 1,
+        turns: task.transcript.length,
+        finished_at: finishedAt
+      };
+      if (task.earlyClose) {
+        result.early = true;
+        result.reason = task.earlyClose.reason;
+        result.signoffs = Object.fromEntries(task.signoffs);
+      }
+      await writeFile2(resolve2(dir, "result.json"), JSON.stringify(result, null, 2));
       task.status = "closed";
       this.wakeAll(task, { status: "closed" });
       this.emit(taskId, { type: "task_closed", archive: dir, turns: task.transcript.length });
@@ -15919,7 +15962,17 @@ var DebateHub = class {
     }
     return `${round}
 
-${SUBMISSION_PROTOCOL}`;
+${SUBMISSION_PROTOCOL}
+
+${this.signoffStatus(task)}
+
+${SIGNOFF_PROTOCOL}`;
+  }
+  /** Live signoff tally line prepended to the signoff protocol (N/M votes so far). */
+  signoffStatus(task) {
+    const signed = task.signoffs.size;
+    const total = task.agentIds.length;
+    return signed > 0 ? `\u5F53\u524D\u5DF2\u6709 ${signed}/${total} \u4E2A\u8FA9\u624B\u7B7E\u5B57\u540C\u610F\u63D0\u524D\u95ED\u5408\u3002\u4F60\u53EF\u4EE5\u7B7E\u5B57\u540C\u610F\uFF08\`signoff: true\`\uFF09\u4FC3\u6210\u63D0\u524D\u95ED\u5408\uFF0C\u6216\u63D0\u4EA4\u666E\u901A\u53D1\u8A00\u7EE7\u7EED\u8FA9\u8BBA\uFF08\u89C6\u4E3A\u5F02\u8BAE\uFF0C\u6E05\u96F6\u5DF2\u6709\u7B7E\u5B57\uFF09\u3002` : `\u76EE\u524D\u5C1A\u65E0\u8FA9\u624B\u7B7E\u5B57\uFF080/${total}\uFF09\u3002\u4F60\u53EF\u4EE5\u7B7E\u5B57\u540C\u610F\u63D0\u524D\u95ED\u5408\uFF08\`signoff: true\`\uFF09\uFF0C\u6216\u63D0\u4EA4\u666E\u901A\u53D1\u8A00\u7EE7\u7EED\u8FA9\u8BBA\u3002`;
   }
   wakeSpeaker(task, speakerId) {
     const payload = this.turnPayload(task);
@@ -15984,7 +16037,7 @@ var FRONTEND_HTML = `<!doctype html>
      green, done = filled green with \u2713. Connectors shrink, steps never
      wrap, so the row self-fits inside the card down to narrow widths. */
   #progress { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
-  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: default; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
+  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: pointer; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
   .step:hover { transform: translateY(-1px); border-color: #39415a; }
   .step:focus-visible { outline: 1px solid #4ade8066; outline-offset: 2px; }
   .step .dot { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #39404f; background: transparent; color: #0e1014; font-size: 9px; line-height: 1; transition: background .25s, border-color .25s; }
@@ -16009,6 +16062,20 @@ var FRONTEND_HTML = `<!doctype html>
     .step .dot { width: 12px; height: 12px; font-size: 8px; }
     .link { min-width: 4px; }
   }
+  /* clicked pill: blue ring marks which stage's detail row is open */
+  .step[aria-expanded="true"] { border-color: #60a5fa; box-shadow: 0 0 10px #60a5fa33; }
+  /* stage detail row: expands under the progress bar on pill click */
+  #stageDetail { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: #1d222c; border: 1px solid #2a3140; font-size: 12px; line-height: 1.6; color: #b7bec9; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; animation: detailIn .18s ease-out; }
+  #stageDetail .sd-name { color: #7cc7ff; font-weight: 600; white-space: nowrap; }
+  #stageDetail .sd-state { padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 18px; white-space: nowrap; }
+  #stageDetail .sd-state.done { background: #14342a; color: #4ade80; }
+  #stageDetail .sd-state.active { background: #14342a; color: #4ade80; animation: dotPulse 1.5s ease-in-out infinite; }
+  #stageDetail .sd-state.pending { background: #262b36; color: #8b919c; }
+  #stageDetail .sd-text { flex: 1 1 100%; word-break: break-word; white-space: pre-wrap; }
+  @keyframes detailIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  /* click a pill \u2192 its target card gets a ~1.6s outline flash on landing */
+  .card.flash { outline: 2px solid transparent; animation: cardFlash 1.6s ease-out; }
+  @keyframes cardFlash { 0% { outline-color: #60a5fa; } 60% { outline-color: #60a5fa80; } 100% { outline-color: transparent; } }
   /* preset / config panel (moa_init snapshot) */
   #configBody { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
   #configBody b { color: #e6e9ee; font-weight: 600; }
@@ -16050,10 +16117,13 @@ var FRONTEND_HTML = `<!doctype html>
   .round-sep:first-child { margin-top: 0; }
   .round-sep::before, .round-sep::after { content: ''; flex: 1; height: 1px; background: #232936; }
   .turn { border-left: 3px solid #2a3140; padding: 8px 12px; margin: 10px 0; }
-  .turn .head { display: flex; gap: 10px; font-size: 12px; color: #8b919c; margin-bottom: 4px; }
+  .turn.signoff { border-left-color: #4ade80; background: #14342a33; }
+  .turn .head { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #8b919c; margin-bottom: 4px; }
   .turn .who { color: #7cc7ff; font-family: ui-monospace, monospace; }
   .turn .text { white-space: pre-wrap; word-break: break-word; }
+  .signoff-badge { padding: 0 7px; border-radius: 999px; background: #14342a; color: #4ade80; font-size: 11px; border: 1px solid #1f4d3a; white-space: nowrap; }
   .transcript-empty { color: #5b6270; font-size: 13px; }
+  .early-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #1c2a44; color: #60a5fa; font-size: 12px; margin-right: 8px; }
   /* verdict */
   #verdict { border-color: #2f4a3b; background: #12211a; }
   #verdict h2 { font-size: 14px; color: #4ade80; margin-bottom: 8px; letter-spacing: .08em; }
@@ -16086,12 +16156,13 @@ var FRONTEND_HTML = `<!doctype html>
   <div class="card" id="progressCard">
     <div class="sec-title">\u9636\u6BB5\u8FDB\u5EA6<span class="aux hint" id="stageHint">\u7B49\u5F85\u4EFB\u52A1\u521D\u59CB\u5316\u2026</span></div>
     <div id="progress">
-      <span class="step" id="st0" data-tip="\u5171\u8BC6 \u2014 \u6587\u4EF6\u5171\u8BC6\u51C6\u5907" aria-label="\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907" tabindex="0"><span class="dot"></span><span class="lb">\u5171\u8BC6</span></span><span class="link" id="lk0"></span>
-      <span class="step" id="st1" data-tip="Reference \u2014 \u53C2\u8003\u6C60" aria-label="Reference\uFF1A\u53C2\u8003\u6C60" tabindex="0"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
-      <span class="step" id="st2" data-tip="\u8FA9\u8BBA \u2014 \u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00" aria-label="\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00" tabindex="0"><span class="dot"></span><span class="lb" id="st2lb">\u8FA9\u8BBA</span></span><span class="link" id="lk2"></span>
-      <span class="step" id="st3" data-tip="\u805A\u5408 \u2014 \u6C47\u603B\u88C1\u51B3" aria-label="\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3" tabindex="0"><span class="dot"></span><span class="lb">\u805A\u5408</span></span><span class="link" id="lk3"></span>
-      <span class="step" id="st4" data-tip="\u7ED3\u8BBA \u2014 VERDICT \u8F93\u51FA" aria-label="\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA" tabindex="0"><span class="dot"></span><span class="lb">\u7ED3\u8BBA</span></span>
+      <span class="step" id="st0" data-tip="\u5171\u8BC6 \u2014 \u6587\u4EF6\u5171\u8BC6\u51C6\u5907 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">\u5171\u8BC6</span></span><span class="link" id="lk0"></span>
+      <span class="step" id="st1" data-tip="Reference \u2014 \u53C2\u8003\u6C60 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="Reference\uFF1A\u53C2\u8003\u6C60" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
+      <span class="step" id="st2" data-tip="\u8FA9\u8BBA \u2014 \u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" id="st2lb">\u8FA9\u8BBA</span></span><span class="link" id="lk2"></span>
+      <span class="step" id="st3" data-tip="\u805A\u5408 \u2014 \u6C47\u603B\u88C1\u51B3 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">\u805A\u5408</span></span><span class="link" id="lk3"></span>
+      <span class="step" id="st4" data-tip="\u7ED3\u8BBA \u2014 VERDICT \u8F93\u51FA \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">\u7ED3\u8BBA</span></span>
     </div>
+    <div id="stageDetail" role="region" aria-live="polite" hidden></div>
   </div>
   <div class="card" id="config">
     <div class="sec-title">\u6A21\u5F0F / \u914D\u7F6E</div>
@@ -16140,18 +16211,151 @@ var FRONTEND_HTML = `<!doctype html>
   // hint names the meaning of the current stage.
   var STEPS = 5;
   var STAGE_TIPS = ['\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907', 'Reference\uFF1A\u53C2\u8003\u6C60', '\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00', '\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3', '\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA'];
-  function setStage(n) { // steps < n are done, step n is active; n === STEPS \u2192 all done
+  var stageNow = 0;                                  // mirrors setStage: < stageNow done, === active
+  var stageEnteredAt = [null, null, null, null, null]; // per-stage arrival time (ISO), for the detail row
+  function setStage(n, ts) { // steps < n are done, step n is active; n === STEPS \u2192 all done
+    stageNow = n;
+    var entered = ts || new Date().toISOString();
+    if (n >= STEPS) { if (!stageEnteredAt[STEPS - 1]) stageEnteredAt[STEPS - 1] = entered; }
+    else if (!stageEnteredAt[n]) stageEnteredAt[n] = entered;
     for (var i = 0; i < STEPS; i++) {
       document.getElementById('st' + i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
       if (i < STEPS - 1) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
     }
     document.getElementById('stageHint').textContent =
       n >= STEPS ? '\u5168\u90E8\u5B8C\u6210 \u2014 \u7ED3\u8BBA\u5DF2\u8F93\u51FA VERDICT' : '\u5F53\u524D\uFF1A' + STAGE_TIPS[n];
+    if (detailOpen >= 0) renderStageDetail(detailOpen); // keep an open detail row in sync
   }
   function setDebateLabel() {
     document.getElementById('st2lb').textContent =
       rounds === '\u2013' ? '\u8FA9\u8BBA' : '\u8FA9\u8BBA ' + curRound + '/' + rounds;
   }
+
+  // ---- clickable stages: pill click \u2192 scroll + outline flash + detail row ----
+  // Stage \u2192 section: \u5171\u8BC6 \u2192 \u914D\u7F6E\u533A (task_initialized snapshot), Reference \u2192
+  // \u8FA9\u624B roster, \u8FA9\u8BBA \u2192 transcript, \u805A\u5408/\u7ED3\u8BBA \u2192 VERDICT \u533A. Pending pills are
+  // clickable too \u2014 the detail row says the stage has not started and names
+  // what brings it in. Same pill again (or a click anywhere else) closes.
+  var STAGE_NAMES = ['\u5171\u8BC6', 'Reference', '\u8FA9\u8BBA', '\u805A\u5408', '\u7ED3\u8BBA'];
+  var STAGE_TARGETS = ['config', 'agentsCard', 'transcriptCard', 'verdict', 'verdict'];
+  var initExtras = null;   // task_initialized extras snapshot (may carry reference_results)
+  var verdictSummary = ''; // one-line VERDICT once task_closed lands
+  var detailOpen = -1;     // stage index whose detail row is open, -1 = closed
+
+  function fmtClock(iso) {
+    if (!iso) return '\u2013';
+    var d = new Date(iso);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+  function refSnippet() {
+    var rr = initExtras ? initExtras.reference_results : null;
+    if (rr == null) return null;
+    var s = typeof rr === 'string' ? rr : JSON.stringify(rr);
+    if (s == null) return null;
+    return s.length > 500 ? s.slice(0, 500) + '\u2026' : s;
+  }
+  function stageDetail(i) { // \u2192 { state: 'done'|'active'|'pending', text }
+    var state = i < stageNow ? 'done' : (i === stageNow ? 'active' : 'pending');
+    var at = '\u8FDB\u5165\u4E8E ' + fmtClock(stageEnteredAt[i]);
+    if (state === 'pending') {
+      var why = [
+        '\u7B49\u5F85\u9875\u9762\u8FDE\u63A5\u5EFA\u7ACB\uFF08\u8F7D\u5165\u5373\u8FDB\u5165\uFF09',
+        '\u7B49\u5F85 moa_init \u5B8C\u6210\u4EFB\u52A1\u521D\u59CB\u5316\uFF08task_initialized\uFF09',
+        '\u7B49\u5F85 moa_start_debate \u6CE8\u5165\u53C2\u8003\u6C60\u5E76\u5F00\u8D5B\uFF08debate_started\uFF09',
+        '\u7B49\u5F85\u6700\u540E\u4E00\u540D\u8FA9\u624B\u63D0\u4EA4\uFF08debate_complete\uFF09',
+        '\u7B49\u5F85 moa_complete \u5199\u5165\u4E09\u5C42\u5F52\u6863\uFF08task_closed\uFF09'
+      ][i];
+      return { state: 'pending', text: '\u8BE5\u9636\u6BB5\u5C1A\u672A\u5F00\u59CB \u2014 ' + why };
+    }
+    if (i === 0) {
+      return { state: state, text: at + ' \xB7 ' + (state === 'done'
+        ? '\u4EFB\u52A1\u5DF2\u521D\u59CB\u5316\uFF0C\u5171\u8BC6\u51C6\u5907\u5B8C\u6210'
+        : '\u5DF2\u8FDE\u63A5\uFF0C\u7B49\u5F85 moa_init \u521D\u59CB\u5316\u4EFB\u52A1') };
+    }
+    if (i === 1) {
+      var ref = refSnippet();
+      return { state: state, text: at + ' \xB7 ' + (ref != null
+        ? 'reference_results \u6458\u8981\uFF1A' + ref
+        : '\u5FEB\u7167\u672A\u643A\u5E26 reference_results\uFF08\u7531 moa_start_debate \u76F4\u63A5\u6CE8\u5165\u8FA9\u624B\u4E0A\u4E0B\u6587\uFF0C\u4E0D\u7ECF\u5361\u7247\uFF09') };
+    }
+    if (i === 2) {
+      return { state: state, text: 'Round ' + curRound + '/' + rounds +
+        ' \xB7 \u5F53\u524D\u53D1\u8A00\u4EBA ' + (speaking || '\u2013') + ' \xB7 \u5DF2\u63D0\u4EA4 ' + turns + ' \u4E2A turn' };
+    }
+    if (i === 3) {
+      return { state: state, text: at + '\uFF08debate_complete\uFF09\xB7 ' + (state === 'done'
+        ? '\u5F52\u6863\u5DF2\u5199\u5165\uFF0C\u88C1\u51B3\u5DF2\u8F93\u51FA'
+        : '\u6C47\u603B\u4E2D \u2014 \u7B49\u5F85 moa_complete \u5199\u5165\u5F52\u6863') };
+    }
+    return { state: state, text: verdictSummary || (at + ' \xB7 \u5F52\u6863\u5DF2\u5199\u5165\uFF0CVERDICT \u8BE6\u60C5\u52A0\u8F7D\u4E2D\u2026') };
+  }
+  function renderStageDetail(i) {
+    var box = document.getElementById('stageDetail');
+    box.textContent = '';
+    var info = stageDetail(i);
+    var name = document.createElement('span');
+    name.className = 'sd-name';
+    name.textContent = STAGE_NAMES[i];
+    var chip = document.createElement('span');
+    chip.className = 'sd-state ' + info.state;
+    chip.textContent = info.state === 'done' ? '\u5B8C\u6210' : (info.state === 'active' ? '\u8FDB\u884C\u4E2D' : '\u672A\u5F00\u59CB');
+    var text = document.createElement('span');
+    text.className = 'sd-text';
+    text.textContent = info.text;
+    box.appendChild(name);
+    box.appendChild(chip);
+    box.appendChild(text);
+  }
+  function syncStepAria() {
+    for (var i = 0; i < STEPS; i++) {
+      document.getElementById('st' + i).setAttribute('aria-expanded', detailOpen === i ? 'true' : 'false');
+    }
+  }
+  function closeStageDetail() {
+    if (detailOpen < 0) return;
+    detailOpen = -1;
+    document.getElementById('stageDetail').hidden = true;
+    syncStepAria();
+  }
+  function refreshDetailIfOpen(i) { if (detailOpen === i) renderStageDetail(i); }
+  function flashCard(el) {
+    el.classList.remove('flash');
+    void el.offsetWidth; // force reflow so back-to-back clicks replay the animation
+    el.classList.add('flash');
+    el.addEventListener('animationend', function done() {
+      el.classList.remove('flash');
+      el.removeEventListener('animationend', done);
+    });
+  }
+  function toggleStage(i) {
+    if (detailOpen === i) { closeStageDetail(); return; }
+    detailOpen = i;
+    renderStageDetail(i);
+    document.getElementById('stageDetail').hidden = false;
+    syncStepAria();
+    var target = document.getElementById(STAGE_TARGETS[i]);
+    if (target && !target.hidden) { // e.g. the VERDICT card only exists post-debate_complete
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      flashCard(target);
+    }
+  }
+  for (var si = 0; si < STEPS; si++) {
+    (function (i) {
+      var el = document.getElementById('st' + i);
+      el.addEventListener('click', function () { toggleStage(i); });
+      el.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleStage(i); }
+      });
+    })(si);
+  }
+  // a click outside pills / detail row closes the row (pill clicks bubble up
+  // here too \u2014 closest('.step') keeps them from closing what they just opened)
+  document.addEventListener('click', function (ev) {
+    if (detailOpen < 0) return;
+    var t = ev.target;
+    if (t && t.closest && (t.closest('.step') || t.closest('#stageDetail'))) return;
+    closeStageDetail();
+  });
 
   // ---- preset / config snapshot (task_initialized) ----
   function renderConfig(extras) {
@@ -16218,19 +16422,27 @@ var FRONTEND_HTML = `<!doctype html>
     div.textContent = 'Round ' + round;
     document.getElementById('transcript').appendChild(div);
   }
-  function addTurn(who, round, turn, text, ts) {
+  function addTurn(who, round, turn, text, ts, signoff) {
     clearTranscriptEmpty();
     if (round !== lastRound) { lastRound = round; addRoundSep(round); }
     var div = document.createElement('div');
-    div.className = 'turn';
+    div.className = 'turn' + (signoff ? ' signoff' : '');
     var head = document.createElement('div');
     head.className = 'head';
     var w = document.createElement('span');
     w.className = 'who';
     w.textContent = who == null ? '\u2013' : String(who);
+    if (signoff) {
+      var sb = document.createElement('span');
+      sb.className = 'signoff-badge';
+      sb.textContent = '\u270D \u7B7E\u5B57';
+      head.appendChild(w);
+      head.appendChild(sb);
+    } else {
+      head.appendChild(w);
+    }
     var meta = document.createElement('span');
     meta.textContent = 'round ' + round + ' \xB7 turn ' + turn;
-    head.appendChild(w);
     head.appendChild(meta);
     if (ts) {
       var t = document.createElement('span');
@@ -16264,19 +16476,36 @@ var FRONTEND_HTML = `<!doctype html>
     box.appendChild(document.createTextNode(' \xB7 '));
   }
   function onClosed(e) {
-    speaking = null; renderAgents(); setBadge('closed', 'closed'); setStage(STEPS);
+    speaking = null; renderAgents(); setBadge('closed', 'closed');
+    verdictSummary = '\u5F52\u6863\u5DF2\u5199\u5165 \xB7 ' + (e.archive || 'logs/' + taskId);
+    setStage(STEPS, e.ts);
     document.getElementById('verdict').hidden = false;
     loadArchive('result.json', function (text) {
       var r;
       try { r = JSON.parse(text); } catch (_) { return; }
       var vb = document.getElementById('verdictBody');
       vb.textContent = '';
+      if (r.early === true) {
+        var eb = document.createElement('span');
+        eb.className = 'early-badge';
+        eb.textContent = '\u63D0\u524D\u95ED\u5408\uFF08\u5168\u4F53\u7B7E\u5B57\uFF09\xB7 ' + (r.reason || 'unanimous_signoff');
+        vb.appendChild(eb);
+      }
       putStat(vb, 'status', r.status || '\u2013');
       putStat(vb, 'rounds', (r.rounds_completed != null ? r.rounds_completed : '\u2013') + ' / ' + (r.rounds_configured != null ? r.rounds_configured : '\u2013'));
       putStat(vb, 'turns', r.turns != null ? String(r.turns) : '\u2013');
-      document.getElementById('verdictStats').textContent =
-        'finished at ' + (r.finished_at || '\u2013') + ' \xB7 archive: ' + (e.archive || 'logs/' + taskId);
+      var statsText = 'finished at ' + (r.finished_at || '\u2013') + ' \xB7 archive: ' + (e.archive || 'logs/' + taskId);
+      if (r.signoffs && typeof r.signoffs === 'object') {
+        var signers = Object.keys(r.signoffs);
+        if (signers.length) statsText += ' \xB7 \u270D \u7B7E\u5B57: ' + signers.join(', ');
+      }
+      document.getElementById('verdictStats').textContent = statsText;
       document.getElementById('fullBtn').hidden = false;
+      verdictSummary = (r.early === true ? '\u63D0\u524D\u95ED\u5408\uFF08\u5168\u4F53\u7B7E\u5B57\uFF09 \xB7 ' : 'VERDICT \xB7 ') + 'status ' + (r.status || '\u2013') + ' \xB7 rounds ' +
+        (r.rounds_completed != null ? r.rounds_completed : '\u2013') + '/' +
+        (r.rounds_configured != null ? r.rounds_configured : '\u2013') + ' \xB7 turns ' +
+        (r.turns != null ? r.turns : '\u2013');
+      refreshDetailIfOpen(4);
     });
     // findings: the last archived turn carries the synthesized conclusion.
     loadArchive('events.jsonl', function (text) {
@@ -16310,7 +16539,7 @@ var FRONTEND_HTML = `<!doctype html>
         if (!lines[i]) continue;
         try {
           var t = JSON.parse(lines[i]);
-          addTurn(t.speaker, t.round, t.turn, t.content, t.timestamp);
+          addTurn(t.speaker, t.round, t.turn, t.content, t.timestamp, t.signoff === true);
         } catch (_) {}
       }
     });
@@ -16326,27 +16555,45 @@ var FRONTEND_HTML = `<!doctype html>
       rounds = e.rounds || '\u2013';
       curRound = '\u2013';
       speaking = null;
+      initExtras = e.extras || null;
       renderAgents(); renderConfig(e.extras); setMeta('\u2013', null);
-      setDebateLabel(); setStage(1); setBadge('initialized', 'live');
+      setDebateLabel(); setStage(1, e.ts); setBadge('initialized', 'live');
     } else if (e.type === 'debate_started') {
       rounds = e.rounds || rounds;
       curRound = 1;
-      setDebateLabel(); setMeta(1, null); setStage(2); setBadge('debating', 'live');
+      setDebateLabel(); setMeta(1, null); setStage(2, e.ts); setBadge('debating', 'live');
     } else if (e.type === 'turn_submitted') {
       turns++; bumpAgent(e.agent_id); speaking = null;
       // Prefer the full content; fall back to excerpt for older replay buffers.
-      addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts);
+      addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts, e.signoff === true);
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, null);
+      refreshDetailIfOpen(2);
     } else if (e.type === 'turn_advanced') {
       speaking = e.speaker;
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, e.speaker);
+      refreshDetailIfOpen(2);
     } else if (e.type === 'debate_complete') {
-      speaking = null; renderAgents(); setStage(3); setBadge('debate complete', 'done');
+      speaking = null; renderAgents(); setStage(3, e.ts); setBadge('debate complete', 'done');
       document.getElementById('verdict').hidden = false;
-      document.getElementById('verdictBody').textContent =
-        'Rounds: ' + (e.rounds || '\u2013') + ' \xB7 Turns: ' + (e.turns || turns) + ' \u2014 transcript archived on moa_complete.';
+      var vbLive = document.getElementById('verdictBody');
+      vbLive.textContent = '';
+      if (e.early === true) {
+        var ebLive = document.createElement('span');
+        ebLive.className = 'early-badge';
+        ebLive.textContent = '\u63D0\u524D\u95ED\u5408\uFF08\u5168\u4F53\u7B7E\u5B57\uFF09';
+        vbLive.appendChild(ebLive);
+      }
+      vbLive.appendChild(document.createTextNode(
+        'Rounds: ' + (e.rounds || '\u2013') + ' \xB7 Turns: ' + (e.turns || turns) +
+        (e.early === true ? ' \xB7 reason: ' + (e.reason || 'unanimous_signoff') : '') +
+        ' \u2014 transcript archived on moa_complete.'));
+    } else if (e.type === 'signoff_reset') {
+      // A dissent wiped the accumulated signoffs; surface it in the stage hint.
+      document.getElementById('stageHint').textContent =
+        '\u7B7E\u5B57\u6E05\u96F6\uFF08' + (e.agent_id || '\u2013') + ' \u63D0\u51FA\u5F02\u8BAE\uFF09\u2014 \u8FA9\u8BBA\u6309\u539F\u8F6E\u6B21\u7EE7\u7EED';
+      refreshDetailIfOpen(2);
     } else if (e.type === 'task_closed') {
       onClosed(e);
     }
@@ -17103,13 +17350,17 @@ var TOOLS = [
   },
   {
     name: "moa_submit_turn",
-    description: `Submit this agent's turn content. Validates turn order ({error:"not_your_turn"} otherwise), advances to the next speaker.`,
+    description: `Submit this agent's turn content. Validates turn order ({error:"not_your_turn"} otherwise), advances to the next speaker. Pass signoff:true to cast an early-close (unanimous signoff) vote; when every agent has signed off the debate closes early ({debate_complete:true, early:true, reason:"unanimous_signoff"}). Any normal (non-signoff) submission counts as dissent and resets accumulated signoffs.`,
     inputSchema: {
       type: "object",
       properties: {
         task_id: TASK_ID,
         agent_id: AGENT_ID,
-        content: { type: "string", description: "The agent's debate contribution for this turn" }
+        content: { type: "string", description: "The agent's debate contribution for this turn (the signoff statement when signoff is true)" },
+        signoff: {
+          type: "boolean",
+          description: "True to cast an early-close (unanimous signoff) vote instead of a normal turn; content carries the signoff statement. A normal (non-signoff) submission is a dissent that clears all accumulated signoffs."
+        }
       },
       required: ["task_id", "agent_id", "content"]
     }
@@ -17153,7 +17404,7 @@ function createServer2(hub = new DebateHub(), bus) {
         result = await hub.waitTurn(a.task_id, a.agent_id);
         break;
       case "moa_submit_turn":
-        result = await hub.submitTurn(a.task_id, a.agent_id, a.content);
+        result = await hub.submitTurn(a.task_id, a.agent_id, a.content, a.signoff === true);
         break;
       case "moa_complete":
         result = await hub.complete(a.task_id);

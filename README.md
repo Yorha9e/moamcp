@@ -139,6 +139,8 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 
 > **提交协议（SUBMISSION PROTOCOL）**：`moa_wait_turn` 每次返回回合时，prompt 都已预注入提交铁律——发言必须且只能通过 `moa_submit_turn` 工具提交，禁止把发言内容当纯文本输出后直接 end_turn（那会让辩论永久卡死）；提交后若辩论未结束继续 `moa_wait_turn`；收到 `not_your_turn` 说明该回合已被处理，不要重试提交、回到等待。铁律随回合 prompt 下发（不仅靠派发 brief），是辩手"写完发言忘记调用提交工具"问题的结构性修复。
 
+> **全体签字提前闭合（UNANIMOUS SIGNOFF）**：实战中辩论经常在排定轮数之前就达成共识，辩手会自发提议"签字确认轮"再全体签字收官——状态机把这个自发模式固化成机制。辩手在 `moa_submit_turn` 传 `signoff: true`（`content` 写签字陈词 / 最终立场）即投出一张"提前闭合"票：该回合照常进入 transcript（事件与归档记录带 `signoff: true`，卡片上以 ✍ 徽章标记），后续辩手仍按原轮转顺序拿回合，`wait_turn` 的 prompt 会实时提示当前 `N/M` 签字数并说明签字规则。**全体辩手都签字 → 辩论立即提前闭合**（`debate_complete` 带 `early: true, reason: "unanimous_signoff"`，`moa_complete` 的 `result.json` 额外带 `early` / `reason` / `signoffs`，卡片结论区显示"提前闭合（全体签字）"），无需跑满排定轮次。**异议即清零**：任何辩手提交一次普通发言（不传 `signoff`）即视为异议，已积累的签字全部清空（`signoff_reset` 事件），辩论按原轮次继续。签字协议随每个回合 prompt 下发（紧跟 SUBMISSION PROTOCOL）。orchestrator 的 `moa_complete` 强制收尾不受影响。
+
 ### MCP 工具一览
 
 | 工具 | 调用方 | 作用 |
@@ -146,7 +148,7 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 | `moa_init` | orchestrator | 初始化任务（辩手列表 + 辩论参数），返回 `{ok, card_url, agents}` |
 | `moa_start_debate` | orchestrator | 注入参考结果，启动状态机 `{turn:1, round:1, speaker:首个辩手}` |
 | `moa_wait_turn` | 辩手 | 长轮询至轮到自己 / 辩论结束 / 安全上限（默认 25 分钟，`MOAMCP_WAIT_CAP_MS` 可调） |
-| `moa_submit_turn` | 辩手 | 提交本轮发言，校验轮转顺序（乱序返回 `{error:"not_your_turn"}`） |
+| `moa_submit_turn` | 辩手 | 提交本轮发言，校验轮转顺序（乱序返回 `{error:"not_your_turn"}`）；传 `signoff: true` 投全体签字提前闭合票（全体签字即提前闭合；普通发言即异议，清零已有签字） |
 | `moa_complete` | orchestrator | 写三层归档并关闭任务 |
 | `moa_status` | 任意 | Bus 端口、模式（own/reuse）、活跃任务、进程信息 |
 
@@ -202,7 +204,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 ```sh
 npm install
 npm run build   # tsc 类型检查 + esbuild 打包 → dist/server.js（单文件 bundle，已提交入库）
-npm test        # vitest：smoke（邮箱流程）+ registry + bus（HTTP/SSE）+ reuse（真实多进程，含宿主死亡接管）四套，共 40 例
+npm test        # vitest：smoke（邮箱流程，含全体签字提前闭合）+ registry + bus（HTTP/SSE）+ reuse（真实多进程，含宿主死亡接管）四套，共 44 例
 npm start       # node dist/server.js
 ```
 
