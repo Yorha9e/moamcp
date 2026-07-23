@@ -12,8 +12,9 @@
  * exercised across real processes — two in-process Bus instances share a pid
  * and are excluded from each other's reuse lookup by design.
  */
+import { buildSync } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer as createHttpServer, get, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -31,7 +32,8 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 function listenOn(server: HttpServer, port: number): Promise<number> {
   return new Promise((resolveListen, reject) => {
     server.once('error', reject);
-    server.listen(port, () => resolveListen((server.address() as AddressInfo).port));
+    // Loopback-only, matching the Bus's bind address.
+    server.listen(port, '127.0.0.1', () => resolveListen((server.address() as AddressInfo).port));
   });
 }
 
@@ -236,18 +238,18 @@ process.on('exit', () => {
 });
 
 // ---- build dist/ once (the tests spawn the compiled server) ----
+// Mirrors `npm run build`: one self-contained ESM bundle, so the spawned
+// artifact is exactly what the repo ships.
 
 beforeAll(() => {
-  try {
-    execFileSync(
-      process.execPath,
-      [join(root, 'node_modules', 'typescript', 'lib', 'tsc.js'), '-p', join(root, 'tsconfig.json')],
-      { cwd: root, timeout: 120000, stdio: 'pipe' },
-    );
-  } catch (err) {
-    const e = err as { stderr?: Buffer; message?: string };
-    throw new Error(`tsc build failed: ${e.stderr?.toString() ?? e.message}`);
-  }
+  buildSync({
+    entryPoints: [join(root, 'src', 'server.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node22',
+    outfile: join(root, 'dist', 'server.js'),
+  });
 }, 150000);
 
 // ---- integration: two real server processes on one contested port ----

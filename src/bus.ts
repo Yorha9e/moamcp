@@ -256,7 +256,11 @@ export class Bus {
     return new Promise<number>((resolveListen, reject) => {
       const onError = (err: NodeJS.ErrnoException) => reject(err);
       this.server.once('error', onError);
-      this.server.listen(port, () => {
+      // Loopback-only: the Bus carries debate transcripts (potentially code
+      // context) and an unauthenticated POST /publish — never expose it to
+      // the network. All internal traffic (probes, reuse forwarding, cards)
+      // already targets 127.0.0.1.
+      this.server.listen(port, '127.0.0.1', () => {
         this.server.removeListener('error', onError);
         resolveListen((this.server.address() as AddressInfo).port);
       });

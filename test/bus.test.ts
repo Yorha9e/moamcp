@@ -174,7 +174,9 @@ it('deletes bus.port on clean shutdown', async () => {
 function listenOn(server: HttpServer, port: number): Promise<number> {
   return new Promise((resolveListen, reject) => {
     server.once('error', reject);
-    server.listen(port, () => resolveListen((server.address() as AddressInfo).port));
+    // Bind loopback explicitly: the Bus binds 127.0.0.1 only, so blockers
+    // must occupy the same address to force the port+1 walk deterministically.
+    server.listen(port, '127.0.0.1', () => resolveListen((server.address() as AddressInfo).port));
   });
 }
 
