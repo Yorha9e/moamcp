@@ -172,8 +172,53 @@ interface ServerChild {
 
 const spawned: ServerChild[] = [];
 
+/** Poll a Bus's /tasks until every expected task id shows up (tolerates the Bus being mid-takeover). */
+async function waitForTasks(port: number, expected: string[], timeoutMs = 10000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      const json = (await (await fetch(`http://127.0.0.1:${port}/tasks`)).json()) as { tasks: string[] };
+      if (expected.every((t) => json.tasks.includes(t))) return;
+    } catch {
+      // not reachable yet — keep polling until the deadline
+    }
+    if (Date.now() > deadline) throw new Error(`timeout waiting for tasks [${expected}] on :${port}`);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+/**
+ * Poll the registry until exactly one of `pids` owns `port` and nothing else
+ * is registered — the takeover settle point (winner's restored entry only;
+ * the loser holds no entry in reuse mode, and the dead owner's stale entry
+ * has been swept).
+ */
+async function waitForSoleOwner(
+  registry: ReturnType<typeof createRegistry>,
+  pids: number[],
+  port: number,
+  timeoutMs = 35000,
+): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const live = await registry.listLive();
+    const owners = live.filter((e) => e.port === port && pids.includes(e.pid));
+    if (owners.length === 1 && live.length === 1) return owners[0].pid;
+    if (Date.now() > deadline) {
+      throw new Error(`timeout waiting for a sole takeover owner on :${port}; live=${JSON.stringify(live)}`);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 /** Spawn `dist/server.js` with an isolated home/logs/cwd and a contested port. */
-function spawnServer(opts: { port: number; home: string; logs: string; cwd: string }): ServerChild {
+function spawnServer(opts: {
+  port: number;
+  home: string;
+  logs: string;
+  cwd: string;
+  env?: Record<string, string>;
+}): ServerChild {
   const child = spawn(process.execPath, [join(root, 'dist', 'server.js')], {
     cwd: opts.cwd,
     env: {
@@ -181,6 +226,7 @@ function spawnServer(opts: { port: number; home: string; logs: string; cwd: stri
       MOAMCP_HOME: opts.home,
       MOAMCP_LOGS_DIR: opts.logs,
       MOAMCP_BUS_PORT: String(opts.port),
+      ...opts.env,
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -391,6 +437,134 @@ describe('concurrent startup race', () => {
       }
     }
   }, 60000);
+});
+
+// ---- takeover: the reused Bus dies; a reuser takes over (former design §5 gap) ----
+
+describe('takeover when the reused Bus dies', () => {
+  it('sole reuser takes over the contested port and serves /tasks within 35s', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'moamcp-takeover-home-'));
+    const logs = await mkdtemp(join(tmpdir(), 'moamcp-takeover-logs-'));
+    const cwdA = await mkdtemp(join(tmpdir(), 'moamcp-takeover-cwdA-'));
+    const cwdB = await mkdtemp(join(tmpdir(), 'moamcp-takeover-cwdB-'));
+    const port = await freePort();
+    // Production watch defaults (10s interval / 1s timeout / 3 failures):
+    // worst-case detection ~30s after the kill — hence the 35s bound.
+    const a = spawnServer({ port, home, logs, cwd: cwdA });
+    const b = spawnServer({ port, home, logs, cwd: cwdB });
+    try {
+      await a.waitStderr('[moamcp] bus:');
+      await b.waitStderr('[moamcp] reuse:');
+
+      // Pre-kill: B's events are forwarded to A's Bus.
+      await b.rpc.initialize();
+      const init = await b.rpc.callTool('moa_init', {
+        task_id: 'takeover-task',
+        preset_config: { agents: ['x', 'y'], debate: { rounds: 1 } },
+      });
+      expect(init).toMatchObject({ ok: true, card_url: `http://127.0.0.1:${port}/?task_id=takeover-task` });
+      await waitForTasks(port, ['takeover-task']);
+
+      const killedAt = Date.now();
+      a.kill(); // SIGKILL — the real incident: no cleanup, stale registry entry left behind.
+
+      await b.waitStderr('[moamcp] takeover: now owns the Bus', 35000);
+      expect(Date.now() - killedAt).toBeLessThan(35000);
+
+      // B now serves the contested port, and new events fan out on B's OWN Bus.
+      const sub = await subscribe(port, 'post-takeover');
+      const init2 = await b.rpc.callTool('moa_init', {
+        task_id: 'post-takeover',
+        preset_config: { agents: ['p', 'q'], debate: { rounds: 1 } },
+      });
+      expect(init2.card_url).toBe(`http://127.0.0.1:${port}/?task_id=post-takeover`);
+      const ev = await waitFor(
+        () => sub.events.find((e) => e.type === 'task_initialized'),
+        'task_initialized on the taken-over Bus',
+      );
+      expect(ev).toMatchObject({ task_id: 'post-takeover', agents: ['p', 'q'] });
+      sub.close();
+      await waitForTasks(port, ['post-takeover']);
+
+      // Registry: B restored its entry on the contested port; A's stale entry was swept.
+      const live = await createRegistry({ instancesDir: join(home, 'instances') }).listLive();
+      expect(live).toHaveLength(1);
+      expect(live[0]).toMatchObject({ pid: b.child.pid, port });
+      // The takeover went through the normal own-mode path: bus.port written.
+      expect(await readFile(join(cwdB, 'bus.port'), 'utf8')).toBe(String(port));
+    } finally {
+      a.kill();
+      b.kill();
+      for (const dir of [home, logs, cwdA, cwdB]) {
+        await rm(dir, { recursive: true, force: true });
+      }
+    }
+  }, 90000);
+
+  it('two reusers race the takeover: exactly one owner, the loser re-attaches in reuse mode', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'moamcp-tkrace-home-'));
+    const logs = await mkdtemp(join(tmpdir(), 'moamcp-tkrace-logs-'));
+    const cwdA = await mkdtemp(join(tmpdir(), 'moamcp-tkrace-cwdA-'));
+    const cwdB = await mkdtemp(join(tmpdir(), 'moamcp-tkrace-cwdB-'));
+    const cwdC = await mkdtemp(join(tmpdir(), 'moamcp-tkrace-cwdC-'));
+    const port = await freePort();
+    // Fast watch so the race settles quickly — the point here is the
+    // arbitration, not the detection latency (covered by the 35s test).
+    const fastWatch = {
+      MOAMCP_BUS_WATCH_INTERVAL_MS: '200',
+      MOAMCP_BUS_WATCH_TIMEOUT_MS: '150',
+      MOAMCP_BUS_WATCH_FAILS: '3',
+    };
+    const a = spawnServer({ port, home, logs, cwd: cwdA });
+    const b = spawnServer({ port, home, logs, cwd: cwdB, env: fastWatch });
+    const c = spawnServer({ port, home, logs, cwd: cwdC, env: fastWatch });
+    try {
+      await a.waitStderr('[moamcp] bus:');
+      await b.waitStderr('[moamcp] reuse:');
+      await c.waitStderr('[moamcp] reuse:');
+
+      const killedAt = Date.now();
+      a.kill();
+
+      // Ground truth for the settle point is the registry: exactly one of
+      // the two reusers ends up owning the contested port. The loser has two
+      // legitimate outcomes — it can lose the EADDRINUSE bind race (banner
+      // "lost the port race", re-attached via the reuse lookup), or the
+      // winner can take over before its third strike, in which case its next
+      // host probe simply succeeds against the new owner and it silently
+      // stays in reuse mode. Either way: one owner, no zombies.
+      const registry = createRegistry({ instancesDir: join(home, 'instances') });
+      const winnerPid = await waitForSoleOwner(registry, [b.child.pid as number, c.child.pid as number], port);
+      expect(Date.now() - killedAt).toBeLessThan(35000);
+      const winner = winnerPid === b.child.pid ? b : c;
+      const loser = winnerPid === b.child.pid ? c : b;
+
+      // The winner announced ownership and really serves the contested port.
+      expect(winner.stderr()).toContain('[moamcp] takeover: now owns the Bus');
+      const res = await fetch(`http://127.0.0.1:${port}/tasks`);
+      expect(res.status).toBe(200);
+
+      // The loser is reusing the new owner — proven functionally: its events
+      // reach the winner's Bus. A zombie forwarding into the dead port would
+      // never get this task listed.
+      await loser.rpc.initialize();
+      await loser.rpc.callTool('moa_init', {
+        task_id: 'race-aftermath',
+        preset_config: { agents: ['m', 'n'], debate: { rounds: 1 } },
+      });
+      await waitForTasks(port, ['race-aftermath']);
+      // And it holds no registry entry of its own (still in reuse mode).
+      const live = await registry.listLive();
+      expect(live.find((e) => e.pid === loser.child.pid)).toBeUndefined();
+    } finally {
+      a.kill();
+      b.kill();
+      c.kill();
+      for (const dir of [home, logs, cwdA, cwdB, cwdC]) {
+        await rm(dir, { recursive: true, force: true });
+      }
+    }
+  }, 90000);
 });
 
 // ---- card_url: encoding + moa_init integration ----

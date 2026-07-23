@@ -29,6 +29,8 @@ moamcp 进程
   └── reuse 模式：端口已被另一个 moamcp 占用时不再监听，
          域事件经 POST /publish 尽力转发给占用端口的 Bus，
          card_url 指向该 Bus —— 卡片上照样看得到本进程的任务。
+         同时周期探活宿主 Bus，宿主死了就接管端口升为 own 模式，
+         不会留下对着死端口转发的"僵尸"实例。
 ```
 
 辩手由宿主 CLI 的子代理充当：orchestrator 发起辩论并并行派发辩手，每个辩手在自己的上下文里循环 `wait_turn → 发言 → submit_turn`，直到辩论结束。除 `@modelcontextprotocol/sdk` 外零运行时依赖。
@@ -169,7 +171,11 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 - 绑定失败（`EADDRINUSE`）时查注册表：
   - 端口被**另一个活的 moamcp** 持有（注册表条目 + pid 存活 + `GET /tasks` 健康探针通过）→ 进入 **reuse 模式**：本进程不监听，事件尽力转发给对方的 Bus（超时 / 失败只记 warning 丢弃，由对方的 SSE 重放缓冲与共享归档兜底），`card_url` 指向对方端口；
   - 条目对应进程已死、或占用者不是 moamcp → 清掉该条目，端口 **+1 重试**（最多 100 次，耗尽则报错退出，退出前先释放注册表条目）。
-- 被杀死的宿主留下的 Windows 孤儿 Bus 因此成为可复用资产，而不是残骸。`{cwd}/bus.port` 在 own 模式下仍会写（兼容旧约定），不再是主要发现通道。
+- **宿主死亡接管**：进入 reuse 后本进程会看管宿主 Bus（每 10s 探测 `GET /tasks`，超时 1s，**连续 3 次失败判定宿主已死**，最坏约 30s 发现），随即走正常启动绑定流程抢回原端口：
+  - **抢到**（绑定成功）→ 升为 own 模式：重写自己的注册表条目（进入复用时删掉的那条）、`card_url` 改指自己的端口、域事件改由本地 Bus 直接服务。此后再起的实例按既有复用逻辑挂到它下面，无需任何新协调；
+  - **没抢到**（多个 reuse 实例同时判死抢端口）→ 绑定的原子性（`EADDRINUSE`）即仲裁：输家经健康探针确认新属主是活的 moamcp 后**重新挂到新属主下**继续 reuse（若占用者不是 moamcp——比如老尸体刚死端口被无关进程占了——则按既有规则端口 +1）。若赢家在输家第三次探测前就已接管，输家的探测会直接成功、静默留在 reuse 模式——同样是一个属主、零僵尸；
+  - **判死到接管完成的窗口期**（默认 20~30s）内产生的事件仍发往死端口，记 warning 丢弃；状态机在各实例自己的内存里不受影响，接管只切换"事件出口"（转发 → 本地 Bus）。
+- 被杀死的宿主留下的 Windows 孤儿 Bus 因此成为可复用资产，而不是残骸；孤儿 Bus 再被杀死后，挂在它下面的 reuse 实例也会接管而不是僵死。`{cwd}/bus.port` 在 own 模式下仍会写（兼容旧约定），不再是主要发现通道。
 
 ### 环境变量
 
@@ -179,6 +185,9 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 | `MOAMCP_LOGS_DIR` | `<MOAMCP_HOME>/logs` | 三层归档根目录（所有实例共享，reuse 模式的 `/archive` 依赖它） |
 | `MOAMCP_BUS_PORT` | `8913` | 期望的 Bus 端口 |
 | `MOAMCP_WAIT_CAP_MS` | 25 分钟 | `moa_wait_turn` 长轮询安全上限 |
+| `MOAMCP_BUS_WATCH_INTERVAL_MS` | `10000` | reuse 模式探活宿主 Bus 的间隔 |
+| `MOAMCP_BUS_WATCH_TIMEOUT_MS` | `1000` | 宿主探活请求超时 |
+| `MOAMCP_BUS_WATCH_FAILS` | `3` | 连续探活失败多少次判定宿主死亡并触发接管 |
 
 ## 伴生项目
 
@@ -191,7 +200,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 ```sh
 npm install
 npm run build   # tsc 类型检查 + esbuild 打包 → dist/server.js（单文件 bundle，已提交入库）
-npm test        # vitest：smoke（邮箱流程）+ registry + bus（HTTP/SSE）+ reuse（两个真实进程）四套，共 37 例
+npm test        # vitest：smoke（邮箱流程）+ registry + bus（HTTP/SSE）+ reuse（真实多进程，含宿主死亡接管）四套，共 40 例
 npm start       # node dist/server.js
 ```
 

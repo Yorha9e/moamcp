@@ -185,11 +185,19 @@ async function main(): Promise<void> {
   // moamcp holding the port means reuse mode (no listener in this process);
   // anything else walks port+1 up to the cap.
   const busPort = Number(process.env.MOAMCP_BUS_PORT);
+  // Reuse-mode host watch tuning (defaults: 10s interval / 1s timeout /
+  // 3 consecutive failures → dead → takeover).
+  const watchIntervalMs = Number(process.env.MOAMCP_BUS_WATCH_INTERVAL_MS);
+  const watchTimeoutMs = Number(process.env.MOAMCP_BUS_WATCH_TIMEOUT_MS);
+  const watchFailThreshold = Number(process.env.MOAMCP_BUS_WATCH_FAILS);
   // Fixed archive root shared by all instances (reuse mode's /archive depends
   // on it): MOAMCP_LOGS_DIR or <MOAMCP_HOME|~/.moamcp>/logs (design §3.1).
   const logsDir = defaultLogsDir();
   const bus = new Bus({
     ...(Number.isFinite(busPort) && busPort > 0 ? { port: busPort } : {}),
+    ...(Number.isFinite(watchIntervalMs) && watchIntervalMs > 0 ? { reuseWatchIntervalMs: watchIntervalMs } : {}),
+    ...(Number.isFinite(watchTimeoutMs) && watchTimeoutMs > 0 ? { reuseWatchTimeoutMs: watchTimeoutMs } : {}),
+    ...(Number.isFinite(watchFailThreshold) && watchFailThreshold > 0 ? { reuseWatchFailThreshold: watchFailThreshold } : {}),
     cwd: process.cwd(),
     logsDir,
   });
@@ -209,16 +217,33 @@ async function main(): Promise<void> {
   const startResult = bus.startResult;
   // own: fan events out on this process's Bus. reuse: forward them to the Bus
   // that owns the port — best-effort, never blocks the MCP call chain (§3.3).
-  // Either way the card points at startResult.port (the owning Bus).
-  const emit =
+  // Either way the card points at the owning Bus's port. Both go through
+  // mutable bindings: in reuse mode the watched host Bus can die, and the
+  // Bus takeover re-points them via onTakeover — the event outlet switches
+  // from forwarding to the local Bus (or to a new host) while the DebateHub
+  // state machine in this process's memory stays untouched.
+  let sink: (taskId: string, event: DomainEvent) => void =
     startResult.mode === 'own'
-      ? (taskId: string, event: DomainEvent) => bus.publish(taskId, event)
+      ? (taskId, event) => bus.publish(taskId, event)
       : reusePublishForwarder(startResult.port);
+  let cardPort = startResult.port;
+  bus.onTakeover = (result) => {
+    cardPort = result.port;
+    sink =
+      result.mode === 'own'
+        ? (taskId, event) => bus.publish(taskId, event)
+        : reusePublishForwarder(result.port);
+    console.error(
+      result.mode === 'own'
+        ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)`
+        : `[moamcp] takeover: lost the port race; reusing new Bus at http://127.0.0.1:${result.port}/`,
+    );
+  };
   const hub = new DebateHub({
     ...(Number.isFinite(waitCap) && waitCap > 0 ? { waitCapMs: waitCap } : {}),
     logsDir,
-    emit,
-    cardUrlFactory: (taskId) => cardUrl(startResult.port, taskId),
+    emit: (taskId, event) => sink(taskId, event),
+    cardUrlFactory: (taskId) => cardUrl(cardPort, taskId),
   });
   const server = createServer(hub, bus);
   await server.connect(new StdioServerTransport());

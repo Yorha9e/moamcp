@@ -15545,6 +15545,20 @@ async function readInstanceFile(filePath) {
     return void 0;
   }
 }
+var RENAME_RETRY_LIMIT = 5;
+var RENAME_RETRY_DELAY_MS = 50;
+async function renameReplace(tmpPath, filePath) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(tmpPath, filePath);
+      return;
+    } catch (err) {
+      const code = err.code;
+      if (attempt >= RENAME_RETRY_LIMIT || code !== "EPERM" && code !== "EACCES") throw err;
+      await new Promise((r) => setTimeout(r, RENAME_RETRY_DELAY_MS * (attempt + 1)));
+    }
+  }
+}
 async function writeFileAtomic(filePath, content) {
   const tmpPath = `${filePath}.tmp.${process.pid}.${randomInt(4294967296).toString(16)}`;
   let renamed = false;
@@ -15555,7 +15569,7 @@ async function writeFileAtomic(filePath, content) {
     } finally {
       await fh.close();
     }
-    await rename(tmpPath, filePath);
+    await renameReplace(tmpPath, filePath);
     renamed = true;
   } finally {
     if (!renamed) {
@@ -16621,6 +16635,9 @@ var FRONTEND_HTML = `<!doctype html>
 // src/bus.ts
 var PORT_RETRY_LIMIT = 100;
 var PROBE_TIMEOUT_MS = 200;
+var REUSE_WATCH_INTERVAL_MS = 1e4;
+var REUSE_WATCH_TIMEOUT_MS = 1e3;
+var REUSE_WATCH_FAIL_THRESHOLD = 3;
 var ARCHIVE_FILES = {
   "result.json": "application/json; charset=utf-8",
   "probe.json": "application/json; charset=utf-8",
@@ -16658,12 +16675,31 @@ var Bus = class {
   logsDir;
   portRetryLimit;
   registry;
+  watchIntervalMs;
+  watchTimeoutMs;
+  watchFailThreshold;
+  /** Reuse-mode host watch timer (undefined outside reuse mode). */
+  hostWatch;
+  hostWatchFails = 0;
+  probing = false;
+  takingOver = false;
+  stopped = false;
+  /**
+   * Fires after a dead-host takeover settles: `mode: 'own'` means this
+   * process won the port and now serves its own Bus; `mode: 'reuse'` means
+   * it lost the race and re-attached to the new owner. Callers re-point the
+   * event sink and card_url from the result.
+   */
+  onTakeover;
   constructor(opts = {}) {
     this.requestedPort = opts.port ?? envBusPort() ?? 8913;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
     this.logsDir = opts.logsDir ?? "logs";
     this.portRetryLimit = opts.portRetryLimit ?? PORT_RETRY_LIMIT;
+    this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
+    this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
+    this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
     this.server = createServer((req, res) => void this.handle(req, res).catch(() => {
       if (!res.headersSent) res.writeHead(500);
@@ -16707,6 +16743,7 @@ var Bus = class {
       await this.releaseRegistration();
       this.startMode = "reuse";
       this.port = result.port;
+      this.startHostWatch(result.port);
       return this.port;
     }
     this.startMode = "own";
@@ -16731,6 +16768,8 @@ var Bus = class {
     return [...this.eventLog.keys()];
   }
   async stop() {
+    this.stopped = true;
+    this.stopHostWatch();
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
@@ -16793,6 +16832,84 @@ var Bus = class {
     if (registration !== void 0) {
       await registration.release().catch(() => {
       });
+    }
+  }
+  /**
+   * Reuse-mode host watch: probe the host Bus (`GET /tasks`) every
+   * `watchIntervalMs`; `watchFailThreshold` CONSECUTIVE failures declare it
+   * dead and trigger a takeover attempt. Any success resets the counter.
+   * The timer is unref'd so it never holds the process up on shutdown.
+   */
+  startHostWatch(hostPort) {
+    this.stopHostWatch();
+    if (this.stopped) return;
+    const timer = setInterval(() => void this.watchTick(hostPort), this.watchIntervalMs);
+    timer.unref();
+    this.hostWatch = timer;
+  }
+  stopHostWatch() {
+    if (this.hostWatch !== void 0) {
+      clearInterval(this.hostWatch);
+      this.hostWatch = void 0;
+    }
+    this.hostWatchFails = 0;
+  }
+  async watchTick(hostPort) {
+    if (this.probing || this.takingOver) return;
+    this.probing = true;
+    try {
+      if (await busProbe(hostPort, this.watchTimeoutMs)) {
+        this.hostWatchFails = 0;
+        return;
+      }
+      this.hostWatchFails += 1;
+      if (this.hostWatchFails < this.watchFailThreshold) {
+        console.warn(
+          `[moamcp] reuse: host Bus probe failed at http://127.0.0.1:${hostPort}/ (${this.hostWatchFails}/${this.watchFailThreshold})`
+        );
+        return;
+      }
+      this.stopHostWatch();
+      console.warn(
+        `[moamcp] reuse: host Bus at http://127.0.0.1:${hostPort}/ declared dead after ${this.watchFailThreshold} consecutive probe failures; attempting takeover`
+      );
+      await this.attemptTakeover(hostPort);
+    } catch (err) {
+      console.warn(`[moamcp] reuse: host watch error: ${err.message}`);
+    } finally {
+      this.probing = false;
+    }
+  }
+  /**
+   * Dead-host takeover: re-run the normal start flow (register → bind walk
+   * from the requested port → write back the bound port). The atomicity of
+   * the bind is the race arbiter when several reusers declare death at
+   * once: the one that wins the contested port becomes the owner — its
+   * registry entry is restored and events are served locally. A loser goes
+   * through the usual reuse lookup (registry entry + live pid + HTTP probe,
+   * so an unrelated process that grabbed the port reads as non-moamcp and
+   * falls through to the port+1 walk) and re-enters reuse mode under the
+   * new owner. A bind failure (walk exhausted) leaves us in reuse mode on
+   * the dead port — events keep dropping with a warning — and retries on
+   * the next watch cycle.
+   */
+  async attemptTakeover(deadPort) {
+    this.takingOver = true;
+    try {
+      await this.start();
+      if (this.stopped) {
+        await this.stop().catch(() => {
+        });
+        return;
+      }
+      this.onTakeover?.(this.startResult);
+    } catch (err) {
+      console.warn(
+        `[moamcp] takeover: bind failed (${err.message}); staying in reuse mode, retrying on the next watch cycle`
+      );
+      this.startHostWatch(deadPort);
+    } finally {
+      this.takingOver = false;
     }
   }
   async handle(req, res) {
@@ -17013,9 +17130,15 @@ function createServer2(hub = new DebateHub(), bus) {
 async function main() {
   const waitCap = Number(process.env.MOAMCP_WAIT_CAP_MS);
   const busPort = Number(process.env.MOAMCP_BUS_PORT);
+  const watchIntervalMs = Number(process.env.MOAMCP_BUS_WATCH_INTERVAL_MS);
+  const watchTimeoutMs = Number(process.env.MOAMCP_BUS_WATCH_TIMEOUT_MS);
+  const watchFailThreshold = Number(process.env.MOAMCP_BUS_WATCH_FAILS);
   const logsDir = defaultLogsDir();
   const bus = new Bus({
     ...Number.isFinite(busPort) && busPort > 0 ? { port: busPort } : {},
+    ...Number.isFinite(watchIntervalMs) && watchIntervalMs > 0 ? { reuseWatchIntervalMs: watchIntervalMs } : {},
+    ...Number.isFinite(watchTimeoutMs) && watchTimeoutMs > 0 ? { reuseWatchTimeoutMs: watchTimeoutMs } : {},
+    ...Number.isFinite(watchFailThreshold) && watchFailThreshold > 0 ? { reuseWatchFailThreshold: watchFailThreshold } : {},
     cwd: process.cwd(),
     logsDir
   });
@@ -17031,12 +17154,20 @@ async function main() {
     throw err;
   }
   const startResult = bus.startResult;
-  const emit = startResult.mode === "own" ? (taskId, event) => bus.publish(taskId, event) : reusePublishForwarder(startResult.port);
+  let sink = startResult.mode === "own" ? (taskId, event) => bus.publish(taskId, event) : reusePublishForwarder(startResult.port);
+  let cardPort = startResult.port;
+  bus.onTakeover = (result) => {
+    cardPort = result.port;
+    sink = result.mode === "own" ? (taskId, event) => bus.publish(taskId, event) : reusePublishForwarder(result.port);
+    console.error(
+      result.mode === "own" ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)` : `[moamcp] takeover: lost the port race; reusing new Bus at http://127.0.0.1:${result.port}/`
+    );
+  };
   const hub = new DebateHub({
     ...Number.isFinite(waitCap) && waitCap > 0 ? { waitCapMs: waitCap } : {},
     logsDir,
-    emit,
-    cardUrlFactory: (taskId) => cardUrl(startResult.port, taskId)
+    emit: (taskId, event) => sink(taskId, event),
+    cardUrlFactory: (taskId) => cardUrl(cardPort, taskId)
   });
   const server = createServer2(hub, bus);
   await server.connect(new StdioServerTransport());

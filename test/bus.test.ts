@@ -14,8 +14,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { DebateHub } from '../src/state.js';
-import { Bus } from '../src/bus.js';
-import { createRegistry } from '../src/registry.js';
+import { Bus, type BusStartResult } from '../src/bus.js';
+import { createRegistry, type InstanceRegistration } from '../src/registry.js';
 
 let bus: Bus;
 let port: number;
@@ -416,6 +416,56 @@ describe('port discovery: instance registry + port rules', () => {
     expect(await createRegistry({ instancesDir }).listLive()).toHaveLength(0);
     await rm(cwd, { recursive: true, force: true });
   });
+
+  it('reuse mode watches the host Bus and takes over the port when it dies', async () => {
+    const base = await freePort();
+    // The "old" Bus really bound to `base` (separate registry dir).
+    const oldDir = await tmpBusDir();
+    const oldBus = new Bus({ port: base, cwd: oldDir.cwd, instancesDir: oldDir.instancesDir });
+    expect(await oldBus.start()).toBe(base);
+    const child = liveChild();
+    const { cwd, instancesDir } = await tmpBusDir();
+    const takeovers: BusStartResult[] = [];
+    let fake: InstanceRegistration | undefined;
+    let watcher: Bus | undefined;
+    try {
+      await tick(100);
+      fake = await createRegistry({ instancesDir }).register({ pid: child.pid as number, port: base });
+      watcher = new Bus({
+        port: base,
+        cwd,
+        instancesDir,
+        reuseWatchIntervalMs: 40,
+        reuseWatchTimeoutMs: 150,
+        reuseWatchFailThreshold: 3,
+      });
+      watcher.onTakeover = (r) => takeovers.push(r);
+      expect(await watcher.start()).toBe(base); // reuse under oldBus
+      expect(watcher.mode).toBe('reuse');
+
+      // Host dies: the port is released, probes fail, three consecutive
+      // strikes → the watcher re-runs the start flow and wins the port.
+      await oldBus.stop();
+      const deadline = Date.now() + 10000;
+      while (takeovers.length === 0 && Date.now() < deadline) await tick(20);
+      expect(takeovers).toEqual([{ mode: 'own', port: base }]);
+      expect(watcher.mode).toBe('own');
+      expect(watcher.actualPort).toBe(base);
+      // Its registry entry was restored on the contested port.
+      const live = await createRegistry({ instancesDir }).listLive();
+      expect(live.find((e) => e.pid === process.pid)).toMatchObject({ port: base });
+      // The taken-over Bus serves /tasks.
+      const res = await fetch(`http://127.0.0.1:${base}/tasks`);
+      expect(res.status).toBe(200);
+    } finally {
+      await watcher?.stop();
+      await oldBus.stop();
+      await fake?.release();
+      child.kill();
+      await rm(oldDir.cwd, { recursive: true, force: true });
+      await rm(cwd, { recursive: true, force: true });
+    }
+  }, 20000);
 
   it('GET /tasks lists active tasks derived from the event log', async () => {
     bus.publish('tasks-a', { type: 'hub_note' });

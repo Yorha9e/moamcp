@@ -9,6 +9,13 @@
  * at `PORT_RETRY_LIMIT` (then throw — never swallow). After a successful
  * bind the actually-bound port is written back via `update({port})`.
  *
+ * Reuse mode watches the host Bus (`GET /tasks` every 10s, 1s timeout,
+ * 3 consecutive failures declare it dead). A dead host triggers a takeover
+ * that re-runs the start flow above: the atomicity of the bind arbitrates
+ * races between reusers — the winner becomes the owner, a loser re-attaches
+ * to it via the usual reuse lookup (or walks ports if the holder is not a
+ * live moamcp), so a killed owner never leaves headless reusers behind.
+ *
  * Discovery is registry-first (`<MOAMCP_HOME|~/.moamcp>/instances/<pid>.json`);
  * `bus.port` is still written for backward compatibility but is no longer the
  * primary discovery mechanism.
@@ -38,6 +45,15 @@ export const PORT_RETRY_LIMIT = 100;
 /** Reuse health probe: 200ms, 0 retries — loopback is ample; failure means port+1 (design §3.3). */
 export const PROBE_TIMEOUT_MS = 200;
 
+/**
+ * Reuse-mode host watch: how often the host Bus is probed, the probe
+ * timeout, and how many consecutive failures declare it dead and trigger
+ * a takeover attempt. Worst-case detection delay is ~3 intervals (~30s).
+ */
+export const REUSE_WATCH_INTERVAL_MS = 10_000;
+export const REUSE_WATCH_TIMEOUT_MS = 1_000;
+export const REUSE_WATCH_FAIL_THRESHOLD = 3;
+
 export type BusMode = 'own' | 'reuse';
 
 /** What `start()` decided: bind a fresh Bus, or reuse a live moamcp already on the port. */
@@ -59,6 +75,12 @@ export interface BusOptions {
   instancesDir?: string;
   /** Port+1 retry cap. Default PORT_RETRY_LIMIT (100); tests inject a tiny value. */
   portRetryLimit?: number;
+  /** Reuse-mode host Bus probe interval. Default REUSE_WATCH_INTERVAL_MS (10s). */
+  reuseWatchIntervalMs?: number;
+  /** Reuse-mode host Bus probe timeout. Default REUSE_WATCH_TIMEOUT_MS (1s). */
+  reuseWatchTimeoutMs?: number;
+  /** Consecutive probe failures before the host is declared dead. Default REUSE_WATCH_FAIL_THRESHOLD (3). */
+  reuseWatchFailThreshold?: number;
 }
 
 /** Files the /archive endpoint is allowed to serve, with their content types. */
@@ -109,6 +131,23 @@ export class Bus {
   private readonly logsDir: string;
   private readonly portRetryLimit: number;
   private readonly registry: ReturnType<typeof createRegistry>;
+  private readonly watchIntervalMs: number;
+  private readonly watchTimeoutMs: number;
+  private readonly watchFailThreshold: number;
+  /** Reuse-mode host watch timer (undefined outside reuse mode). */
+  private hostWatch?: NodeJS.Timeout;
+  private hostWatchFails = 0;
+  private probing = false;
+  private takingOver = false;
+  private stopped = false;
+
+  /**
+   * Fires after a dead-host takeover settles: `mode: 'own'` means this
+   * process won the port and now serves its own Bus; `mode: 'reuse'` means
+   * it lost the race and re-attached to the new owner. Callers re-point the
+   * event sink and card_url from the result.
+   */
+  onTakeover?: (result: BusStartResult) => void;
 
   constructor(opts: BusOptions = {}) {
     this.requestedPort = opts.port ?? envBusPort() ?? 8913;
@@ -116,6 +155,9 @@ export class Bus {
     this.replayLimit = opts.replayLimit ?? 200;
     this.logsDir = opts.logsDir ?? 'logs';
     this.portRetryLimit = opts.portRetryLimit ?? PORT_RETRY_LIMIT;
+    this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
+    this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
+    this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
     this.server = createServer((req, res) => void this.handle(req, res).catch(() => {
       if (!res.headersSent) res.writeHead(500);
@@ -178,6 +220,10 @@ export class Bus {
       await this.releaseRegistration();
       this.startMode = 'reuse';
       this.port = result.port;
+      // Watch the host: a dead owner must not leave this process a headless
+      // zombie forwarding into a dead port. Runs on both the initial reuse
+      // and a re-attach after a lost takeover race.
+      this.startHostWatch(result.port);
       return this.port;
     }
 
@@ -206,6 +252,8 @@ export class Bus {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
+    this.stopHostWatch();
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
@@ -278,6 +326,92 @@ export class Bus {
     if (registration !== undefined) {
       // Best-effort: a cleanup failure must not mask the real outcome.
       await registration.release().catch(() => {});
+    }
+  }
+
+  /**
+   * Reuse-mode host watch: probe the host Bus (`GET /tasks`) every
+   * `watchIntervalMs`; `watchFailThreshold` CONSECUTIVE failures declare it
+   * dead and trigger a takeover attempt. Any success resets the counter.
+   * The timer is unref'd so it never holds the process up on shutdown.
+   */
+  private startHostWatch(hostPort: number): void {
+    this.stopHostWatch();
+    if (this.stopped) return;
+    const timer = setInterval(() => void this.watchTick(hostPort), this.watchIntervalMs);
+    timer.unref();
+    this.hostWatch = timer;
+  }
+
+  private stopHostWatch(): void {
+    if (this.hostWatch !== undefined) {
+      clearInterval(this.hostWatch);
+      this.hostWatch = undefined;
+    }
+    this.hostWatchFails = 0;
+  }
+
+  private async watchTick(hostPort: number): Promise<void> {
+    if (this.probing || this.takingOver) return; // no overlapping probes / takeovers
+    this.probing = true;
+    try {
+      if (await busProbe(hostPort, this.watchTimeoutMs)) {
+        this.hostWatchFails = 0;
+        return;
+      }
+      this.hostWatchFails += 1;
+      if (this.hostWatchFails < this.watchFailThreshold) {
+        console.warn(
+          `[moamcp] reuse: host Bus probe failed at http://127.0.0.1:${hostPort}/ ` +
+            `(${this.hostWatchFails}/${this.watchFailThreshold})`,
+        );
+        return;
+      }
+      this.stopHostWatch();
+      console.warn(
+        `[moamcp] reuse: host Bus at http://127.0.0.1:${hostPort}/ declared dead after ` +
+          `${this.watchFailThreshold} consecutive probe failures; attempting takeover`,
+      );
+      await this.attemptTakeover(hostPort);
+    } catch (err) {
+      // A watchdog bug must never take the server down with it.
+      console.warn(`[moamcp] reuse: host watch error: ${(err as Error).message}`);
+    } finally {
+      this.probing = false;
+    }
+  }
+
+  /**
+   * Dead-host takeover: re-run the normal start flow (register → bind walk
+   * from the requested port → write back the bound port). The atomicity of
+   * the bind is the race arbiter when several reusers declare death at
+   * once: the one that wins the contested port becomes the owner — its
+   * registry entry is restored and events are served locally. A loser goes
+   * through the usual reuse lookup (registry entry + live pid + HTTP probe,
+   * so an unrelated process that grabbed the port reads as non-moamcp and
+   * falls through to the port+1 walk) and re-enters reuse mode under the
+   * new owner. A bind failure (walk exhausted) leaves us in reuse mode on
+   * the dead port — events keep dropping with a warning — and retries on
+   * the next watch cycle.
+   */
+  private async attemptTakeover(deadPort: number): Promise<void> {
+    this.takingOver = true;
+    try {
+      await this.start();
+      if (this.stopped) {
+        // Shut down mid-takeover: tear down whatever just got bound.
+        await this.stop().catch(() => {});
+        return;
+      }
+      this.onTakeover?.(this.startResult);
+    } catch (err) {
+      console.warn(
+        `[moamcp] takeover: bind failed (${(err as Error).message}); ` +
+          'staying in reuse mode, retrying on the next watch cycle',
+      );
+      this.startHostWatch(deadPort);
+    } finally {
+      this.takingOver = false;
     }
   }
 
