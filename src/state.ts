@@ -12,6 +12,25 @@ import { moamcpHome } from './registry.js';
 export const DEFAULT_WAIT_CAP_MS = 25 * 60 * 1000;
 
 /**
+ * Behavioral contract injected into every wait_turn prompt. Debaters (LLM
+ * subagents) have been observed ending the turn with the speech as plain
+ * text instead of calling moa_submit_turn — the state machine never sees a
+ * submission and the whole debate deadlocks. Restating the obligation on
+ * every turn payload (not only in the orchestrator's dispatch brief) is the
+ * structural fix.
+ */
+export const SUBMISSION_PROTOCOL = [
+  '## ⚠️ SUBMISSION PROTOCOL / 提交协议',
+  '',
+  '- Submit your speech ONLY via the `moa_submit_turn` tool. Never output the speech as plain text and end the turn — end_turn without the tool call deadlocks the debate forever.',
+  '  发言必须且只能通过 `moa_submit_turn` 工具提交；禁止将发言内容作为纯文本输出后 end_turn——不调用工具结束回合 = 辩论永久卡死。',
+  '- After submitting, if the debate is not complete, call `moa_wait_turn` again to wait for your next turn.',
+  '  提交后若 debate 未结束，继续调用 `moa_wait_turn` 等待下一回合。',
+  '- A `not_your_turn` error means your turn was already handled — do NOT retry submit; go back to `moa_wait_turn` and wait.',
+  '  `not_your_turn` 错误 = 你的回合已被处理，不要重试提交，回到 `moa_wait_turn` 等待。',
+].join('\n');
+
+/**
  * Archive root: `MOAMCP_LOGS_DIR` if set, else `<MOAMCP_HOME|~/.moamcp>/logs`
  * (port-discovery design §3.1 — a fixed root is what lets reuse mode serve a
  * reuser's archives from the owning Bus). Read at call time so tests can
@@ -342,15 +361,17 @@ export class DebateHub {
     };
   }
 
-  /** Prompt strategy per design doc §4b.3. */
+  /** Prompt strategy per design doc §4b.3; the submission protocol rides on every round. */
   private buildPrompt(task: DebateTask): string {
+    let round: string;
     if (task.round <= 1) {
-      return 'Round 1: 审查其他 agent 结论的推理过程，找出逻辑漏洞、遗漏的检查点';
+      round = 'Round 1: 审查其他 agent 结论的推理过程，找出逻辑漏洞、遗漏的检查点';
+    } else if (task.round < task.rounds) {
+      round = `Round ${task.round}: 回应对方的质疑`;
+    } else {
+      round = `Round ${task.round} (final): 考虑所有质疑后，重新给出最终结论`;
     }
-    if (task.round < task.rounds) {
-      return `Round ${task.round}: 回应对方的质疑`;
-    }
-    return `Round ${task.round} (final): 考虑所有质疑后，重新给出最终结论`;
+    return `${round}\n\n${SUBMISSION_PROTOCOL}`;
   }
 
   private wakeSpeaker(task: DebateTask, speakerId: string): void {

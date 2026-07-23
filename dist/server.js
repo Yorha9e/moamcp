@@ -15681,6 +15681,16 @@ function createRegistry(options = {}) {
 
 // src/state.ts
 var DEFAULT_WAIT_CAP_MS = 25 * 60 * 1e3;
+var SUBMISSION_PROTOCOL = [
+  "## \u26A0\uFE0F SUBMISSION PROTOCOL / \u63D0\u4EA4\u534F\u8BAE",
+  "",
+  "- Submit your speech ONLY via the `moa_submit_turn` tool. Never output the speech as plain text and end the turn \u2014 end_turn without the tool call deadlocks the debate forever.",
+  "  \u53D1\u8A00\u5FC5\u987B\u4E14\u53EA\u80FD\u901A\u8FC7 `moa_submit_turn` \u5DE5\u5177\u63D0\u4EA4\uFF1B\u7981\u6B62\u5C06\u53D1\u8A00\u5185\u5BB9\u4F5C\u4E3A\u7EAF\u6587\u672C\u8F93\u51FA\u540E end_turn\u2014\u2014\u4E0D\u8C03\u7528\u5DE5\u5177\u7ED3\u675F\u56DE\u5408 = \u8FA9\u8BBA\u6C38\u4E45\u5361\u6B7B\u3002",
+  "- After submitting, if the debate is not complete, call `moa_wait_turn` again to wait for your next turn.",
+  "  \u63D0\u4EA4\u540E\u82E5 debate \u672A\u7ED3\u675F\uFF0C\u7EE7\u7EED\u8C03\u7528 `moa_wait_turn` \u7B49\u5F85\u4E0B\u4E00\u56DE\u5408\u3002",
+  "- A `not_your_turn` error means your turn was already handled \u2014 do NOT retry submit; go back to `moa_wait_turn` and wait.",
+  "  `not_your_turn` \u9519\u8BEF = \u4F60\u7684\u56DE\u5408\u5DF2\u88AB\u5904\u7406\uFF0C\u4E0D\u8981\u91CD\u8BD5\u63D0\u4EA4\uFF0C\u56DE\u5230 `moa_wait_turn` \u7B49\u5F85\u3002"
+].join("\n");
 function defaultLogsDir() {
   return process.env.MOAMCP_LOGS_DIR ?? join2(moamcpHome(), "logs");
 }
@@ -15897,15 +15907,19 @@ var DebateHub = class {
       full_context: { reference_results: task.referenceResults, transcript: task.transcript }
     };
   }
-  /** Prompt strategy per design doc §4b.3. */
+  /** Prompt strategy per design doc §4b.3; the submission protocol rides on every round. */
   buildPrompt(task) {
+    let round;
     if (task.round <= 1) {
-      return "Round 1: \u5BA1\u67E5\u5176\u4ED6 agent \u7ED3\u8BBA\u7684\u63A8\u7406\u8FC7\u7A0B\uFF0C\u627E\u51FA\u903B\u8F91\u6F0F\u6D1E\u3001\u9057\u6F0F\u7684\u68C0\u67E5\u70B9";
+      round = "Round 1: \u5BA1\u67E5\u5176\u4ED6 agent \u7ED3\u8BBA\u7684\u63A8\u7406\u8FC7\u7A0B\uFF0C\u627E\u51FA\u903B\u8F91\u6F0F\u6D1E\u3001\u9057\u6F0F\u7684\u68C0\u67E5\u70B9";
+    } else if (task.round < task.rounds) {
+      round = `Round ${task.round}: \u56DE\u5E94\u5BF9\u65B9\u7684\u8D28\u7591`;
+    } else {
+      round = `Round ${task.round} (final): \u8003\u8651\u6240\u6709\u8D28\u7591\u540E\uFF0C\u91CD\u65B0\u7ED9\u51FA\u6700\u7EC8\u7ED3\u8BBA`;
     }
-    if (task.round < task.rounds) {
-      return `Round ${task.round}: \u56DE\u5E94\u5BF9\u65B9\u7684\u8D28\u7591`;
-    }
-    return `Round ${task.round} (final): \u8003\u8651\u6240\u6709\u8D28\u7591\u540E\uFF0C\u91CD\u65B0\u7ED9\u51FA\u6700\u7EC8\u7ED3\u8BBA`;
+    return `${round}
+
+${SUBMISSION_PROTOCOL}`;
   }
   wakeSpeaker(task, speakerId) {
     const payload = this.turnPayload(task);

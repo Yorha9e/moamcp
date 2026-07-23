@@ -169,3 +169,16 @@ it('moa_status returns the Bus status when the server is wired to a Bus', async 
     await rm(statusLogs, { recursive: true, force: true });
   }
 });
+
+it('wait_turn prompt carries the submission protocol (submit only via moa_submit_turn)', async () => {
+  await call('moa_init', { task_id: 'smoke-proto', preset_config: { agents: ['p1', 'p2'], debate: { rounds: 1 } } });
+  await call('moa_start_debate', { task_id: 'smoke-proto', reference_results: [] });
+  const turn = await call('moa_wait_turn', { task_id: 'smoke-proto', agent_id: 'p1' });
+  expect(turn.status).toBe('your_turn');
+  // The contract rides on every turn payload, not only in the dispatch brief.
+  expect(turn.prompt).toContain('## ⚠️ SUBMISSION PROTOCOL / 提交协议');
+  expect(turn.prompt).toContain('moa_submit_turn');
+  expect(turn.prompt).toContain('end_turn');
+  expect(turn.prompt).toContain('moa_wait_turn');
+  expect(turn.prompt).toContain('not_your_turn');
+});

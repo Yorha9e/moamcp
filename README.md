@@ -137,6 +137,8 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 3. `wait_turn` 返回 `{status:"debate_complete", transcript}` 时辩论结束。
 4. `moa_complete(task_id)` —— 写三层归档到 `<MOAMCP_LOGS_DIR>/{task_id}/`，关闭任务，唤醒所有等待者。
 
+> **提交协议（SUBMISSION PROTOCOL）**：`moa_wait_turn` 每次返回回合时，prompt 都已预注入提交铁律——发言必须且只能通过 `moa_submit_turn` 工具提交，禁止把发言内容当纯文本输出后直接 end_turn（那会让辩论永久卡死）；提交后若辩论未结束继续 `moa_wait_turn`；收到 `not_your_turn` 说明该回合已被处理，不要重试提交、回到等待。铁律随回合 prompt 下发（不仅靠派发 brief），是辩手"写完发言忘记调用提交工具"问题的结构性修复。
+
 ### MCP 工具一览
 
 | 工具 | 调用方 | 作用 |
