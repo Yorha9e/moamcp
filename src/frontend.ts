@@ -369,7 +369,8 @@ export const FRONTEND_HTML = `<!doctype html>
       setDebateLabel(); setMeta(1, null); setStage(2); setBadge('debating', 'live');
     } else if (e.type === 'turn_submitted') {
       turns++; bumpAgent(e.agent_id); speaking = null;
-      addTurn(e.agent_id, e.round, e.turn, e.excerpt, e.ts);
+      // Prefer the full content; fall back to excerpt for older replay buffers.
+      addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts);
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, null);
     } else if (e.type === 'turn_advanced') {

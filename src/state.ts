@@ -254,6 +254,9 @@ export class DebateHub {
         agent_id: agentId,
         round: task.round,
         turn: task.turn,
+        // Full text for the card; excerpt kept for backward compatibility with
+        // older subscribers that only read `excerpt`.
+        content,
         excerpt: content.length > 200 ? content.slice(0, 200) + '…' : content,
       });
       // Advance round-robin.

@@ -15806,6 +15806,9 @@ var DebateHub = class {
         agent_id: agentId,
         round: task.round,
         turn: task.turn,
+        // Full text for the card; excerpt kept for backward compatibility with
+        // older subscribers that only read `excerpt`.
+        content,
         excerpt: content.length > 200 ? content.slice(0, 200) + "\u2026" : content
       });
       task.turn += 1;
@@ -16271,7 +16274,8 @@ var FRONTEND_HTML = `<!doctype html>
       setDebateLabel(); setMeta(1, null); setStage(2); setBadge('debating', 'live');
     } else if (e.type === 'turn_submitted') {
       turns++; bumpAgent(e.agent_id); speaking = null;
-      addTurn(e.agent_id, e.round, e.turn, e.excerpt, e.ts);
+      // Prefer the full content; fall back to excerpt for older replay buffers.
+      addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts);
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, null);
     } else if (e.type === 'turn_advanced') {
