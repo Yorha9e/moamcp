@@ -10,6 +10,7 @@ import { createServer as createHttpServer, get, type Server as HttpServer } from
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import vm from 'node:vm';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
@@ -85,6 +86,273 @@ it('serves the frontend card at GET /', async () => {
   const html = await res.text();
   expect(html).toContain('MOA Debate');
   expect(html).toContain("EventSource('/subscribe?task_id=");
+});
+
+// ---- frontend card DOM stub: run the card's inline <script> headlessly and
+// drive the clickable-stage interactions (click → scroll + flash + detail row).
+
+class El {
+  tag: string;
+  children: El[] = [];
+  parent: El | null = null;
+  text: string;
+  className = '';
+  hidden = false;
+  style: Record<string, string> = {};
+  attrs: Record<string, string> = {};
+  listeners: Record<string, Array<(ev: any) => void>> = {};
+  scrollCalls: any[] = [];
+  constructor(tag: string, text = '') {
+    this.tag = tag;
+    this.text = text;
+  }
+  get textContent(): string {
+    return this.text + this.children.map((c) => c.textContent).join('');
+  }
+  set textContent(v: string) {
+    this.children = [];
+    this.text = String(v);
+  }
+  get firstChild(): El | null {
+    return this.children[0] ?? null;
+  }
+  get lastChild(): El | null {
+    return this.children[this.children.length - 1] ?? null;
+  }
+  get classList() {
+    return {
+      add: (c: string) => {
+        const parts = this.className.split(' ').filter(Boolean);
+        if (!parts.includes(c)) parts.push(c);
+        this.className = parts.join(' ');
+      },
+      remove: (c: string) => {
+        this.className = this.className.split(' ').filter((p) => p && p !== c).join(' ');
+      },
+    };
+  }
+  appendChild(c: El): El {
+    c.parent = this;
+    this.children.push(c);
+    return c;
+  }
+  insertBefore(c: El, ref: El | null): El {
+    c.parent = this;
+    const i = ref ? this.children.indexOf(ref) : -1;
+    if (i < 0) this.children.push(c);
+    else this.children.splice(i, 0, c);
+    return c;
+  }
+  removeChild(c: El): El {
+    const i = this.children.indexOf(c);
+    if (i >= 0) this.children.splice(i, 1);
+    return c;
+  }
+  querySelector(sel: string): El | null {
+    const cls = sel.startsWith('.') ? sel.slice(1) : null;
+    const walk = (el: El): El | null => {
+      for (const c of el.children) {
+        if (cls ? c.className.split(' ').includes(cls) : c.tag === sel) return c;
+        const hit = walk(c);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    return walk(this);
+  }
+  closest(sel: string): El | null {
+    const id = sel.startsWith('#') ? sel.slice(1) : null;
+    const cls = id == null ? (sel.startsWith('.') ? sel.slice(1) : sel) : null;
+    let cur: El | null = this;
+    while (cur) {
+      if (id != null ? cur.attrs.id === id : cur.className.split(' ').includes(cls as string)) return cur;
+      cur = cur.parent;
+    }
+    return null;
+  }
+  addEventListener(type: string, h: (ev: any) => void): void {
+    (this.listeners[type] ??= []).push(h);
+  }
+  removeEventListener(type: string, h: (ev: any) => void): void {
+    const l = this.listeners[type] ?? [];
+    const i = l.indexOf(h);
+    if (i >= 0) l.splice(i, 1);
+  }
+  scrollIntoView(opts?: any): void {
+    this.scrollCalls.push(opts ?? null);
+  }
+  setAttribute(k: string, v: string): void {
+    this.attrs[k] = String(v);
+  }
+  getAttribute(k: string): string | null {
+    return this.attrs[k] ?? null;
+  }
+}
+
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  url: string;
+  onopen: ((ev?: any) => void) | null = null;
+  onmessage: ((m: { data: string }) => void) | null = null;
+  onerror: ((ev?: any) => void) | null = null;
+  listeners: Record<string, Array<(m: any) => void>> = {};
+  closed = false;
+  constructor(url: string) {
+    this.url = url;
+    FakeEventSource.instances.push(this);
+  }
+  addEventListener(type: string, h: (m: any) => void): void {
+    (this.listeners[type] ??= []).push(h);
+  }
+  close(): void {
+    this.closed = true;
+  }
+}
+
+/** Run the card's inline script in a vm sandbox; returns stub-DOM handles + SSE controls. */
+function runCardScript(script: string, taskId: string) {
+  const ids = [
+    'taskId', 'conn', 'badge', 'picker', 'pickerList', 'progressCard', 'stageHint',
+    'progress', 'st0', 'st1', 'st2', 'st3', 'st4', 'lk0', 'lk1', 'lk2', 'lk3', 'st2lb',
+    'stageDetail', 'config', 'configBody', 'meta', 'round', 'rounds', 'speaker', 'turns',
+    'agentsCard', 'agents', 'omkcCard', 'omkcScan', 'omkcCount', 'omkcAgents',
+    'transcriptCard', 'transcript', 'verdict', 'verdictBody', 'verdictFindings',
+    'verdictStats', 'fullBtn', 'omkcToolsCard', 'toolCount', 'toolLog',
+  ];
+  const byId = new Map<string, El>();
+  for (const id of ids) {
+    const el = new El('div');
+    el.attrs.id = id;
+    byId.set(id, el);
+  }
+  // Initial state as per the markup: sections that only appear later start hidden.
+  for (const id of ['stageDetail', 'picker', 'omkcCard', 'omkcToolsCard', 'verdict', 'fullBtn']) {
+    byId.get(id)!.hidden = true;
+  }
+  const docListeners: Record<string, Array<(ev: any) => void>> = {};
+  const document = {
+    getElementById: (id: string) => byId.get(id) as El,
+    createElement: (tag: string) => new El(tag),
+    createTextNode: (text: string) => new El('#text', text),
+    createDocumentFragment: () => new El('#fragment'),
+    addEventListener: (type: string, h: (ev: any) => void) => {
+      (docListeners[type] ??= []).push(h);
+    },
+  };
+  FakeEventSource.instances = [];
+  const sandbox: Record<string, unknown> = {
+    document,
+    location: { search: '?task_id=' + encodeURIComponent(taskId), href: '' },
+    fetch: () => Promise.reject(new Error('stub: offline')), // omkc-status / archive fetches fail clean
+    EventSource: FakeEventSource,
+    URLSearchParams, AbortController, console,
+    setTimeout, clearTimeout, setInterval, clearInterval,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(script, sandbox, { timeout: 5000 });
+  const sse = FakeEventSource.instances[0];
+  const click = (el: El) => {
+    for (const h of el.listeners.click ?? []) h({ target: el });
+  };
+  const docClick = (target: El) => {
+    for (const h of docListeners.click ?? []) h({ target });
+  };
+  return {
+    el: (id: string) => byId.get(id)!,
+    emit: (e: Record<string, unknown>) => sse.onmessage?.({ data: JSON.stringify(e) }),
+    click,
+    docClick, // simulate a click bubbling up to document (e.g. from a pill)
+    outsideClick: () => docClick(new El('div')),
+  };
+}
+
+it('frontend card: stage pills click through to their section and toggle a detail row', async () => {
+  const res = await fetch(`http://127.0.0.1:${port}/`);
+  const html = await res.text();
+  const match = html.match(/<script>([\s\S]*?)<\/script>/);
+  expect(match).toBeTruthy();
+  const card = runCardScript(match![1], 'ui-1');
+  const detail = card.el('stageDetail');
+
+  // Bootstrap: stage 0 (共识) active, detail row closed.
+  expect(card.el('st0').className).toContain('active');
+  expect(detail.hidden).toBe(true);
+
+  // Drive the lifecycle: init → start → first speaker.
+  card.emit({ type: 'task_initialized', agents: ['a1', 'a2'], agent_specs: [{ id: 'a1' }, { id: 'a2' }], rounds: 2, extras: { reference_results: 'R'.repeat(600) }, ts: '2026-07-23T10:00:00.000Z' });
+  card.emit({ type: 'debate_started', agents: ['a1', 'a2'], rounds: 2, ts: '2026-07-23T10:00:01.000Z' });
+  card.emit({ type: 'turn_advanced', round: 1, speaker: 'a1', ts: '2026-07-23T10:00:02.000Z' });
+
+  // 辩论 pill → detail row opens, transcript card scrolls in with an outline flash.
+  const st2 = card.el('st2');
+  const transcript = card.el('transcriptCard');
+  card.click(st2);
+  expect(detail.hidden).toBe(false);
+  expect(detail.textContent).toContain('Round 1/2');
+  expect(detail.textContent).toContain('a1');
+  expect(detail.textContent).toContain('已提交 0 个 turn');
+  expect(transcript.scrollCalls).toHaveLength(1);
+  expect(transcript.className).toContain('flash');
+  expect(st2.getAttribute('aria-expanded')).toBe('true');
+  // The flash cleans itself up when the outline animation ends.
+  transcript.listeners.animationend?.[0]?.({});
+  expect(transcript.className).not.toContain('flash');
+
+  // Live refresh: a submitted turn updates the open detail row.
+  card.emit({ type: 'turn_submitted', agent_id: 'a1', round: 1, turn: 1, content: 'a1 argues', ts: '2026-07-23T10:00:03.000Z' });
+  expect(detail.textContent).toContain('已提交 1 个 turn');
+
+  // Clicking the same pill again closes the row.
+  card.click(st2);
+  expect(detail.hidden).toBe(true);
+  expect(st2.getAttribute('aria-expanded')).toBe('false');
+
+  // Reference pill: snapshot summary truncated at 500 chars.
+  card.click(card.el('st1'));
+  expect(detail.hidden).toBe(false);
+  expect(detail.textContent).toContain('reference_results 摘要');
+  expect(detail.textContent).toContain('R'.repeat(500));
+  expect(detail.textContent).not.toContain('R'.repeat(501));
+
+  // A click elsewhere closes the row…
+  card.outsideClick();
+  expect(detail.hidden).toBe(true);
+
+  // …but a pill's own click bubbling up to document must not close it.
+  card.click(card.el('st0'));
+  card.docClick(card.el('st0'));
+  expect(detail.hidden).toBe(false);
+  expect(detail.textContent).toContain('任务已初始化');
+  card.outsideClick();
+
+  // Pending stages are clickable too: VERDICT card still hidden → no scroll,
+  // the row explains why the stage has not started.
+  const verdict = card.el('verdict');
+  card.click(card.el('st4'));
+  expect(detail.hidden).toBe(false);
+  expect(detail.textContent).toContain('该阶段尚未开始');
+  expect(detail.textContent).toContain('moa_complete');
+  expect(verdict.scrollCalls).toHaveLength(0);
+  card.outsideClick();
+
+  // Keyboard works as well: Enter on 聚合 opens its row (done by then).
+  card.emit({ type: 'debate_complete', rounds: 2, turns: 1, ts: '2026-07-23T10:00:04.000Z' });
+  card.emit({ type: 'task_closed', archive: 'logs/ui-1', turns: 1, ts: '2026-07-23T10:00:05.000Z' });
+  expect(verdict.hidden).toBe(false);
+  const st3 = card.el('st3');
+  st3.listeners.keydown?.[0]?.({ key: 'Enter', preventDefault: () => {} });
+  expect(detail.hidden).toBe(false);
+  expect(detail.textContent).toContain('归档已写入，裁决已输出');
+  expect(verdict.scrollCalls).toHaveLength(1);
+  expect(card.el('st4').getAttribute('aria-expanded')).toBe('false');
+
+  // 结论 pill now scrolls to the revealed VERDICT card and quotes the summary
+  // (second scroll on the card: Enter on 聚合 already landed there once).
+  card.click(card.el('st4'));
+  expect(detail.textContent).toContain('归档已写入 · logs/ui-1');
+  expect(verdict.scrollCalls).toHaveLength(2);
+  expect(card.el('st4').getAttribute('aria-expanded')).toBe('true');
+  expect(st3.getAttribute('aria-expanded')).toBe('false');
 });
 
 it('fans out turn_submitted/turn_advanced in order over real SSE', async () => {
