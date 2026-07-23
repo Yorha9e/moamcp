@@ -1,5 +1,4 @@
 node_modules/
-dist/
 logs/
 bus.port
 *.log
