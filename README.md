@@ -19,7 +19,7 @@ moamcp 进程
   │        ↕ 驱动
   │   辩论状态机（轮转、轮次、超时上限、归档）
   │
-  ├── own 模式：监听 127.0.0.1:8913（Bus）
+  ├── own 模式：监听 127.0.0.1:39813（Bus）
   │      ├── GET /            辩论卡片（SSE 实时刷新）
   │      ├── GET /tasks       活跃任务列表
   │      ├── GET /subscribe   SSE 事件流（迟到者自动重放）
@@ -166,7 +166,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 
 ### 端口规则与实例发现
 
-- **默认端口 8913**，可用 `MOAMCP_BUS_PORT` 覆盖。
+- **默认端口 39813**，可用 `MOAMCP_BUS_PORT` 覆盖。
 - 每个实例在绑定**之前**先写注册表 `<MOAMCP_HOME>/instances/<pid>.json`（`{id, pid, port, started_at, version}`），并发启动的同伴在绑定窗口内就能互相看见；写入为原子 rename，无锁。
 - 绑定失败（`EADDRINUSE`）时查注册表：
   - 端口被**另一个活的 moamcp** 持有（注册表条目 + pid 存活 + `GET /tasks` 健康探针通过）→ 进入 **reuse 模式**：本进程不监听，事件尽力转发给对方的 Bus（超时 / 失败只记 warning 丢弃，由对方的 SSE 重放缓冲与共享归档兜底），`card_url` 指向对方端口；
@@ -183,7 +183,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 |---|---|---|
 | `MOAMCP_HOME` | `~/.moamcp` | 实例注册表根目录（`<home>/instances`） |
 | `MOAMCP_LOGS_DIR` | `<MOAMCP_HOME>/logs` | 三层归档根目录（所有实例共享，reuse 模式的 `/archive` 依赖它） |
-| `MOAMCP_BUS_PORT` | `8913` | 期望的 Bus 端口 |
+| `MOAMCP_BUS_PORT` | `39813` | 期望的 Bus 端口 |
 | `MOAMCP_WAIT_CAP_MS` | 25 分钟 | `moa_wait_turn` 长轮询安全上限 |
 | `MOAMCP_BUS_WATCH_INTERVAL_MS` | `10000` | reuse 模式探活宿主 Bus 的间隔 |
 | `MOAMCP_BUS_WATCH_TIMEOUT_MS` | `1000` | 宿主探活请求超时 |

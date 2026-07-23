@@ -63,7 +63,7 @@ export interface BusStartResult {
 }
 
 export interface BusOptions {
-  /** Requested port; `MOAMCP_BUS_PORT` overrides the default, which is 8913. `0` = ephemeral. */
+  /** Requested port; `MOAMCP_BUS_PORT` overrides the default, which is 39813. `0` = ephemeral. */
   port?: number;
   /** Directory where bus.port is written. Default process.cwd(). */
   cwd?: string;
@@ -150,7 +150,7 @@ export class Bus {
   onTakeover?: (result: BusStartResult) => void;
 
   constructor(opts: BusOptions = {}) {
-    this.requestedPort = opts.port ?? envBusPort() ?? 8913;
+    this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
     this.logsDir = opts.logsDir ?? 'logs';

@@ -16692,7 +16692,7 @@ var Bus = class {
    */
   onTakeover;
   constructor(opts = {}) {
-    this.requestedPort = opts.port ?? envBusPort() ?? 8913;
+    this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
     this.logsDir = opts.logsDir ?? "logs";

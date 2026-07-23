@@ -181,7 +181,7 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus): Serve
 async function main(): Promise<void> {
   const waitCap = Number(process.env.MOAMCP_WAIT_CAP_MS);
   // Bus: SSE channel + frontend card. Port rules per the port-discovery design
-  // (§3.2/§3.3): register → bind 8913 (MOAMCP_BUS_PORT overrides) → a live
+  // (§3.2/§3.3): register → bind 39813 (MOAMCP_BUS_PORT overrides) → a live
   // moamcp holding the port means reuse mode (no listener in this process);
   // anything else walks port+1 up to the cap.
   const busPort = Number(process.env.MOAMCP_BUS_PORT);
