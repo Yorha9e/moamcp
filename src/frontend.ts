@@ -2,7 +2,10 @@
  * Self-contained debate card, served by the Bus at GET / (no build step).
  * Open as http://127.0.0.1:<port>/?task_id=<id> — subscribes to the task's
  * SSE stream and renders, per design doc §5.1: a stage progress bar
- * (共识 → Reference → 辩论 R N/M → 聚合 → 结论), the preset/config snapshot
+ * (共识 → Reference → 辩论 R N/M → 聚合 → 结论) with all five steps always
+ * visible and an explicit three-state dot per step (✓ done / pulsing green
+ * active / hollow grey pending), a live 辩论 N/M label and a hover/focus
+ * tooltip explaining each stage, the preset/config snapshot
  * from moa_init (with live round/speaker meta), the debater roster chips,
  * the per-round transcript, and a verdict panel that pulls result.json plus
  * the final turn (findings) from the archive on task_closed.
@@ -33,7 +36,7 @@ export const FRONTEND_HTML = `<!doctype html>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
-  body { background: #0e1014; color: #d7dae0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+  body { background: #0e1014; background-image: radial-gradient(820px 300px at 50% -140px, #18261e66, transparent 70%); color: #d7dae0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
   .wrap { max-width: 880px; margin: 0 auto; }
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   header h1 { font-size: 17px; font-weight: 600; }
@@ -46,13 +49,36 @@ export const FRONTEND_HTML = `<!doctype html>
   .sec-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #5b6270; margin-bottom: 10px; }
   .sec-title .aux { margin-left: auto; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; }
   .hint { color: #5b6270; }
-  /* stage progress bar */
-  #progress { display: flex; align-items: center; gap: 6px; }
-  .step { padding: 3px 12px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; transition: color .25s, border-color .25s, background .25s; }
-  .step.active { border-color: #4ade80; color: #4ade80; }
+  /* stage progress bar — all five steps always visible, each with an
+     explicit three-state dot: pending = hollow grey, active = pulsing
+     green, done = filled green with ✓. Connectors shrink, steps never
+     wrap, so the row self-fits inside the card down to narrow widths. */
+  #progress { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: default; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
+  .step:hover { transform: translateY(-1px); border-color: #39415a; }
+  .step:focus-visible { outline: 1px solid #4ade8066; outline-offset: 2px; }
+  .step .dot { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #39404f; background: transparent; color: #0e1014; font-size: 9px; line-height: 1; transition: background .25s, border-color .25s; }
+  .step.active { border-color: #4ade80; color: #4ade80; box-shadow: 0 0 10px #4ade8026; }
+  .step.active .dot { background: #4ade80; border-color: #4ade80; animation: dotPulse 1.5s ease-in-out infinite; }
   .step.done { background: #14342a; border-color: #1f4d3a; color: #4ade80; }
-  .link { flex: 1; height: 2px; background: #2a3140; min-width: 10px; transition: background .25s; }
+  .step.done .dot { background: #4ade80; border-color: #4ade80; }
+  .step.done .dot::before { content: '✓'; font-weight: 700; }
+  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 0 0 #4ade8059; } 50% { box-shadow: 0 0 0 5px #4ade8000; } }
+  .link { flex: 1 1 auto; height: 2px; background: #2a3140; min-width: 6px; transition: background .25s; }
   .link.done { background: #1f4d3a; }
+  /* per-stage meaning tooltip (hover / keyboard focus); edge steps align
+     their tooltip inward so it never spills out of the card */
+  .step::after { content: attr(data-tip); position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-3px); background: #1d222c; border: 1px solid #2a3140; border-radius: 6px; padding: 4px 9px; font-size: 11px; line-height: 1.4; color: #b7bec9; white-space: nowrap; box-shadow: 0 6px 18px #00000059; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 20; }
+  .step:hover::after, .step:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #progress .step:first-child::after { left: 0; transform: translateY(-3px); }
+  #progress .step:first-child:hover::after, #progress .step:first-child:focus-visible::after { transform: translateY(0); }
+  #progress .step:last-child::after { left: auto; right: 0; transform: translateY(-3px); }
+  #progress .step:last-child:hover::after, #progress .step:last-child:focus-visible::after { transform: translateY(0); }
+  @media (max-width: 600px) {
+    .step { padding: 3px 8px 3px 6px; font-size: 11px; gap: 5px; }
+    .step .dot { width: 12px; height: 12px; font-size: 8px; }
+    .link { min-width: 4px; }
+  }
   /* preset / config panel (moa_init snapshot) */
   #configBody { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
   #configBody b { color: #e6e9ee; font-weight: 600; }
@@ -127,12 +153,15 @@ export const FRONTEND_HTML = `<!doctype html>
     <h2>活跃任务</h2>
     <div id="pickerList"><span class="hint">loading…</span></div>
   </div>
-  <div class="card" id="progress">
-    <span class="step" id="st0">共识</span><span class="link" id="lk0"></span>
-    <span class="step" id="st1">Reference</span><span class="link" id="lk1"></span>
-    <span class="step" id="st2">辩论</span><span class="link" id="lk2"></span>
-    <span class="step" id="st3">聚合</span><span class="link" id="lk3"></span>
-    <span class="step" id="st4">结论</span>
+  <div class="card" id="progressCard">
+    <div class="sec-title">阶段进度<span class="aux hint" id="stageHint">等待任务初始化…</span></div>
+    <div id="progress">
+      <span class="step" id="st0" data-tip="共识 — 文件共识准备" aria-label="共识：文件共识准备" tabindex="0"><span class="dot"></span><span class="lb">共识</span></span><span class="link" id="lk0"></span>
+      <span class="step" id="st1" data-tip="Reference — 参考池" aria-label="Reference：参考池" tabindex="0"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
+      <span class="step" id="st2" data-tip="辩论 — 辩手轮流发言" aria-label="辩论：辩手轮流发言" tabindex="0"><span class="dot"></span><span class="lb" id="st2lb">辩论</span></span><span class="link" id="lk2"></span>
+      <span class="step" id="st3" data-tip="聚合 — 汇总裁决" aria-label="聚合：汇总裁决" tabindex="0"><span class="dot"></span><span class="lb">聚合</span></span><span class="link" id="lk3"></span>
+      <span class="step" id="st4" data-tip="结论 — VERDICT 输出" aria-label="结论：VERDICT 输出" tabindex="0"><span class="dot"></span><span class="lb">结论</span></span>
+    </div>
   </div>
   <div class="card" id="config">
     <div class="sec-title">模式 / 配置</div>
@@ -176,15 +205,21 @@ export const FRONTEND_HTML = `<!doctype html>
   function setBadge(text, cls) { badge.textContent = text; badge.className = 'badge ' + cls; }
 
   // ---- stage progress: 共识 → Reference → 辩论 R N/M → 聚合 → 结论 ----
+  // All five steps stay visible at all times; each carries one of three
+  // explicit states (done ✓ / active pulse / pending hollow), and the aux
+  // hint names the meaning of the current stage.
   var STEPS = 5;
+  var STAGE_TIPS = ['共识：文件共识准备', 'Reference：参考池', '辩论：辩手轮流发言', '聚合：汇总裁决', '结论：VERDICT 输出'];
   function setStage(n) { // steps < n are done, step n is active; n === STEPS → all done
     for (var i = 0; i < STEPS; i++) {
       document.getElementById('st' + i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
       if (i < STEPS - 1) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
     }
+    document.getElementById('stageHint').textContent =
+      n >= STEPS ? '全部完成 — 结论已输出 VERDICT' : '当前：' + STAGE_TIPS[n];
   }
   function setDebateLabel() {
-    document.getElementById('st2').textContent =
+    document.getElementById('st2lb').textContent =
       rounds === '–' ? '辩论' : '辩论 ' + curRound + '/' + rounds;
   }
 
@@ -432,7 +467,7 @@ export const FRONTEND_HTML = `<!doctype html>
       });
   }
   function showPicker() {
-    ['progress', 'config', 'agentsCard', 'transcriptCard', 'verdict'].forEach(function (id) {
+    ['progressCard', 'config', 'agentsCard', 'transcriptCard', 'verdict'].forEach(function (id) {
       document.getElementById(id).hidden = true;
     });
     document.getElementById('picker').hidden = false;

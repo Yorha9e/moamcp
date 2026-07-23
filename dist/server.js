@@ -15952,7 +15952,7 @@ var FRONTEND_HTML = `<!doctype html>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
-  body { background: #0e1014; color: #d7dae0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+  body { background: #0e1014; background-image: radial-gradient(820px 300px at 50% -140px, #18261e66, transparent 70%); color: #d7dae0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
   .wrap { max-width: 880px; margin: 0 auto; }
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   header h1 { font-size: 17px; font-weight: 600; }
@@ -15965,13 +15965,36 @@ var FRONTEND_HTML = `<!doctype html>
   .sec-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #5b6270; margin-bottom: 10px; }
   .sec-title .aux { margin-left: auto; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; }
   .hint { color: #5b6270; }
-  /* stage progress bar */
-  #progress { display: flex; align-items: center; gap: 6px; }
-  .step { padding: 3px 12px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; transition: color .25s, border-color .25s, background .25s; }
-  .step.active { border-color: #4ade80; color: #4ade80; }
+  /* stage progress bar \u2014 all five steps always visible, each with an
+     explicit three-state dot: pending = hollow grey, active = pulsing
+     green, done = filled green with \u2713. Connectors shrink, steps never
+     wrap, so the row self-fits inside the card down to narrow widths. */
+  #progress { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: default; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
+  .step:hover { transform: translateY(-1px); border-color: #39415a; }
+  .step:focus-visible { outline: 1px solid #4ade8066; outline-offset: 2px; }
+  .step .dot { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #39404f; background: transparent; color: #0e1014; font-size: 9px; line-height: 1; transition: background .25s, border-color .25s; }
+  .step.active { border-color: #4ade80; color: #4ade80; box-shadow: 0 0 10px #4ade8026; }
+  .step.active .dot { background: #4ade80; border-color: #4ade80; animation: dotPulse 1.5s ease-in-out infinite; }
   .step.done { background: #14342a; border-color: #1f4d3a; color: #4ade80; }
-  .link { flex: 1; height: 2px; background: #2a3140; min-width: 10px; transition: background .25s; }
+  .step.done .dot { background: #4ade80; border-color: #4ade80; }
+  .step.done .dot::before { content: '\u2713'; font-weight: 700; }
+  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 0 0 #4ade8059; } 50% { box-shadow: 0 0 0 5px #4ade8000; } }
+  .link { flex: 1 1 auto; height: 2px; background: #2a3140; min-width: 6px; transition: background .25s; }
   .link.done { background: #1f4d3a; }
+  /* per-stage meaning tooltip (hover / keyboard focus); edge steps align
+     their tooltip inward so it never spills out of the card */
+  .step::after { content: attr(data-tip); position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-3px); background: #1d222c; border: 1px solid #2a3140; border-radius: 6px; padding: 4px 9px; font-size: 11px; line-height: 1.4; color: #b7bec9; white-space: nowrap; box-shadow: 0 6px 18px #00000059; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 20; }
+  .step:hover::after, .step:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #progress .step:first-child::after { left: 0; transform: translateY(-3px); }
+  #progress .step:first-child:hover::after, #progress .step:first-child:focus-visible::after { transform: translateY(0); }
+  #progress .step:last-child::after { left: auto; right: 0; transform: translateY(-3px); }
+  #progress .step:last-child:hover::after, #progress .step:last-child:focus-visible::after { transform: translateY(0); }
+  @media (max-width: 600px) {
+    .step { padding: 3px 8px 3px 6px; font-size: 11px; gap: 5px; }
+    .step .dot { width: 12px; height: 12px; font-size: 8px; }
+    .link { min-width: 4px; }
+  }
   /* preset / config panel (moa_init snapshot) */
   #configBody { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
   #configBody b { color: #e6e9ee; font-weight: 600; }
@@ -16046,12 +16069,15 @@ var FRONTEND_HTML = `<!doctype html>
     <h2>\u6D3B\u8DC3\u4EFB\u52A1</h2>
     <div id="pickerList"><span class="hint">loading\u2026</span></div>
   </div>
-  <div class="card" id="progress">
-    <span class="step" id="st0">\u5171\u8BC6</span><span class="link" id="lk0"></span>
-    <span class="step" id="st1">Reference</span><span class="link" id="lk1"></span>
-    <span class="step" id="st2">\u8FA9\u8BBA</span><span class="link" id="lk2"></span>
-    <span class="step" id="st3">\u805A\u5408</span><span class="link" id="lk3"></span>
-    <span class="step" id="st4">\u7ED3\u8BBA</span>
+  <div class="card" id="progressCard">
+    <div class="sec-title">\u9636\u6BB5\u8FDB\u5EA6<span class="aux hint" id="stageHint">\u7B49\u5F85\u4EFB\u52A1\u521D\u59CB\u5316\u2026</span></div>
+    <div id="progress">
+      <span class="step" id="st0" data-tip="\u5171\u8BC6 \u2014 \u6587\u4EF6\u5171\u8BC6\u51C6\u5907" aria-label="\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907" tabindex="0"><span class="dot"></span><span class="lb">\u5171\u8BC6</span></span><span class="link" id="lk0"></span>
+      <span class="step" id="st1" data-tip="Reference \u2014 \u53C2\u8003\u6C60" aria-label="Reference\uFF1A\u53C2\u8003\u6C60" tabindex="0"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
+      <span class="step" id="st2" data-tip="\u8FA9\u8BBA \u2014 \u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00" aria-label="\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00" tabindex="0"><span class="dot"></span><span class="lb" id="st2lb">\u8FA9\u8BBA</span></span><span class="link" id="lk2"></span>
+      <span class="step" id="st3" data-tip="\u805A\u5408 \u2014 \u6C47\u603B\u88C1\u51B3" aria-label="\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3" tabindex="0"><span class="dot"></span><span class="lb">\u805A\u5408</span></span><span class="link" id="lk3"></span>
+      <span class="step" id="st4" data-tip="\u7ED3\u8BBA \u2014 VERDICT \u8F93\u51FA" aria-label="\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA" tabindex="0"><span class="dot"></span><span class="lb">\u7ED3\u8BBA</span></span>
+    </div>
   </div>
   <div class="card" id="config">
     <div class="sec-title">\u6A21\u5F0F / \u914D\u7F6E</div>
@@ -16095,15 +16121,21 @@ var FRONTEND_HTML = `<!doctype html>
   function setBadge(text, cls) { badge.textContent = text; badge.className = 'badge ' + cls; }
 
   // ---- stage progress: \u5171\u8BC6 \u2192 Reference \u2192 \u8FA9\u8BBA R N/M \u2192 \u805A\u5408 \u2192 \u7ED3\u8BBA ----
+  // All five steps stay visible at all times; each carries one of three
+  // explicit states (done \u2713 / active pulse / pending hollow), and the aux
+  // hint names the meaning of the current stage.
   var STEPS = 5;
+  var STAGE_TIPS = ['\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907', 'Reference\uFF1A\u53C2\u8003\u6C60', '\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00', '\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3', '\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA'];
   function setStage(n) { // steps < n are done, step n is active; n === STEPS \u2192 all done
     for (var i = 0; i < STEPS; i++) {
       document.getElementById('st' + i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
       if (i < STEPS - 1) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
     }
+    document.getElementById('stageHint').textContent =
+      n >= STEPS ? '\u5168\u90E8\u5B8C\u6210 \u2014 \u7ED3\u8BBA\u5DF2\u8F93\u51FA VERDICT' : '\u5F53\u524D\uFF1A' + STAGE_TIPS[n];
   }
   function setDebateLabel() {
-    document.getElementById('st2').textContent =
+    document.getElementById('st2lb').textContent =
       rounds === '\u2013' ? '\u8FA9\u8BBA' : '\u8FA9\u8BBA ' + curRound + '/' + rounds;
   }
 
@@ -16351,7 +16383,7 @@ var FRONTEND_HTML = `<!doctype html>
       });
   }
   function showPicker() {
-    ['progress', 'config', 'agentsCard', 'transcriptCard', 'verdict'].forEach(function (id) {
+    ['progressCard', 'config', 'agentsCard', 'transcriptCard', 'verdict'].forEach(function (id) {
       document.getElementById(id).hidden = true;
     });
     document.getElementById('picker').hidden = false;
