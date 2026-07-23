@@ -89,11 +89,11 @@ moamcp 本身（MCP 工具 + Bus + 卡片 + 归档）在两个版本上完全一
 
 即：官方 kimi 上可以完整跑通 MOA 辩论流程，但所有辩手共用主代理的模型（单模型多视角）；omkc 上才是完整形态——不同辩手由不同模型扮演（如强模型正方 / 强模型反方 / 快模型魔鬼代言人），配合角色化 profile 与桌面卡片。
 
-> 官方版本备注：上游最新代码已合入 `subagent-model-selection` 实验 flag（默认关闭）。设置 `KIMI_CODE_EXPERIMENTAL_SUBAGENT_MODEL_SELECTION=1` 后，官方版本同样支持 `binding_slot` 与 `.kimi-code/local.toml` 中的 `[subagent-slot.<name>]` 绑定。
+> 官方版本备注：截至 0.29.0，上游官方仓库**尚不含**子代理模型绑定机制（相关 PR [#1928](https://github.com/MoonshotAI/kimi-code/pull/1928) / [#2034](https://github.com/MoonshotAI/kimi-code/pull/2034) 仍在 open 状态）。因此官方版本目前只支持单模型 MOA；多模型槽位绑定是 omkc 社区版独有的能力。
 
 ## 使用
 
-### 1. 配置命名槽位（omkc；官方开启实验 flag 后同理）
+### 1. 配置命名槽位（仅 omkc）
 
 在工作区 `.kimi-code/local.toml` 中声明槽位（绑定是用户配置，spawn 时机械生效）：
 
