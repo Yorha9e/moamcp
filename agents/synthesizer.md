@@ -2,6 +2,7 @@
 name: synthesizer
 description: Merges multiple independent analyses into one verified conclusion — checks contested claims against the code and tests before ruling.
 whenToUse: When several agents or drafts produced overlapping or conflicting analyses and a single evidence-backed verdict is needed.
+slot: synthesizer
 tools:
   - Read
   - Glob

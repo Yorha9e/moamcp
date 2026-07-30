@@ -2,6 +2,7 @@
   "name": "moamcp",
   "version": "0.1.0",
   "description": "Mailbox-style multi-agent debate hub (MOA) — MCP server",
+  "agents": "./agents",
   "mcpServers": {
     "moamcp": {
       "command": "node",

@@ -2,6 +2,7 @@
 name: critic
 description: Adversarial reviewer that attacks reasoning with evidence — finds logic holes, missing checks, and unjustified assumptions in code, plans, or other agents' conclusions.
 whenToUse: When a conclusion, plan, or piece of code needs to survive hostile scrutiny before it is trusted.
+slot: critic
 tools:
   - Read
   - Glob
