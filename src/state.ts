@@ -6,6 +6,7 @@
  * stored as pending promises per task and resolved by submit/complete.
  */
 import { join } from 'node:path';
+import type { BoardStore } from './board.js';
 import { moamcpHome } from './registry.js';
 
 /** Safety cap for a single moa_wait_turn call (design doc §4c.4: 30min client timeout). */
@@ -138,6 +139,8 @@ export interface HubOptions {
   emit?: (taskId: string, event: DomainEvent) => void;
   /** Builds the debate-card URL returned by moa_init (injected by the server once the port is known). */
   cardUrlFactory?: (taskId: string) => string;
+  /** Shared blackboard; when present, `complete` archives the task scope as `board.jsonl`. */
+  board?: BoardStore;
 }
 
 /** Domain events emitted by the hub; the Bus adds task_id/ts when fanning out. */
@@ -149,7 +152,10 @@ export interface DomainEvent {
     | 'turn_advanced'
     | 'signoff_reset'
     | 'debate_complete'
-    | 'task_closed';
+    | 'task_closed'
+    // Emitted by the BoardStore (routed through the same sink by the server):
+    // task-scope writes/deletes land on the task's SSE stream, card-visible.
+    | 'board_updated';
   [key: string]: unknown;
 }
 
@@ -161,12 +167,14 @@ export class DebateHub {
   private readonly logsDir: string;
   private readonly emitFn?: (taskId: string, event: DomainEvent) => void;
   private readonly cardUrlFactory?: (taskId: string) => string;
+  private readonly board?: BoardStore;
 
   constructor(opts: HubOptions = {}) {
     this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
     this.logsDir = opts.logsDir ?? defaultLogsDir();
     this.emitFn = opts.emit;
     this.cardUrlFactory = opts.cardUrlFactory;
+    this.board = opts.board;
   }
 
   private emit(taskId: string, event: DomainEvent): void {
@@ -407,6 +415,9 @@ export class DebateHub {
         result.signoffs = Object.fromEntries(task.signoffs);
       }
       await writeFile(resolve(dir, 'result.json'), JSON.stringify(result, null, 2));
+      // Layer 4: shared-blackboard notes posted to this task's scope (raw
+      // append-only records; empty file when the debate never used the board).
+      if (this.board !== undefined) await this.board.archiveTask(taskId, dir);
       task.status = 'closed';
       this.wakeAll(task, { status: 'closed' });
       this.emit(taskId, { type: 'task_closed', archive: dir, turns: task.transcript.length });

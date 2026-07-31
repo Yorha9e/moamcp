@@ -88,6 +88,7 @@ const ARCHIVE_FILES: Record<string, string> = {
   'result.json': 'application/json; charset=utf-8',
   'probe.json': 'application/json; charset=utf-8',
   'events.jsonl': 'application/x-ndjson; charset=utf-8',
+  'board.jsonl': 'application/x-ndjson; charset=utf-8',
 };
 
 /** `MOAMCP_BUS_PORT` as a positive integer, or undefined when unset/invalid. */
@@ -456,7 +457,7 @@ export class Bus {
       const contentType = ARCHIVE_FILES[file];
       if (!taskId || /[\\/]|\.\./.test(taskId) || !contentType) {
         res.writeHead(400, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ error: 'valid task_id and file (result.json|probe.json|events.jsonl) required' }));
+        res.end(JSON.stringify({ error: 'valid task_id and file (result.json|probe.json|events.jsonl|board.jsonl) required' }));
         return;
       }
       try {

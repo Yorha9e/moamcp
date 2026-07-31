@@ -2984,7 +2984,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve3.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3011,7 +3011,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve3(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3642,7 +3642,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve3(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3906,7 +3906,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve2,
+      resolve: resolve3,
       resolveComponent,
       equal,
       serialize,
@@ -14213,7 +14213,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -14230,7 +14230,7 @@ var Protocol = class {
    */
   request(request2, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve3, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -14308,7 +14308,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve2(parseResult.data);
+            resolve3(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -14569,12 +14569,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve3, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve2, interval);
+      const timeoutId = setTimeout(resolve3, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -15444,12 +15444,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve2) => {
+    return new Promise((resolve3) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve2();
+        resolve3();
       } else {
-        this._stdout.once("drain", resolve2);
+        this._stdout.once("drain", resolve3);
       }
     });
   }
@@ -15714,11 +15714,13 @@ var DebateHub = class {
   logsDir;
   emitFn;
   cardUrlFactory;
+  board;
   constructor(opts = {}) {
     this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
     this.logsDir = opts.logsDir ?? defaultLogsDir();
     this.emitFn = opts.emit;
     this.cardUrlFactory = opts.cardUrlFactory;
+    this.board = opts.board;
   }
   emit(taskId, event) {
     this.emitFn?.(taskId, event);
@@ -15810,13 +15812,13 @@ var DebateHub = class {
         return { kind: "now", payload: { status: "debate_complete", transcript: task.transcript } };
       }
       if (task.status === "closed") return { kind: "now", payload: { status: "closed" } };
-      const promise = new Promise((resolve2) => {
+      const promise = new Promise((resolve3) => {
         const waiter = {
           agentId,
-          resolve: resolve2,
+          resolve: resolve3,
           timer: setTimeout(() => {
             task.waiters.delete(waiter);
-            resolve2({ status: "timeout", retry: true });
+            resolve3({ status: "timeout", retry: true });
           }, this.waitCapMs)
         };
         task.waiters.add(waiter);
@@ -15901,16 +15903,16 @@ var DebateHub = class {
   async complete(taskId) {
     return this.enqueue(taskId, async () => {
       const task = this.getTask(taskId);
-      const { mkdir: mkdir2, writeFile: writeFile2 } = await import("node:fs/promises");
-      const { resolve: resolve2 } = await import("node:path");
-      const dir = resolve2(this.logsDir, taskId);
-      await mkdir2(dir, { recursive: true });
+      const { mkdir: mkdir3, writeFile: writeFile3 } = await import("node:fs/promises");
+      const { resolve: resolve3 } = await import("node:path");
+      const dir = resolve3(this.logsDir, taskId);
+      await mkdir3(dir, { recursive: true });
       const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
-      await writeFile2(
-        resolve2(dir, "probe.json"),
+      await writeFile3(
+        resolve3(dir, "probe.json"),
         JSON.stringify({ task_id: taskId, created_at: task.createdAt, agents: task.probes }, null, 2)
       );
-      await writeFile2(resolve2(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
+      await writeFile3(resolve3(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
       const result = {
         task_id: taskId,
         status: task.status,
@@ -15924,7 +15926,8 @@ var DebateHub = class {
         result.reason = task.earlyClose.reason;
         result.signoffs = Object.fromEntries(task.signoffs);
       }
-      await writeFile2(resolve2(dir, "result.json"), JSON.stringify(result, null, 2));
+      await writeFile3(resolve3(dir, "result.json"), JSON.stringify(result, null, 2));
+      if (this.board !== void 0) await this.board.archiveTask(taskId, dir);
       task.status = "closed";
       this.wakeAll(task, { status: "closed" });
       this.emit(taskId, { type: "task_closed", archive: dir, turns: task.transcript.length });
@@ -16934,7 +16937,8 @@ var REUSE_WATCH_FAIL_THRESHOLD = 3;
 var ARCHIVE_FILES = {
   "result.json": "application/json; charset=utf-8",
   "probe.json": "application/json; charset=utf-8",
-  "events.jsonl": "application/x-ndjson; charset=utf-8"
+  "events.jsonl": "application/x-ndjson; charset=utf-8",
+  "board.jsonl": "application/x-ndjson; charset=utf-8"
 };
 function envBusPort() {
   const raw = Number(process.env.MOAMCP_BUS_PORT);
@@ -17066,7 +17070,7 @@ var Bus = class {
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
-    await new Promise((resolve2) => this.server.close(() => resolve2()));
+    await new Promise((resolve3) => this.server.close(() => resolve3()));
     await this.releaseRegistration();
     if (this.wrotePortFile) await rm(join3(this.cwd, "bus.port"), { force: true });
   }
@@ -17246,7 +17250,7 @@ var Bus = class {
       const contentType = ARCHIVE_FILES[file];
       if (!taskId || /[\\/]|\.\./.test(taskId) || !contentType) {
         res.writeHead(400, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: "valid task_id and file (result.json|probe.json|events.jsonl) required" }));
+        res.end(JSON.stringify({ error: "valid task_id and file (result.json|probe.json|events.jsonl|board.jsonl) required" }));
         return;
       }
       try {
@@ -17277,6 +17281,334 @@ var Bus = class {
     res.end(JSON.stringify({ error: "not found" }));
   }
 };
+
+// src/board.ts
+import { createHash } from "node:crypto";
+import { appendFile, mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "node:fs/promises";
+import { join as join4, resolve as resolve2 } from "node:path";
+var BOARD_VALUE_MAX_BYTES = 32 * 1024;
+var DEFAULT_READ_LIMIT = 100;
+var MAX_READ_LIMIT = 1e3;
+var KEY_MAX_BYTES = 512;
+function validateKey(key) {
+  if (typeof key !== "string" || key.length === 0) throw new Error("key must be a non-empty string");
+  if (Buffer.byteLength(key, "utf8") > KEY_MAX_BYTES) throw new Error(`key exceeds ${KEY_MAX_BYTES} bytes`);
+  return key;
+}
+function validateValue(value) {
+  if (typeof value !== "string") throw new Error("value must be a string (markdown)");
+  const bytes = Buffer.byteLength(value, "utf8");
+  if (bytes > BOARD_VALUE_MAX_BYTES) {
+    throw new Error(`value too large: ${bytes} bytes > ${BOARD_VALUE_MAX_BYTES} (put large content in files, reference them from the board)`);
+  }
+  return value;
+}
+function normalizeTags(tags) {
+  if (tags === void 0 || tags === null) return [];
+  if (!Array.isArray(tags)) throw new Error("tags must be a string array");
+  return tags.map((tag) => {
+    if (typeof tag !== "string" || tag.length === 0) throw new Error("tags must be non-empty strings");
+    return tag;
+  });
+}
+function normalizeAuthor(author) {
+  if (author === void 0 || author === null || author === "") return "anonymous";
+  if (typeof author !== "string") throw new Error("author must be a string");
+  return author;
+}
+function isRecord(value) {
+  return (value.op === "write" || value.op === "delete") && typeof value.key === "string" && typeof value.author === "string" && typeof value.ts === "string" && (value.op === "delete" || typeof value.value === "string");
+}
+var BoardStore = class {
+  scopes = /* @__PURE__ */ new Map();
+  queues = /* @__PURE__ */ new Map();
+  homeDir;
+  workspaceCwd;
+  waitCapMs;
+  emitFn;
+  /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
+  lastEpoch = 0;
+  constructor(opts = {}) {
+    this.homeDir = opts.homeDir;
+    this.workspaceCwd = opts.workspaceCwd ?? process.cwd();
+    this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
+    this.emitFn = opts.emit;
+  }
+  // ---- tools ----
+  async write(key, value, tags, author, scopeInput) {
+    const k = validateKey(key);
+    const v = validateValue(value);
+    const normalizedTags = normalizeTags(tags);
+    const normalizedAuthor = normalizeAuthor(author);
+    const scope = this.parseScope(scopeInput);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const ts = this.nextTs();
+      const entry = { key: k, value: v, author: normalizedAuthor, ts, tags: normalizedTags };
+      state.entries.set(k, entry);
+      const record2 = {
+        op: "write",
+        scope: scope.key,
+        key: k,
+        value: v,
+        author: normalizedAuthor,
+        ts,
+        ...normalizedTags.length > 0 ? { tags: normalizedTags } : {}
+      };
+      await this.persist(state, record2);
+      this.wakeWaiters(state, entry);
+      this.emit(scope, { type: "board_updated", op: "write", scope: scope.label, key: k, author: normalizedAuthor, ts });
+      return { ok: true, ts };
+    });
+  }
+  /**
+   * Folded read: with `key`, the live entry for that key (0/1 rows); with
+   * `tag`, live entries carrying that tag; with neither, every key's latest
+   * value. Newest first, capped by `limit` (default 100, max 1000).
+   */
+  async read(key, tag, scopeInput, limit) {
+    if (key !== void 0 && key !== null) validateKey(key);
+    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    const scope = this.parseScope(scopeInput);
+    const state = this.scopeState(scope);
+    const cap = normalizeLimit(limit);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      let entries = [...state.entries.values()];
+      if (typeof key === "string") entries = entries.filter((entry) => entry.key === key);
+      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
+      entries.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+      return entries.slice(0, cap);
+    });
+  }
+  /** Lightweight browse: one row per live key, values replaced by their byte size. */
+  async list(scopeInput) {
+    const scope = this.parseScope(scopeInput);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      return [...state.entries.values()].sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts)).map((entry) => ({
+        key: entry.key,
+        author: entry.author,
+        ts: entry.ts,
+        tags: entry.tags,
+        bytes: Buffer.byteLength(entry.value, "utf8")
+      }));
+    });
+  }
+  /**
+   * Long-poll until `key` has a value — or, with `since` (ISO timestamp),
+   * until the entry is strictly newer than it ("wait for the next update").
+   * Resolves `{status:'ready', entry}` on wake, `{status:'timeout', retry:true}`
+   * at the cap (`timeoutMs` overrides, clamped to the cap), `{status:'closed'}`
+   * when a task scope is archived out from under the waiter. Deletes do not
+   * wake: waiters asked for a value, not a change.
+   */
+  async wait(key, scopeInput, timeoutMs, since) {
+    const k = validateKey(key);
+    const scope = this.parseScope(scopeInput);
+    const state = this.scopeState(scope);
+    let sinceEpoch;
+    if (since !== void 0 && since !== null) {
+      if (typeof since !== "string" || Number.isNaN(Date.parse(since))) {
+        throw new Error(`invalid since timestamp: ${String(since)} (expected ISO 8601)`);
+      }
+      sinceEpoch = Date.parse(since);
+    }
+    let effectiveTimeout = this.waitCapMs;
+    if (timeoutMs !== void 0 && timeoutMs !== null) {
+      if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new Error("timeoutMs must be a positive number");
+      }
+      effectiveTimeout = Math.min(timeoutMs, this.waitCapMs);
+    }
+    const outcome = await this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const current = state.entries.get(k);
+      if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
+        return { kind: "now", payload: { status: "ready", entry: current } };
+      }
+      const promise = new Promise((resolve3) => {
+        const waiter = {
+          key: k,
+          sinceEpoch,
+          resolve: resolve3,
+          timer: setTimeout(() => {
+            state.waiters.delete(waiter);
+            resolve3({ status: "timeout", retry: true });
+          }, effectiveTimeout)
+        };
+        state.waiters.add(waiter);
+      });
+      return { kind: "suspended", promise };
+    });
+    return outcome.kind === "now" ? outcome.payload : outcome.promise;
+  }
+  /** Tombstone delete: the key vanishes from read/list; the JSONL keeps the record. */
+  async delete(key, author, scopeInput) {
+    const k = validateKey(key);
+    const normalizedAuthor = normalizeAuthor(author);
+    const scope = this.parseScope(scopeInput);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const ts = this.nextTs();
+      state.entries.delete(k);
+      await this.persist(state, { op: "delete", scope: scope.key, key: k, author: normalizedAuthor, ts });
+      this.emit(scope, { type: "board_updated", op: "delete", scope: scope.label, key: k, author: normalizedAuthor, ts });
+      return { ok: true, ts };
+    });
+  }
+  // ---- task lifecycle ----
+  /**
+   * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
+   * archive layer), wake any remaining waiters with `{status:'closed'}`, and
+   * drop the in-memory scope. Called by `DebateHub.complete`. Idempotent for
+   * tasks that never used the board (writes an empty file).
+   */
+  async archiveTask(taskId, dir) {
+    const key = `task:${taskId}`;
+    const state = this.scopes.get(key);
+    const records = state?.history ?? [];
+    await mkdir2(dir, { recursive: true });
+    const body = records.length > 0 ? records.map((record2) => JSON.stringify(record2)).join("\n") + "\n" : "";
+    await writeFile2(resolve2(dir, "board.jsonl"), body);
+    if (state !== void 0) {
+      for (const waiter of [...state.waiters]) {
+        state.waiters.delete(waiter);
+        clearTimeout(waiter.timer);
+        waiter.resolve({ status: "closed" });
+      }
+      this.scopes.delete(key);
+      this.queues.delete(key);
+    }
+  }
+  // ---- internals ----
+  parseScope(input) {
+    if (input === void 0 || input === null) input = "workspace";
+    if (typeof input !== "string") throw new Error("scope must be a string");
+    const raw = input.trim();
+    if (raw === "workspace") {
+      const hash = createHash("sha1").update(resolve2(this.workspaceCwd)).digest("hex").slice(0, 16);
+      return { kind: "workspace", key: `workspace:${hash}`, label: "workspace" };
+    }
+    if (raw === "global") return { kind: "global", key: "global", label: "global" };
+    if (raw.startsWith("task:")) {
+      const taskId = raw.slice("task:".length);
+      if (taskId.length === 0) throw new Error("invalid scope: task:<task_id> requires a non-empty task_id");
+      return { kind: "task", key: raw, label: raw, taskId };
+    }
+    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
+  }
+  boardsDir() {
+    return join4(this.homeDir ?? moamcpHome(), "boards");
+  }
+  scopeState(scope) {
+    let state = this.scopes.get(scope.key);
+    if (state !== void 0) return state;
+    state = { entries: /* @__PURE__ */ new Map(), loaded: false, waiters: /* @__PURE__ */ new Set() };
+    if (scope.kind === "task") {
+      state.history = [];
+    } else if (scope.kind === "global") {
+      state.file = join4(this.boardsDir(), "global.jsonl");
+    } else {
+      const hash = scope.key.slice("workspace:".length);
+      state.file = join4(this.boardsDir(), `ws-${hash}.jsonl`);
+      state.metaFile = join4(this.boardsDir(), `ws-${hash}.meta.json`);
+      state.metaCwd = resolve2(this.workspaceCwd);
+    }
+    this.scopes.set(scope.key, state);
+    return state;
+  }
+  /** Fold the append-only log into the current view (once per scope per process). */
+  async fold(state) {
+    if (state.loaded) return;
+    state.loaded = true;
+    if (state.file === void 0) return;
+    let raw;
+    try {
+      raw = await readFile3(state.file, "utf8");
+    } catch (err) {
+      if (err.code === "ENOENT") return;
+      throw err;
+    }
+    for (const line of raw.split(/\r?\n/)) {
+      if (line.trim() === "") continue;
+      let record2;
+      try {
+        record2 = JSON.parse(line);
+      } catch {
+        console.warn(`[moamcp] board: skipping unparseable line in ${state.file}`);
+        continue;
+      }
+      if (!isRecord(record2)) {
+        console.warn(`[moamcp] board: skipping malformed record in ${state.file}`);
+        continue;
+      }
+      if (record2.op === "write") {
+        state.entries.set(record2.key, {
+          key: record2.key,
+          value: record2.value,
+          author: record2.author,
+          ts: record2.ts,
+          tags: record2.tags ?? []
+        });
+      } else {
+        state.entries.delete(record2.key);
+      }
+    }
+  }
+  /** Append a record to the scope's JSONL (persistent scopes only) + task history. */
+  async persist(state, record2) {
+    if (state.history !== void 0) state.history.push(record2);
+    if (state.file === void 0) return;
+    await mkdir2(this.boardsDir(), { recursive: true });
+    if (state.metaFile !== void 0 && !state.metaWritten) {
+      state.metaWritten = true;
+      await writeFile2(state.metaFile, JSON.stringify({ cwd: state.metaCwd, created_at: record2.ts }, null, 2)).catch(() => {
+      });
+    }
+    await appendFile(state.file, JSON.stringify(record2) + "\n");
+  }
+  wakeWaiters(state, entry) {
+    const epoch = Date.parse(entry.ts);
+    for (const waiter of [...state.waiters]) {
+      if (waiter.key !== entry.key) continue;
+      if (waiter.sinceEpoch !== void 0 && epoch <= waiter.sinceEpoch) continue;
+      state.waiters.delete(waiter);
+      clearTimeout(waiter.timer);
+      waiter.resolve({ status: "ready", entry });
+    }
+  }
+  /** Strictly increasing ISO timestamp: same-millisecond writes still order (wait's `since` depends on it). */
+  nextTs() {
+    const now = Date.now();
+    this.lastEpoch = now > this.lastEpoch ? now : this.lastEpoch + 1;
+    return new Date(this.lastEpoch).toISOString();
+  }
+  emit(scope, event) {
+    this.emitFn?.(scope, event);
+  }
+  /** Serialize all mutations for one scope through a promise chain (mirrors DebateHub.enqueue). */
+  enqueue(scopeKey, fn) {
+    const prev = this.queues.get(scopeKey) ?? Promise.resolve();
+    const next = prev.then(fn, fn);
+    this.queues.set(
+      scopeKey,
+      next.catch(() => {
+      })
+    );
+    return next;
+  }
+};
+function normalizeLimit(limit) {
+  if (limit === void 0 || limit === null) return DEFAULT_READ_LIMIT;
+  if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1) {
+    throw new Error("limit must be a positive number");
+  }
+  return Math.min(Math.floor(limit), MAX_READ_LIMIT);
+}
 
 // src/server.ts
 var REUSE_PUBLISH_TIMEOUT_MS = 2e3;
@@ -17311,6 +17643,14 @@ function reusePublishForwarder(port) {
 }
 var TASK_ID = { type: "string", description: "MOA task id" };
 var AGENT_ID = { type: "string", description: "Debate agent id (must be in preset agents)" };
+var BOARD_SCOPE = {
+  type: "string",
+  description: 'Board scope: "workspace" (default \u2014 persisted, shared by all sessions of this project), "global" (persisted, cross-project), or "task:<task_id>" (debate-local, archived with the task).'
+};
+var BOARD_AUTHOR = {
+  type: "string",
+  description: 'Who writes this entry (default "anonymous"). Subagents should pass their own agent id.'
+};
 var TOOLS = [
   {
     name: "moa_init",
@@ -17367,11 +17707,74 @@ var TOOLS = [
   },
   {
     name: "moa_complete",
-    description: "Write the three-layer archive to <logsDir>/{task_id}/ (probe.json, events.jsonl, result.json; logsDir defaults to ~/.moamcp/logs, MOAMCP_LOGS_DIR overrides), close the task, wake remaining waiters.",
+    description: 'Write the archive to <logsDir>/{task_id}/ (probe.json, events.jsonl, result.json, plus board.jsonl \u2014 the task-scope blackboard notes; logsDir defaults to ~/.moamcp/logs, MOAMCP_LOGS_DIR overrides), close the task, wake remaining waiters (including board waiters, which get {status:"closed"}).',
     inputSchema: {
       type: "object",
       properties: { task_id: TASK_ID },
       required: ["task_id"]
+    }
+  },
+  {
+    name: "moa_board_write",
+    description: "Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 32KB \u2014 put large content in files and reference them. Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "Entry key (unique within the scope; rewriting replaces the value)" },
+        value: { type: "string", description: "Markdown payload, \u2264 32KB" },
+        tags: { type: "array", items: { type: "string" }, description: "Optional tags for moa_board_read tag filtering" },
+        author: BOARD_AUTHOR,
+        scope: BOARD_SCOPE
+      },
+      required: ["key", "value"]
+    }
+  },
+  {
+    name: "moa_board_read",
+    description: "Read live entries from the blackboard (deleted keys never appear). With key: that key's latest entry; with tag: entries carrying the tag; with neither: every key's latest value. Newest first, capped by limit (default 100).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string" },
+        tag: { type: "string" },
+        scope: BOARD_SCOPE,
+        limit: { type: "number", description: "Max entries to return (default 100, hard cap 1000)" }
+      }
+    }
+  },
+  {
+    name: "moa_board_list",
+    description: "Lightweight browse of the blackboard: one row per live key with {key, author, ts, tags, bytes} (no values).",
+    inputSchema: {
+      type: "object",
+      properties: { scope: BOARD_SCOPE }
+    }
+  },
+  {
+    name: "moa_board_wait",
+    description: 'Long-poll until key has a value \u2014 or, with since (ISO timestamp), until the entry is strictly newer than it ("wait for the next update"). Returns {status:"ready", entry}, {status:"timeout", retry:true} at the safety cap (default 25min like moa_wait_turn, MOAMCP_WAIT_CAP_MS / timeoutMs tune it), or {status:"closed"} when a task scope is archived while waiting.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string" },
+        scope: BOARD_SCOPE,
+        timeoutMs: { type: "number", description: "Per-call cap override (clamped to the safety cap)" },
+        since: { type: "string", description: "ISO timestamp: wake only on entries strictly newer than it" }
+      },
+      required: ["key"]
+    }
+  },
+  {
+    name: "moa_board_delete",
+    description: "Tombstone-delete a key: it disappears from read/list; the append-only JSONL keeps the deletion record.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string" },
+        author: BOARD_AUTHOR,
+        scope: BOARD_SCOPE
+      },
+      required: ["key"]
     }
   },
   {
@@ -17383,7 +17786,8 @@ var TOOLS = [
     }
   }
 ];
-function createServer2(hub = new DebateHub(), bus) {
+function createServer2(hub = new DebateHub(), bus, board) {
+  const boardStore = board ?? new BoardStore();
   const server = new Server(
     { name: "moamcp", version: "0.1.0" },
     { capabilities: { tools: {} } }
@@ -17408,6 +17812,21 @@ function createServer2(hub = new DebateHub(), bus) {
         break;
       case "moa_complete":
         result = await hub.complete(a.task_id);
+        break;
+      case "moa_board_write":
+        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope);
+        break;
+      case "moa_board_read":
+        result = await boardStore.read(a.key, a.tag, a.scope, a.limit);
+        break;
+      case "moa_board_list":
+        result = await boardStore.list(a.scope);
+        break;
+      case "moa_board_wait":
+        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since);
+        break;
+      case "moa_board_delete":
+        result = await boardStore.delete(a.key, a.author, a.scope);
         break;
       case "moa_status":
         result = {
@@ -17460,13 +17879,19 @@ async function main() {
       result.mode === "own" ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)` : `[moamcp] takeover: lost the port race; reusing new Bus at http://127.0.0.1:${result.port}/`
     );
   };
+  const board = new BoardStore({
+    ...Number.isFinite(waitCap) && waitCap > 0 ? { waitCapMs: waitCap } : {},
+    workspaceCwd: process.cwd(),
+    emit: (scope, event) => sink(scope.kind === "task" ? scope.taskId : `@board/${scope.key}`, event)
+  });
   const hub = new DebateHub({
     ...Number.isFinite(waitCap) && waitCap > 0 ? { waitCapMs: waitCap } : {},
     logsDir,
     emit: (taskId, event) => sink(taskId, event),
-    cardUrlFactory: (taskId) => cardUrl(cardPort, taskId)
+    cardUrlFactory: (taskId) => cardUrl(cardPort, taskId),
+    board
   });
-  const server = createServer2(hub, bus);
+  const server = createServer2(hub, bus, board);
   await server.connect(new StdioServerTransport());
   if (startResult.mode === "reuse") {
     console.error(
@@ -17476,8 +17901,8 @@ async function main() {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
   const { rmSync } = await import("node:fs");
-  const { join: join4 } = await import("node:path");
-  process.on("exit", () => rmSync(join4(process.cwd(), "bus.port"), { force: true }));
+  const { join: join5 } = await import("node:path");
+  process.on("exit", () => rmSync(join5(process.cwd(), "bus.port"), { force: true }));
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;

@@ -14,6 +14,7 @@ import { request } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { DebateHub, defaultLogsDir, type DomainEvent, type PresetConfig } from './state.js';
 import { Bus } from './bus.js';
+import { BoardStore } from './board.js';
 
 /** Best-effort forward timeout for reuse-mode publishes (design §3.3: no retries). */
 const REUSE_PUBLISH_TIMEOUT_MS = 2000;
@@ -61,6 +62,16 @@ function reusePublishForwarder(port: number): (taskId: string, event: DomainEven
 
 const TASK_ID = { type: 'string', description: 'MOA task id' } as const;
 const AGENT_ID = { type: 'string', description: 'Debate agent id (must be in preset agents)' } as const;
+const BOARD_SCOPE = {
+  type: 'string',
+  description:
+    'Board scope: "workspace" (default — persisted, shared by all sessions of this project), ' +
+    '"global" (persisted, cross-project), or "task:<task_id>" (debate-local, archived with the task).',
+} as const;
+const BOARD_AUTHOR = {
+  type: 'string',
+  description: 'Who writes this entry (default "anonymous"). Subagents should pass their own agent id.',
+} as const;
 
 const TOOLS = [
   {
@@ -125,11 +136,81 @@ const TOOLS = [
   },
   {
     name: 'moa_complete',
-    description: 'Write the three-layer archive to <logsDir>/{task_id}/ (probe.json, events.jsonl, result.json; logsDir defaults to ~/.moamcp/logs, MOAMCP_LOGS_DIR overrides), close the task, wake remaining waiters.',
+    description: 'Write the archive to <logsDir>/{task_id}/ (probe.json, events.jsonl, result.json, plus board.jsonl — the task-scope blackboard notes; logsDir defaults to ~/.moamcp/logs, MOAMCP_LOGS_DIR overrides), close the task, wake remaining waiters (including board waiters, which get {status:"closed"}).',
     inputSchema: {
       type: 'object',
       properties: { task_id: TASK_ID },
       required: ['task_id'],
+    },
+  },
+  {
+    name: 'moa_board_write',
+    description:
+      'Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 32KB — put large content in files and reference them. ' +
+      'Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'Entry key (unique within the scope; rewriting replaces the value)' },
+        value: { type: 'string', description: 'Markdown payload, ≤ 32KB' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags for moa_board_read tag filtering' },
+        author: BOARD_AUTHOR,
+        scope: BOARD_SCOPE,
+      },
+      required: ['key', 'value'],
+    },
+  },
+  {
+    name: 'moa_board_read',
+    description:
+      'Read live entries from the blackboard (deleted keys never appear). With key: that key\'s latest entry; with tag: entries carrying the tag; ' +
+      'with neither: every key\'s latest value. Newest first, capped by limit (default 100).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string' },
+        tag: { type: 'string' },
+        scope: BOARD_SCOPE,
+        limit: { type: 'number', description: 'Max entries to return (default 100, hard cap 1000)' },
+      },
+    },
+  },
+  {
+    name: 'moa_board_list',
+    description: 'Lightweight browse of the blackboard: one row per live key with {key, author, ts, tags, bytes} (no values).',
+    inputSchema: {
+      type: 'object',
+      properties: { scope: BOARD_SCOPE },
+    },
+  },
+  {
+    name: 'moa_board_wait',
+    description:
+      'Long-poll until key has a value — or, with since (ISO timestamp), until the entry is strictly newer than it ("wait for the next update"). ' +
+      'Returns {status:"ready", entry}, {status:"timeout", retry:true} at the safety cap (default 25min like moa_wait_turn, MOAMCP_WAIT_CAP_MS / timeoutMs tune it), ' +
+      'or {status:"closed"} when a task scope is archived while waiting.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string' },
+        scope: BOARD_SCOPE,
+        timeoutMs: { type: 'number', description: 'Per-call cap override (clamped to the safety cap)' },
+        since: { type: 'string', description: 'ISO timestamp: wake only on entries strictly newer than it' },
+      },
+      required: ['key'],
+    },
+  },
+  {
+    name: 'moa_board_delete',
+    description: 'Tombstone-delete a key: it disappears from read/list; the append-only JSONL keeps the deletion record.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string' },
+        author: BOARD_AUTHOR,
+        scope: BOARD_SCOPE,
+      },
+      required: ['key'],
     },
   },
   {
@@ -142,7 +223,8 @@ const TOOLS = [
   },
 ];
 
-export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus): Server {
+export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?: BoardStore): Server {
+  const boardStore = board ?? new BoardStore();
   const server = new Server(
     { name: 'moamcp', version: '0.1.0' },
     { capabilities: { tools: {} } },
@@ -169,6 +251,21 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus): Serve
         break;
       case 'moa_complete':
         result = await hub.complete(a.task_id as string);
+        break;
+      case 'moa_board_write':
+        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope);
+        break;
+      case 'moa_board_read':
+        result = await boardStore.read(a.key, a.tag, a.scope, a.limit);
+        break;
+      case 'moa_board_list':
+        result = await boardStore.list(a.scope);
+        break;
+      case 'moa_board_wait':
+        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since);
+        break;
+      case 'moa_board_delete':
+        result = await boardStore.delete(a.key, a.author, a.scope);
         break;
       case 'moa_status':
         result = {
@@ -248,13 +345,24 @@ async function main(): Promise<void> {
         : `[moamcp] takeover: lost the port race; reusing new Bus at http://127.0.0.1:${result.port}/`,
     );
   };
+  // Shared blackboard: task-scope events ride the task's SSE stream (card-
+  // visible); workspace/global events fan out on a synthetic `@board/<scope>`
+  // bus channel — subscribers can already listen, card panels are future work.
+  // Routing goes through the mutable `sink`, so a reuse-mode takeover re-points
+  // board events (forwarded ↔ local Bus) exactly like debate events.
+  const board = new BoardStore({
+    ...(Number.isFinite(waitCap) && waitCap > 0 ? { waitCapMs: waitCap } : {}),
+    workspaceCwd: process.cwd(),
+    emit: (scope, event) => sink(scope.kind === 'task' ? scope.taskId : `@board/${scope.key}`, event),
+  });
   const hub = new DebateHub({
     ...(Number.isFinite(waitCap) && waitCap > 0 ? { waitCapMs: waitCap } : {}),
     logsDir,
     emit: (taskId, event) => sink(taskId, event),
     cardUrlFactory: (taskId) => cardUrl(cardPort, taskId),
+    board,
   });
-  const server = createServer(hub, bus);
+  const server = createServer(hub, bus, board);
   await server.connect(new StdioServerTransport());
   if (startResult.mode === 'reuse') {
     console.error(

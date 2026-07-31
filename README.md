@@ -3,8 +3,9 @@
 MOA（Multi-Agent Orchestration，多代理辩论）MCP 插件，为 [Kimi Code CLI](https://github.com/MoonshotAI/kimi-code) 与其社区版 [omkc](https://github.com/Yorha9e/oh-my-kimi-code) 提供结构化的多代理辩论能力：多个子代理以轮转辩论的方式交叉审查同一目标（安全审计、设计评审、高风险改动的正确性核验），分歧与结论全程可视。
 
 - **邮箱式辩论枢纽**：辩手通过 MCP 工具收发轮次（`moa_wait_turn` 长轮询 / `moa_submit_turn` 提交），状态机保证严格的轮转顺序，辩手之间互不串供。
+- **共享黑板**：结构化、按需拉取、可阻塞等待的跨 agent 信息通道（`moa_board_*` 五工具）。三级作用域——`workspace`（跨会话模块移交，持久化）、`global`（跨项目，持久化）、`task:<id>`（辩论内共享笔记，随任务归档），键级 last-write-wins + append-only 历史 + 墓碑删除。
 - **辩论卡片**：同进程拉起一个本地 HTTP Bus（SSE + 静态页面），`moa_init` 返回 `card_url`，浏览器打开即可实时观看进度条（共识 → Reference → 辩论 R N/M → 聚合 → 结论）、preset/配置快照、辩手阵容、逐轮 transcript 与裁决 + findings；探测到 omkc-status 时还会多出 agent 状态墙与工具调用日志两个可选面板（见下）。不带 `task_id` 打开是任务选择页（每 3s 静默刷新任务列表，无任务时不闪屏）。
-- **三层归档**：`moa_complete` 落盘 `probe.json`（辩手档案）/ `events.jsonl`（全量事件流）/ `result.json`（裁决），事后可完整回放。
+- **四层归档**：`moa_complete` 落盘 `probe.json`（辩手档案）/ `events.jsonl`（全量事件流）/ `result.json`（裁决）/ `board.jsonl`（任务黑板笔记），事后可完整回放。
 - **多实例共存**：实例注册表 + 端口退让 + Bus 复用，同机开多个 CLI 会话不会端口打架，也不会留下孤儿 Bus。
 
 ## 工作原理
@@ -15,15 +16,17 @@ MOA（Multi-Agent Orchestration，多代理辩论）MCP 插件，为 [Kimi Code 
   ▼
 moamcp 进程
   ├── MCP 工具（moa_init / moa_start_debate / moa_wait_turn /
-  │              moa_submit_turn / moa_complete / moa_status）
+  │              moa_submit_turn / moa_complete / moa_status /
+  │              moa_board_write / read / list / wait / delete）
   │        ↕ 驱动
   │   辩论状态机（轮转、轮次、超时上限、归档）
+  │   共享黑板（三级 scope、JSONL 持久化、长轮询等待）
   │
   ├── own 模式：监听 127.0.0.1:39813（Bus）
   │      ├── GET /            辩论卡片（SSE 实时刷新）
   │      ├── GET /tasks       活跃任务列表
   │      ├── GET /subscribe   SSE 事件流（迟到者自动重放）
-  │      ├── GET /archive     三层归档只读访问
+  │      ├── GET /archive     四层归档只读访问
   │      └── POST /publish    事件扇入（复用模式转发用）
   │
   └── reuse 模式：端口已被另一个 moamcp 占用时不再监听，
@@ -82,8 +85,9 @@ moamcp 本身（MCP 工具 + Bus + 卡片 + 归档）在两个版本上完全一
 
 | 能力 | 官方 kimi-code | omkc（社区版） |
 |---|---|---|
-| MCP 工具全集（`moa_*` 六个） | ✅ | ✅ |
-| 辩论 Bus、浏览器卡片、SSE、三层归档 | ✅ | ✅ |
+| MCP 工具全集（辩论 6 + 黑板 5） | ✅ | ✅ |
+| 共享黑板（`moa_board_*` 五个，三级 scope） | ✅ | ✅ |
+| 辩论 Bus、浏览器卡片、SSE、四层归档 | ✅ | ✅ |
 | 辩手模型 | **继承主代理模型**（单模型 MOA） | `binding_slot` 命名槽位 → 每个辩手可绑定不同模型与思考强度（多模型 MOA） |
 | 角色化 profile（orchestrator / critic / synthesizer） | 需手动把本仓库 `agents/*.md` 复制到 agent 目录（`~/.kimi-code/agents/` 或项目 `.kimi-code/agents/`） | 内置，开箱即用 |
 | 桌面悬浮卡片 moa-card（实时辩论进度） | ❌（仅浏览器卡片） | ✅ 交互启动时自动拉起（`tui.toml` 的 `[moa] card`，默认开） |
@@ -135,7 +139,7 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 1. `moa_start_debate(task_id, reference_results)` —— 注入参考材料（验证目标、范围、各辩手立场、每轮要求）并启动状态机。
 2. 并行派发辩手子代理（`run_in_background=true`），每个辩手循环：`moa_wait_turn` → 阅读 `full_context` 中已有发言 → `moa_submit_turn` 提交本轮论点。非首轮必须先回应对方上一轮。
 3. `wait_turn` 返回 `{status:"debate_complete", transcript}` 时辩论结束。
-4. `moa_complete(task_id)` —— 写三层归档到 `<MOAMCP_LOGS_DIR>/{task_id}/`，关闭任务，唤醒所有等待者。
+4. `moa_complete(task_id)` —— 写四层归档到 `<MOAMCP_LOGS_DIR>/{task_id}/`，关闭任务，唤醒所有等待者（含黑板等待者，收到 `{status:"closed"}`）。
 
 > **提交协议（SUBMISSION PROTOCOL）**：`moa_wait_turn` 每次返回回合时，prompt 都已预注入提交铁律——发言必须且只能通过 `moa_submit_turn` 工具提交，禁止把发言内容当纯文本输出后直接 end_turn（那会让辩论永久卡死）；提交后若辩论未结束继续 `moa_wait_turn`；收到 `not_your_turn` 说明该回合已被处理，不要重试提交、回到等待。铁律随回合 prompt 下发（不仅靠派发 brief），是辩手"写完发言忘记调用提交工具"问题的结构性修复。
 
@@ -149,10 +153,41 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 | `moa_start_debate` | orchestrator | 注入参考结果，启动状态机 `{turn:1, round:1, speaker:首个辩手}` |
 | `moa_wait_turn` | 辩手 | 长轮询至轮到自己 / 辩论结束 / 安全上限（默认 25 分钟，`MOAMCP_WAIT_CAP_MS` 可调） |
 | `moa_submit_turn` | 辩手 | 提交本轮发言，校验轮转顺序（乱序返回 `{error:"not_your_turn"}`）；传 `signoff: true` 投全体签字提前闭合票（全体签字即提前闭合；普通发言即异议，清零已有签字） |
-| `moa_complete` | orchestrator | 写三层归档并关闭任务 |
+| `moa_complete` | orchestrator | 写四层归档（含任务黑板 `board.jsonl`）并关闭任务 |
 | `moa_status` | 任意 | Bus 端口、模式（own/reuse）、活跃任务、进程信息 |
+| `moa_board_write` | 任意 agent | 写黑板条目（键级 last-write-wins，value ≤ 32KB），返回 `{ok, ts}` |
+| `moa_board_read` | 任意 agent | 按 key / tag 读取存活条目（缺省返回全部 key 的最新值，limit 防爆） |
+| `moa_board_list` | 任意 agent | 轻量浏览：每 key 一行 `{key, author, ts, tags, bytes}`，不含 value |
+| `moa_board_wait` | 任意 agent | 长轮询直到 key 有值（或 `since` 之后更新）；超时返回 `{status:"timeout", retry:true}` |
+| `moa_board_delete` | 任意 agent | 墓碑删除（read/list 不再出现，JSONL 留删除记录） |
 
 `agents/` 目录附带三个配套角色 profile（`orchestrator.md` / `critic.md` / `synthesizer.md`），含完整的邮箱辩论 playbook 与辩手派发模板。omkc 已内置同名角色；官方版本可将其复制到 agent 目录（`~/.kimi-code/agents/` 用户级，或项目 `.kimi-code/agents/`）后使用。
+
+### 共享黑板（board）
+
+跨 agent / 跨会话的结构化信息通道：多会话并行开发不同模块时，模块移交的契约、决定、状态不必再塞进 dispatch prompt 或散落各处的临时文件——写进黑板，消费方按需拉取或阻塞等待。
+
+**三级作用域**（工具调用以 `scope` 参数指定，缺省 `"workspace"`）：
+
+| scope | 语义 | 存储 |
+|---|---|---|
+| `workspace` | 跨会话模块移交（主诉求） | `<MOAMCP_HOME>/boards/ws-<sha1(cwd)[:16]>.jsonl`（workspace 身份 = moamcp 进程 cwd，即宿主 CLI 启动 MCP 时的项目根；旁置 `.meta.json` 记录 hash 对应的 cwd） |
+| `global` | 跨项目共享 | `<MOAMCP_HOME>/boards/global.jsonl` |
+| `task:<task_id>` | 辩论内共享笔记 | 内存；`moa_complete` 时随任务归档为 `board.jsonl`（第四层归档） |
+
+**数据模型与语义**：条目 = `{key, value, author, ts, tags[]}`，`value` 是 markdown 字符串，上限 **32KB**（超限报错）。同一 scope 内键级 **last-write-wins**；磁盘格式是 append-only JSONL（`{op:"write"|"delete", ...}` 记录），读取时折叠出当前视图——删除是**墓碑**：read/list 不再出现，但历史记录保留。`author` 缺省 `"anonymous"`，子代理调用时应传自己的 agent id。
+
+**`moa_board_wait` 长轮询**：阻塞到 key 有值，返回 `{status:"ready", entry}`；传 `since`（ISO 时间戳）则只在条目**严格更新于** since 之后才唤醒（"等下一次更新"）；安全上限与 `moa_wait_turn` 相同（默认 25 分钟，`MOAMCP_WAIT_CAP_MS` 或每调用 `timeoutMs` 可调），超时返回 `{status:"timeout", retry:true}`；任务 scope 在等待中被归档则返回 `{status:"closed"}`。**删除不唤醒**等待者——等待者要的是值，不是变化。
+
+**事件**：写/删发出 `board_updated {scope, key, author, ts}`。`task:` scope 走该任务的 SSE 事件流（卡片可见）；`workspace` / `global` 挂在 Bus 的合成频道 `@board/workspace:<hash>` / `@board/global` 上（可用 `GET /subscribe?task_id=@board/global` 订阅），卡片面板是后续工作。
+
+**分工建议**（黑板不是万能桶）：
+
+- **黑板**放契约、决定、状态、指针（"auth 模块已移交，接口见 `docs/auth-api.md`，验收标准：……"）——小、结构化、多方需要、可能更新；
+- **大段代码 / 长文档**走文件，黑板里只留路径指针（32KB 上限也是这个意思）；
+- **一次性指令**走 dispatch prompt——不需要被第三方 agent 看到、不需要更新的内容，不必上黑板。
+
+**多进程注意**（与实例注册表同款的已记录简化）：同一台机器的多个 moamcp 进程各自持有内存折叠视图，同伴进程写入的条目在本进程首次加载该 scope 之后不会被实时观测；跨进程的 `moa_board_wait` 不会被直接唤醒，依赖安全上限超时 + `{retry:true}` 轮询兜底。单会话 / 单进程场景（绝大多数用法）不受影响。
 
 ### Bus 端点
 
@@ -161,7 +196,7 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 | `GET /?task_id=<id>` | 辩论卡片：进度条、preset/配置快照（含实时 round/speaker）、辩手阵容、实时发言流、裁决 + findings。不带 `task_id` 时为任务选择页 |
 | `GET /tasks` | `{tasks: string[]}` 活跃任务列表（健康探针也用它） |
 | `GET /subscribe?task_id=<id>` | SSE 事件流；迟到订阅者自动重放（每任务保留最近 200 帧） |
-| `GET /archive?task_id=<id>&file=...` | `moa_complete` 后的归档文件（白名单：`probe.json` / `events.jsonl` / `result.json`，防路径穿越） |
+| `GET /archive?task_id=<id>&file=...` | `moa_complete` 后的归档文件（白名单：`probe.json` / `events.jsonl` / `result.json` / `board.jsonl`，防路径穿越） |
 | `POST /publish` | `{task_id, event}` 事件扇入（复用模式转发 / 预留） |
 
 Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
@@ -185,10 +220,10 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 
 | 变量 | 默认 | 用途 |
 |---|---|---|
-| `MOAMCP_HOME` | `~/.moamcp` | 实例注册表根目录（`<home>/instances`） |
-| `MOAMCP_LOGS_DIR` | `<MOAMCP_HOME>/logs` | 三层归档根目录（所有实例共享，reuse 模式的 `/archive` 依赖它） |
+| `MOAMCP_HOME` | `~/.moamcp` | 实例注册表（`<home>/instances`）与黑板持久化（`<home>/boards`）根目录 |
+| `MOAMCP_LOGS_DIR` | `<MOAMCP_HOME>/logs` | 四层归档根目录（所有实例共享，reuse 模式的 `/archive` 依赖它） |
 | `MOAMCP_BUS_PORT` | `39813` | 期望的 Bus 端口 |
-| `MOAMCP_WAIT_CAP_MS` | 25 分钟 | `moa_wait_turn` 长轮询安全上限 |
+| `MOAMCP_WAIT_CAP_MS` | 25 分钟 | `moa_wait_turn` / `moa_board_wait` 长轮询安全上限 |
 | `MOAMCP_BUS_WATCH_INTERVAL_MS` | `10000` | reuse 模式探活宿主 Bus 的间隔 |
 | `MOAMCP_BUS_WATCH_TIMEOUT_MS` | `1000` | 宿主探活请求超时 |
 | `MOAMCP_BUS_WATCH_FAILS` | `3` | 连续探活失败多少次判定宿主死亡并触发接管 |
@@ -204,7 +239,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 ```sh
 npm install
 npm run build   # tsc 类型检查 + esbuild 打包 → dist/server.js（单文件 bundle，已提交入库）
-npm test        # vitest：smoke（邮箱流程，含全体签字提前闭合）+ registry + bus（HTTP/SSE）+ reuse（真实多进程，含宿主死亡接管）四套，共 44 例
+npm test        # vitest：smoke（邮箱流程，含全体签字提前闭合）+ board（共享黑板：语义/长轮询/并发/归档/MCP 五工具）+ registry + bus（HTTP/SSE）+ reuse（真实多进程，含宿主死亡接管）五套，共 62 例
 npm start       # node dist/server.js
 ```
 
