@@ -120,7 +120,22 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'agent.layout': 'TOML layout', 'agent.layoutStandard': 'standard', 'agent.layoutComplex': 'complex — use raw editor',
     'agent.reloadBanner': 'Saved to disk. The current Session has not adopted this change yet; after the running turn finishes, run /reload. Multiple Sessions must each run /reload.',
     'agent.copyReload': 'Copy /reload', 'agent.conflict': 'Configuration changed externally. Your draft is preserved; load the latest version before saving again.',
-    'agent.reloaded': 'Latest configuration loaded. Your previous draft was replaced.', 'agent.error': 'Agent configuration: '
+    'agent.reloaded': 'Latest configuration loaded. Your previous draft was replaced.', 'agent.error': 'Agent configuration: ',
+    'memory.projects': 'Projects', 'memory.inbox': 'Handoff Inbox',
+    'projects.intro': 'Projects group one or more workspaces under a shared board. Migrating the current workspace aliases its path to the project so future workspace-scope reads/writes target the project board.',
+    'projects.empty': 'No projects yet. Create one by migrating the current workspace.',
+    'projects.createdAt': 'Created {createdAt}', 'projects.aliases': 'Aliases', 'projects.noAliases': 'no aliases yet',
+    'projects.merge': 'Merge current workspace into this project',
+    'projects.mergeConfirm': 'Merge the current workspace into project {project}? This migration is immediate and cannot be automatically undone; the workspace board is archived (never deleted).',
+    'projects.merged': 'Workspace merged into {projectId} · {moved} records moved.',
+    'projects.count': '{count} project', 'projects.countPlural': '{count} projects',
+    'inbox.state.pending': 'pending', 'inbox.state.consumed': 'consumed', 'inbox.state.archived': 'archived', 'inbox.state.all': 'all',
+    'inbox.viewAria': 'Handoff view', 'inbox.inboxView': 'Inbox', 'inbox.outboxView': 'Outbox',
+    'inbox.empty': 'No handoffs match the current filter.',
+    'inbox.from': 'from {from}', 'inbox.to': 'to {to}',
+    'inbox.consume': 'Consume', 'inbox.archive': 'Archive',
+    'inbox.consumeConfirm': 'Mark this handoff as consumed? This is a terminal state.',
+    'inbox.archiveConfirm': 'Archive this handoff? It will be hidden from the default inbox view.'
   },
   'zh-CN': {
     'app.brand': 'MOA 工作区', 'app.nav': '主导航', 'app.debate': 'MOA 辩论', 'app.memory': '工作区记忆', 'app.runs': 'MoA 运行', 'app.system': '系统健康',
@@ -168,7 +183,22 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'agent.layout': 'TOML 布局', 'agent.layoutStandard': '标准', 'agent.layoutComplex': '复杂 — 请使用原文编辑器',
     'agent.reloadBanner': '已保存到磁盘。当前 Session 尚未采用此修改；运行中的 turn 完成后再执行 /reload。多个 Session 需要分别执行 /reload。',
     'agent.copyReload': '复制 /reload', 'agent.conflict': '配置已被外部修改。你的草稿已保留；加载最新版本后再保存。',
-    'agent.reloaded': '已加载最新配置，之前的草稿已替换。', 'agent.error': 'Agent 配置：'
+    'agent.reloaded': '已加载最新配置，之前的草稿已替换。', 'agent.error': 'Agent 配置：',
+    'memory.projects': '项目', 'memory.inbox': '交接收件箱',
+    'projects.intro': '项目把一个或多个工作区归到同一块共享看板。把当前工作区合并进项目后，其路径会绑定为项目别名，后续工作区作用域的读写都指向项目看板。',
+    'projects.empty': '暂无项目。可通过合并当前工作区创建项目。',
+    'projects.createdAt': '创建于 {createdAt}', 'projects.aliases': '别名', 'projects.noAliases': '暂无别名',
+    'projects.merge': '把当前工作区合并进此项目',
+    'projects.mergeConfirm': '确认把当前工作区合并进项目 {project}？此迁移立即生效且无法自动撤销；原工作区看板会留档（不会删除）。',
+    'projects.merged': '工作区已合并进 {projectId} · 迁移 {moved} 条记录。',
+    'projects.count': '{count} 个项目', 'projects.countPlural': '{count} 个项目',
+    'inbox.state.pending': '待处理', 'inbox.state.consumed': '已消费', 'inbox.state.archived': '已归档', 'inbox.state.all': '全部',
+    'inbox.viewAria': '交接视图', 'inbox.inboxView': '收件箱', 'inbox.outboxView': '发件箱',
+    'inbox.empty': '没有符合当前筛选条件的交接。',
+    'inbox.from': '来自 {from}', 'inbox.to': '发给 {to}',
+    'inbox.consume': '标记已消费', 'inbox.archive': '归档',
+    'inbox.consumeConfirm': '确认将此交接标记为已消费？这是终态。',
+    'inbox.archiveConfirm': '确认归档此交接？归档后将不在默认收件列表显示。'
   }
 };
 

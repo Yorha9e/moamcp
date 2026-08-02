@@ -10,6 +10,7 @@
  * workspace id into a BoardStore workspace path.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { dirname } from 'node:path';
 import { isValidTaskId, type ArchiveIndexEntry } from '../core/store/archive-index.js';
 import {
   AgentConfigBusyError,
@@ -21,10 +22,22 @@ import {
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { BoardStore, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
+import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
+import { PROJECT_ID_PATTERN } from '../core/store/project-registry.js';
 import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
 import type { TipsAuthority } from '../core/store/tips-authority.js';
 import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
 import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
+import {
+  HANDOFF_ID_PATTERN,
+  HANDOFF_STATES,
+  HandoffNotFoundError,
+  HandoffStateError,
+  HandoffStore,
+  HandoffValidationError,
+  type HandoffListOptions,
+  type HandoffState,
+} from '../modules/handoff/handoff.js';
 import {
   TipCorruptError,
   TipNotFoundError,
@@ -179,11 +192,11 @@ function methodNotAllowed(res: ServerResponse, allow: string): void {
 function errorStatus(error: unknown): number {
   if (error instanceof UnsupportedMediaTypeError) return 415;
   if (error instanceof ForbiddenError) return 403;
-  if (error instanceof BoardConflictError || error instanceof AgentConfigConflictError || error instanceof AgentConfigBusyError) return 409;
+  if (error instanceof BoardConflictError || error instanceof AgentConfigConflictError || error instanceof AgentConfigBusyError || error instanceof HandoffStateError) return 409;
   if (error instanceof AgentConfigUnsafePathError) return 403;
-  if (error instanceof AgentConfigNotFoundError || error instanceof ResourceNotFoundError || error instanceof TipNotFoundError) return 404;
+  if (error instanceof AgentConfigNotFoundError || error instanceof ResourceNotFoundError || error instanceof TipNotFoundError || error instanceof HandoffNotFoundError) return 404;
   if (error instanceof AgentConfigError) return error.status;
-  if (error instanceof ApiValidationError || error instanceof TipValidationError) return 400;
+  if (error instanceof ApiValidationError || error instanceof TipValidationError || error instanceof HandoffValidationError) return 400;
   if (error instanceof PayloadTooLargeError) return 413;
   if (error instanceof ControlPlaneUnavailableError) return 503;
   // BoardStore deliberately uses plain Error for its low-level input guards.
@@ -239,6 +252,30 @@ function requireTaskId(value: string): string {
   }
   if (!isValidTaskId(id)) throw new ApiValidationError('invalid task id');
   return id;
+}
+
+function requireHandoffId(value: string): string {
+  let id: string;
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError('invalid handoff id');
+  }
+  if (!HANDOFF_ID_PATTERN.test(id)) throw new ApiValidationError('invalid handoff id (expected ho_<12 hex chars>)');
+  return id;
+}
+
+/** Parse `state=pending,consumed` into the store's state filter; empty/absent yields undefined. */
+function parseHandoffStates(value: string | null): HandoffState[] | undefined {
+  if (value === null || value === '') return undefined;
+  const parts = value.split(',').map((part) => part.trim()).filter((part) => part.length > 0);
+  if (parts.length === 0) return undefined;
+  for (const part of parts) {
+    if (!HANDOFF_STATES.includes(part as HandoffState)) {
+      throw new ApiValidationError('state must be pending, consumed, or archived (comma-separated)');
+    }
+  }
+  return parts as HandoffState[];
 }
 
 function parseLimit(value: string | null): number | undefined {
@@ -416,6 +453,24 @@ export class ControlPlane {
       { method: 'GET', path: '/api/tasks', handler: (ctx) => this.listRuns(ctx.url, ctx.res) },
       { method: 'GET', path: '/api/archives', handler: (ctx) => this.listArchives(ctx.res) },
       { method: 'GET', path: '/api/system', handler: (ctx) => this.system(ctx.res) },
+      { method: 'GET', path: '/api/projects', handler: (ctx) => this.listProjects(ctx.res) },
+      { method: 'POST', path: '/api/projects/migrate', handler: (ctx) => this.migrateProject(ctx) },
+      { method: 'GET', path: '/api/handoff/inbox', handler: (ctx) => this.handoffInbox(ctx.url, ctx.res) },
+      { method: 'GET', path: '/api/handoff/outbox', handler: (ctx) => this.handoffOutbox(ctx.url, ctx.res) },
+      {
+        method: 'POST',
+        path: '/api/handoff/:id/consume',
+        pattern: /^\/api\/handoff\/([^/]+)\/consume$/,
+        validateParam: requireHandoffId,
+        handler: (ctx) => this.handoffTransition(ctx, ctx.param as string, 'consume'),
+      },
+      {
+        method: 'POST',
+        path: '/api/handoff/:id/archive',
+        pattern: /^\/api\/handoff\/([^/]+)\/archive$/,
+        validateParam: requireHandoffId,
+        handler: (ctx) => this.handoffTransition(ctx, ctx.param as string, 'archive'),
+      },
       {
         method: 'GET',
         path: '/api/tasks/:id',
@@ -665,6 +720,83 @@ export class ControlPlane {
     }
     const tip = await tips.archive(id, workspace.cwd, actor as string | null | undefined);
     ctx.sendJson(200, tip);
+  }
+
+  // ---- projects + handoff (mailbox task 4) ----
+
+  /** HandoffStore is a stateless typed view over the mounted BoardStore. */
+  private handoffStore(): HandoffStore {
+    return new HandoffStore(this.stores().board);
+  }
+
+  private async listProjects(res: ServerResponse): Promise<void> {
+    const projects = await this.stores().board.registry.listProjects();
+    sendJson(res, 200, { projects });
+  }
+
+  private async migrateProject(ctx: MoaRouteContext): Promise<void> {
+    const body = await ctx.jsonBody();
+    rejectPathFields(body);
+    ctx.assertAllowedFields(body, ['workspace', 'projectId', 'name'], 'migration');
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const projectId = body.projectId;
+    if (projectId !== undefined && (typeof projectId !== 'string' || !PROJECT_ID_PATTERN.test(projectId))) {
+      throw new ApiValidationError('projectId must be a p_<12 hex chars> project id');
+    }
+    const name = body.name;
+    if (name !== undefined && (typeof name !== 'string' || name.length === 0)) {
+      throw new ApiValidationError('name must be a non-empty string');
+    }
+    const homeDir = dirname(this.stores().board.boardsDir());
+    const result = await migrateWorkspaceToProject(workspace.cwd, {
+      homeDir,
+      // Reuse the mounted registry so its in-process projection sees the alias
+      // immediately (migration writes the same registry.jsonl either way).
+      registry: this.stores().board.registry,
+      ...(projectId === undefined ? {} : { projectId: projectId as string }),
+      ...(name === undefined ? {} : { name: name as string }),
+    });
+    ctx.sendJson(200, result);
+  }
+
+  private async handoffInbox(url: URL, res: ServerResponse): Promise<void> {
+    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
+    const states = parseHandoffStates(url.searchParams.get('state'));
+    const limit = parseLimit(url.searchParams.get('limit'));
+    const options: HandoffListOptions = {
+      ...(states === undefined ? {} : { state: states }),
+      ...(limit === undefined ? {} : { limit }),
+    };
+    const rows = await this.handoffStore().inbox(workspace.cwd, options);
+    sendJson(res, 200, { workspace: workspace.id, handoffs: rows });
+  }
+
+  private async handoffOutbox(url: URL, res: ServerResponse): Promise<void> {
+    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
+    const states = parseHandoffStates(url.searchParams.get('state'));
+    const limit = parseLimit(url.searchParams.get('limit'));
+    const options: HandoffListOptions = {
+      ...(states === undefined ? {} : { state: states }),
+      ...(limit === undefined ? {} : { limit }),
+    };
+    const rows = await this.handoffStore().outbox(workspace.cwd, options);
+    sendJson(res, 200, { workspace: workspace.id, handoffs: rows });
+  }
+
+  private async handoffTransition(ctx: MoaRouteContext, id: string, action: 'consume' | 'archive'): Promise<void> {
+    const body = await ctx.jsonBody();
+    rejectPathFields(body);
+    ctx.assertAllowedFields(body, ['workspace', 'actor'], 'handoff transition');
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const actor = body.actor;
+    if (actor !== undefined && actor !== null && typeof actor !== 'string') {
+      throw new ApiValidationError('actor must be a string');
+    }
+    const store = this.handoffStore();
+    const handoff = action === 'consume'
+      ? await store.consume(id, workspace.cwd, actor as string | null | undefined)
+      : await store.archive(id, workspace.cwd, actor as string | null | undefined);
+    ctx.sendJson(200, handoff);
   }
 
   private async mutateBoard(ctx: MoaRouteContext): Promise<void> {

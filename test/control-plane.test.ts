@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, get } from 'node:http';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { WorkspaceAgentConfigService } from '../src/modules/agentconfig/agent-config.js';
 import { BoardStore, workspaceIdForPath } from '../src/core/store/board.js';
+import { migrateWorkspaceToProject } from '../src/core/store/project-migration.js';
 import { ControlPlane } from '../src/adapters/control-plane.js';
 import { Bus } from '../src/core/bus/bus.js';
 import { createServer } from '../src/server.js';
 import { TipStore } from '../src/modules/tips/tips.js';
+import { HandoffStore } from '../src/modules/handoff/handoff.js';
 
 let home: string;
 let workspaceA: string;
@@ -865,6 +867,224 @@ describe('control plane HTTP surface', () => {
     // 4. Locale change calls updateBindingRowTranslations instead of renderAgentBindings
     expect(html).toContain('function updateBindingRowTranslations()');
     expect(html).toContain('if (agentSnapshot) updateBindingRowTranslations()');
+  });
+
+  it('maps the new project/handoff routes to 200/400/404/405 as appropriate', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    // 200: read-only listings work with an empty registry/inbox.
+    expect((await request('/api/projects')).response.status).toBe(200);
+    expect((await request(`/api/handoff/inbox?workspace=${idA}`)).response.status).toBe(200);
+    expect((await request(`/api/handoff/outbox?workspace=${idA}`)).response.status).toBe(200);
+    // 405: exact paths exist but only for the registered method.
+    expect((await request('/api/projects', { method: 'POST' })).response.status).toBe(405);
+    expect((await request('/api/projects/migrate', { method: 'GET' })).response.status).toBe(405);
+    expect((await request('/api/handoff/ho_deadbeef0000/consume', { method: 'GET' })).response.status).toBe(405);
+    // 400: transport/field/state/id validation, following ApiValidationError mapping.
+    expect((await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: 'bad' }) })).response.status).toBe(400);
+    expect((await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, cwd: workspaceA }) })).response.status).toBe(400);
+    expect((await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, projectId: 'not-a-project' }) })).response.status).toBe(400);
+    expect((await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, name: 7 }) })).response.status).toBe(400);
+    expect((await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, nope: true }) })).response.status).toBe(400);
+    expect((await request('/api/handoff/inbox?workspace=bad')).response.status).toBe(400);
+    expect((await request(`/api/handoff/inbox?workspace=${idA}&state=bogus`)).response.status).toBe(400);
+    expect((await request(`/api/handoff/outbox?workspace=${idA}&limit=abc`)).response.status).toBe(400);
+    expect((await request('/api/handoff/xyz/consume', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA }) })).response.status).toBe(400);
+    expect((await request('/api/handoff/ho_deadbeef0000/consume', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({}) })).response.status).toBe(400);
+    // 404: well-formed but unknown workspace sidecar / unknown handoff id.
+    expect((await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: '0'.repeat(16) }) })).response.status).toBe(404);
+    expect((await request(`/api/handoff/inbox?workspace=${'0'.repeat(16)}`)).response.status).toBe(404);
+    expect((await request('/api/handoff/ho_deadbeef0000/consume', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA }) })).response.status).toBe(404);
+    expect((await request('/api/handoff/ho_deadbeef0000/archive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA }) })).response.status).toBe(404);
+  });
+
+  it('migrates the current workspace into a project via HTTP, archives the legacy files, and stays idempotent', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const idB = workspaceIdForPath(workspaceB);
+
+    // Seed one workspace-scope board record so migration has bytes to rewrite.
+    const seeded = await request('/api/board', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ scope: 'workspace', workspace: idA, key: 'migrate/keep', value: 'v1', author: 'seed' }),
+    });
+    expect(seeded.response.status).toBe(200);
+
+    const migrated = await request('/api/projects/migrate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ workspace: idA, name: 'Web Project' }),
+    });
+    expect(migrated.response.status).toBe(200);
+    expect(migrated.body.projectId).toMatch(/^p_[0-9a-f]{12}$/);
+    expect(migrated.body.moved).toBe(1);
+    const projectId = migrated.body.projectId;
+
+    const listed = await request('/api/projects');
+    expect(listed.response.status).toBe(200);
+    expect(listed.body.projects).toHaveLength(1);
+    expect(listed.body.projects[0]).toMatchObject({
+      projectId,
+      name: 'Web Project',
+      aliases: [idA],
+      createdAt: expect.any(String),
+    });
+
+    // The mounted board's registry resolves the aliased path in-process, and the
+    // rewritten record is readable from the project board with scope rewritten.
+    expect(board.registry.resolveCached(idA)).toBe(projectId);
+    const projectRows = await board.read('migrate/keep', undefined, `project:${projectId}`, 1);
+    expect(projectRows).toHaveLength(1);
+    expect(projectRows[0]).toMatchObject({ key: 'migrate/keep', value: 'v1', author: 'seed' });
+
+    // Legacy ws file is archived (renamed, never deleted); the sidecar is gone so
+    // the migrated workspace is no longer resolvable from the browser surface.
+    const names = await readdir(join(home, 'boards'));
+    expect(names.some((name) => name.startsWith(`ws-${idA}.jsonl.migrated-`))).toBe(true);
+    expect(names).not.toContain(`ws-${idA}.jsonl`);
+    expect((await request(`/api/handoff/inbox?workspace=${idA}`)).response.status).toBe(404);
+
+    // Workspace B is untouched: its own workspace board has no migrated keys.
+    const onlyB = await request(`/api/board?scope=workspace&workspace=${idB}&key=migrate%2Fkeep`);
+    expect(onlyB.response.status).toBe(200);
+    expect(onlyB.body.entries).toEqual([]);
+
+    // Idempotent re-migration holds at the store level (the archived sidecar
+    // makes the migrated workspace unresolvable over HTTP, by design).
+    const again = await migrateWorkspaceToProject(workspaceA, {
+      homeDir: home,
+      registry: board.registry,
+      projectId,
+    });
+    expect(again).toEqual({ projectId, moved: 0 });
+
+    // A second-owner conflict: a workspace aliased to one project cannot be
+    // migrated into another. Aliasing (not migration) keeps B's sidecar, so the
+    // browser can still resolve it; the conflict surfaces as a 400 through the
+    // existing plain-Error mapping.
+    await board.registry.addAlias(projectId, idB);
+    const other = await board.registry.createProject('Other');
+    const conflict = await request('/api/projects/migrate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ workspace: idB, projectId: other }),
+    });
+    expect(conflict.response.status).toBe(400);
+    expect(conflict.body.error).toContain('already aliased');
+  });
+
+  it('serves handoff inbox/outbox and consume/archive transitions over HTTP', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const idB = workspaceIdForPath(workspaceB);
+
+    // Project B receives handoffs; alias B's path (keeps the sidecar, unlike
+    // migration, so the browser can still resolve the workspace id).
+    const projB = await board.registry.createProject('Recipient');
+    await board.registry.addAlias(projB, idB);
+
+    const handoffs = new HandoffStore(board);
+    const sent = await handoffs.send(
+      { toProject: projB, title: 'HTTP handoff', summary: 'via the browser', context: 'full context', author: 'session-a' },
+      workspaceA,
+    );
+    expect(sent.fromProject).toBe(`ws:${idA}`);
+
+    // Workspace A (unaliased) sees no inbox; the aliased recipient sees it.
+    const emptyInbox = await request(`/api/handoff/inbox?workspace=${idA}`);
+    expect(emptyInbox.response.status).toBe(200);
+    expect(emptyInbox.body.handoffs).toEqual([]);
+
+    const inbox = await request(`/api/handoff/inbox?workspace=${idB}&state=pending`);
+    expect(inbox.response.status).toBe(200);
+    expect(inbox.body).toMatchObject({ workspace: idB });
+    expect(inbox.body.handoffs).toHaveLength(1);
+    expect(inbox.body.handoffs[0]).toMatchObject({
+      id: sent.id,
+      title: 'HTTP handoff',
+      summary: 'via the browser',
+      fromProject: `ws:${idA}`,
+      toProject: projB,
+      state: 'pending',
+    });
+    // HTTP summaries omit the context payload (moa_handoff_read is the full reader).
+    expect(inbox.body.handoffs[0]).not.toHaveProperty('context');
+
+    // Outbox from A lists the handoff it sent into the target project.
+    const outbox = await request(`/api/handoff/outbox?workspace=${idA}`);
+    expect(outbox.response.status).toBe(200);
+    expect(outbox.body.handoffs.map((row: any) => row.id)).toEqual([sent.id]);
+
+    // Consume via HTTP: terminal state, consumedAt recorded, actor on the row.
+    const consumed = await request(`/api/handoff/${sent.id}/consume`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ workspace: idB, actor: 'web-user' }),
+    });
+    expect(consumed.response.status).toBe(200);
+    expect(consumed.body).toMatchObject({ id: sent.id, state: 'consumed', consumedAt: expect.any(String) });
+    expect((await request(`/api/handoff/inbox?workspace=${idB}&state=consumed`)).body.handoffs).toHaveLength(1);
+
+    // Illegal transition (consumed → consumed) maps to 409.
+    const again = await request(`/api/handoff/${sent.id}/consume`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ workspace: idB }),
+    });
+    expect(again.response.status).toBe(409);
+    expect(again.body.error).toContain('illegal handoff state transition');
+
+    // Archive a second handoff; both terminal rows survive the "all" filter.
+    const sent2 = await handoffs.send({ toProject: projB, title: 'Second', summary: 'archive me' }, workspaceA);
+    const archived = await request(`/api/handoff/${sent2.id}/archive`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ workspace: idB }),
+    });
+    expect(archived.response.status).toBe(200);
+    expect(archived.body.state).toBe('archived');
+    expect((await request(`/api/handoff/inbox?workspace=${idB}&state=pending`)).body.handoffs).toEqual([]);
+    expect((await request(`/api/handoff/inbox?workspace=${idB}&state=archived`)).body.handoffs.map((row: any) => row.id)).toEqual([sent2.id]);
+    expect((await request(`/api/handoff/inbox?workspace=${idB}&state=pending,consumed,archived`)).body.handoffs).toHaveLength(2);
+
+    // The outbox reflects the consumed state by default (archived rows are
+    // hidden); the "all" filter brings both terminal rows back.
+    const outboxAfter = await request(`/api/handoff/outbox?workspace=${idA}`);
+    expect(outboxAfter.body.handoffs.map((row: any) => row.id)).toEqual([sent.id]);
+    const outboxAll = await request(`/api/handoff/outbox?workspace=${idA}&state=pending,consumed,archived`);
+    expect(new Set(outboxAll.body.handoffs.map((row: any) => row.id))).toEqual(new Set([sent.id, sent2.id]));
+  });
+
+  it('serves the Projects and Handoff Inbox tabs and view anchors in the assembled page', async () => {
+    const page = await request('/control-plane');
+    expect(page.response.status).toBe(200);
+    const html = page.body as string;
+
+    for (const anchor of [
+      'projectsTab', 'projectsView', 'projectsList', 'refreshProjects', 'projectsCount',
+      'inboxTab', 'inboxView', 'inboxList', 'inboxState', 'refreshInbox', 'inboxViewButton', 'outboxViewButton',
+    ]) {
+      expect(html).toContain(anchor);
+    }
+    for (const endpoint of [
+      '/api/projects', '/api/projects/migrate', '/api/handoff/inbox', '/api/handoff/outbox',
+      "/api/handoff/' + encodeURIComponent(id) + '/consume",
+      "/api/handoff/' + encodeURIComponent(id) + '/archive",
+    ]) {
+      expect(html).toContain(endpoint);
+    }
+    expect(html).toContain('data-i18n="memory.projects"');
+    expect(html).toContain('data-i18n="memory.inbox"');
+    expect(html).toContain("switchView('projects')");
+    expect(html).toContain("switchView('inbox')");
+    expect(html).toContain('loadProjects()');
+    expect(html).toContain('loadInbox()');
+    expect(html).toContain('migrateCurrentWorkspace');
+    expect(html).toContain('consumeHandoff');
+    expect(html).toContain('archiveHandoff');
+    expect(html).toContain('proj-card');
+    expect(html).toContain('ho-row');
+    expect(html).toContain('Merge current workspace into this project');
+    expect(html).not.toContain('innerHTML');
+    expect(html).not.toContain('window.prompt');
   });
 });
 

@@ -121,7 +121,8 @@ export class HandoffStateError extends Error {
 
 const HANDOFF_PREFIX = 'handoff/';
 const HANDOFF_TAG = 'handoff';
-const HANDOFF_ID_PATTERN = /^ho_[0-9a-f]{12}$/;
+/** Stable handoff id shape (`ho_<12 hex chars>`); exported for the HTTP adapter's path validation. */
+export const HANDOFF_ID_PATTERN = /^ho_[0-9a-f]{12}$/;
 const HANDOFF_LIST_DEFAULT_LIMIT = 100;
 const HANDOFF_LIST_MAX_LIMIT = 1000;
 /** Per-scope scan cap for outbox (BoardStore's own hard read limit). */

@@ -24399,10 +24399,10 @@ var DebateHub = class {
   async complete(taskId) {
     return this.enqueue(taskId, async () => {
       const task = this.getTask(taskId);
-      const { mkdir: mkdir5, writeFile: writeFile3 } = await import("node:fs/promises");
+      const { mkdir: mkdir6, writeFile: writeFile3 } = await import("node:fs/promises");
       const { resolve: resolve5 } = await import("node:path");
       const dir = resolve5(this.logsDir, taskId);
-      await mkdir5(dir, { recursive: true });
+      await mkdir6(dir, { recursive: true });
       const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
       await writeFile3(
         resolve5(dir, "probe.json"),
@@ -25664,6 +25664,9 @@ function createTipsModule(tips) {
   };
 }
 
+// src/adapters/control-plane.ts
+import { dirname as dirname3 } from "node:path";
+
 // src/core/store/archive-index.ts
 import { constants } from "node:fs";
 import { lstat, open as open3, readdir as readdir4 } from "node:fs/promises";
@@ -25702,11 +25705,11 @@ function missingFiles() {
     "board.jsonl": MISSING_FILE
   };
 }
-function regularFileInfo(stat4) {
+function regularFileInfo(stat5) {
   return {
     exists: true,
-    size: stat4.size,
-    mtime: stat4.mtime.toISOString()
+    size: stat5.size,
+    mtime: stat5.mtime.toISOString()
   };
 }
 function sameFile(a, b) {
@@ -25821,29 +25824,29 @@ var ArchiveIndex = class {
   }
   async scanFile(taskDir, file) {
     const filePath = join5(taskDir, file);
-    let stat4;
+    let stat5;
     try {
-      stat4 = await this.fs.lstat(filePath);
+      stat5 = await this.fs.lstat(filePath);
     } catch (error2) {
       const code = errorCode(error2);
       if (code === "ENOENT") return { info: MISSING_FILE };
       return { info: MISSING_FILE, error: fileError("stat", file, code) };
     }
-    if (stat4.isSymbolicLink() || !stat4.isFile()) {
+    if (stat5.isSymbolicLink() || !stat5.isFile()) {
       return { info: MISSING_FILE, error: fileError("stat", file, "UNSAFE_FILE_TYPE") };
     }
-    const info = regularFileInfo(stat4);
+    const info = regularFileInfo(stat5);
     let handle;
     try {
       const noFollow = constants.O_NOFOLLOW ?? 0;
       handle = await this.fs.open(filePath, constants.O_RDONLY | noFollow);
       const openedStat = await handle.stat();
-      if (!openedStat.isFile() || !sameFile(stat4, openedStat)) {
-        return { info, stat: stat4, error: fileError("read", file, "FILE_CHANGED") };
+      if (!openedStat.isFile() || !sameFile(stat5, openedStat)) {
+        return { info, stat: stat5, error: fileError("read", file, "FILE_CHANGED") };
       }
-      return { info, stat: stat4 };
+      return { info, stat: stat5 };
     } catch (error2) {
-      return { info, stat: stat4, error: fileError("read", file, errorCode(error2)) };
+      return { info, stat: stat5, error: fileError("read", file, errorCode(error2)) };
     } finally {
       await handle?.close().catch(() => void 0);
     }
@@ -27387,8 +27390,8 @@ var WorkspaceAgentConfigService = class {
     const cwd = assertWorkspaceCwd(workspaceCwd);
     let canonicalCwd;
     try {
-      const stat4 = await this.fs.lstat(cwd);
-      if (stat4.isSymbolicLink() || !stat4.isDirectory()) throw new AgentConfigUnsafePathError("workspace root is not a real directory");
+      const stat5 = await this.fs.lstat(cwd);
+      if (stat5.isSymbolicLink() || !stat5.isDirectory()) throw new AgentConfigUnsafePathError("workspace root is not a real directory");
       canonicalCwd = await this.fs.realpath(cwd);
     } catch (error2) {
       if (error2 instanceof AgentConfigError) throw error2;
@@ -27408,9 +27411,9 @@ var WorkspaceAgentConfigService = class {
     while (true) {
       const gitPath = join6(current, ".git");
       try {
-        const stat4 = await this.fs.lstat(gitPath);
-        if (stat4.isSymbolicLink()) throw new AgentConfigUnsafePathError(".git is a symbolic link");
-        if (stat4.isDirectory() || stat4.isFile()) return current;
+        const stat5 = await this.fs.lstat(gitPath);
+        if (stat5.isSymbolicLink()) throw new AgentConfigUnsafePathError(".git is a symbolic link");
+        if (stat5.isDirectory() || stat5.isFile()) return current;
       } catch (error2) {
         if (!isMissing(error2)) throw mapReadError(error2, "project root could not be inspected");
       }
@@ -27424,16 +27427,16 @@ var WorkspaceAgentConfigService = class {
    * config directories are allowed because a first save may create them.
    */
   async existingPath(path, expected, allowMissing, root) {
-    let stat4;
+    let stat5;
     try {
-      stat4 = await this.fs.lstat(path);
+      stat5 = await this.fs.lstat(path);
     } catch (error2) {
       if (isMissing(error2) && allowMissing) return false;
       throw mapReadError(error2, "project configuration path could not be inspected");
     }
-    if (stat4.isSymbolicLink()) throw new AgentConfigUnsafePathError();
-    if (expected === "file" && !stat4.isFile()) throw new AgentConfigUnsafePathError("configuration target is not a regular file");
-    if (expected === "directory" && !stat4.isDirectory()) throw new AgentConfigUnsafePathError("configuration parent is not a directory");
+    if (stat5.isSymbolicLink()) throw new AgentConfigUnsafePathError();
+    if (expected === "file" && !stat5.isFile()) throw new AgentConfigUnsafePathError("configuration target is not a regular file");
+    if (expected === "directory" && !stat5.isDirectory()) throw new AgentConfigUnsafePathError("configuration parent is not a directory");
     let physical;
     try {
       physical = await this.fs.realpath(path);
@@ -27474,15 +27477,15 @@ var WorkspaceAgentConfigService = class {
         throw mapReadError(error2, "configuration parent could not be resolved");
       }
     }
-    let stat4;
+    let stat5;
     try {
-      stat4 = await this.fs.lstat(path);
+      stat5 = await this.fs.lstat(path);
     } catch (error2) {
       if (isMissing(error2)) return { exists: false, content: "", hash: null, size: 0 };
       throw mapReadError(error2, "configuration file could not be inspected");
     }
-    if (stat4.isSymbolicLink() || !stat4.isFile()) throw new AgentConfigUnsafePathError();
-    if (stat4.size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
+    if (stat5.isSymbolicLink() || !stat5.isFile()) throw new AgentConfigUnsafePathError();
+    if (stat5.size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
     let content;
     try {
       content = await this.fs.readFile(path, "utf8");
@@ -27715,6 +27718,117 @@ function createAgentConfigModule(agentConfig = new WorkspaceAgentConfigService()
     tier: "stable",
     routes: agentConfigRoutes(agentConfig)
   };
+}
+
+// src/core/store/project-migration.ts
+import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile5, rename as rename2, stat as stat4, truncate, unlink as unlink5 } from "node:fs/promises";
+import { join as join7 } from "node:path";
+async function fileSizeOrZero(file) {
+  try {
+    return (await stat4(file)).size;
+  } catch (err) {
+    if (err.code === "ENOENT") return 0;
+    throw err;
+  }
+}
+async function rollbackToSize(file, size) {
+  if (size === 0) {
+    await unlink5(file).catch(() => {
+    });
+    return;
+  }
+  await truncate(file, size).catch(() => {
+  });
+}
+async function archiveRename(from, to) {
+  try {
+    await rename2(from, to);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+}
+async function migrateWorkspaceToProject(workspace, opts = {}) {
+  const homeDir = opts.homeDir ?? moamcpHome();
+  const registry2 = opts.registry ?? new ProjectRegistry({ homeDir });
+  const cwd = normalizeWorkspacePath(workspace);
+  const pathHash = workspaceIdForPath(cwd);
+  const boardsDir = join7(homeDir, "boards");
+  const sourceFile = join7(boardsDir, `ws-${pathHash}.jsonl`);
+  const sourceMeta = join7(boardsDir, `ws-${pathHash}.meta.json`);
+  await registry2.refreshIfStale();
+  const existing = registry2.resolveCached(pathHash);
+  if (existing !== void 0) {
+    if (opts.projectId !== void 0 && opts.projectId !== existing) {
+      throw new Error(
+        `workspace ${cwd} is already aliased to project ${existing}; refusing to migrate it to ${opts.projectId}`
+      );
+    }
+    return { projectId: existing, moved: 0 };
+  }
+  let projectId;
+  if (opts.projectId !== void 0) {
+    if (typeof opts.projectId !== "string" || !/^p_[0-9a-f]{12}$/.test(opts.projectId)) {
+      throw new Error(`invalid projectId: ${String(opts.projectId)} (expected p_<12 hex chars>)`);
+    }
+    projectId = opts.projectId;
+    const known = (await registry2.listProjects()).some((project) => project.projectId === projectId);
+    if (!known) throw new Error(`unknown projectId: ${projectId} (create it first or omit projectId)`);
+  } else {
+    projectId = await registry2.createProject(opts.name);
+  }
+  const targetFile = join7(boardsDir, `project-${projectId}.jsonl`);
+  await mkdir5(boardsDir, { recursive: true });
+  return withAppendLock(targetFile, async () => {
+    const beforeSize = await fileSizeOrZero(targetFile);
+    let raw = "";
+    try {
+      raw = await readFile5(sourceFile, "utf8");
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+    let moved = 0;
+    let body = "";
+    for (const line of raw.split(/\r?\n/)) {
+      if (line.trim() === "") continue;
+      let record2;
+      try {
+        record2 = JSON.parse(line);
+      } catch {
+        record2 = void 0;
+      }
+      if (typeof record2 === "object" && record2 !== null) {
+        body += JSON.stringify({ ...record2, scope: `project:${projectId}` }) + "\n";
+        moved += 1;
+      } else {
+        body += line + "\n";
+      }
+    }
+    try {
+      if (body.length > 0) await appendFile3(targetFile, body, "utf8");
+      const written = Buffer.byteLength(body, "utf8");
+      const afterSize = await fileSizeOrZero(targetFile);
+      if (afterSize - beforeSize !== written) {
+        throw new Error(
+          `migration size check failed for ${targetFile}: expected +${written} bytes, observed +${afterSize - beforeSize}`
+        );
+      }
+      await registry2.addAlias(projectId, pathHash);
+    } catch (err) {
+      await rollbackToSize(targetFile, beforeSize);
+      throw err;
+    }
+    const stamp = Date.now();
+    try {
+      await archiveRename(sourceFile, `${sourceFile}.migrated-${stamp}`);
+      await archiveRename(sourceMeta, `${sourceMeta}.migrated-${stamp}`);
+    } catch (err) {
+      await registry2.removeAlias(pathHash).catch(() => {
+      });
+      await rollbackToSize(targetFile, beforeSize);
+      throw err;
+    }
+    return { projectId, moved };
+  });
 }
 
 // src/web/tokens.ts
@@ -29944,7 +30058,33 @@ var I18N_DICTIONARIES = {
     "agent.copyReload": "Copy /reload",
     "agent.conflict": "Configuration changed externally. Your draft is preserved; load the latest version before saving again.",
     "agent.reloaded": "Latest configuration loaded. Your previous draft was replaced.",
-    "agent.error": "Agent configuration: "
+    "agent.error": "Agent configuration: ",
+    "memory.projects": "Projects",
+    "memory.inbox": "Handoff Inbox",
+    "projects.intro": "Projects group one or more workspaces under a shared board. Migrating the current workspace aliases its path to the project so future workspace-scope reads/writes target the project board.",
+    "projects.empty": "No projects yet. Create one by migrating the current workspace.",
+    "projects.createdAt": "Created {createdAt}",
+    "projects.aliases": "Aliases",
+    "projects.noAliases": "no aliases yet",
+    "projects.merge": "Merge current workspace into this project",
+    "projects.mergeConfirm": "Merge the current workspace into project {project}? This migration is immediate and cannot be automatically undone; the workspace board is archived (never deleted).",
+    "projects.merged": "Workspace merged into {projectId} \xB7 {moved} records moved.",
+    "projects.count": "{count} project",
+    "projects.countPlural": "{count} projects",
+    "inbox.state.pending": "pending",
+    "inbox.state.consumed": "consumed",
+    "inbox.state.archived": "archived",
+    "inbox.state.all": "all",
+    "inbox.viewAria": "Handoff view",
+    "inbox.inboxView": "Inbox",
+    "inbox.outboxView": "Outbox",
+    "inbox.empty": "No handoffs match the current filter.",
+    "inbox.from": "from {from}",
+    "inbox.to": "to {to}",
+    "inbox.consume": "Consume",
+    "inbox.archive": "Archive",
+    "inbox.consumeConfirm": "Mark this handoff as consumed? This is a terminal state.",
+    "inbox.archiveConfirm": "Archive this handoff? It will be hidden from the default inbox view."
   },
   "zh-CN": {
     "app.brand": "MOA \u5DE5\u4F5C\u533A",
@@ -30200,7 +30340,33 @@ var I18N_DICTIONARIES = {
     "agent.copyReload": "\u590D\u5236 /reload",
     "agent.conflict": "\u914D\u7F6E\u5DF2\u88AB\u5916\u90E8\u4FEE\u6539\u3002\u4F60\u7684\u8349\u7A3F\u5DF2\u4FDD\u7559\uFF1B\u52A0\u8F7D\u6700\u65B0\u7248\u672C\u540E\u518D\u4FDD\u5B58\u3002",
     "agent.reloaded": "\u5DF2\u52A0\u8F7D\u6700\u65B0\u914D\u7F6E\uFF0C\u4E4B\u524D\u7684\u8349\u7A3F\u5DF2\u66FF\u6362\u3002",
-    "agent.error": "Agent \u914D\u7F6E\uFF1A"
+    "agent.error": "Agent \u914D\u7F6E\uFF1A",
+    "memory.projects": "\u9879\u76EE",
+    "memory.inbox": "\u4EA4\u63A5\u6536\u4EF6\u7BB1",
+    "projects.intro": "\u9879\u76EE\u628A\u4E00\u4E2A\u6216\u591A\u4E2A\u5DE5\u4F5C\u533A\u5F52\u5230\u540C\u4E00\u5757\u5171\u4EAB\u770B\u677F\u3002\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u9879\u76EE\u540E\uFF0C\u5176\u8DEF\u5F84\u4F1A\u7ED1\u5B9A\u4E3A\u9879\u76EE\u522B\u540D\uFF0C\u540E\u7EED\u5DE5\u4F5C\u533A\u4F5C\u7528\u57DF\u7684\u8BFB\u5199\u90FD\u6307\u5411\u9879\u76EE\u770B\u677F\u3002",
+    "projects.empty": "\u6682\u65E0\u9879\u76EE\u3002\u53EF\u901A\u8FC7\u5408\u5E76\u5F53\u524D\u5DE5\u4F5C\u533A\u521B\u5EFA\u9879\u76EE\u3002",
+    "projects.createdAt": "\u521B\u5EFA\u4E8E {createdAt}",
+    "projects.aliases": "\u522B\u540D",
+    "projects.noAliases": "\u6682\u65E0\u522B\u540D",
+    "projects.merge": "\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u6B64\u9879\u76EE",
+    "projects.mergeConfirm": "\u786E\u8BA4\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u9879\u76EE {project}\uFF1F\u6B64\u8FC1\u79FB\u7ACB\u5373\u751F\u6548\u4E14\u65E0\u6CD5\u81EA\u52A8\u64A4\u9500\uFF1B\u539F\u5DE5\u4F5C\u533A\u770B\u677F\u4F1A\u7559\u6863\uFF08\u4E0D\u4F1A\u5220\u9664\uFF09\u3002",
+    "projects.merged": "\u5DE5\u4F5C\u533A\u5DF2\u5408\u5E76\u8FDB {projectId} \xB7 \u8FC1\u79FB {moved} \u6761\u8BB0\u5F55\u3002",
+    "projects.count": "{count} \u4E2A\u9879\u76EE",
+    "projects.countPlural": "{count} \u4E2A\u9879\u76EE",
+    "inbox.state.pending": "\u5F85\u5904\u7406",
+    "inbox.state.consumed": "\u5DF2\u6D88\u8D39",
+    "inbox.state.archived": "\u5DF2\u5F52\u6863",
+    "inbox.state.all": "\u5168\u90E8",
+    "inbox.viewAria": "\u4EA4\u63A5\u89C6\u56FE",
+    "inbox.inboxView": "\u6536\u4EF6\u7BB1",
+    "inbox.outboxView": "\u53D1\u4EF6\u7BB1",
+    "inbox.empty": "\u6CA1\u6709\u7B26\u5408\u5F53\u524D\u7B5B\u9009\u6761\u4EF6\u7684\u4EA4\u63A5\u3002",
+    "inbox.from": "\u6765\u81EA {from}",
+    "inbox.to": "\u53D1\u7ED9 {to}",
+    "inbox.consume": "\u6807\u8BB0\u5DF2\u6D88\u8D39",
+    "inbox.archive": "\u5F52\u6863",
+    "inbox.consumeConfirm": "\u786E\u8BA4\u5C06\u6B64\u4EA4\u63A5\u6807\u8BB0\u4E3A\u5DF2\u6D88\u8D39\uFF1F\u8FD9\u662F\u7EC8\u6001\u3002",
+    "inbox.archiveConfirm": "\u786E\u8BA4\u5F52\u6863\u6B64\u4EA4\u63A5\uFF1F\u5F52\u6863\u540E\u5C06\u4E0D\u5728\u9ED8\u8BA4\u6536\u4EF6\u5217\u8868\u663E\u793A\u3002"
   }
 };
 var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
@@ -31221,6 +31387,234 @@ var SYSTEM_PAGE_JS = `  function renderHealthCard(container, title, value) {
   }
 `;
 
+// src/web/pages/projects.ts
+var PROJECTS_VIEW_HTML = `  <section id="projectsView" class="view" role="tabpanel" hidden>
+    <div class="proj-toolbar">
+      <p class="proj-intro" data-i18n="projects.intro">Projects group one or more workspaces under a shared board.</p>
+      <button id="refreshProjects" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
+      <span id="projectsCount" class="result-count" role="status"></span>
+    </div>
+    <div id="projectsList" class="proj-list"></div>
+  </section>
+`;
+var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
+    var card = document.createElement('article');
+    card.className = 'proj-card';
+    var head = document.createElement('div');
+    head.className = 'proj-head';
+    var name = document.createElement('h3');
+    name.className = 'proj-name';
+    name.textContent = project.name || project.projectId;
+    head.appendChild(name);
+    var id = document.createElement('span');
+    id.className = 'proj-id';
+    id.textContent = project.projectId;
+    head.appendChild(id);
+    card.appendChild(head);
+    var meta = document.createElement('div');
+    meta.className = 'proj-meta';
+    meta.textContent = tr('projects.createdAt', { createdAt: project.createdAt || '\u2014' });
+    card.appendChild(meta);
+    var aliases = document.createElement('div');
+    aliases.className = 'proj-aliases';
+    var aliasesLabel = document.createElement('span');
+    aliasesLabel.className = 'proj-aliases-label';
+    aliasesLabel.textContent = tr('projects.aliases');
+    aliases.appendChild(aliasesLabel);
+    var aliasList = project.aliases || [];
+    if (!aliasList.length) {
+      var none = document.createElement('span');
+      none.className = 'tag';
+      none.textContent = tr('projects.noAliases');
+      aliases.appendChild(none);
+    }
+    aliasList.forEach(function (alias) {
+      var chip = document.createElement('span');
+      chip.className = 'tag proj-alias';
+      chip.textContent = alias;
+      aliases.appendChild(chip);
+    });
+    card.appendChild(aliases);
+    var actions = document.createElement('div');
+    actions.className = 'proj-actions';
+    var merge = document.createElement('button');
+    merge.className = 'primary';
+    merge.type = 'button';
+    merge.textContent = tr('projects.merge');
+    merge.addEventListener('click', function () { migrateCurrentWorkspace(project); });
+    actions.appendChild(merge);
+    card.appendChild(actions);
+    return card;
+  }
+  function renderProjects(projects) {
+    var list = document.getElementById('projectsList');
+    list.textContent = '';
+    if (!projects.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = tr('projects.empty');
+      list.appendChild(empty);
+      return;
+    }
+    projects.forEach(function (project) { list.appendChild(renderProjectCard(project)); });
+  }
+  function loadProjects() {
+    if (!currentWorkspace) return Promise.resolve();
+    return api('/api/projects').then(function (data) {
+      var projects = data && Array.isArray(data.projects) ? data.projects : [];
+      renderProjects(projects);
+      document.getElementById('projectsCount').textContent = tr(projects.length === 1 ? 'projects.count' : 'projects.countPlural', { count: projects.length });
+    });
+  }
+  function migrateCurrentWorkspace(project) {
+    if (!currentWorkspace) return;
+    var label = project.name || project.projectId;
+    if (!window.confirm(tr('projects.mergeConfirm', { project: label }))) return;
+    api('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace, projectId: project.projectId }) }).then(function (result) {
+      setNotice(tr('projects.merged', { projectId: result.projectId, moved: result.moved }), false);
+      return loadProjects().then(function () {
+        // The migrated workspace sidecar is archived, so the workspace list
+        // must be re-read (applyWorkspace then picks the next workspace).
+        return loadWorkspaces().catch(function () {});
+      });
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+`;
+
+// src/web/pages/inbox.ts
+var INBOX_VIEW_HTML = `  <section id="inboxView" class="view" role="tabpanel" hidden>
+    <div class="ho-toolbar">
+      <div class="field"><label for="inboxState" data-i18n="common.status">Status</label><select id="inboxState">
+        <option value="pending" data-i18n="inbox.state.pending">pending</option>
+        <option value="consumed" data-i18n="inbox.state.consumed">consumed</option>
+        <option value="archived" data-i18n="inbox.state.archived">archived</option>
+        <option value="pending,consumed,archived" data-i18n="inbox.state.all">all</option>
+      </select></div>
+      <button id="refreshInbox" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
+      <div class="ho-toggle" role="group" aria-label="Handoff view" data-i18n-aria="inbox.viewAria">
+        <button id="inboxViewButton" class="secondary active" type="button" data-i18n="inbox.inboxView">Inbox</button>
+        <button id="outboxViewButton" class="secondary" type="button" data-i18n="inbox.outboxView">Outbox</button>
+      </div>
+    </div>
+    <div id="inboxList" class="ho-list"></div>
+  </section>
+`;
+var INBOX_PAGE_JS = `  var inboxMode = 'inbox';
+  function inboxQuery() {
+    var query = new URLSearchParams();
+    query.set('workspace', currentWorkspace);
+    var state = document.getElementById('inboxState').value;
+    if (state) query.set('state', state);
+    return query.toString();
+  }
+  function renderHandoffRow(handoff) {
+    var row = document.createElement('article');
+    row.className = 'ho-row';
+    var head = document.createElement('div');
+    head.className = 'ho-head';
+    var title = document.createElement('button');
+    title.className = 'ho-title';
+    title.type = 'button';
+    title.textContent = handoff.title || handoff.id;
+    title.addEventListener('click', function () { toggleHandoffDetail(row, handoff); });
+    var status = document.createElement('span');
+    status.className = 'status ho-' + (handoff.state || 'pending');
+    status.textContent = handoff.state || '\u2014';
+    head.appendChild(title);
+    head.appendChild(status);
+    row.appendChild(head);
+    var summary = document.createElement('div');
+    summary.className = 'ho-summary';
+    summary.textContent = handoff.summary || '';
+    row.appendChild(summary);
+    var meta = document.createElement('div');
+    meta.className = 'ho-meta';
+    var from = document.createElement('span');
+    from.textContent = tr('inbox.from', { from: handoff.fromProject || '\u2014' });
+    meta.appendChild(from);
+    var to = document.createElement('span');
+    to.textContent = tr('inbox.to', { to: handoff.toProject || '\u2014' });
+    meta.appendChild(to);
+    var updated = document.createElement('span');
+    updated.textContent = handoff.updatedAt || '';
+    meta.appendChild(updated);
+    row.appendChild(meta);
+    var actions = document.createElement('div');
+    actions.className = 'ho-actions';
+    var details = document.createElement('button');
+    details.className = 'secondary'; details.type = 'button'; details.textContent = tr('common.details');
+    details.addEventListener('click', function () { toggleHandoffDetail(row, handoff); });
+    actions.appendChild(details);
+    if (handoff.state === 'pending') {
+      var consume = document.createElement('button');
+      consume.className = 'primary'; consume.type = 'button'; consume.textContent = tr('inbox.consume');
+      consume.addEventListener('click', function () { consumeHandoff(handoff.id); });
+      actions.appendChild(consume);
+      var archive = document.createElement('button');
+      archive.className = 'danger'; archive.type = 'button'; archive.textContent = tr('inbox.archive');
+      archive.addEventListener('click', function () { archiveHandoff(handoff.id); });
+      actions.appendChild(archive);
+    }
+    row.appendChild(actions);
+    return row;
+  }
+  function toggleHandoffDetail(row, handoff) {
+    var existing = row.querySelector('.ho-detail');
+    if (existing) { row.removeChild(existing); return; }
+    var detail = document.createElement('div');
+    detail.className = 'ho-detail';
+    var dl = document.createElement('dl');
+    dl.className = 'details';
+    ['id', 'fromProject', 'toProject', 'state', 'author', 'createdAt', 'updatedAt', 'consumedAt'].forEach(function (field) {
+      if (handoff[field] !== undefined) addDetailRow(dl, field, handoff[field], false);
+    });
+    detail.appendChild(dl);
+    row.appendChild(detail);
+  }
+  function renderInboxList(handoffs) {
+    var list = document.getElementById('inboxList');
+    list.textContent = '';
+    if (!handoffs.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = tr('inbox.empty');
+      list.appendChild(empty);
+      return;
+    }
+    handoffs.forEach(function (handoff) { list.appendChild(renderHandoffRow(handoff)); });
+  }
+  function loadInbox() {
+    if (!currentWorkspace) return Promise.resolve();
+    var url = inboxMode === 'outbox' ? '/api/handoff/outbox?' + inboxQuery() : '/api/handoff/inbox?' + inboxQuery();
+    return api(url).then(function (data) {
+      renderInboxList(data && Array.isArray(data.handoffs) ? data.handoffs : []);
+    });
+  }
+  function switchInboxMode(mode) {
+    if (mode !== 'inbox' && mode !== 'outbox') mode = 'inbox';
+    inboxMode = mode;
+    document.getElementById('inboxViewButton').className = 'secondary' + (mode === 'inbox' ? ' active' : '');
+    document.getElementById('outboxViewButton').className = 'secondary' + (mode === 'outbox' ? ' active' : '');
+    return loadInbox();
+  }
+  function consumeHandoff(id) {
+    if (!currentWorkspace || !window.confirm(tr('inbox.consumeConfirm'))) return;
+    api('/api/handoff/' + encodeURIComponent(id) + '/consume', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace }) }).then(function () {
+      return loadInbox();
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function archiveHandoff(id) {
+    if (!currentWorkspace || !window.confirm(tr('inbox.archiveConfirm'))) return;
+    api('/api/handoff/' + encodeURIComponent(id) + '/archive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace }) }).then(function () {
+      return loadInbox();
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  document.getElementById('refreshInbox').addEventListener('click', function () { loadInbox().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('inboxState').addEventListener('change', function () { loadInbox().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('inboxViewButton').addEventListener('click', function () { switchInboxMode('inbox').catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('outboxViewButton').addEventListener('click', function () { switchInboxMode('outbox').catch(function (error) { setNotice(error.message, true); }); });
+`;
+
 // src/web/control-plane-page.ts
 var CONTROL_PLANE_HTML = `<!doctype html>
 <html lang="en">
@@ -31783,12 +32177,170 @@ ${COMPONENTS_CSS}
 .health-card dd { margin: 0; overflow-wrap: anywhere; }
 .degraded { color: var(--accent-amber); }
 
+/* Projects & Handoff Inbox (mailbox task 4) */
+.proj-toolbar, .ho-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+.proj-intro {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  max-width: 640px;
+  flex: 1 1 320px;
+}
+.proj-list, .ho-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 880px;
+}
+.proj-card {
+  padding: 14px 16px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.proj-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.proj-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.proj-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.proj-id {
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.proj-meta {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.proj-aliases {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.proj-aliases-label {
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.proj-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 12px;
+}
+.proj-actions button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.ho-row {
+  padding: 13px 15px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.ho-row:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.ho-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ho-title {
+  flex: 1;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.ho-title:hover {
+  color: var(--accent-blue);
+}
+.ho-summary {
+  margin: 7px 0;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ho-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 12px;
+  align-items: center;
+}
+.ho-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+.ho-actions button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.ho-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--solid-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+.status.ho-pending { background: var(--tint-blue); color: var(--accent-blue); border-color: var(--tint-blue-border); }
+.status.ho-consumed { background: var(--tint-green); color: var(--accent-green); border-color: var(--tint-green-border); }
+.status.ho-archived { background: var(--hover-tint-subtle); color: var(--text-faint); }
+.ho-toggle {
+  display: flex;
+  gap: 7px;
+  margin-left: auto;
+}
+.ho-toggle .secondary.active {
+  background: var(--tint-green);
+  border-color: var(--tint-green-border);
+  color: var(--accent-green);
+}
+
 @media (max-width: 800px) {
   .tip-layout, .board-layout, .agent-layout { grid-template-columns: 1fr; }
   .board-detail { position: static; }
   .agent-binding-row { grid-template-columns: 1fr 1fr; }
   .agent-binding-row .remove-binding { justify-self: start; }
   .management-list { grid-template-columns: 1fr; }
+  .ho-toggle { margin-left: 0; }
 }
 @media (max-width: 620px) {
   .shell { padding: 14px; }
@@ -31818,11 +32370,15 @@ ${I18N_BOOTSTRAP}
     <button id="tipsTab" class="tab active" role="tab" type="button" data-i18n="memory.tips">Project Tips</button>
     <button id="boardTab" class="tab" role="tab" type="button" data-i18n="memory.board">Shared Board \xB7 Raw</button>
     <button id="agentsTab" class="tab" role="tab" type="button" data-i18n="memory.agents">Agents &amp; Profiles</button>
+    <button id="projectsTab" class="tab" role="tab" type="button" data-i18n="memory.projects">Projects</button>
+    <button id="inboxTab" class="tab" role="tab" type="button" data-i18n="memory.inbox">Handoff Inbox</button>
   </div>
 
 ${TIPS_VIEW_HTML}
 ${BOARD_VIEW_HTML}
-${AGENTS_VIEW_HTML}  </main>
+${AGENTS_VIEW_HTML}
+${PROJECTS_VIEW_HTML}
+${INBOX_VIEW_HTML}  </main>
 
 ${RUNS_SECTION_HTML}
 ${SYSTEM_SECTION_HTML}</div>
@@ -31955,6 +32511,8 @@ ${LIB_JS}
     if (!currentWorkspace && activeView !== 'board') return Promise.resolve();
     if (activeView === 'board') return loadBoard();
     if (activeView === 'agents') return loadAgentSummary();
+    if (activeView === 'projects') return loadProjects();
+    if (activeView === 'inbox') return loadInbox();
     return loadTips();
   }
   function getBoardChannel() {
@@ -32008,6 +32566,8 @@ ${LIB_JS}
     loadTips().catch(function (error) { setNotice(error.message, true); });
     if (activeView === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
     if (activeView === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
+    if (activeView === 'projects') loadProjects().catch(function (error) { setNotice(error.message, true); });
+    if (activeView === 'inbox') loadInbox().catch(function (error) { setNotice(error.message, true); });
   }
   function showNoWorkspace() {
     currentWorkspace = '';
@@ -32021,6 +32581,8 @@ ${LIB_JS}
     tipList.appendChild(empty);
     document.getElementById('boardList').textContent = '';
     agentSnapshot = null; agentLocalHash = null; clearAgentEditor(); agentList.textContent = '';
+    document.getElementById('projectsList').textContent = '';
+    document.getElementById('inboxList').textContent = '';
     setNotice(tr('tips.createWorkspace'), false);
   }
   function loadWorkspaces() {
@@ -32034,7 +32596,7 @@ ${LIB_JS}
       applyWorkspace(found);
     });
   }
-${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}${SYSTEM_PAGE_JS}  function closeSectionResources() {
+${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}${SYSTEM_PAGE_JS}${PROJECTS_PAGE_JS}${INBOX_PAGE_JS}  function closeSectionResources() {
     closeBoardSubscription();
     if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
     if (systemPollTimer) { clearInterval(systemPollTimer); systemPollTimer = null; }
@@ -32064,13 +32626,15 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     else { loadSystem(); systemPollTimer = setInterval(function () { loadSystem(); }, 10000); }
   }
   function switchView(view) {
-    if (['tips', 'board', 'agents'].indexOf(view) < 0) view = 'tips';
+    if (['tips', 'board', 'agents', 'projects', 'inbox'].indexOf(view) < 0) view = 'tips';
     activeView = view;
-    document.getElementById('tipsView').hidden = view !== 'tips'; document.getElementById('boardView').hidden = view !== 'board'; document.getElementById('agentsView').hidden = view !== 'agents';
-    document.getElementById('tipsTab').className = 'tab' + (view === 'tips' ? ' active' : ''); document.getElementById('boardTab').className = 'tab' + (view === 'board' ? ' active' : ''); document.getElementById('agentsTab').className = 'tab' + (view === 'agents' ? ' active' : '');
+    document.getElementById('tipsView').hidden = view !== 'tips'; document.getElementById('boardView').hidden = view !== 'board'; document.getElementById('agentsView').hidden = view !== 'agents'; document.getElementById('projectsView').hidden = view !== 'projects'; document.getElementById('inboxView').hidden = view !== 'inbox';
+    document.getElementById('tipsTab').className = 'tab' + (view === 'tips' ? ' active' : ''); document.getElementById('boardTab').className = 'tab' + (view === 'board' ? ' active' : ''); document.getElementById('agentsTab').className = 'tab' + (view === 'agents' ? ' active' : ''); document.getElementById('projectsTab').className = 'tab' + (view === 'projects' ? ' active' : ''); document.getElementById('inboxTab').className = 'tab' + (view === 'inbox' ? ' active' : '');
     connectBoardSubscription();
     if (view === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
     else if (view === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
+    else if (view === 'projects') loadProjects().catch(function (error) { setNotice(error.message, true); });
+    else if (view === 'inbox') loadInbox().catch(function (error) { setNotice(error.message, true); });
     else loadTips().catch(function (error) { setNotice(error.message, true); });
   }
   workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
@@ -32079,6 +32643,9 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   document.getElementById('tipsTab').addEventListener('click', function () { switchView('tips'); });
   document.getElementById('boardTab').addEventListener('click', function () { switchView('board'); });
   document.getElementById('agentsTab').addEventListener('click', function () { switchView('agents'); });
+  document.getElementById('projectsTab').addEventListener('click', function () { switchView('projects'); });
+  document.getElementById('inboxTab').addEventListener('click', function () { switchView('inbox'); });
+  document.getElementById('refreshProjects').addEventListener('click', function () { loadProjects().catch(function (error) { setNotice(error.message, true); }); });
   document.getElementById('refreshAgents').addEventListener('click', function () { loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); }); });
   document.getElementById('newAgent').addEventListener('click', openNewAgent);
   agentForm.addEventListener('submit', saveAgent);
@@ -32135,6 +32702,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     if (activeSection === 'memory') {
       if (activeView === 'board') renderBoardList(boardEntries);
       else if (activeView === 'agents') { renderAgentList(agentSnapshot && agentSnapshot.agents); if (agentSnapshot) updateBindingRowTranslations(); if (selectedAgent && !agentIsNew) renderAgentMeta(selectedAgent); }
+      else if (activeView === 'projects') loadProjects().catch(function () {});
+      else if (activeView === 'inbox') loadInbox().catch(function () {});
       else loadTips().catch(function () {});
     } else if (activeSection === 'runs') {
       if (activeRunsView === 'live') loadRuns().catch(function () {}); else loadArchives().catch(function () {});
@@ -32248,11 +32817,11 @@ function methodNotAllowed(res, allow) {
 function errorStatus(error2) {
   if (error2 instanceof UnsupportedMediaTypeError) return 415;
   if (error2 instanceof ForbiddenError) return 403;
-  if (error2 instanceof BoardConflictError || error2 instanceof AgentConfigConflictError || error2 instanceof AgentConfigBusyError) return 409;
+  if (error2 instanceof BoardConflictError || error2 instanceof AgentConfigConflictError || error2 instanceof AgentConfigBusyError || error2 instanceof HandoffStateError) return 409;
   if (error2 instanceof AgentConfigUnsafePathError) return 403;
-  if (error2 instanceof AgentConfigNotFoundError || error2 instanceof ResourceNotFoundError || error2 instanceof TipNotFoundError) return 404;
+  if (error2 instanceof AgentConfigNotFoundError || error2 instanceof ResourceNotFoundError || error2 instanceof TipNotFoundError || error2 instanceof HandoffNotFoundError) return 404;
   if (error2 instanceof AgentConfigError) return error2.status;
-  if (error2 instanceof ApiValidationError || error2 instanceof TipValidationError) return 400;
+  if (error2 instanceof ApiValidationError || error2 instanceof TipValidationError || error2 instanceof HandoffValidationError) return 400;
   if (error2 instanceof PayloadTooLargeError) return 413;
   if (error2 instanceof ControlPlaneUnavailableError) return 503;
   if (error2 instanceof Error && /^(key|value|tags?|author|limit|scope|workspace)\b/i.test(error2.message)) return 400;
@@ -32299,6 +32868,27 @@ function requireTaskId(value) {
   }
   if (!isValidTaskId(id)) throw new ApiValidationError("invalid task id");
   return id;
+}
+function requireHandoffId(value) {
+  let id;
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError("invalid handoff id");
+  }
+  if (!HANDOFF_ID_PATTERN.test(id)) throw new ApiValidationError("invalid handoff id (expected ho_<12 hex chars>)");
+  return id;
+}
+function parseHandoffStates(value) {
+  if (value === null || value === "") return void 0;
+  const parts = value.split(",").map((part) => part.trim()).filter((part) => part.length > 0);
+  if (parts.length === 0) return void 0;
+  for (const part of parts) {
+    if (!HANDOFF_STATES.includes(part)) {
+      throw new ApiValidationError("state must be pending, consumed, or archived (comma-separated)");
+    }
+  }
+  return parts;
 }
 function parseLimit(value) {
   if (value === null || value === "") return void 0;
@@ -32439,6 +33029,24 @@ var ControlPlane = class {
       { method: "GET", path: "/api/tasks", handler: (ctx) => this.listRuns(ctx.url, ctx.res) },
       { method: "GET", path: "/api/archives", handler: (ctx) => this.listArchives(ctx.res) },
       { method: "GET", path: "/api/system", handler: (ctx) => this.system(ctx.res) },
+      { method: "GET", path: "/api/projects", handler: (ctx) => this.listProjects(ctx.res) },
+      { method: "POST", path: "/api/projects/migrate", handler: (ctx) => this.migrateProject(ctx) },
+      { method: "GET", path: "/api/handoff/inbox", handler: (ctx) => this.handoffInbox(ctx.url, ctx.res) },
+      { method: "GET", path: "/api/handoff/outbox", handler: (ctx) => this.handoffOutbox(ctx.url, ctx.res) },
+      {
+        method: "POST",
+        path: "/api/handoff/:id/consume",
+        pattern: /^\/api\/handoff\/([^/]+)\/consume$/,
+        validateParam: requireHandoffId,
+        handler: (ctx) => this.handoffTransition(ctx, ctx.param, "consume")
+      },
+      {
+        method: "POST",
+        path: "/api/handoff/:id/archive",
+        pattern: /^\/api\/handoff\/([^/]+)\/archive$/,
+        validateParam: requireHandoffId,
+        handler: (ctx) => this.handoffTransition(ctx, ctx.param, "archive")
+      },
       {
         method: "GET",
         path: "/api/tasks/:id",
@@ -32660,6 +33268,74 @@ var ControlPlane = class {
     const tip = await tips.archive(id, workspace.cwd, actor);
     ctx.sendJson(200, tip);
   }
+  // ---- projects + handoff (mailbox task 4) ----
+  /** HandoffStore is a stateless typed view over the mounted BoardStore. */
+  handoffStore() {
+    return new HandoffStore(this.stores().board);
+  }
+  async listProjects(res) {
+    const projects = await this.stores().board.registry.listProjects();
+    sendJson(res, 200, { projects });
+  }
+  async migrateProject(ctx) {
+    const body = await ctx.jsonBody();
+    rejectPathFields(body);
+    ctx.assertAllowedFields(body, ["workspace", "projectId", "name"], "migration");
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const projectId = body.projectId;
+    if (projectId !== void 0 && (typeof projectId !== "string" || !PROJECT_ID_PATTERN.test(projectId))) {
+      throw new ApiValidationError("projectId must be a p_<12 hex chars> project id");
+    }
+    const name = body.name;
+    if (name !== void 0 && (typeof name !== "string" || name.length === 0)) {
+      throw new ApiValidationError("name must be a non-empty string");
+    }
+    const homeDir = dirname3(this.stores().board.boardsDir());
+    const result = await migrateWorkspaceToProject(workspace.cwd, {
+      homeDir,
+      // Reuse the mounted registry so its in-process projection sees the alias
+      // immediately (migration writes the same registry.jsonl either way).
+      registry: this.stores().board.registry,
+      ...projectId === void 0 ? {} : { projectId },
+      ...name === void 0 ? {} : { name }
+    });
+    ctx.sendJson(200, result);
+  }
+  async handoffInbox(url, res) {
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const states = parseHandoffStates(url.searchParams.get("state"));
+    const limit = parseLimit(url.searchParams.get("limit"));
+    const options = {
+      ...states === void 0 ? {} : { state: states },
+      ...limit === void 0 ? {} : { limit }
+    };
+    const rows = await this.handoffStore().inbox(workspace.cwd, options);
+    sendJson(res, 200, { workspace: workspace.id, handoffs: rows });
+  }
+  async handoffOutbox(url, res) {
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const states = parseHandoffStates(url.searchParams.get("state"));
+    const limit = parseLimit(url.searchParams.get("limit"));
+    const options = {
+      ...states === void 0 ? {} : { state: states },
+      ...limit === void 0 ? {} : { limit }
+    };
+    const rows = await this.handoffStore().outbox(workspace.cwd, options);
+    sendJson(res, 200, { workspace: workspace.id, handoffs: rows });
+  }
+  async handoffTransition(ctx, id, action) {
+    const body = await ctx.jsonBody();
+    rejectPathFields(body);
+    ctx.assertAllowedFields(body, ["workspace", "actor"], "handoff transition");
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const actor = body.actor;
+    if (actor !== void 0 && actor !== null && typeof actor !== "string") {
+      throw new ApiValidationError("actor must be a string");
+    }
+    const store = this.handoffStore();
+    const handoff = action === "consume" ? await store.consume(id, workspace.cwd, actor) : await store.archive(id, workspace.cwd, actor);
+    ctx.sendJson(200, handoff);
+  }
   async mutateBoard(ctx) {
     const { board } = this.stores();
     const body = await ctx.jsonBody();
@@ -32807,8 +33483,8 @@ function createServer(hub = new DebateHub(), bus, board, tipStore) {
 
 // src/core/bus/bus.ts
 import { createServer as createServer2, get } from "node:http";
-import { writeFile as writeFile2, readFile as readFile5, rm } from "node:fs/promises";
-import { join as join7, resolve as resolve4 } from "node:path";
+import { writeFile as writeFile2, readFile as readFile6, rm } from "node:fs/promises";
+import { join as join8, resolve as resolve4 } from "node:path";
 
 // src/core/store/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
@@ -34375,7 +35051,7 @@ var Bus = class {
     this.server.closeAllConnections();
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join7(this.cwd, "bus.port"), { force: true });
+    if (this.wrotePortFile) await rm(join8(this.cwd, "bus.port"), { force: true });
   }
   // ---- internals ----
   /**
@@ -34423,7 +35099,7 @@ var Bus = class {
     });
   }
   async writePortFile() {
-    await writeFile2(join7(this.cwd, "bus.port"), String(this.port));
+    await writeFile2(join8(this.cwd, "bus.port"), String(this.port));
     this.wrotePortFile = true;
   }
   async releaseRegistration() {
@@ -34559,7 +35235,7 @@ var Bus = class {
         return;
       }
       try {
-        const content = await readFile5(resolve4(this.logsDir, taskId, file), "utf8");
+        const content = await readFile6(resolve4(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
@@ -34697,8 +35373,8 @@ async function main() {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
   const { rmSync } = await import("node:fs");
-  const { join: join8 } = await import("node:path");
-  process.on("exit", () => rmSync(join8(process.cwd(), "bus.port"), { force: true }));
+  const { join: join9 } = await import("node:path");
+  process.on("exit", () => rmSync(join9(process.cwd(), "bus.port"), { force: true }));
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;

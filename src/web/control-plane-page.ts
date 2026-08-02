@@ -24,6 +24,8 @@ import {
 import { AGENTS_VIEW_HTML, AGENTS_PAGE_JS } from './pages/agents.js';
 import { RUNS_SECTION_HTML, RUNS_PAGE_JS } from './pages/runs.js';
 import { SYSTEM_SECTION_HTML, SYSTEM_PAGE_JS } from './pages/system.js';
+import { PROJECTS_VIEW_HTML, PROJECTS_PAGE_JS } from './pages/projects.js';
+import { INBOX_VIEW_HTML, INBOX_PAGE_JS } from './pages/inbox.js';
 
 export const CONTROL_PLANE_HTML = `<!doctype html>
 <html lang="en">
@@ -586,12 +588,170 @@ ${COMPONENTS_CSS}
 .health-card dd { margin: 0; overflow-wrap: anywhere; }
 .degraded { color: var(--accent-amber); }
 
+/* Projects & Handoff Inbox (mailbox task 4) */
+.proj-toolbar, .ho-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+.proj-intro {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  max-width: 640px;
+  flex: 1 1 320px;
+}
+.proj-list, .ho-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 880px;
+}
+.proj-card {
+  padding: 14px 16px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.proj-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.proj-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.proj-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.proj-id {
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.proj-meta {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.proj-aliases {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.proj-aliases-label {
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.proj-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 12px;
+}
+.proj-actions button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.ho-row {
+  padding: 13px 15px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.ho-row:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.ho-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ho-title {
+  flex: 1;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.ho-title:hover {
+  color: var(--accent-blue);
+}
+.ho-summary {
+  margin: 7px 0;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ho-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 12px;
+  align-items: center;
+}
+.ho-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+.ho-actions button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.ho-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--solid-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+.status.ho-pending { background: var(--tint-blue); color: var(--accent-blue); border-color: var(--tint-blue-border); }
+.status.ho-consumed { background: var(--tint-green); color: var(--accent-green); border-color: var(--tint-green-border); }
+.status.ho-archived { background: var(--hover-tint-subtle); color: var(--text-faint); }
+.ho-toggle {
+  display: flex;
+  gap: 7px;
+  margin-left: auto;
+}
+.ho-toggle .secondary.active {
+  background: var(--tint-green);
+  border-color: var(--tint-green-border);
+  color: var(--accent-green);
+}
+
 @media (max-width: 800px) {
   .tip-layout, .board-layout, .agent-layout { grid-template-columns: 1fr; }
   .board-detail { position: static; }
   .agent-binding-row { grid-template-columns: 1fr 1fr; }
   .agent-binding-row .remove-binding { justify-self: start; }
   .management-list { grid-template-columns: 1fr; }
+  .ho-toggle { margin-left: 0; }
 }
 @media (max-width: 620px) {
   .shell { padding: 14px; }
@@ -621,11 +781,15 @@ ${I18N_BOOTSTRAP}
     <button id="tipsTab" class="tab active" role="tab" type="button" data-i18n="memory.tips">Project Tips</button>
     <button id="boardTab" class="tab" role="tab" type="button" data-i18n="memory.board">Shared Board · Raw</button>
     <button id="agentsTab" class="tab" role="tab" type="button" data-i18n="memory.agents">Agents &amp; Profiles</button>
+    <button id="projectsTab" class="tab" role="tab" type="button" data-i18n="memory.projects">Projects</button>
+    <button id="inboxTab" class="tab" role="tab" type="button" data-i18n="memory.inbox">Handoff Inbox</button>
   </div>
 
 ${TIPS_VIEW_HTML}
 ${BOARD_VIEW_HTML}
-${AGENTS_VIEW_HTML}  </main>
+${AGENTS_VIEW_HTML}
+${PROJECTS_VIEW_HTML}
+${INBOX_VIEW_HTML}  </main>
 
 ${RUNS_SECTION_HTML}
 ${SYSTEM_SECTION_HTML}</div>
@@ -758,6 +922,8 @@ ${LIB_JS}
     if (!currentWorkspace && activeView !== 'board') return Promise.resolve();
     if (activeView === 'board') return loadBoard();
     if (activeView === 'agents') return loadAgentSummary();
+    if (activeView === 'projects') return loadProjects();
+    if (activeView === 'inbox') return loadInbox();
     return loadTips();
   }
   function getBoardChannel() {
@@ -811,6 +977,8 @@ ${LIB_JS}
     loadTips().catch(function (error) { setNotice(error.message, true); });
     if (activeView === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
     if (activeView === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
+    if (activeView === 'projects') loadProjects().catch(function (error) { setNotice(error.message, true); });
+    if (activeView === 'inbox') loadInbox().catch(function (error) { setNotice(error.message, true); });
   }
   function showNoWorkspace() {
     currentWorkspace = '';
@@ -824,6 +992,8 @@ ${LIB_JS}
     tipList.appendChild(empty);
     document.getElementById('boardList').textContent = '';
     agentSnapshot = null; agentLocalHash = null; clearAgentEditor(); agentList.textContent = '';
+    document.getElementById('projectsList').textContent = '';
+    document.getElementById('inboxList').textContent = '';
     setNotice(tr('tips.createWorkspace'), false);
   }
   function loadWorkspaces() {
@@ -837,7 +1007,7 @@ ${LIB_JS}
       applyWorkspace(found);
     });
   }
-${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}${SYSTEM_PAGE_JS}  function closeSectionResources() {
+${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}${SYSTEM_PAGE_JS}${PROJECTS_PAGE_JS}${INBOX_PAGE_JS}  function closeSectionResources() {
     closeBoardSubscription();
     if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
     if (systemPollTimer) { clearInterval(systemPollTimer); systemPollTimer = null; }
@@ -867,13 +1037,15 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     else { loadSystem(); systemPollTimer = setInterval(function () { loadSystem(); }, 10000); }
   }
   function switchView(view) {
-    if (['tips', 'board', 'agents'].indexOf(view) < 0) view = 'tips';
+    if (['tips', 'board', 'agents', 'projects', 'inbox'].indexOf(view) < 0) view = 'tips';
     activeView = view;
-    document.getElementById('tipsView').hidden = view !== 'tips'; document.getElementById('boardView').hidden = view !== 'board'; document.getElementById('agentsView').hidden = view !== 'agents';
-    document.getElementById('tipsTab').className = 'tab' + (view === 'tips' ? ' active' : ''); document.getElementById('boardTab').className = 'tab' + (view === 'board' ? ' active' : ''); document.getElementById('agentsTab').className = 'tab' + (view === 'agents' ? ' active' : '');
+    document.getElementById('tipsView').hidden = view !== 'tips'; document.getElementById('boardView').hidden = view !== 'board'; document.getElementById('agentsView').hidden = view !== 'agents'; document.getElementById('projectsView').hidden = view !== 'projects'; document.getElementById('inboxView').hidden = view !== 'inbox';
+    document.getElementById('tipsTab').className = 'tab' + (view === 'tips' ? ' active' : ''); document.getElementById('boardTab').className = 'tab' + (view === 'board' ? ' active' : ''); document.getElementById('agentsTab').className = 'tab' + (view === 'agents' ? ' active' : ''); document.getElementById('projectsTab').className = 'tab' + (view === 'projects' ? ' active' : ''); document.getElementById('inboxTab').className = 'tab' + (view === 'inbox' ? ' active' : '');
     connectBoardSubscription();
     if (view === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
     else if (view === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
+    else if (view === 'projects') loadProjects().catch(function (error) { setNotice(error.message, true); });
+    else if (view === 'inbox') loadInbox().catch(function (error) { setNotice(error.message, true); });
     else loadTips().catch(function (error) { setNotice(error.message, true); });
   }
   workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
@@ -882,6 +1054,9 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   document.getElementById('tipsTab').addEventListener('click', function () { switchView('tips'); });
   document.getElementById('boardTab').addEventListener('click', function () { switchView('board'); });
   document.getElementById('agentsTab').addEventListener('click', function () { switchView('agents'); });
+  document.getElementById('projectsTab').addEventListener('click', function () { switchView('projects'); });
+  document.getElementById('inboxTab').addEventListener('click', function () { switchView('inbox'); });
+  document.getElementById('refreshProjects').addEventListener('click', function () { loadProjects().catch(function (error) { setNotice(error.message, true); }); });
   document.getElementById('refreshAgents').addEventListener('click', function () { loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); }); });
   document.getElementById('newAgent').addEventListener('click', openNewAgent);
   agentForm.addEventListener('submit', saveAgent);
@@ -938,6 +1113,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     if (activeSection === 'memory') {
       if (activeView === 'board') renderBoardList(boardEntries);
       else if (activeView === 'agents') { renderAgentList(agentSnapshot && agentSnapshot.agents); if (agentSnapshot) updateBindingRowTranslations(); if (selectedAgent && !agentIsNew) renderAgentMeta(selectedAgent); }
+      else if (activeView === 'projects') loadProjects().catch(function () {});
+      else if (activeView === 'inbox') loadInbox().catch(function () {});
       else loadTips().catch(function () {});
     } else if (activeSection === 'runs') {
       if (activeRunsView === 'live') loadRuns().catch(function () {}); else loadArchives().catch(function () {});
