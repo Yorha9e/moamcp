@@ -6,13 +6,15 @@
  * moa_complete, and the five moa_board_* tools end-to-end over MCP.
  */
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { BoardStore, BOARD_VALUE_MAX_BYTES, type BoardEvent, type BoardScope } from '../src/core/store/board.js';
+import { BoardStore, BOARD_VALUE_MAX_BYTES, workspaceIdForPath, type BoardEvent, type BoardScope } from '../src/core/store/board.js';
+import { ProjectRegistry, newProjectId } from '../src/core/store/project-registry.js';
+import { migrateWorkspaceToProject } from '../src/core/store/project-migration.js';
 import { DebateHub } from '../src/modules/debate/state.js';
 import { createServer } from '../src/server.js';
 
@@ -542,4 +544,234 @@ it('mutate callback receives one commit timestamp shared by changed entries', as
   expect(beta.ts).toBe(commitTs);
   const records = (await readFile(wsBoardFile(cwd), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
   expect(new Set(records.map((record) => record.ts))).toEqual(new Set([commitTs]));
+});
+
+// ---- project aliasing + migration (mailbox task 2) ----
+
+/** The project board file path for a projectId (mirrors BoardStore's naming). */
+function projectBoardFile(projectId: string): string {
+  return join(home, 'boards', `project-${projectId}.jsonl`);
+}
+
+it('an aliased workspace resolves to the project board: writes land in project-<id>.jsonl', async () => {
+  const cwd = join(home, 'aliased-project');
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject('alpha');
+  await registry.addAlias(projectId, workspaceIdForPath(cwd));
+
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwd, registry });
+  await b.write('contract', 'v1', ['c'], 's1', 'workspace');
+  expect((await b.read('contract', undefined, 'workspace'))[0]).toMatchObject({ key: 'contract', value: 'v1' });
+
+  const files = await readdir(join(home, 'boards'));
+  expect(files).toContain(`project-${projectId}.jsonl`);
+  expect(files).toContain(`project-${projectId}.meta.json`);
+  expect(files.some((f) => f.startsWith('ws-'))).toBe(false); // the unaliased file is never created
+
+  // Records carry the canonical project scope key.
+  const records = (await readFile(projectBoardFile(projectId), 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+  expect(records).toHaveLength(1);
+  expect(records[0]).toMatchObject({ op: 'write', scope: `project:${projectId}`, key: 'contract' });
+
+  // The sidecar lists the aliased cwd (array form, deduped).
+  const meta = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+  expect(meta).toMatchObject({ projectId, cwds: [cwd] });
+  expect(typeof meta.created_at).toBe('string');
+});
+
+it('project-scope events keep the workspace label and route on @board/project:<id>', async () => {
+  const events: Array<{ scope: BoardScope; event: BoardEvent }> = [];
+  const cwd = join(home, 'event-project');
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject();
+  await registry.addAlias(projectId, workspaceIdForPath(cwd));
+
+  const b = new BoardStore({
+    homeDir: home,
+    workspaceCwd: cwd,
+    registry,
+    emit: (scope, event) => events.push({ scope, event }),
+  });
+  await b.write('k', 'v', undefined, 'a', 'workspace');
+  expect(events).toHaveLength(1);
+  expect(events[0].scope).toMatchObject({ kind: 'project', key: `project:${projectId}`, label: 'workspace', id: projectId });
+  // The server routes non-task events on `@board/<scope.key>` — the synthetic channel follows the project key.
+  expect(`@board/${events[0].scope.key}`).toBe(`@board/project:${projectId}`);
+  expect(events[0].event).toMatchObject({ type: 'board_updated', scope: 'workspace', key: 'k' });
+});
+
+it('two aliased workspaces share one project board; the sidecar cwds dedupe', async () => {
+  const cwdA = join(home, 'share-a');
+  const cwdB = join(home, 'share-b');
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject('shared');
+  await registry.addAlias(projectId, workspaceIdForPath(cwdA));
+  await registry.addAlias(projectId, workspaceIdForPath(cwdB));
+
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwdA, registry });
+  await b.write('from-a', 'A', undefined, 'a', 'workspace');
+  await b.write('from-b', 'B', undefined, 'b', 'workspace', cwdB);
+  // Either alias reads the same board.
+  expect((await b.read('from-a', undefined, 'workspace', undefined, cwdB))[0].value).toBe('A');
+  expect((await b.read('from-b', undefined, 'workspace', undefined, cwdA))[0].value).toBe('B');
+  await b.write('from-a', 'A2', undefined, 'a', 'workspace'); // same cwd again: cwds stay deduped
+
+  const jsonlFiles = (await readdir(join(home, 'boards'))).filter((f) => f.endsWith('.jsonl'));
+  expect(jsonlFiles).toEqual([`project-${projectId}.jsonl`]); // one shared board, no ws-* files
+  const meta = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+  expect([...meta.cwds].sort()).toEqual([cwdA, cwdB].sort());
+});
+
+it('unaliased workspaces are untouched by an unrelated registry entry (regression)', async () => {
+  const cwdAliased = join(home, 'aliased');
+  const cwdPlain = join(home, 'plain');
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject();
+  await registry.addAlias(projectId, workspaceIdForPath(cwdAliased));
+
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwdPlain, registry });
+  await b.write('k', 'v', undefined, 'a', 'workspace');
+  const files = await readdir(join(home, 'boards'));
+  expect(files).toContain(`ws-${workspaceIdForPath(cwdPlain)}.jsonl`);
+  expect(files).toContain(`ws-${workspaceIdForPath(cwdPlain)}.meta.json`);
+  expect(files.some((f) => f.startsWith('project-'))).toBe(false);
+});
+
+it('two BoardStore instances interleave writes on one project board with no torn lines', async () => {
+  const cwdA = join(home, 'interleave-a');
+  const cwdB = join(home, 'interleave-b');
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject();
+  await registry.addAlias(projectId, workspaceIdForPath(cwdA));
+  await registry.addAlias(projectId, workspaceIdForPath(cwdB));
+
+  const first = new BoardStore({ homeDir: home, workspaceCwd: cwdA, registry });
+  const second = new BoardStore({ homeDir: home, workspaceCwd: cwdB, registry });
+  const writes = Array.from({ length: 12 }, (_, i) =>
+    i % 2 === 0
+      ? first.write(`key-${i}`, `first-${i}`, undefined, 'first', 'workspace')
+      : second.write(`key-${i}`, `second-${i}`, undefined, 'second', 'workspace'),
+  );
+  await Promise.all(writes);
+
+  // Every line parses (no interleaved/torn appends) and both instances fold the same 12 keys.
+  const lines = (await readFile(projectBoardFile(projectId), 'utf8')).trim().split('\n');
+  expect(lines).toHaveLength(12);
+  expect(lines.every((line) => {
+    try {
+      JSON.parse(line);
+      return true;
+    } catch {
+      return false;
+    }
+  })).toBe(true);
+  expect(await first.list('workspace')).toHaveLength(12);
+  expect(await second.list('workspace')).toHaveLength(12);
+  expect((await first.read('key-7', undefined, 'workspace'))[0].value).toBe('second-7');
+  await first.close();
+  await second.close();
+});
+
+// ---- workspace → project migration ----
+
+it('migration moves every record (tombstones included), rewrites scope, and archives the legacy files', async () => {
+  const cwd = join(home, 'migrate-me');
+  const hash = workspaceIdForPath(cwd);
+  const b = store({ cwd });
+  await b.write('keep', 'v1', ['x'], 'a', 'workspace');
+  await b.write('scratch', 'tmp', undefined, 'a', 'workspace');
+  await b.delete('scratch', 'a', 'workspace');
+  await b.write('keep', 'v2', ['x'], 'a', 'workspace');
+
+  const result = await migrateWorkspaceToProject(cwd, { homeDir: home, name: 'migrated' });
+  expect(result.moved).toBe(4);
+  expect(result.projectId).toMatch(/^p_[0-9a-f]{12}$/);
+  const { projectId } = result;
+
+  // Every record moved, order preserved, scope rewritten, tombstone intact.
+  const moved = (await readFile(projectBoardFile(projectId), 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+  expect(moved).toHaveLength(4);
+  expect(moved.every((r) => r.scope === `project:${projectId}`)).toBe(true);
+  expect(moved.map((r) => r.op)).toEqual(['write', 'write', 'delete', 'write']);
+  expect(moved[2]).toMatchObject({ op: 'delete', key: 'scratch' });
+  expect(moved[2].value).toBeUndefined();
+
+  // Legacy files archived (renamed, never deleted); alias registered.
+  const files = await readdir(join(home, 'boards'));
+  expect(files.some((f) => new RegExp(`^ws-${hash}\\.jsonl\\.migrated-\\d+$`).test(f))).toBe(true);
+  expect(files.some((f) => new RegExp(`^ws-${hash}\\.meta\\.json\\.migrated-\\d+$`).test(f))).toBe(true);
+  expect(files).not.toContain(`ws-${hash}.jsonl`);
+  const registry = new ProjectRegistry({ homeDir: home });
+  await registry.refreshIfStale();
+  expect(registry.resolveCached(hash)).toBe(projectId);
+  expect((await registry.listProjects())[0]).toMatchObject({ projectId, name: 'migrated', aliases: [hash] });
+
+  // A fresh BoardStore folds the full history back through the workspace scope.
+  // parseScope resolves before the fold refreshes the projection, so the first
+  // op after an external alias change still sees the legacy scope (documented
+  // one-op adoption lag); the second op resolves to the project board.
+  const b2 = store({ cwd });
+  await b2.list('workspace'); // refreshes the registry projection
+  const live = await b2.read('keep', undefined, 'workspace');
+  expect(live).toHaveLength(1);
+  expect(live[0]).toMatchObject({ value: 'v2', tags: ['x'] }); // LWW over the moved history
+  expect(await b2.read('scratch', undefined, 'workspace')).toEqual([]); // tombstone folded
+});
+
+it('migration is idempotent: a second run moves nothing and changes no files', async () => {
+  const cwd = join(home, 'idem');
+  const b = store({ cwd });
+  await b.write('k', 'v', undefined, 'a', 'workspace');
+  const first = await migrateWorkspaceToProject(cwd, { homeDir: home });
+  const sizeBefore = (await stat(projectBoardFile(first.projectId))).size;
+  const filesBefore = (await readdir(join(home, 'boards'))).sort();
+
+  const second = await migrateWorkspaceToProject(cwd, { homeDir: home });
+  expect(second).toEqual({ projectId: first.projectId, moved: 0 });
+  expect((await stat(projectBoardFile(first.projectId))).size).toBe(sizeBefore);
+  expect((await readdir(join(home, 'boards'))).sort()).toEqual(filesBefore);
+});
+
+it('migration rejects conflicting targets and unknown projectIds, leaving state untouched', async () => {
+  const cwd = join(home, 'conflict');
+  const hash = workspaceIdForPath(cwd);
+  const b = store({ cwd });
+  await b.write('k', 'v', undefined, 'a', 'workspace');
+
+  const registry = new ProjectRegistry({ homeDir: home });
+  const other = await registry.createProject('other');
+  await registry.addAlias(other, hash);
+
+  // Already aliased to `other`: a plain re-run is the idempotent no-op...
+  await expect(migrateWorkspaceToProject(cwd, { homeDir: home })).resolves.toEqual({ projectId: other, moved: 0 });
+  // ...but forcing a different target is a second-owner conflict.
+  const fresh = await registry.createProject('fresh');
+  await expect(migrateWorkspaceToProject(cwd, { homeDir: home, projectId: fresh })).rejects.toThrow(/already aliased/);
+  // Bad/unknown targets fail fast on an UNALIASED workspace (no early return).
+  const unaliased = join(home, 'conflict-unaliased');
+  await expect(migrateWorkspaceToProject(unaliased, { homeDir: home, projectId: newProjectId() })).rejects.toThrow(/unknown projectId/);
+  await expect(migrateWorkspaceToProject(unaliased, { homeDir: home, projectId: 'bogus' })).rejects.toThrow(/invalid projectId/);
+
+  // The alias is still `other`'s and no project board file was created.
+  await registry.refreshIfStale();
+  expect(registry.resolveCached(hash)).toBe(other);
+  const files = await readdir(join(home, 'boards'));
+  expect(files.filter((f) => f.startsWith('project-') && f.endsWith('.jsonl'))).toEqual([]);
+  // The legacy board is untouched (still migratable once `other` is out of the way).
+  expect((await readFile(wsBoardFile(cwd), 'utf8')).trim().split('\n')).toHaveLength(1);
+});
+
+it('migrating a workspace with no board file aliases it with moved: 0', async () => {
+  const cwd = join(home, 'empty-ws');
+  const result = await migrateWorkspaceToProject(cwd, { homeDir: home });
+  expect(result.moved).toBe(0);
+
+  const b = store({ cwd });
+  await b.list('workspace'); // adopt the alias (one-op lag, see above)
+  await b.write('k', 'v', undefined, 'a', 'workspace');
+  const files = await readdir(join(home, 'boards'));
+  expect(files).toContain(`project-${result.projectId}.jsonl`);
+  // No legacy board file is created (the lag op may recreate the ws meta
+  // sidecar — that is the pre-existing workspace-registration behavior).
+  expect(files.some((f) => f.startsWith('ws-') && f.endsWith('.jsonl'))).toBe(false);
 });

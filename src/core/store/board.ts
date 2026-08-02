@@ -9,6 +9,13 @@
  *       persisted at `<home>/boards/ws-<sha1(workspace)[:16]>.jsonl`. The
  *       workspace identity is the explicitly supplied absolute project path;
  *       the process cwd remains the legacy default when no path is supplied.
+ *       When the workspace hash is aliased to a project in the ProjectRegistry
+ *       (`<home>/registry.jsonl`), the scope transparently resolves to that
+ *       project instead: key `project:<projectId>`, persisted at
+ *       `<home>/boards/project-<projectId>.jsonl` with a `cwds[]` sidecar —
+ *       so aliased directories share one board. Unaliased behavior is
+ *       unchanged; callers still pass `workspace` (aliasing is invisible to
+ *       the tool surface).
  *   - `global`          cross-project; persisted at `<home>/boards/global.jsonl`.
  *
  * Data model: entries `{key, value, author, ts, tags[]}` where value is a
@@ -29,7 +36,10 @@
  * each hold an in-memory fold. Persistent waiters use one unref'd stat/read
  * poller per scope, so a peer's append is observed and can wake a waiter
  * without a local event. Torn JSONL appends are retried or skipped with a
- * warning rather than poisoning the fold.
+ * warning rather than poisoning the fold. Every persistent append runs under
+ * `withAppendLock` (append-lock.ts), so concurrent appenders from different
+ * processes serialize on `<file>.lock` and never tear lines — this is what
+ * makes alias-shared project boards safe to write from several sessions.
  */
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
@@ -37,6 +47,8 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { moamcpHome } from '../bus/registry.js';
 import { DEFAULT_WAIT_CAP_MS } from '../constants.js';
+import { withAppendLock } from './append-lock.js';
+import { ProjectRegistry } from './project-registry.js';
 
 /** Hard cap on a single entry value (markdown payload; larger content belongs in files). */
 export const BOARD_VALUE_MAX_BYTES = 32 * 1024;
@@ -85,7 +97,7 @@ export interface BoardEntry {
 /** One append-only JSONL line; tombstones carry no value/tags. */
 interface BoardRecord {
   op: 'write' | 'delete';
-  /** Canonical scope key (`global`, `workspace:<hash>`, `task:<id>`). */
+  /** Canonical scope key (`global`, `workspace:<hash>`, `project:<projectId>`, `task:<id>`). */
   scope: string;
   key: string;
   value?: string;
@@ -115,6 +127,7 @@ export interface BoardEvent {
 export type BoardScope =
   | { kind: 'global'; key: string; label: string }
   | { kind: 'workspace'; key: string; label: string; id?: string; cwd?: string }
+  | { kind: 'project'; key: string; label: string; id: string; cwd?: string }
   | { kind: 'task'; key: string; label: string; taskId: string };
 
 export interface BoardMutationCommit<T> {
@@ -135,6 +148,8 @@ export interface BoardStoreOptions {
   workspacePollIntervalMs?: number;
   /** Event sink (wired by the server to the SSE outlet). */
   emit?: (scope: BoardScope, event: BoardEvent) => void;
+  /** Project registry backing workspace→project alias resolution. Default: one bound to `homeDir`. */
+  registry?: ProjectRegistry;
 }
 
 interface Waiter {
@@ -160,10 +175,12 @@ interface ScopeState {
   history?: BoardRecord[];
   /** Persistent scopes: append target. */
   file?: string;
-  /** Workspace scopes: sidecar recording which cwd the hash stands for. */
+  /** Workspace/project scopes: sidecar recording which cwd(s) the identity stands for. */
   metaFile?: string;
   metaWritten?: boolean;
   metaCwd?: string;
+  /** Project scopes: the sidecar keeps a `cwds[]` array instead of one `cwd`. */
+  projectScope?: boolean;
   /** One unref'd poller per persistent scope, while at least one waiter exists. */
   pollTimer?: NodeJS.Timeout;
   waiters: Set<Waiter>;
@@ -255,6 +272,8 @@ export class BoardStore {
   private closed = false;
   /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
   private lastEpoch = 0;
+  /** Workspace→project alias resolution; its projection refreshes piggyback on `fold`. */
+  readonly registry: ProjectRegistry;
 
   constructor(opts: BoardStoreOptions = {}) {
     this.homeDir = opts.homeDir;
@@ -264,6 +283,7 @@ export class BoardStore {
     this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
     this.pollIntervalMs = validPollInterval(opts.pollIntervalMs ?? opts.workspacePollIntervalMs);
     this.emitFn = opts.emit;
+    this.registry = opts.registry ?? new ProjectRegistry({ homeDir: opts.homeDir });
   }
 
   // ---- tools ----
@@ -668,6 +688,15 @@ export class BoardStore {
         ? this.workspaceCwd
         : normalizeWorkspacePath(workspaceInput as string);
       const id = workspaceIdForPath(cwd);
+      // Alias resolution: a workspace hash registered to a project in the
+      // registry resolves to that project's shared board. Synchronous on
+      // purpose — the projection is refreshed on the fold path, so a stale
+      // cache merely behaves like the unaliased legacy scope for one op.
+      const projectId = this.registry.resolveCached(id);
+      if (projectId !== undefined) {
+        // label stays 'workspace': aliasing is invisible to callers/events.
+        return { kind: 'project', key: `project:${projectId}`, label: 'workspace', id: projectId, cwd };
+      }
       return { kind: 'workspace', key: `workspace:${id}`, label: 'workspace', id, cwd };
     }
     if (raw === 'global') return { kind: 'global', key: 'global', label: 'global' };
@@ -685,12 +714,26 @@ export class BoardStore {
 
   private scopeState(scope: BoardScope): ScopeState {
     let state = this.scopes.get(scope.key);
-    if (state !== undefined) return state;
+    if (state !== undefined) {
+      // A project board is shared by every aliased cwd, but the scope state
+      // (keyed by `project:<id>`) captures just the first one; re-arm the
+      // sidecar check whenever a different cwd arrives so each lands in `cwds`.
+      if (scope.kind === 'project' && scope.cwd !== undefined && scope.cwd !== state.metaCwd) {
+        state.metaCwd = scope.cwd;
+        state.metaWritten = false;
+      }
+      return state;
+    }
     state = { entries: new Map(), versions: new Map(), loaded: false, waiters: new Set() };
     if (scope.kind === 'task') {
       state.history = [];
     } else if (scope.kind === 'global') {
       state.file = join(this.boardsDir(), 'global.jsonl');
+    } else if (scope.kind === 'project') {
+      state.file = join(this.boardsDir(), `project-${scope.id}.jsonl`);
+      state.metaFile = join(this.boardsDir(), `project-${scope.id}.meta.json`);
+      state.metaCwd = scope.cwd ?? this.workspaceCwd;
+      state.projectScope = true;
     } else {
       const id = scope.id ?? scope.key.slice('workspace:'.length);
       state.file = join(this.boardsDir(), `ws-${id}.jsonl`);
@@ -706,11 +749,19 @@ export class BoardStore {
    * every operation and rebuild whenever it changes, is created, or shrinks.
    */
   private async fold(state: ScopeState): Promise<void> {
+    // Piggyback the registry projection refresh on every persistent-operation
+    // fold (size check only — unchanged files are neither opened nor read), so
+    // the synchronous parseScope lookup sees peer-created projects/aliases.
+    // A refresh failure degrades to legacy workspace resolution, never fails ops.
+    await this.registry.refreshIfStale().catch(() => {});
     if (state.file === undefined) {
       state.loaded = true;
       return;
     }
-    if (state.metaFile !== undefined) await this.ensureWorkspaceSidecar(state);
+    if (state.metaFile !== undefined) {
+      if (state.projectScope === true) await this.ensureProjectSidecar(state);
+      else await this.ensureWorkspaceSidecar(state);
+    }
     const snapshot = await this.readPersistentSnapshot(state);
     if (!snapshot.changed) return;
     const previous = state.loaded ? cloneEntries(state.entries) : undefined;
@@ -832,6 +883,47 @@ export class BoardStore {
     state.metaWritten = true;
   }
 
+  /**
+   * Project sidecar (`project-<id>.meta.json`): `{projectId, cwds[], created_at}`.
+   * Every aliased cwd that touches the board is appended once (deduped). The
+   * read-modify-write runs under the append lock so concurrent sessions cannot
+   * lose each other's cwds; a missing/corrupt sidecar is rewritten from scratch.
+   */
+  private async ensureProjectSidecar(state: ScopeState): Promise<void> {
+    if (state.metaFile === undefined || state.metaCwd === undefined || state.metaWritten) return;
+    const metaFile = state.metaFile;
+    const cwd = state.metaCwd;
+    const projectId = metaFile.match(/project-(p_[0-9a-f]{12})\.meta\.json$/)?.[1];
+    if (projectId === undefined) return;
+    // The lock file is created beside the sidecar, so the boards dir must
+    // exist before acquisition (fold can reach this before persist's mkdir).
+    await mkdir(this.boardsDir(), { recursive: true });
+    await withAppendLock(metaFile, async () => {
+      let doc: { projectId: string; cwds: string[]; created_at: string } | undefined;
+      try {
+        const parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
+        if (
+          parsed.projectId === projectId &&
+          Array.isArray(parsed.cwds) &&
+          parsed.cwds.every((entry) => typeof entry === 'string') &&
+          typeof parsed.created_at === 'string'
+        ) {
+          doc = parsed as unknown as { projectId: string; cwds: string[]; created_at: string };
+        }
+      } catch {
+        // Missing or corrupt sidecar: rewrite it (mirrors ws-sidecar repair).
+      }
+      if (doc !== undefined && doc.cwds.includes(cwd)) {
+        state.metaWritten = true;
+        return; // already recorded: no rewrite needed
+      }
+      const next = doc ?? { projectId, cwds: [] as string[], created_at: new Date().toISOString() };
+      if (!next.cwds.includes(cwd)) next.cwds = [...next.cwds, cwd];
+      await writeFile(metaFile, JSON.stringify(next, null, 2));
+      state.metaWritten = true;
+    });
+  }
+
   /** Apply a record only when its timestamp wins the folded LWW view. */
   private applyRecord(state: ScopeState, record: BoardRecord): boolean {
     const recordEpoch = Date.parse(record.ts);
@@ -899,13 +991,18 @@ export class BoardStore {
   private async persist(state: ScopeState, record: BoardRecord): Promise<void> {
     if (state.history !== undefined) state.history.push(record);
     if (state.file === undefined) return;
+    const file = state.file;
     await mkdir(this.boardsDir(), { recursive: true });
     if (state.metaFile !== undefined && !state.metaWritten) {
       // A sidecar failure must not make a board write fail; the next operation
       // will retry registration. Explicit registerWorkspace remains strict.
-      await this.ensureWorkspaceSidecar(state).catch(() => {});
+      const sidecar = state.projectScope === true ? this.ensureProjectSidecar(state) : this.ensureWorkspaceSidecar(state);
+      await sidecar.catch(() => {});
     }
-    await appendFile(state.file, JSON.stringify(record) + '\n');
+    // Cross-process serialization: alias-shared project boards (and every
+    // other persistent scope) append under `<file>.lock`, so two sessions in
+    // the same home can never tear a JSONL line.
+    await withAppendLock(file, () => appendFile(file, JSON.stringify(record) + '\n'));
   }
 
   private wakeWaiters(state: ScopeState, entry: BoardEntry): void {
