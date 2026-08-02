@@ -10,7 +10,7 @@
  * workspace id into a BoardStore workspace path.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { isValidTaskId, type ArchiveIndexEntry } from '../modules/debate/archive-index.js';
+import { isValidTaskId, type ArchiveIndexEntry } from '../core/store/archive-index.js';
 import {
   AgentConfigBusyError,
   AgentConfigConflictError,
@@ -21,7 +21,8 @@ import {
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { BoardStore, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
-import type { RunStatus, RunSummary } from '../modules/debate/run-read-model.js';
+import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
+import type { TipsAuthority } from '../core/store/tips-authority.js';
 import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
 import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
 import {
@@ -351,19 +352,19 @@ interface ResolvedRoute {
  */
 export class ControlPlane {
   private board?: BoardStore;
-  private tips?: TipStore;
+  private tips?: TipsAuthority;
   private runtime?: RuntimeReadProvider;
   private agentConfig: WorkspaceAgentConfigService;
   private exactRoutes = new Map<string, MoaRouteDef[]>();
   private patternRoutes: PatternRouteGroup[] = [];
 
-  constructor(board?: BoardStore, tips?: TipStore, agentConfig: WorkspaceAgentConfigService = new WorkspaceAgentConfigService()) {
+  constructor(board?: BoardStore, tips?: TipsAuthority, agentConfig: WorkspaceAgentConfigService = new WorkspaceAgentConfigService()) {
     this.agentConfig = agentConfig;
     this.registerRoutes();
     if (board !== undefined) this.mount(board, tips);
   }
 
-  mount(board: BoardStore, tips: TipStore = new TipStore(board)): void {
+  mount(board: BoardStore, tips: TipsAuthority = new TipStore(board)): void {
     this.board = board;
     this.tips = tips;
   }
@@ -584,7 +585,7 @@ export class ControlPlane {
     sendJson(res, 200, await this.runtimeProvider().systemInfo());
   }
 
-  private stores(): { board: BoardStore; tips: TipStore } {
+  private stores(): { board: BoardStore; tips: TipsAuthority } {
     if (this.board === undefined || this.tips === undefined) {
       throw new ControlPlaneUnavailableError('Control Plane stores are not wired');
     }

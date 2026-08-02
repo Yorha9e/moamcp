@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RunReadModel, type RunEventEnvelope } from '../src/modules/debate/run-read-model.js';
+import { RunReadModel, type RunEventEnvelope } from '../src/core/store/run-read-model.js';
 
 const event = (
   task_id: string,

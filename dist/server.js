@@ -24777,7 +24777,7 @@ function createTipsModule(tips) {
   };
 }
 
-// src/modules/debate/archive-index.ts
+// src/core/store/archive-index.ts
 import { constants } from "node:fs";
 import { lstat, open as open2, readdir as readdir3 } from "node:fs/promises";
 import { join as join4 } from "node:path";
@@ -31921,7 +31921,7 @@ import { createServer as createServer2, get } from "node:http";
 import { writeFile as writeFile2, readFile as readFile4, rm } from "node:fs/promises";
 import { join as join6, resolve as resolve4 } from "node:path";
 
-// src/modules/debate/run-read-model.ts
+// src/core/store/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
   "task_initialized",
   "debate_started",
