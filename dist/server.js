@@ -1327,11 +1327,11 @@ var require_errors = __commonJS({
       gen.code((0, codegen_1._)`${names_1.default.errors}++`);
     }
     function returnErrors(it, errs) {
-      const { gen, validateName, schemaEnv } = it;
+      const { gen, validateName: validateName2, schemaEnv } = it;
       if (schemaEnv.$async) {
         gen.throw((0, codegen_1._)`new ${it.ValidationError}(${errs})`);
       } else {
-        gen.assign((0, codegen_1._)`${validateName}.errors`, errs);
+        gen.assign((0, codegen_1._)`${validateName2}.errors`, errs);
         gen.return(false);
       }
     }
@@ -1400,13 +1400,13 @@ var require_boolSchema = __commonJS({
       message: "boolean schema is false"
     };
     function topBoolOrEmptySchema(it) {
-      const { gen, schema, validateName } = it;
+      const { gen, schema, validateName: validateName2 } = it;
       if (schema === false) {
         falseSchemaError(it, false);
       } else if (typeof schema == "object" && schema.$async === true) {
         gen.return(names_1.default.data);
       } else {
-        gen.assign((0, codegen_1._)`${validateName}.errors`, null);
+        gen.assign((0, codegen_1._)`${validateName2}.errors`, null);
         gen.return(true);
       }
     }
@@ -2355,15 +2355,15 @@ var require_validate = __commonJS({
       validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
     }
     exports.validateFunctionCode = validateFunctionCode;
-    function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+    function validateFunction({ gen, validateName: validateName2, schema, schemaEnv, opts }, body) {
       if (opts.code.es5) {
-        gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
+        gen.func(validateName2, (0, codegen_1._)`${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
           gen.code((0, codegen_1._)`"use strict"; ${funcSourceUrl(schema, opts)}`);
           destructureValCxtES5(gen, opts);
           gen.code(body);
         });
       } else {
-        gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+        gen.func(validateName2, (0, codegen_1._)`${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
       }
     }
     function destructureValCxt(opts) {
@@ -2402,8 +2402,8 @@ var require_validate = __commonJS({
       return;
     }
     function resetEvaluated(it) {
-      const { gen, validateName } = it;
-      it.evaluated = gen.const("evaluated", (0, codegen_1._)`${validateName}.evaluated`);
+      const { gen, validateName: validateName2 } = it;
+      it.evaluated = gen.const("evaluated", (0, codegen_1._)`${validateName2}.evaluated`);
       gen.if((0, codegen_1._)`${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1._)`${it.evaluated}.props`, (0, codegen_1._)`undefined`));
       gen.if((0, codegen_1._)`${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1._)`${it.evaluated}.items`, (0, codegen_1._)`undefined`));
     }
@@ -2485,11 +2485,11 @@ var require_validate = __commonJS({
       }
     }
     function returnResults(it) {
-      const { gen, schemaEnv, validateName, ValidationError, opts } = it;
+      const { gen, schemaEnv, validateName: validateName2, ValidationError, opts } = it;
       if (schemaEnv.$async) {
         gen.if((0, codegen_1._)`${names_1.default.errors} === 0`, () => gen.return(names_1.default.data), () => gen.throw((0, codegen_1._)`new ${ValidationError}(${names_1.default.vErrors})`));
       } else {
-        gen.assign((0, codegen_1._)`${validateName}.errors`, names_1.default.vErrors);
+        gen.assign((0, codegen_1._)`${validateName2}.errors`, names_1.default.vErrors);
         if (opts.unevaluated)
           assignEvaluated(it);
         gen.return((0, codegen_1._)`${names_1.default.errors} === 0`);
@@ -2914,8 +2914,8 @@ var require_compile = __commonJS({
           code: (0, codegen_1._)`require("ajv/dist/runtime/validation_error").default`
         });
       }
-      const validateName = gen.scopeName("validate");
-      sch.validateName = validateName;
+      const validateName2 = gen.scopeName("validate");
+      sch.validateName = validateName2;
       const schemaCxt = {
         gen,
         allErrors: this.opts.allErrors,
@@ -2929,7 +2929,7 @@ var require_compile = __commonJS({
         dataTypes: [],
         definedProperties: /* @__PURE__ */ new Set(),
         topSchemaRef: gen.scopeValue("schema", this.opts.code.source === true ? { ref: sch.schema, code: (0, codegen_1.stringify)(sch.schema) } : { ref: sch.schema }),
-        validateName,
+        validateName: validateName2,
         ValidationError: _ValidationError,
         schema: sch.schema,
         schemaEnv: sch,
@@ -2952,14 +2952,14 @@ var require_compile = __commonJS({
           sourceCode = this.opts.code.process(sourceCode, sch);
         const makeValidate = new Function(`${names_1.default.self}`, `${names_1.default.scope}`, sourceCode);
         const validate = makeValidate(this, this.scope.get());
-        this.scope.value(validateName, { ref: validate });
+        this.scope.value(validateName2, { ref: validate });
         validate.errors = null;
         validate.schema = sch.schema;
         validate.schemaEnv = sch;
         if (sch.$async)
           validate.$async = true;
         if (this.opts.code.source === true) {
-          validate.source = { validateName, validateCode, scopeValues: gen._values };
+          validate.source = { validateName: validateName2, validateCode, scopeValues: gen._values };
         }
         if (this.opts.unevaluated) {
           const { props, items } = schemaCxt;
@@ -4579,7 +4579,7 @@ var require_ref = __commonJS({
       schemaType: "string",
       code(cxt) {
         const { gen, schema: $ref, it } = cxt;
-        const { baseId, schemaEnv: env, validateName, opts, self } = it;
+        const { baseId, schemaEnv: env, validateName: validateName2, opts, self } = it;
         const { root } = env;
         if (($ref === "#" || $ref === "#/") && baseId === root.baseId)
           return callRootRef();
@@ -4591,7 +4591,7 @@ var require_ref = __commonJS({
         return inlineRefSchema(schOrEnv);
         function callRootRef() {
           if (env === root)
-            return callRef(cxt, validateName, env, env.$async);
+            return callRef(cxt, validateName2, env, env.$async);
           const rootName = gen.scopeValue("root", { ref: root });
           return callRef(cxt, (0, codegen_1._)`${rootName}.validate`, root, root.$async);
         }
@@ -22795,8 +22795,8 @@ var Server = class extends Protocol {
 
 // src/core/store/board.ts
 import { createHash } from "node:crypto";
-import { appendFile, mkdir as mkdir2, readFile as readFile2, readdir as readdir2, stat, writeFile } from "node:fs/promises";
-import { isAbsolute, join as join2, resolve } from "node:path";
+import { appendFile as appendFile2, mkdir as mkdir3, readFile as readFile3, readdir as readdir2, stat as stat3, writeFile } from "node:fs/promises";
+import { isAbsolute, join as join3, resolve } from "node:path";
 
 // src/core/bus/registry.ts
 import { randomInt as randomInt2 } from "node:crypto";
@@ -23029,6 +23029,341 @@ function createRegistry(options = {}) {
 // src/core/constants.ts
 var DEFAULT_WAIT_CAP_MS = 25 * 60 * 1e3;
 
+// src/core/store/append-lock.ts
+import { open as open2, stat, unlink as unlink3 } from "node:fs/promises";
+var APPEND_LOCK_DEFAULT_TIMEOUT_MS = 1e4;
+var APPEND_LOCK_RETRY_INTERVAL_MS = 50;
+var APPEND_LOCK_STALE_MS = 3e4;
+var AppendLockTimeoutError = class extends Error {
+  code = "APPEND_LOCK_TIMEOUT";
+  constructor(lockFile, timeoutMs) {
+    super(`timed out after ${timeoutMs}ms waiting for append lock ${lockFile}`);
+    this.name = "AppendLockTimeoutError";
+  }
+};
+var sleep = (ms) => new Promise((resolve5) => setTimeout(resolve5, ms));
+async function isStaleLock(lockFile, staleMs) {
+  try {
+    const info = await stat(lockFile);
+    return Date.now() - info.mtimeMs > staleMs;
+  } catch (err) {
+    if (err.code === "ENOENT") return false;
+    throw err;
+  }
+}
+async function removeLockFile(lockFile) {
+  try {
+    await unlink3(lockFile);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+}
+async function withAppendLock(file, fn, opts = {}) {
+  const timeoutMs = opts.timeoutMs ?? APPEND_LOCK_DEFAULT_TIMEOUT_MS;
+  const retryIntervalMs = opts.retryIntervalMs ?? APPEND_LOCK_RETRY_INTERVAL_MS;
+  const staleMs = opts.staleMs ?? APPEND_LOCK_STALE_MS;
+  const lockFile = `${file}.lock`;
+  const deadline = Date.now() + timeoutMs;
+  let reclaimed = false;
+  let handle;
+  for (; ; ) {
+    try {
+      handle = await open2(lockFile, "wx");
+      break;
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+      if (!reclaimed && await isStaleLock(lockFile, staleMs)) {
+        reclaimed = true;
+        await removeLockFile(lockFile);
+        continue;
+      }
+      if (Date.now() >= deadline) throw new AppendLockTimeoutError(lockFile, timeoutMs);
+      await sleep(retryIntervalMs);
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    try {
+      await handle.close();
+    } finally {
+      await removeLockFile(lockFile);
+    }
+  }
+}
+
+// src/core/store/project-registry.ts
+import { randomUUID } from "node:crypto";
+import { appendFile, mkdir as mkdir2, readFile as readFile2, stat as stat2 } from "node:fs/promises";
+import { dirname, join as join2 } from "node:path";
+var PROJECT_ID_PATTERN = /^p_[0-9a-f]{12}$/;
+function newProjectId() {
+  return "p_" + randomUUID().replace(/-/g, "").slice(0, 12);
+}
+function validateProjectId(projectId) {
+  if (typeof projectId !== "string" || !PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+  }
+  return projectId;
+}
+function validatePathHash(pathHash) {
+  if (typeof pathHash !== "string" || pathHash.length === 0) {
+    throw new Error("pathHash must be a non-empty string");
+  }
+  return pathHash;
+}
+function normalizeOptionalName(name) {
+  if (name === void 0 || name === null) return void 0;
+  if (typeof name !== "string" || name.length === 0) throw new Error("name must be a non-empty string");
+  return name;
+}
+function validateName(name) {
+  const normalized = normalizeOptionalName(name);
+  if (normalized === void 0) throw new Error("name must be a non-empty string");
+  return normalized;
+}
+function isRegistryRecord(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const record2 = value;
+  if (typeof record2.ts !== "string") return false;
+  switch (record2.op) {
+    case "create":
+      return typeof record2.projectId === "string" && (record2.name === void 0 || typeof record2.name === "string");
+    case "alias":
+    case "unalias":
+      return typeof record2.projectId === "string" && typeof record2.pathHash === "string";
+    case "rename":
+      return typeof record2.projectId === "string" && typeof record2.name === "string";
+    default:
+      return false;
+  }
+}
+var ProjectRegistry = class {
+  homeDir;
+  /** Folded view: projectId → projection. */
+  projects = /* @__PURE__ */ new Map();
+  /** Folded view: pathHash → owning projectId. */
+  byAlias = /* @__PURE__ */ new Map();
+  /** Whether the log fold has run at least once. */
+  loaded = false;
+  /** Whether the last fold saw the file. */
+  fileExists = false;
+  /** Bytes actually returned by the last stable read; never a pre-read stat size. */
+  fileBytes = 0;
+  constructor(opts = {}) {
+    this.homeDir = opts.homeDir;
+  }
+  /** `<home>/registry.jsonl`; home resolves at call time like BoardStore's boards dir. */
+  registryFile() {
+    return join2(this.homeDir ?? moamcpHome(), "registry.jsonl");
+  }
+  /**
+   * Synchronous alias lookup on the in-memory projection (no I/O). This is the
+   * parseScope hot path: a miss simply keeps the legacy workspace scope, and a
+   * stale projection self-heals on the next fold-driven `refreshIfStale`.
+   */
+  resolveCached(pathHash) {
+    return this.byAlias.get(pathHash);
+  }
+  /**
+   * Rebuild the projection when the log's size changed (or appeared/vanished).
+   * Size check only: unchanged files are neither opened nor read.
+   */
+  async refreshIfStale() {
+    const file = this.registryFile();
+    let currentSize;
+    try {
+      currentSize = (await stat2(file)).size;
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+    const exists = currentSize !== void 0;
+    if (this.loaded && this.fileExists === exists && (!exists || this.fileBytes === currentSize)) return;
+    this.projects.clear();
+    this.byAlias.clear();
+    this.loaded = true;
+    this.fileExists = exists;
+    if (!exists) {
+      this.fileBytes = 0;
+      return;
+    }
+    let raw = "";
+    let bytes = 0;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      try {
+        raw = await readFile2(file, "utf8");
+      } catch (err) {
+        if (err.code === "ENOENT") {
+          this.fileExists = false;
+          this.fileBytes = 0;
+          return;
+        }
+        throw err;
+      }
+      bytes = Buffer.byteLength(raw, "utf8");
+      let afterSize;
+      try {
+        afterSize = (await stat2(file)).size;
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+      if (afterSize === bytes) break;
+    }
+    this.fileBytes = bytes;
+    for (const line of raw.split(/\r?\n/)) {
+      if (line.trim() === "") continue;
+      let record2;
+      try {
+        record2 = JSON.parse(line);
+      } catch {
+        console.warn(`[moamcp] registry: skipping unparseable line in ${file}`);
+        continue;
+      }
+      if (!isRegistryRecord(record2)) {
+        console.warn(`[moamcp] registry: skipping malformed record in ${file}`);
+        continue;
+      }
+      this.applyRecord(record2);
+    }
+  }
+  /** Create a project (optionally named) and return its fresh `p_<12hex>` id. */
+  async createProject(name) {
+    const normalizedName = normalizeOptionalName(name);
+    const projectId = newProjectId();
+    await this.appendUnderLock({
+      op: "create",
+      projectId,
+      ...normalizedName !== void 0 ? { name: normalizedName } : {},
+      ts: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return projectId;
+  }
+  /**
+   * Alias a pathHash to a project. Idempotent when the hash already belongs to
+   * that project; rejects when it belongs to another (second-owner conflict)
+   * or when the project is unknown.
+   */
+  async addAlias(projectId, pathHash) {
+    const id = validateProjectId(projectId);
+    const hash = validatePathHash(pathHash);
+    await this.mutateUnderLock(async () => {
+      const owner = this.byAlias.get(hash);
+      if (owner === id) return;
+      if (owner !== void 0) {
+        throw new Error(`pathHash ${hash} is already aliased to project ${owner} (cannot alias to ${id})`);
+      }
+      if (!this.projects.has(id)) throw new Error(`unknown projectId: ${id}`);
+      await this.appendRecord({ op: "alias", projectId: id, pathHash: hash, ts: (/* @__PURE__ */ new Date()).toISOString() });
+    });
+  }
+  /** Drop a pathHash alias (record op `unalias`); idempotent for unmapped hashes. */
+  async removeAlias(pathHash) {
+    const hash = validatePathHash(pathHash);
+    await this.mutateUnderLock(async () => {
+      const owner = this.byAlias.get(hash);
+      if (owner === void 0) return;
+      await this.appendRecord({ op: "unalias", projectId: owner, pathHash: hash, ts: (/* @__PURE__ */ new Date()).toISOString() });
+    });
+  }
+  /** Rename a project; rejects for unknown projects. */
+  async renameProject(projectId, name) {
+    const id = validateProjectId(projectId);
+    const normalizedName = validateName(name);
+    await this.mutateUnderLock(async () => {
+      if (!this.projects.has(id)) throw new Error(`unknown projectId: ${id}`);
+      await this.appendRecord({ op: "rename", projectId: id, name: normalizedName, ts: (/* @__PURE__ */ new Date()).toISOString() });
+    });
+  }
+  /** Folded project list (refreshes first); sorted by creation, then id. */
+  async listProjects() {
+    await this.refreshIfStale();
+    return [...this.projects.entries()].map(([projectId, project]) => ({
+      projectId,
+      ...project.name !== void 0 ? { name: project.name } : {},
+      aliases: [...project.aliases].sort(),
+      createdAt: project.createdAt
+    })).sort((a, b) => {
+      const order = Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      return Number.isFinite(order) && order !== 0 ? order : a.projectId.localeCompare(b.projectId);
+    });
+  }
+  // ---- internals ----
+  /**
+   * Run a check-then-append mutation under the registry's append lock, with a
+   * forced-enough refresh inside the lock: peers also append under this lock,
+   * so any peer change moved the file size and the refresh observes it.
+   */
+  async mutateUnderLock(fn) {
+    const file = this.registryFile();
+    await this.acquireLock(file, async () => {
+      await this.refreshIfStale();
+      await fn();
+    });
+  }
+  /** createProject's unconditional append (still locked + refreshed). */
+  async appendUnderLock(record2) {
+    const file = this.registryFile();
+    await this.acquireLock(file, async () => {
+      await this.refreshIfStale();
+      await this.appendRecord(record2);
+    });
+  }
+  /** The lock file lives beside the log, so its directory must pre-exist acquisition. */
+  async acquireLock(file, fn) {
+    await mkdir2(dirname(file), { recursive: true });
+    await withAppendLock(file, fn);
+  }
+  /** Append one record line and fold it into the projection. Caller holds the lock. */
+  async appendRecord(record2) {
+    const file = this.registryFile();
+    const line = JSON.stringify(record2) + "\n";
+    await appendFile(file, line, "utf8");
+    this.applyRecord(record2);
+    this.loaded = true;
+    this.fileExists = true;
+    this.fileBytes += Buffer.byteLength(line, "utf8");
+  }
+  /** Fold one record into the projection (log is authoritative; last write wins). */
+  applyRecord(record2) {
+    switch (record2.op) {
+      case "create": {
+        if (this.projects.has(record2.projectId)) return;
+        this.projects.set(record2.projectId, {
+          ...record2.name !== void 0 ? { name: record2.name } : {},
+          createdAt: record2.ts,
+          aliases: /* @__PURE__ */ new Set()
+        });
+        return;
+      }
+      case "alias": {
+        let project = this.projects.get(record2.projectId);
+        if (project === void 0) {
+          project = { createdAt: record2.ts, aliases: /* @__PURE__ */ new Set() };
+          this.projects.set(record2.projectId, project);
+        }
+        const previous = this.byAlias.get(record2.pathHash);
+        if (previous !== void 0 && previous !== record2.projectId) {
+          this.projects.get(previous)?.aliases.delete(record2.pathHash);
+        }
+        this.byAlias.set(record2.pathHash, record2.projectId);
+        project.aliases.add(record2.pathHash);
+        return;
+      }
+      case "unalias": {
+        const owner = this.byAlias.get(record2.pathHash);
+        this.byAlias.delete(record2.pathHash);
+        if (owner !== void 0) this.projects.get(owner)?.aliases.delete(record2.pathHash);
+        return;
+      }
+      case "rename": {
+        const project = this.projects.get(record2.projectId);
+        if (project !== void 0) project.name = record2.name;
+        return;
+      }
+    }
+  }
+};
+
 // src/core/store/board.ts
 var BOARD_VALUE_MAX_BYTES = 32 * 1024;
 var DEFAULT_READ_LIMIT = 100;
@@ -23111,12 +23446,15 @@ var BoardStore = class {
   closed = false;
   /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
   lastEpoch = 0;
+  /** Workspace→project alias resolution; its projection refreshes piggyback on `fold`. */
+  registry;
   constructor(opts = {}) {
     this.homeDir = opts.homeDir;
     this.workspaceCwd = resolve(opts.workspaceCwd ?? process.cwd());
     this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
     this.pollIntervalMs = validPollInterval(opts.pollIntervalMs ?? opts.workspacePollIntervalMs);
     this.emitFn = opts.emit;
+    this.registry = opts.registry ?? new ProjectRegistry({ homeDir: opts.homeDir });
   }
   // ---- tools ----
   async write(key, value, tags, author, scopeInput, workspace) {
@@ -23379,7 +23717,7 @@ var BoardStore = class {
     this.assertOpen();
     const cwd = workspace === void 0 || workspace === null ? this.workspaceCwd : normalizeWorkspacePath(workspace);
     const id = workspaceIdForPath(cwd);
-    const file = join2(this.boardsDir(), `ws-${id}.meta.json`);
+    const file = join3(this.boardsDir(), `ws-${id}.meta.json`);
     const existing = await this.readWorkspaceInfo(file, id, cwd);
     if (existing !== void 0) return existing;
     const info = { id, cwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
@@ -23400,7 +23738,7 @@ var BoardStore = class {
     for (const name of names) {
       if (!/^ws-[0-9a-f]{16}\.meta\.json$/.test(name)) continue;
       const id = name.slice("ws-".length, -".meta.json".length);
-      const info = await this.readWorkspaceInfo(join2(this.boardsDir(), name), id);
+      const info = await this.readWorkspaceInfo(join3(this.boardsDir(), name), id);
       if (info !== void 0) workspaces.push(info);
     }
     workspaces.sort((a, b) => a.id.localeCompare(b.id));
@@ -23433,7 +23771,7 @@ var BoardStore = class {
     const key = `task:${taskId}`;
     const state = this.scopes.get(key);
     const records = state?.history ?? [];
-    await mkdir2(dir, { recursive: true });
+    await mkdir3(dir, { recursive: true });
     const body = records.length > 0 ? records.map((record2) => JSON.stringify(record2)).join("\n") + "\n" : "";
     await writeFile(resolve(dir, "board.jsonl"), body);
     if (state !== void 0) {
@@ -23454,31 +23792,54 @@ var BoardStore = class {
     if (raw === "workspace") {
       const cwd = workspaceInput === void 0 || workspaceInput === null ? this.workspaceCwd : normalizeWorkspacePath(workspaceInput);
       const id = workspaceIdForPath(cwd);
+      const projectId = this.registry.resolveCached(id);
+      if (projectId !== void 0) {
+        return { kind: "project", key: `project:${projectId}`, label: "workspace", id: projectId, cwd };
+      }
       return { kind: "workspace", key: `workspace:${id}`, label: "workspace", id, cwd };
     }
     if (raw === "global") return { kind: "global", key: "global", label: "global" };
+    if (raw.startsWith("project:")) {
+      const projectId = raw.slice("project:".length);
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("invalid scope: project:<projectId> requires a p_<12 hex chars> projectId");
+      }
+      return { kind: "project", key: raw, label: raw, id: projectId };
+    }
     if (raw.startsWith("task:")) {
       const taskId = raw.slice("task:".length);
       if (taskId.length === 0) throw new Error("invalid scope: task:<task_id> requires a non-empty task_id");
       return { kind: "task", key: raw, label: raw, taskId };
     }
-    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
+    throw new Error(`invalid scope: ${input} (expected "workspace", "global", "project:<projectId>", or "task:<task_id>")`);
   }
+  /** `<home>/boards` (public so typed views like HandoffStore can enumerate scope files). */
   boardsDir() {
-    return join2(this.homeDir ?? moamcpHome(), "boards");
+    return join3(this.homeDir ?? moamcpHome(), "boards");
   }
   scopeState(scope) {
     let state = this.scopes.get(scope.key);
-    if (state !== void 0) return state;
+    if (state !== void 0) {
+      if (scope.kind === "project" && scope.cwd !== void 0 && scope.cwd !== state.metaCwd) {
+        state.metaCwd = scope.cwd;
+        state.metaWritten = false;
+      }
+      return state;
+    }
     state = { entries: /* @__PURE__ */ new Map(), versions: /* @__PURE__ */ new Map(), loaded: false, waiters: /* @__PURE__ */ new Set() };
     if (scope.kind === "task") {
       state.history = [];
     } else if (scope.kind === "global") {
-      state.file = join2(this.boardsDir(), "global.jsonl");
+      state.file = join3(this.boardsDir(), "global.jsonl");
+    } else if (scope.kind === "project") {
+      state.file = join3(this.boardsDir(), `project-${scope.id}.jsonl`);
+      state.metaFile = join3(this.boardsDir(), `project-${scope.id}.meta.json`);
+      state.metaCwd = scope.cwd;
+      state.projectScope = true;
     } else {
       const id = scope.id ?? scope.key.slice("workspace:".length);
-      state.file = join2(this.boardsDir(), `ws-${id}.jsonl`);
-      state.metaFile = join2(this.boardsDir(), `ws-${id}.meta.json`);
+      state.file = join3(this.boardsDir(), `ws-${id}.jsonl`);
+      state.metaFile = join3(this.boardsDir(), `ws-${id}.meta.json`);
       state.metaCwd = scope.cwd ?? this.workspaceCwd;
     }
     this.scopes.set(scope.key, state);
@@ -23489,11 +23850,16 @@ var BoardStore = class {
    * every operation and rebuild whenever it changes, is created, or shrinks.
    */
   async fold(state) {
+    await this.registry.refreshIfStale().catch(() => {
+    });
     if (state.file === void 0) {
       state.loaded = true;
       return;
     }
-    if (state.metaFile !== void 0) await this.ensureWorkspaceSidecar(state);
+    if (state.metaFile !== void 0) {
+      if (state.projectScope === true) await this.ensureProjectSidecar(state);
+      else await this.ensureWorkspaceSidecar(state);
+    }
     const snapshot = await this.readPersistentSnapshot(state);
     if (!snapshot.changed) return;
     const previous = state.loaded ? cloneEntries(state.entries) : void 0;
@@ -23524,7 +23890,7 @@ var BoardStore = class {
     const file = state.file;
     let currentSize;
     try {
-      currentSize = (await stat(file)).size;
+      currentSize = (await stat3(file)).size;
     } catch (err) {
       if (err.code !== "ENOENT") throw err;
     }
@@ -23537,7 +23903,7 @@ var BoardStore = class {
     let lastBytes = 0;
     for (let attempt = 0; attempt < 8; attempt++) {
       try {
-        lastRaw = await readFile2(file, "utf8");
+        lastRaw = await readFile3(file, "utf8");
       } catch (err) {
         if (err.code === "ENOENT") {
           return { changed: true, exists: false, bytes: 0, raw: "" };
@@ -23547,7 +23913,7 @@ var BoardStore = class {
       lastBytes = Buffer.byteLength(lastRaw, "utf8");
       let afterSize;
       try {
-        afterSize = (await stat(file)).size;
+        afterSize = (await stat3(file)).size;
       } catch (err) {
         if (err.code !== "ENOENT") throw err;
       }
@@ -23557,7 +23923,7 @@ var BoardStore = class {
   }
   async readWorkspaceInfo(file, id, expectedCwd) {
     try {
-      const parsed = JSON.parse(await readFile2(file, "utf8"));
+      const parsed = JSON.parse(await readFile3(file, "utf8"));
       if (parsed.id !== id) return void 0;
       const cwd = parseWorkspaceCwd(parsed.cwd);
       if (workspaceIdForPath(cwd) !== id || expectedCwd !== void 0 && cwd !== expectedCwd) return void 0;
@@ -23573,15 +23939,15 @@ var BoardStore = class {
   }
   async workspaceUpdatedAt(id) {
     try {
-      return (await stat(join2(this.boardsDir(), `ws-${id}.jsonl`))).mtime.toISOString();
+      return (await stat3(join3(this.boardsDir(), `ws-${id}.jsonl`))).mtime.toISOString();
     } catch (err) {
       if (err.code === "ENOENT") return void 0;
       throw err;
     }
   }
   async writeWorkspaceSidecar(info) {
-    await mkdir2(this.boardsDir(), { recursive: true });
-    const file = join2(this.boardsDir(), `ws-${info.id}.meta.json`);
+    await mkdir3(this.boardsDir(), { recursive: true });
+    const file = join3(this.boardsDir(), `ws-${info.id}.meta.json`);
     await writeFile(
       file,
       JSON.stringify({ id: info.id, cwd: info.cwd, created_at: info.createdAt }, null, 2)
@@ -23599,6 +23965,38 @@ var BoardStore = class {
     }
     await this.writeWorkspaceSidecar({ id, cwd: state.metaCwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     state.metaWritten = true;
+  }
+  /**
+   * Project sidecar (`project-<id>.meta.json`): `{projectId, cwds[], created_at}`.
+   * Every aliased cwd that touches the board is appended once (deduped). The
+   * read-modify-write runs under the append lock so concurrent sessions cannot
+   * lose each other's cwds; a missing/corrupt sidecar is rewritten from scratch.
+   */
+  async ensureProjectSidecar(state) {
+    if (state.metaFile === void 0 || state.metaCwd === void 0 || state.metaWritten) return;
+    const metaFile = state.metaFile;
+    const cwd = state.metaCwd;
+    const projectId = metaFile.match(/project-(p_[0-9a-f]{12})\.meta\.json$/)?.[1];
+    if (projectId === void 0) return;
+    await mkdir3(this.boardsDir(), { recursive: true });
+    await withAppendLock(metaFile, async () => {
+      let doc;
+      try {
+        const parsed = JSON.parse(await readFile3(metaFile, "utf8"));
+        if (parsed.projectId === projectId && Array.isArray(parsed.cwds) && parsed.cwds.every((entry) => typeof entry === "string") && typeof parsed.created_at === "string") {
+          doc = parsed;
+        }
+      } catch {
+      }
+      if (doc !== void 0 && doc.cwds.includes(cwd)) {
+        state.metaWritten = true;
+        return;
+      }
+      const next = doc ?? { projectId, cwds: [], created_at: (/* @__PURE__ */ new Date()).toISOString() };
+      if (!next.cwds.includes(cwd)) next.cwds = [...next.cwds, cwd];
+      await writeFile(metaFile, JSON.stringify(next, null, 2));
+      state.metaWritten = true;
+    });
   }
   /** Apply a record only when its timestamp wins the folded LWW view. */
   applyRecord(state, record2) {
@@ -23660,12 +24058,14 @@ var BoardStore = class {
   async persist(state, record2) {
     if (state.history !== void 0) state.history.push(record2);
     if (state.file === void 0) return;
-    await mkdir2(this.boardsDir(), { recursive: true });
+    const file = state.file;
+    await mkdir3(this.boardsDir(), { recursive: true });
     if (state.metaFile !== void 0 && !state.metaWritten) {
-      await this.ensureWorkspaceSidecar(state).catch(() => {
+      const sidecar = state.projectScope === true ? this.ensureProjectSidecar(state) : this.ensureWorkspaceSidecar(state);
+      await sidecar.catch(() => {
       });
     }
-    await appendFile(state.file, JSON.stringify(record2) + "\n");
+    await withAppendLock(file, () => appendFile2(file, JSON.stringify(record2) + "\n"));
   }
   wakeWaiters(state, entry) {
     const epoch = Date.parse(entry.ts);
@@ -23776,7 +24176,7 @@ function normalizeLimit(limit) {
 }
 
 // src/modules/debate/state.ts
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 var SUBMISSION_PROTOCOL = [
   "## \u26A0\uFE0F SUBMISSION PROTOCOL / \u63D0\u4EA4\u534F\u8BAE",
   "",
@@ -23800,7 +24200,7 @@ var SIGNOFF_PROTOCOL = [
   "  \u4E0D\u8981\u4E3A\u51D1\u6570\u800C\u7B7E\u5B57\u2014\u2014\u672A\u8FBE\u6210\u5171\u8BC6\u524D\u7EE7\u7EED\u63D0\u4EA4\u666E\u901A\u53D1\u8A00\u63A8\u8FDB\u8FA9\u8BBA\u3002"
 ].join("\n");
 function defaultLogsDir() {
-  return process.env.MOAMCP_LOGS_DIR ?? join3(moamcpHome(), "logs");
+  return process.env.MOAMCP_LOGS_DIR ?? join4(moamcpHome(), "logs");
 }
 var DebateHub = class {
   tasks = /* @__PURE__ */ new Map();
@@ -23999,10 +24399,10 @@ var DebateHub = class {
   async complete(taskId) {
     return this.enqueue(taskId, async () => {
       const task = this.getTask(taskId);
-      const { mkdir: mkdir4, writeFile: writeFile3 } = await import("node:fs/promises");
+      const { mkdir: mkdir5, writeFile: writeFile3 } = await import("node:fs/promises");
       const { resolve: resolve5 } = await import("node:path");
       const dir = resolve5(this.logsDir, taskId);
-      await mkdir4(dir, { recursive: true });
+      await mkdir5(dir, { recursive: true });
       const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
       await writeFile3(
         resolve5(dir, "probe.json"),
@@ -24282,9 +24682,496 @@ function createDebateModule(hub) {
   };
 }
 
-// src/modules/tips/tips.ts
-import { randomUUID } from "node:crypto";
+// src/modules/handoff/handoff.ts
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { readdir as readdir3 } from "node:fs/promises";
 import { isAbsolute as isAbsolute2 } from "node:path";
+var HANDOFF_USER_GLOBAL = "user-global";
+var HANDOFF_STATES = ["pending", "consumed", "archived"];
+var HandoffValidationError = class extends Error {
+  code = "HANDOFF_INVALID";
+  constructor(message) {
+    super(message);
+    this.name = "HandoffValidationError";
+  }
+};
+var HandoffNotFoundError = class extends Error {
+  code = "HANDOFF_NOT_FOUND";
+  constructor(id) {
+    super(`handoff not found: ${id}`);
+    this.name = "HandoffNotFoundError";
+  }
+};
+var HandoffCorruptError = class extends Error {
+  code = "HANDOFF_CORRUPT";
+  constructor(id, message) {
+    super(`corrupt handoff ${id}: ${message}`);
+    this.name = "HandoffCorruptError";
+  }
+};
+var HandoffStateError = class extends Error {
+  code = "HANDOFF_INVALID_TRANSITION";
+  constructor(from, to) {
+    super(`illegal handoff state transition: ${from} \u2192 ${to} (only pending \u2192 consumed | archived)`);
+    this.name = "HandoffStateError";
+  }
+};
+var HANDOFF_PREFIX = "handoff/";
+var HANDOFF_TAG = "handoff";
+var HANDOFF_ID_PATTERN = /^ho_[0-9a-f]{12}$/;
+var HANDOFF_LIST_DEFAULT_LIMIT = 100;
+var HANDOFF_LIST_MAX_LIMIT = 1e3;
+var HANDOFF_SCAN_MAX = 1e3;
+function handoffKey(id) {
+  return `${HANDOFF_PREFIX}${id}`;
+}
+function newHandoffId() {
+  return "ho_" + randomUUID2().replace(/-/g, "").slice(0, 12);
+}
+function requireString(value, field, nonEmpty = true) {
+  if (typeof value !== "string" || nonEmpty && value.length === 0) {
+    throw new HandoffValidationError(`${field} must be a${nonEmpty ? " non-empty" : ""} string`);
+  }
+  return value;
+}
+function normalizeActor(value) {
+  if (value === void 0 || value === null || value === "") return "anonymous";
+  return requireString(value, "actor");
+}
+function validateState(value) {
+  if (typeof value !== "string" || !HANDOFF_STATES.includes(value)) {
+    throw new HandoffValidationError(`state must be one of: ${HANDOFF_STATES.join(", ")}`);
+  }
+  return value;
+}
+function validateToProject(value) {
+  if (value === HANDOFF_USER_GLOBAL) return value;
+  if (typeof value === "string" && PROJECT_ID_PATTERN.test(value)) return value;
+  throw new HandoffValidationError(`toProject must be a projectId (p_<12 hex chars>) or "${HANDOFF_USER_GLOBAL}"`);
+}
+function validateDate(value, field) {
+  const result = requireString(value, field);
+  if (Number.isNaN(Date.parse(result))) throw new HandoffValidationError(`${field} must be an ISO 8601 timestamp`);
+  return result;
+}
+function validateHandoff(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HandoffValidationError("handoff value must be an object");
+  }
+  const raw = value;
+  if (raw.v !== 1) throw new HandoffValidationError("v must be 1");
+  const id = requireString(raw.id, "id");
+  if (!HANDOFF_ID_PATTERN.test(id)) throw new HandoffValidationError("id must match ho_<12 hex chars>");
+  const handoff = {
+    v: 1,
+    id,
+    title: requireString(raw.title, "title"),
+    summary: requireString(raw.summary, "summary"),
+    fromProject: requireString(raw.fromProject, "fromProject"),
+    toProject: validateToProject(raw.toProject),
+    state: validateState(raw.state),
+    createdAt: validateDate(raw.createdAt, "createdAt"),
+    updatedAt: validateDate(raw.updatedAt, "updatedAt"),
+    consumedAt: raw.consumedAt === void 0 || raw.consumedAt === null ? null : validateDate(raw.consumedAt, "consumedAt"),
+    author: requireString(raw.author, "author")
+  };
+  if (raw.context !== void 0) handoff.context = requireString(raw.context, "context", false);
+  return handoff;
+}
+function cloneHandoff(handoff) {
+  return JSON.parse(JSON.stringify(handoff));
+}
+function summaryOf(handoff) {
+  const copy = cloneHandoff(handoff);
+  delete copy.context;
+  return copy;
+}
+function handoffTags(handoff) {
+  return [HANDOFF_TAG, `${HANDOFF_TAG}:state:${handoff.state}`];
+}
+function encodeHandoff(handoff) {
+  const ordered = {
+    v: handoff.v,
+    id: handoff.id,
+    title: handoff.title,
+    summary: handoff.summary
+  };
+  if (handoff.context !== void 0) ordered.context = handoff.context;
+  ordered.fromProject = handoff.fromProject;
+  ordered.toProject = handoff.toProject;
+  ordered.state = handoff.state;
+  ordered.createdAt = handoff.createdAt;
+  ordered.updatedAt = handoff.updatedAt;
+  ordered.consumedAt = handoff.consumedAt;
+  ordered.author = handoff.author;
+  const value = JSON.stringify(ordered);
+  if (Buffer.byteLength(value, "utf8") > BOARD_VALUE_MAX_BYTES) {
+    throw new HandoffValidationError(`handoff value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  }
+  return value;
+}
+function normalizeLimit2(value) {
+  if (value === void 0 || value === null) return HANDOFF_LIST_DEFAULT_LIMIT;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
+    throw new HandoffValidationError("limit must be a positive number");
+  }
+  return Math.min(Math.floor(value), HANDOFF_LIST_MAX_LIMIT);
+}
+function normalizeStateFilter(value) {
+  if (value === void 0 || value === null) return ["pending", "consumed"];
+  const list = Array.isArray(value) ? value : [value];
+  if (list.length === 0) throw new HandoffValidationError("state filter must not be empty");
+  return list.map((item) => validateState(item));
+}
+var HandoffStore = class {
+  board;
+  constructor(board) {
+    this.board = board;
+  }
+  /**
+   * Send a handoff into the target project's board. `workspace` is the
+   * sender's absolute project path (identity only — nothing is written to
+   * the sender scope); `input.toProject` selects the target scope.
+   */
+  async send(input, workspace) {
+    const from = normalizeWorkspacePath(workspace);
+    if (typeof input !== "object" || input === null || Array.isArray(input)) {
+      throw new HandoffValidationError("send input must be an object");
+    }
+    const raw = input;
+    for (const field of ["id", "v", "fromProject", "state", "createdAt", "updatedAt", "consumedAt"]) {
+      if (field in raw) throw new HandoffValidationError(`${field} cannot be supplied when sending a handoff`);
+    }
+    const toProject = validateToProject(raw.toProject);
+    const title = requireString(raw.title, "title");
+    const summary = requireString(raw.summary, "summary");
+    const context = raw.context === void 0 ? void 0 : requireString(raw.context, "context", false);
+    const author = normalizeActor(raw.author);
+    const fromProject = await this.senderIdentity(from);
+    const id = newHandoffId();
+    const key = handoffKey(id);
+    const target = this.scopeFor(toProject);
+    return this.board.mutate(target.scope, (entries, commitTs) => {
+      if (entries.has(key)) throw new HandoffValidationError(`handoff id collision: ${id}`);
+      const handoff = {
+        v: 1,
+        id,
+        title,
+        summary,
+        fromProject,
+        toProject,
+        state: "pending",
+        createdAt: commitTs,
+        updatedAt: commitTs,
+        consumedAt: null,
+        author
+      };
+      if (context !== void 0) handoff.context = context;
+      entries.set(key, {
+        key,
+        value: encodeHandoff(handoff),
+        author,
+        ts: commitTs,
+        tags: handoffTags(handoff)
+      });
+      return handoff;
+    }, target.workspace);
+  }
+  /**
+   * List handoffs addressed to `target` (workspace path, projectId, or
+   * `user-global`), newest first, capped by limit. Archived rows are hidden
+   * unless the state filter explicitly asks for them.
+   */
+  async inbox(target, options) {
+    const opts = options ?? {};
+    const wanted = normalizeStateFilter(opts.state);
+    const limit = normalizeLimit2(opts.limit);
+    const scope = await this.resolveTarget(target);
+    const rows = await this.board.readNamespace(HANDOFF_PREFIX, void 0, scope.scope, HANDOFF_SCAN_MAX, scope.workspace);
+    return this.collect(rows, wanted, limit);
+  }
+  /** Read one complete handoff (including context) from `target`'s board. */
+  async read(id, target) {
+    const normalizedId = requireString(id, "id");
+    const scope = await this.resolveTarget(target);
+    const rows = await this.board.read(handoffKey(normalizedId), void 0, scope.scope, 1, scope.workspace);
+    const entry = rows[0];
+    if (entry === void 0) return void 0;
+    return this.decodeEntry(normalizedId, entry);
+  }
+  /** Mark a pending handoff consumed (terminal); records consumedAt. */
+  async consume(id, target, actor) {
+    return this.transition(id, target, "consumed", actor);
+  }
+  /** Archive a pending handoff (terminal), preserving all content. */
+  async archive(id, target, actor) {
+    return this.transition(id, target, "archived", actor);
+  }
+  /**
+   * List handoffs SENT from `from` (absolute workspace path) across every
+   * board scope file, newest first. Sender identity matches the aliased
+   * projectId — plus every `ws:<aliasHash>` of that project, so entries sent
+   * before aliasing remain visible.
+   */
+  async outbox(from, options) {
+    const opts = options ?? {};
+    const workspace = normalizeWorkspacePath(from);
+    const identity = await this.senderIdentity(workspace);
+    const identities = await this.outboxIdentities(identity);
+    const wanted = normalizeStateFilter(opts.state);
+    const limit = normalizeLimit2(opts.limit);
+    const scopes = await this.knownScopes();
+    const rows = [];
+    for (const scope of scopes) {
+      const scopeRows = await this.board.readNamespace(HANDOFF_PREFIX, void 0, scope.scope, HANDOFF_SCAN_MAX, scope.workspace);
+      for (const row of scopeRows) rows.push(row);
+    }
+    const all = this.collect(rows, wanted, Number.MAX_SAFE_INTEGER);
+    return all.filter((summary) => identities.has(summary.fromProject)).slice(0, limit);
+  }
+  // ---- internals ----
+  /** The only two pending transitions; everything else throws HandoffStateError. */
+  async transition(id, target, next, actor) {
+    const normalizedId = requireString(id, "id");
+    const boardAuthor = normalizeActor(actor);
+    const scope = await this.resolveTarget(target);
+    const key = handoffKey(normalizedId);
+    return this.board.mutate(scope.scope, (entries, commitTs) => {
+      const entry = entries.get(key);
+      if (entry === void 0) throw new HandoffNotFoundError(normalizedId);
+      const current = this.decodeEntry(normalizedId, entry);
+      if (current.state !== "pending") throw new HandoffStateError(current.state, next);
+      const updated = {
+        ...current,
+        state: next,
+        updatedAt: commitTs,
+        consumedAt: next === "consumed" ? commitTs : current.consumedAt
+      };
+      entries.set(key, {
+        key,
+        value: encodeHandoff(updated),
+        author: boardAuthor,
+        ts: commitTs,
+        tags: handoffTags(updated)
+      });
+      return updated;
+    }, scope.workspace);
+  }
+  collect(rows, wanted, limit) {
+    const handoffs = [];
+    for (const row of rows) {
+      if (!row.key.startsWith(HANDOFF_PREFIX)) continue;
+      handoffs.push(this.decodeEntry(row.key.slice(HANDOFF_PREFIX.length), row));
+    }
+    const filtered = handoffs.filter((handoff) => wanted.includes(handoff.state));
+    filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return filtered.slice(0, limit).map(summaryOf);
+  }
+  /**
+   * Warm the alias projection, then map the target onto a BoardStore scope.
+   * parseScope's resolveCached lookup is synchronous and runs before the
+   * board operation's own fold, so a cold instance (fresh process / reopened
+   * store) would otherwise resolve an aliased workspace to the legacy
+   * ws:<hash> scope on its first recipient-side operation.
+   */
+  async resolveTarget(target) {
+    await this.board.registry.refreshIfStale().catch(() => {
+    });
+    return this.scopeFor(target);
+  }
+  /** Map a target designator onto a BoardStore scope (+workspace when needed). */
+  scopeFor(target) {
+    if (typeof target !== "string" || target.length === 0) {
+      throw new HandoffValidationError("target must be a non-empty string");
+    }
+    if (target === HANDOFF_USER_GLOBAL) return { scope: "global" };
+    if (isAbsolute2(target)) return { scope: "workspace", workspace: normalizeWorkspacePath(target) };
+    if (PROJECT_ID_PATTERN.test(target)) return { scope: `project:${target}` };
+    throw new HandoffValidationError(
+      `target must be an absolute workspace path, a projectId (p_<12 hex chars>), or "${HANDOFF_USER_GLOBAL}"`
+    );
+  }
+  /** Sender identity: the workspace's project alias when registered, else ws:<pathHash>. */
+  async senderIdentity(workspace) {
+    const hash = workspaceIdForPath(workspace);
+    await this.board.registry.refreshIfStale().catch(() => {
+    });
+    return this.board.registry.resolveCached(hash) ?? `ws:${hash}`;
+  }
+  /** Identity set for outbox matching: projectId plus all its alias hashes. */
+  async outboxIdentities(identity) {
+    const identities = /* @__PURE__ */ new Set([identity]);
+    if (PROJECT_ID_PATTERN.test(identity)) {
+      const projects = await this.board.registry.listProjects();
+      const project = projects.find((entry) => entry.projectId === identity);
+      if (project !== void 0) {
+        for (const alias of project.aliases) identities.add(`ws:${alias}`);
+      }
+    }
+    return identities;
+  }
+  /**
+   * Every addressable board scope in this home: global, each project file,
+   * and each workspace file whose sidecar records a cwd (hash→path is only
+   * recoverable through the sidecar).
+   */
+  async knownScopes() {
+    const scopes = [{ scope: "global" }];
+    let names;
+    try {
+      names = await readdir3(this.board.boardsDir());
+    } catch (err) {
+      if (err.code === "ENOENT") return scopes;
+      throw err;
+    }
+    const workspaces = await this.board.listWorkspaces();
+    const cwdById = new Map(workspaces.map((info) => [info.id, info.cwd]));
+    for (const name of [...names].sort()) {
+      const project = /^project-(p_[0-9a-f]{12})\.jsonl$/.exec(name);
+      if (project !== null) {
+        scopes.push({ scope: `project:${project[1]}` });
+        continue;
+      }
+      const ws = /^ws-([0-9a-f]{16})\.jsonl$/.exec(name);
+      if (ws !== null) {
+        const cwd = cwdById.get(ws[1]);
+        if (cwd !== void 0) scopes.push({ scope: "workspace", workspace: cwd });
+      }
+    }
+    return scopes;
+  }
+  decodeEntry(id, entry) {
+    let value;
+    try {
+      value = JSON.parse(entry.value);
+    } catch {
+      throw new HandoffCorruptError(id, "value is not valid JSON");
+    }
+    try {
+      const handoff = validateHandoff(value);
+      if (handoff.id !== id || entry.key !== handoffKey(id)) throw new HandoffValidationError("id/key mismatch");
+      return handoff;
+    } catch (err) {
+      if (err instanceof HandoffCorruptError) throw err;
+      throw new HandoffCorruptError(id, err.message);
+    }
+  }
+};
+
+// src/modules/handoff/index.ts
+var HANDOFF_STATE = { type: "string", enum: [...HANDOFF_STATES] };
+var HANDOFF_WORKSPACE = {
+  type: "string",
+  description: "Absolute path of the CURRENT project (sender identity for send; the inbox scope for inbox/read/consume/archive). Handoff tools never infer a workspace from the MCP process cwd."
+};
+var HANDOFF_TO_PROJECT = {
+  type: "string",
+  description: `Target of the handoff: a projectId (p_<12 hex chars>) or "${HANDOFF_USER_GLOBAL}" (the user-global cross-project inbox). v1 supports a single target only.`
+};
+var HANDOFF_ACTOR = {
+  type: "string",
+  description: 'Who performs this transition (recorded in BoardEntry.author; default "anonymous").'
+};
+function handoffTools(store) {
+  return [
+    {
+      name: "moa_handoff_send",
+      description: `Send a directed handoff (title/summary/optional context) into the TARGET project's inbox (toProject: projectId or "user-global"). The entry is written to the target project's board under handoff/<id> with fromProject = the current workspace's project alias (or ws:<pathHash>). Handoffs never participate in recall/indexing and never merge projects \u2014 they are pull-on-demand messages the target session consumes explicitly.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: HANDOFF_WORKSPACE,
+          toProject: HANDOFF_TO_PROJECT,
+          title: { type: "string", description: "Short handoff title" },
+          summary: { type: "string", description: "What the target session needs to know/do" },
+          context: { type: "string", description: "Optional longer context (the whole entry is capped at 32KB)" },
+          author: { type: "string", description: 'Sender identity recorded on the entry (default "anonymous")' }
+        },
+        required: ["workspace", "toProject", "title", "summary"],
+        additionalProperties: false
+      },
+      handler: (a) => {
+        const { workspace, ...input } = a;
+        return store.send(input, workspace);
+      }
+    },
+    {
+      name: "moa_handoff_inbox",
+      description: "List handoffs addressed to the current project (newest first; id/title/summary/state/fromProject metadata, no context). Archived rows are hidden by default \u2014 pass state to filter exactly (pending/consumed/archived). Handoffs never participate in recall/indexing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: HANDOFF_WORKSPACE,
+          state: HANDOFF_STATE,
+          limit: { type: "number", description: "Max rows to return (default 100, hard cap 1000)" }
+        },
+        required: ["workspace"],
+        additionalProperties: false
+      },
+      handler: (a) => {
+        const options = {};
+        if (a.state !== void 0) options.state = a.state;
+        if (a.limit !== void 0) options.limit = a.limit;
+        return store.inbox(a.workspace, options);
+      }
+    },
+    {
+      name: "moa_handoff_read",
+      description: "Read one complete handoff from the current project's inbox, including the context payload. Returns null when the id is unknown here. Handoffs never participate in recall/indexing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: HANDOFF_WORKSPACE,
+          id: { type: "string", description: "Handoff id (ho_<12 hex chars>)" }
+        },
+        required: ["workspace", "id"],
+        additionalProperties: false
+      },
+      handler: (a) => store.read(a.id, a.workspace)
+    },
+    {
+      name: "moa_handoff_consume",
+      description: "Mark a pending handoff consumed (terminal state; records consumedAt). Only pending \u2192 consumed | archived transitions are legal; anything else errors. Handoffs never participate in recall/indexing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: HANDOFF_WORKSPACE,
+          id: { type: "string", description: "Handoff id (ho_<12 hex chars>)" },
+          actor: HANDOFF_ACTOR
+        },
+        required: ["workspace", "id"],
+        additionalProperties: false
+      },
+      handler: (a) => store.consume(a.id, a.workspace, a.actor)
+    },
+    {
+      name: "moa_handoff_archive",
+      description: "Archive a pending handoff (terminal state) without changing its content; hidden from the default inbox view afterwards. Only pending \u2192 consumed | archived transitions are legal; anything else errors. Handoffs never participate in recall/indexing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: HANDOFF_WORKSPACE,
+          id: { type: "string", description: "Handoff id (ho_<12 hex chars>)" },
+          actor: HANDOFF_ACTOR
+        },
+        required: ["workspace", "id"],
+        additionalProperties: false
+      },
+      handler: (a) => store.archive(a.id, a.workspace, a.actor)
+    }
+  ];
+}
+function createHandoffModule(store, _board) {
+  return {
+    id: "handoff",
+    tier: "stable",
+    tools: handoffTools(store)
+  };
+}
+
+// src/modules/tips/tips.ts
+import { randomUUID as randomUUID3 } from "node:crypto";
+import { isAbsolute as isAbsolute3 } from "node:path";
 var PROJECT_TIP_STATUSES = [
   "captured",
   "exploring",
@@ -24321,7 +25208,7 @@ var TIP_LIST_MAX_LIMIT = 1e3;
 var TIP_PREFIX = "tips/";
 var TIP_TAG = "tip";
 function assertWorkspace(workspace) {
-  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute2(workspace)) {
+  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute3(workspace)) {
     throw new TipValidationError("workspace must be an absolute path");
   }
   return normalizeWorkspacePath(workspace);
@@ -24329,7 +25216,7 @@ function assertWorkspace(workspace) {
 function tipKey(id) {
   return `${TIP_PREFIX}${id}`;
 }
-function requireString(value, field, nonEmpty = true) {
+function requireString2(value, field, nonEmpty = true) {
   if (typeof value !== "string" || nonEmpty && value.length === 0) {
     throw new TipValidationError(`${field} must be a${nonEmpty ? " non-empty" : ""} string`);
   }
@@ -24337,11 +25224,11 @@ function requireString(value, field, nonEmpty = true) {
 }
 function optionalString(value, field) {
   if (value === void 0) return void 0;
-  return requireString(value, field);
+  return requireString2(value, field);
 }
-function normalizeActor(value) {
+function normalizeActor2(value) {
   if (value === void 0 || value === null || value === "") return "anonymous";
-  return requireString(value, "actor");
+  return requireString2(value, "actor");
 }
 function validateStatus(value, field = "status") {
   if (typeof value !== "string" || !PROJECT_TIP_STATUSES.includes(value)) {
@@ -24371,10 +25258,10 @@ function validateDocumentRefs(value) {
       throw new TipValidationError(`documentRefs[${index}] must be an object`);
     }
     const ref = raw;
-    const out = { path: requireString(ref.path, `documentRefs[${index}].path`) };
+    const out = { path: requireString2(ref.path, `documentRefs[${index}].path`) };
     for (const field of ["section", "note", "contentHash"]) {
       const item = ref[field];
-      if (item !== void 0) out[field] = requireString(item, `documentRefs[${index}].${field}`);
+      if (item !== void 0) out[field] = requireString2(item, `documentRefs[${index}].${field}`);
     }
     const stableValue = JSON.stringify(out);
     if (seen.has(stableValue)) return;
@@ -24389,8 +25276,8 @@ function validateContext(value) {
   }
   return value;
 }
-function validateDate(value, field) {
-  const result = requireString(value, field);
+function validateDate2(value, field) {
+  const result = requireString2(value, field);
   if (Number.isNaN(Date.parse(result))) throw new TipValidationError(`${field} must be an ISO 8601 timestamp`);
   return result;
 }
@@ -24399,26 +25286,26 @@ function validateTip(value) {
     throw new TipValidationError("tip value must be an object");
   }
   const raw = value;
-  const id = requireString(raw.id, "id");
+  const id = requireString2(raw.id, "id");
   if (!id.startsWith("tip_")) throw new TipValidationError("id must start with tip_");
   const tip = {
     id,
-    title: requireString(raw.title, "title"),
-    summary: requireString(raw.summary, "summary"),
+    title: requireString2(raw.title, "title"),
+    summary: requireString2(raw.summary, "summary"),
     status: validateStatus(raw.status),
-    createdAt: validateDate(raw.createdAt, "createdAt"),
-    updatedAt: validateDate(raw.updatedAt, "updatedAt")
+    createdAt: validateDate2(raw.createdAt, "createdAt"),
+    updatedAt: validateDate2(raw.updatedAt, "updatedAt")
   };
-  if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
+  if (raw.context !== void 0) tip.context = validateContext(requireString2(raw.context, "context", false));
   if (raw.module !== void 0) tip.module = optionalString(raw.module, "module");
   if (raw.tags !== void 0) tip.tags = validateStringArray(raw.tags, "tags");
-  if (raw.nextAction !== void 0) tip.nextAction = requireString(raw.nextAction, "nextAction", false);
+  if (raw.nextAction !== void 0) tip.nextAction = requireString2(raw.nextAction, "nextAction", false);
   if (raw.documentRefs !== void 0) tip.documentRefs = validateDocumentRefs(raw.documentRefs);
   if (raw.sourceRefs !== void 0) tip.sourceRefs = validateStringArray(raw.sourceRefs, "sourceRefs");
   if (raw.relatedTipIds !== void 0) tip.relatedTipIds = validateStringArray(raw.relatedTipIds, "relatedTipIds");
   if (raw.relatedProjects !== void 0) tip.relatedProjects = validateStringArray(raw.relatedProjects, "relatedProjects");
-  if (raw.sourceSessionId !== void 0) tip.sourceSessionId = requireString(raw.sourceSessionId, "sourceSessionId");
-  if (raw.author !== void 0) tip.author = requireString(raw.author, "author");
+  if (raw.sourceSessionId !== void 0) tip.sourceSessionId = requireString2(raw.sourceSessionId, "sourceSessionId");
+  if (raw.author !== void 0) tip.author = requireString2(raw.author, "author");
   return tip;
 }
 function cloneTip(tip) {
@@ -24437,7 +25324,7 @@ function encodeTip(tip) {
   }
   return value;
 }
-function summaryOf(tip) {
+function summaryOf2(tip) {
   const copy = cloneTip(tip);
   const summary = {
     id: copy.id,
@@ -24485,10 +25372,10 @@ var TipStore = class {
     for (const field of ["id", "createdAt", "updatedAt", "creator"]) {
       if (field in raw) throw new TipValidationError(`${field} cannot be supplied when creating a tip`);
     }
-    const title = requireString(raw.title, "title");
-    const summary = requireString(raw.summary, "summary");
+    const title = requireString2(raw.title, "title");
+    const summary = requireString2(raw.summary, "summary");
     const status = raw.status === void 0 ? "captured" : validateStatus(raw.status);
-    const id = `tip_${randomUUID()}`;
+    const id = `tip_${randomUUID3()}`;
     return this.board.mutate("workspace", (entries, commitTs) => {
       const key = tipKey(id);
       if (entries.has(key)) throw new TipValidationError(`tip id collision: ${id}`);
@@ -24504,9 +25391,9 @@ var TipStore = class {
     }, workspace);
   }
   async read(first, second) {
-    const workspace = assertWorkspace(isAbsolute2(first) ? first : second);
-    const id = isAbsolute2(first) ? second : first;
-    const normalizedId = requireString(id, "id");
+    const workspace = assertWorkspace(isAbsolute3(first) ? first : second);
+    const id = isAbsolute3(first) ? second : first;
+    const normalizedId = requireString2(id, "id");
     const rows = await this.board.read(tipKey(normalizedId), void 0, "workspace", 1, workspace);
     const entry = rows[0];
     if (entry === void 0) return void 0;
@@ -24537,16 +25424,16 @@ var TipStore = class {
       return true;
     });
     filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-    return filtered.slice(0, limit).map(summaryOf);
+    return filtered.slice(0, limit).map(summaryOf2);
   }
   async update(first, second, third, fourth) {
-    const workspace = assertWorkspace(isAbsolute2(first) ? first : third);
-    const id = isAbsolute2(first) ? second : first;
-    const patch = isAbsolute2(first) ? third : second;
-    const normalizedId = requireString(id, "id");
+    const workspace = assertWorkspace(isAbsolute3(first) ? first : third);
+    const id = isAbsolute3(first) ? second : first;
+    const patch = isAbsolute3(first) ? third : second;
+    const normalizedId = requireString2(id, "id");
     if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new TipValidationError("update patch must be an object");
     const rawPatch = patch;
-    const boardAuthor = normalizeActor(fourth !== void 0 ? fourth : rawPatch.actor);
+    const boardAuthor = normalizeActor2(fourth !== void 0 ? fourth : rawPatch.actor);
     for (const field of ["id", "createdAt", "updatedAt", "creator", "author"]) {
       if (field in patch) throw new TipValidationError(`${field} cannot be changed`);
     }
@@ -24564,10 +25451,10 @@ var TipStore = class {
     }, workspace);
   }
   async archive(first, second, third) {
-    const workspace = assertWorkspace(isAbsolute2(first) ? first : second);
-    const id = isAbsolute2(first) ? second : first;
-    const normalizedId = requireString(id, "id");
-    const boardAuthor = normalizeActor(third);
+    const workspace = assertWorkspace(isAbsolute3(first) ? first : second);
+    const id = isAbsolute3(first) ? second : first;
+    const normalizedId = requireString2(id, "id");
+    const boardAuthor = normalizeActor2(third);
     const key = tipKey(normalizedId);
     return this.board.mutate("workspace", (entries, commitTs) => {
       const entry = entries.get(key);
@@ -24580,7 +25467,7 @@ var TipStore = class {
   }
   buildTip(raw) {
     const tip = validateTip(raw);
-    if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
+    if (raw.context !== void 0) tip.context = validateContext(requireString2(raw.context, "context", false));
     return tip;
   }
   applyPatch(current, patch) {
@@ -24591,7 +25478,7 @@ var TipStore = class {
       if (!(field in raw)) continue;
       if (raw[field] === null) throw new TipValidationError(`${field} cannot be cleared`);
       if (field === "status") next.status = validateStatus(raw[field]);
-      else next[field] = requireString(raw[field], field);
+      else next[field] = requireString2(raw[field], field);
     }
     const optionalFields = [
       "context",
@@ -24611,12 +25498,12 @@ var TipStore = class {
         delete next[field];
         continue;
       }
-      if (field === "context") next.context = validateContext(requireString(value, field, false));
-      else if (field === "module") next.module = requireString(value, field);
+      if (field === "context") next.context = validateContext(requireString2(value, field, false));
+      else if (field === "module") next.module = requireString2(value, field);
       else if (field === "tags" || field === "sourceRefs" || field === "relatedTipIds" || field === "relatedProjects") {
         next[field] = validateStringArray(value, field);
       } else if (field === "documentRefs") next.documentRefs = validateDocumentRefs(value);
-      else next[field] = requireString(value, field, field === "sourceSessionId");
+      else next[field] = requireString2(value, field, field === "sourceSessionId");
     }
     return validateTip(next);
   }
@@ -24779,8 +25666,8 @@ function createTipsModule(tips) {
 
 // src/core/store/archive-index.ts
 import { constants } from "node:fs";
-import { lstat, open as open2, readdir as readdir3 } from "node:fs/promises";
-import { join as join4 } from "node:path";
+import { lstat, open as open3, readdir as readdir4 } from "node:fs/promises";
+import { join as join5 } from "node:path";
 import { TextDecoder } from "node:util";
 var ARCHIVE_FILE_NAMES = [
   "result.json",
@@ -24789,9 +25676,9 @@ var ARCHIVE_FILE_NAMES = [
   "board.jsonl"
 ];
 var nodeFileSystem = {
-  readdir: (path, options) => readdir3(path, options),
+  readdir: (path, options) => readdir4(path, options),
   lstat,
-  open: open2
+  open: open3
 };
 var MISSING_FILE = Object.freeze({ exists: false, size: null, mtime: null });
 var MAX_RESULT_BYTES = 1024 * 1024;
@@ -24815,11 +25702,11 @@ function missingFiles() {
     "board.jsonl": MISSING_FILE
   };
 }
-function regularFileInfo(stat2) {
+function regularFileInfo(stat4) {
   return {
     exists: true,
-    size: stat2.size,
-    mtime: stat2.mtime.toISOString()
+    size: stat4.size,
+    mtime: stat4.mtime.toISOString()
   };
 }
 function sameFile(a, b) {
@@ -24894,7 +25781,7 @@ var ArchiveIndex = class {
     });
   }
   async scanTask(taskId) {
-    const taskDir = join4(this.logsDir, taskId);
+    const taskDir = join5(this.logsDir, taskId);
     try {
       const taskStat = await this.fs.lstat(taskDir);
       if (!taskStat.isDirectory() || taskStat.isSymbolicLink()) return void 0;
@@ -24933,30 +25820,30 @@ var ArchiveIndex = class {
     };
   }
   async scanFile(taskDir, file) {
-    const filePath = join4(taskDir, file);
-    let stat2;
+    const filePath = join5(taskDir, file);
+    let stat4;
     try {
-      stat2 = await this.fs.lstat(filePath);
+      stat4 = await this.fs.lstat(filePath);
     } catch (error2) {
       const code = errorCode(error2);
       if (code === "ENOENT") return { info: MISSING_FILE };
       return { info: MISSING_FILE, error: fileError("stat", file, code) };
     }
-    if (stat2.isSymbolicLink() || !stat2.isFile()) {
+    if (stat4.isSymbolicLink() || !stat4.isFile()) {
       return { info: MISSING_FILE, error: fileError("stat", file, "UNSAFE_FILE_TYPE") };
     }
-    const info = regularFileInfo(stat2);
+    const info = regularFileInfo(stat4);
     let handle;
     try {
       const noFollow = constants.O_NOFOLLOW ?? 0;
       handle = await this.fs.open(filePath, constants.O_RDONLY | noFollow);
       const openedStat = await handle.stat();
-      if (!openedStat.isFile() || !sameFile(stat2, openedStat)) {
-        return { info, stat: stat2, error: fileError("read", file, "FILE_CHANGED") };
+      if (!openedStat.isFile() || !sameFile(stat4, openedStat)) {
+        return { info, stat: stat4, error: fileError("read", file, "FILE_CHANGED") };
       }
-      return { info, stat: stat2 };
+      return { info, stat: stat4 };
     } catch (error2) {
-      return { info, stat: stat2, error: fileError("read", file, errorCode(error2)) };
+      return { info, stat: stat4, error: fileError("read", file, errorCode(error2)) };
     } finally {
       await handle?.close().catch(() => void 0);
     }
@@ -24966,13 +25853,13 @@ var ArchiveIndex = class {
     let handle;
     try {
       const noFollow = constants.O_NOFOLLOW ?? 0;
-      handle = await this.fs.open(join4(taskDir, file), constants.O_RDONLY | noFollow);
+      handle = await this.fs.open(join5(taskDir, file), constants.O_RDONLY | noFollow);
       const openedStat = await handle.stat();
       if (!openedStat.isFile() || !sameFile(originalStat, openedStat)) {
         return { error: fileError("read", file, "FILE_CHANGED") };
       }
       const raw = await readBounded(handle);
-      const currentStat = await this.fs.lstat(join4(taskDir, file));
+      const currentStat = await this.fs.lstat(join5(taskDir, file));
       if (currentStat.isSymbolicLink() || !currentStat.isFile() || !sameFile(openedStat, currentStat)) {
         return { error: fileError("read", file, "FILE_CHANGED") };
       }
@@ -24998,13 +25885,13 @@ var ArchiveIndex = class {
 import { createHash as createHash2 } from "node:crypto";
 import {
   lstat as lstat2,
-  mkdir as mkdir3,
-  readdir as readdir4,
-  readFile as readFile3,
+  mkdir as mkdir4,
+  readdir as readdir5,
+  readFile as readFile4,
   realpath,
-  unlink as unlink3
+  unlink as unlink4
 } from "node:fs/promises";
-import { dirname, isAbsolute as isAbsolute3, join as join5, resolve as resolve3 } from "node:path";
+import { dirname as dirname2, isAbsolute as isAbsolute4, join as join6, resolve as resolve3 } from "node:path";
 
 // node_modules/smol-toml/dist/date.js
 var DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[T ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[-+]\d{2}:\d{2})?$/i;
@@ -25702,12 +26589,12 @@ var AGENT_FILE_SUFFIX = ".md";
 var SECTION_NAMES = ["subagent", "subagent-slot"];
 var BINDING_FIELDS = ["model", "thinking_effort", "inherit"];
 var nodeFileSystem2 = {
-  readdir: (path, options) => readdir4(path, options),
+  readdir: (path, options) => readdir5(path, options),
   lstat: lstat2,
   realpath,
-  readFile: (path, encoding) => readFile3(path, encoding),
-  mkdir: (path, options) => mkdir3(path, options),
-  unlink: unlink3,
+  readFile: (path, encoding) => readFile4(path, encoding),
+  mkdir: (path, options) => mkdir4(path, options),
+  unlink: unlink4,
   writeFileAtomic
 };
 var AgentConfigError = class extends Error {
@@ -25794,7 +26681,7 @@ function assertKebabName(value, field) {
   return value;
 }
 function assertWorkspaceCwd(workspaceCwd) {
-  if (typeof workspaceCwd !== "string" || !isAbsolute3(workspaceCwd)) {
+  if (typeof workspaceCwd !== "string" || !isAbsolute4(workspaceCwd)) {
     throw new AgentConfigValidationError("workspace cwd must be an absolute path resolved by the workspace registry");
   }
   return resolve3(workspaceCwd);
@@ -26298,7 +27185,7 @@ var WorkspaceAgentConfigService = class {
     const agentName = assertKebabName(name, "agent name");
     const paths = await this.projectPaths(workspaceCwd);
     const fileName = `${agentName}${AGENT_FILE_SUFFIX}`;
-    const snapshot = await this.readManagedFile(join5(paths.agentsDir, fileName), AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+    const snapshot = await this.readManagedFile(join6(paths.agentsDir, fileName), AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
     if (!snapshot.exists) throw new AgentConfigNotFoundError("agent profile not found");
     try {
       const parsed = parseAgentDocument(agentName, fileName, snapshot.content);
@@ -26334,7 +27221,7 @@ var WorkspaceAgentConfigService = class {
     const expected = assertExpectedHash(expectedHash);
     const paths = await this.projectPaths(workspaceCwd);
     const fileName = `${agentName}${AGENT_FILE_SUFFIX}`;
-    const filePath = join5(paths.agentsDir, fileName);
+    const filePath = join6(paths.agentsDir, fileName);
     return this.withPathQueue(filePath, async () => {
       const current = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
       assertHashPrecondition(expected, current.hash);
@@ -26352,7 +27239,7 @@ var WorkspaceAgentConfigService = class {
     const agentName = assertKebabName(name, "agent name");
     const expected = assertExpectedHash(expectedHash);
     const paths = await this.projectPaths(workspaceCwd);
-    const filePath = join5(paths.agentsDir, `${agentName}${AGENT_FILE_SUFFIX}`);
+    const filePath = join6(paths.agentsDir, `${agentName}${AGENT_FILE_SUFFIX}`);
     return this.withPathQueue(filePath, async () => {
       const current = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
       assertHashPrecondition(expected, current.hash);
@@ -26468,7 +27355,7 @@ var WorkspaceAgentConfigService = class {
       if (!isKebabCaseName(name)) {
         throw new AgentConfigValidationError(`agent filename ${entry.name} is not kebab-case`);
       }
-      const filePath = join5(paths.agentsDir, entry.name);
+      const filePath = join6(paths.agentsDir, entry.name);
       const snapshot = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
       if (!snapshot.exists) continue;
       try {
@@ -26500,34 +27387,34 @@ var WorkspaceAgentConfigService = class {
     const cwd = assertWorkspaceCwd(workspaceCwd);
     let canonicalCwd;
     try {
-      const stat2 = await this.fs.lstat(cwd);
-      if (stat2.isSymbolicLink() || !stat2.isDirectory()) throw new AgentConfigUnsafePathError("workspace root is not a real directory");
+      const stat4 = await this.fs.lstat(cwd);
+      if (stat4.isSymbolicLink() || !stat4.isDirectory()) throw new AgentConfigUnsafePathError("workspace root is not a real directory");
       canonicalCwd = await this.fs.realpath(cwd);
     } catch (error2) {
       if (error2 instanceof AgentConfigError) throw error2;
       throw mapReadError(error2, "workspace root could not be inspected");
     }
     const projectRoot = await this.findProjectRoot(canonicalCwd);
-    const configDir = join5(projectRoot, KIMI_CONFIG_DIRECTORY_NAME);
+    const configDir = join6(projectRoot, KIMI_CONFIG_DIRECTORY_NAME);
     return {
       projectRoot,
       configDir,
-      agentsDir: join5(configDir, AGENT_DIRECTORY_NAME),
-      localToml: join5(configDir, LOCAL_TOML_FILE_NAME)
+      agentsDir: join6(configDir, AGENT_DIRECTORY_NAME),
+      localToml: join6(configDir, LOCAL_TOML_FILE_NAME)
     };
   }
   async findProjectRoot(cwd) {
     let current = cwd;
     while (true) {
-      const gitPath = join5(current, ".git");
+      const gitPath = join6(current, ".git");
       try {
-        const stat2 = await this.fs.lstat(gitPath);
-        if (stat2.isSymbolicLink()) throw new AgentConfigUnsafePathError(".git is a symbolic link");
-        if (stat2.isDirectory() || stat2.isFile()) return current;
+        const stat4 = await this.fs.lstat(gitPath);
+        if (stat4.isSymbolicLink()) throw new AgentConfigUnsafePathError(".git is a symbolic link");
+        if (stat4.isDirectory() || stat4.isFile()) return current;
       } catch (error2) {
         if (!isMissing(error2)) throw mapReadError(error2, "project root could not be inspected");
       }
-      const parent = dirname(current);
+      const parent = dirname2(current);
       if (samePath(parent, current)) return cwd;
       current = parent;
     }
@@ -26537,16 +27424,16 @@ var WorkspaceAgentConfigService = class {
    * config directories are allowed because a first save may create them.
    */
   async existingPath(path, expected, allowMissing, root) {
-    let stat2;
+    let stat4;
     try {
-      stat2 = await this.fs.lstat(path);
+      stat4 = await this.fs.lstat(path);
     } catch (error2) {
       if (isMissing(error2) && allowMissing) return false;
       throw mapReadError(error2, "project configuration path could not be inspected");
     }
-    if (stat2.isSymbolicLink()) throw new AgentConfigUnsafePathError();
-    if (expected === "file" && !stat2.isFile()) throw new AgentConfigUnsafePathError("configuration target is not a regular file");
-    if (expected === "directory" && !stat2.isDirectory()) throw new AgentConfigUnsafePathError("configuration parent is not a directory");
+    if (stat4.isSymbolicLink()) throw new AgentConfigUnsafePathError();
+    if (expected === "file" && !stat4.isFile()) throw new AgentConfigUnsafePathError("configuration target is not a regular file");
+    if (expected === "directory" && !stat4.isDirectory()) throw new AgentConfigUnsafePathError("configuration parent is not a directory");
     let physical;
     try {
       physical = await this.fs.realpath(path);
@@ -26587,15 +27474,15 @@ var WorkspaceAgentConfigService = class {
         throw mapReadError(error2, "configuration parent could not be resolved");
       }
     }
-    let stat2;
+    let stat4;
     try {
-      stat2 = await this.fs.lstat(path);
+      stat4 = await this.fs.lstat(path);
     } catch (error2) {
       if (isMissing(error2)) return { exists: false, content: "", hash: null, size: 0 };
       throw mapReadError(error2, "configuration file could not be inspected");
     }
-    if (stat2.isSymbolicLink() || !stat2.isFile()) throw new AgentConfigUnsafePathError();
-    if (stat2.size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
+    if (stat4.isSymbolicLink() || !stat4.isFile()) throw new AgentConfigUnsafePathError();
+    if (stat4.size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
     let content;
     try {
       content = await this.fs.readFile(path, "utf8");
@@ -26619,7 +27506,7 @@ var WorkspaceAgentConfigService = class {
     const atomic = this.fs.writeFileAtomic ?? writeFileAtomic;
     const options = {
       beforeRename: async () => {
-        const latest = await this.readManagedFile(path, maxBytes, dirname(path));
+        const latest = await this.readManagedFile(path, maxBytes, dirname2(path));
         assertSameHash(expectedCurrentHash, latest.hash);
       }
     };
@@ -31888,11 +32775,13 @@ function statusTool(bus) {
 function createServer(hub = new DebateHub(), bus, board, tipStore) {
   const boardStore = board ?? new BoardStore();
   const tips = tipStore ?? new TipStore(boardStore);
+  const handoffs = new HandoffStore(boardStore);
   bus?.mountControlPlane(boardStore, tips);
   const modules = [
     createDebateModule(hub),
     createBoardModule(boardStore),
-    createTipsModule(tips)
+    createTipsModule(tips),
+    createHandoffModule(handoffs, boardStore)
   ];
   const tools = [
     ...modules.flatMap((module) => module.tools ?? []),
@@ -31918,8 +32807,8 @@ function createServer(hub = new DebateHub(), bus, board, tipStore) {
 
 // src/core/bus/bus.ts
 import { createServer as createServer2, get } from "node:http";
-import { writeFile as writeFile2, readFile as readFile4, rm } from "node:fs/promises";
-import { join as join6, resolve as resolve4 } from "node:path";
+import { writeFile as writeFile2, readFile as readFile5, rm } from "node:fs/promises";
+import { join as join7, resolve as resolve4 } from "node:path";
 
 // src/core/store/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
@@ -33486,7 +34375,7 @@ var Bus = class {
     this.server.closeAllConnections();
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join6(this.cwd, "bus.port"), { force: true });
+    if (this.wrotePortFile) await rm(join7(this.cwd, "bus.port"), { force: true });
   }
   // ---- internals ----
   /**
@@ -33534,7 +34423,7 @@ var Bus = class {
     });
   }
   async writePortFile() {
-    await writeFile2(join6(this.cwd, "bus.port"), String(this.port));
+    await writeFile2(join7(this.cwd, "bus.port"), String(this.port));
     this.wrotePortFile = true;
   }
   async releaseRegistration() {
@@ -33670,7 +34559,7 @@ var Bus = class {
         return;
       }
       try {
-        const content = await readFile4(resolve4(this.logsDir, taskId, file), "utf8");
+        const content = await readFile5(resolve4(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
@@ -33808,8 +34697,8 @@ async function main() {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
   const { rmSync } = await import("node:fs");
-  const { join: join7 } = await import("node:path");
-  process.on("exit", () => rmSync(join7(process.cwd(), "bus.port"), { force: true }));
+  const { join: join8 } = await import("node:path");
+  process.on("exit", () => rmSync(join8(process.cwd(), "bus.port"), { force: true }));
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;

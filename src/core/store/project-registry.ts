@@ -57,7 +57,7 @@ export interface ProjectRegistryOptions {
   homeDir?: string;
 }
 
-const PROJECT_ID_PATTERN = /^p_[0-9a-f]{12}$/;
+export const PROJECT_ID_PATTERN = /^p_[0-9a-f]{12}$/;
 
 /** Fresh project id: `p_` + the first 12 hex chars of a dashed-less randomUUID. */
 export function newProjectId(): string {

@@ -17,6 +17,10 @@
  *       unchanged; callers still pass `workspace` (aliasing is invisible to
  *       the tool surface).
  *   - `global`          cross-project; persisted at `<home>/boards/global.jsonl`.
+ *   - `project:<projectId>`  direct address of a project board by id (mailbox
+ *       task 3: HandoffStore writes into a target project's board without an
+ *       aliased workspace path); same `project-<projectId>.jsonl` file as the
+ *       alias-resolved form, but no cwd sidecar entry (no directory involved).
  *
  * Data model: entries `{key, value, author, ts, tags[]}` where value is a
  * markdown string capped at 32 KB. Same-key writes are last-write-wins; the
@@ -48,7 +52,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { moamcpHome } from '../bus/registry.js';
 import { DEFAULT_WAIT_CAP_MS } from '../constants.js';
 import { withAppendLock } from './append-lock.js';
-import { ProjectRegistry } from './project-registry.js';
+import { PROJECT_ID_PATTERN, ProjectRegistry } from './project-registry.js';
 
 /** Hard cap on a single entry value (markdown payload; larger content belongs in files). */
 export const BOARD_VALUE_MAX_BYTES = 32 * 1024;
@@ -700,15 +704,28 @@ export class BoardStore {
       return { kind: 'workspace', key: `workspace:${id}`, label: 'workspace', id, cwd };
     }
     if (raw === 'global') return { kind: 'global', key: 'global', label: 'global' };
+    if (raw.startsWith('project:')) {
+      // Direct project scope (mailbox task 3): lets a sender address a
+      // project board by id without an aliased workspace path — HandoffStore
+      // writes into the target project's board this way. The label keeps the
+      // raw scope string so events stay distinguishable from the aliased
+      // workspace case (which stays invisible as 'workspace').
+      const projectId = raw.slice('project:'.length);
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error('invalid scope: project:<projectId> requires a p_<12 hex chars> projectId');
+      }
+      return { kind: 'project', key: raw, label: raw, id: projectId };
+    }
     if (raw.startsWith('task:')) {
       const taskId = raw.slice('task:'.length);
       if (taskId.length === 0) throw new Error('invalid scope: task:<task_id> requires a non-empty task_id');
       return { kind: 'task', key: raw, label: raw, taskId };
     }
-    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
+    throw new Error(`invalid scope: ${input} (expected "workspace", "global", "project:<projectId>", or "task:<task_id>")`);
   }
 
-  private boardsDir(): string {
+  /** `<home>/boards` (public so typed views like HandoffStore can enumerate scope files). */
+  boardsDir(): string {
     return join(this.homeDir ?? moamcpHome(), 'boards');
   }
 
@@ -732,7 +749,9 @@ export class BoardStore {
     } else if (scope.kind === 'project') {
       state.file = join(this.boardsDir(), `project-${scope.id}.jsonl`);
       state.metaFile = join(this.boardsDir(), `project-${scope.id}.meta.json`);
-      state.metaCwd = scope.cwd ?? this.workspaceCwd;
+      // A directly addressed project scope (no aliased workspace path) must
+      // not record the process default cwd in the project's cwds sidecar.
+      state.metaCwd = scope.cwd;
       state.projectScope = true;
     } else {
       const id = scope.id ?? scope.key.slice('workspace:'.length);

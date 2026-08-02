@@ -14,6 +14,8 @@ import { BoardStore } from '../core/store/board.js';
 import { DebateHub } from '../modules/debate/state.js';
 import { createBoardModule } from '../modules/board/index.js';
 import { createDebateModule } from '../modules/debate/index.js';
+import { createHandoffModule } from '../modules/handoff/index.js';
+import { HandoffStore } from '../modules/handoff/handoff.js';
 import { createTipsModule } from '../modules/tips/index.js';
 import type { MoaModule, MoaToolDef } from '../modules/types.js';
 import { TipStore } from '../modules/tips/tips.js';
@@ -41,11 +43,13 @@ function statusTool(bus?: Bus): MoaToolDef {
 export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?: BoardStore, tipStore?: TipStore): Server {
   const boardStore = board ?? new BoardStore();
   const tips = tipStore ?? new TipStore(boardStore);
+  const handoffs = new HandoffStore(boardStore);
   bus?.mountControlPlane(boardStore, tips);
   const modules: MoaModule[] = [
     createDebateModule(hub),
     createBoardModule(boardStore),
     createTipsModule(tips),
+    createHandoffModule(handoffs, boardStore),
   ];
   const tools: MoaToolDef[] = [
     ...modules.flatMap((module) => module.tools ?? []),

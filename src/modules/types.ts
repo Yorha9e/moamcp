@@ -95,7 +95,7 @@ export interface MoaModuleContext {
 }
 
 export interface MoaModule {
-  /** 'debate' | 'board' | 'tips' | 'agentconfig' */
+  /** 'debate' | 'board' | 'tips' | 'handoff' | 'agentconfig' */
   id: string;
   tier: MoaTier;
   tools?: MoaToolDef[];
