@@ -1,9 +1,13 @@
 /**
- * Workspace Control Plane HTTP API.
+ * Workspace Control Plane HTTP adapter.
  *
- * The Bus remains the only HTTP listener. This module only translates the
- * browser's sidecar workspace id into a BoardStore workspace path and then
- * delegates all persistence and validation to BoardStore/TipStore.
+ * The Bus remains the only HTTP listener. Routes are aggregated from product
+ * modules (agent-config) plus adapter-level endpoints (workspaces, tips/board
+ * API, runs/archives/system); the adapter owns transport policy — body
+ * parsing, origin checks, status-code mapping — and forwards everything else
+ * to module route handlers, which delegate to BoardStore/TipStore and the
+ * agent-config service. This module only translates the browser's sidecar
+ * workspace id into a BoardStore workspace path.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isValidTaskId, type ArchiveIndexEntry } from '../modules/debate/archive-index.js';
@@ -11,18 +15,14 @@ import {
   AgentConfigBusyError,
   AgentConfigConflictError,
   AgentConfigError,
-  AgentConfigLayoutError,
   AgentConfigNotFoundError,
   AgentConfigUnsafePathError,
-  AgentConfigValidationError,
   WorkspaceAgentConfigService,
-  isKebabCaseName,
-  type AgentSection,
-  type BindingChange,
-  type BindingPatch,
 } from '../modules/agentconfig/agent-config.js';
+import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { BoardStore, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import type { RunStatus, RunSummary } from '../modules/debate/run-read-model.js';
+import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
 import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
 import {
   TipCorruptError,
@@ -39,8 +39,6 @@ import {
 export const CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
 
 const WORKSPACE_ID = /^[0-9a-f]{16}$/;
-
-type JsonObject = Record<string, unknown>;
 
 type ResolvedWorkspace = { id: string; cwd: string };
 
@@ -103,6 +101,13 @@ class BoardConflictError extends Error {
 
   constructor(message: string, readonly currentTs?: string) {
     super(message);
+  }
+}
+
+/** Path matched but the method has no route; `allow` carries the 405 Allow header value. */
+class MethodNotAllowedError extends Error {
+  constructor(readonly allow: string) {
+    super('method not allowed');
   }
 }
 
@@ -235,17 +240,6 @@ function requireTaskId(value: string): string {
   return id;
 }
 
-function requireAgentName(value: string): string {
-  let name: string;
-  try {
-    name = decodeURIComponent(value);
-  } catch {
-    throw new ApiValidationError('invalid agent name');
-  }
-  if (!isKebabCaseName(name)) throw new ApiValidationError('invalid agent name');
-  return name;
-}
-
 function parseLimit(value: string | null): number | undefined {
   if (value === null || value === '') return undefined;
   if (!/^\d+$/.test(value)) throw new ApiValidationError('limit must be a positive integer');
@@ -338,18 +332,34 @@ export function controlPlaneUrl(port: number): string {
   return `http://127.0.0.1:${port}/control-plane`;
 }
 
+interface PatternRouteGroup {
+  pattern: RegExp;
+  validateParam?: (rawParam: string) => string;
+  defs: MoaRouteDef[];
+}
+
+interface ResolvedRoute {
+  def: MoaRouteDef;
+  param: string | undefined;
+}
+
 /**
  * Route handler mounted by Bus. `false` means the path is not a Control Plane
  * route and lets the legacy Bus endpoints produce their normal 404 response.
+ * Routes are aggregated from product modules plus adapter-level endpoints;
+ * dispatch is a plain table lookup, and handlers do the forwarding.
  */
 export class ControlPlane {
   private board?: BoardStore;
   private tips?: TipStore;
   private runtime?: RuntimeReadProvider;
   private agentConfig: WorkspaceAgentConfigService;
+  private exactRoutes = new Map<string, MoaRouteDef[]>();
+  private patternRoutes: PatternRouteGroup[] = [];
 
   constructor(board?: BoardStore, tips?: TipStore, agentConfig: WorkspaceAgentConfigService = new WorkspaceAgentConfigService()) {
     this.agentConfig = agentConfig;
+    this.registerRoutes();
     if (board !== undefined) this.mount(board, tips);
   }
 
@@ -365,6 +375,75 @@ export class ControlPlane {
   /** Test seam for the source-tree adapter; mounting itself performs no I/O. */
   mountAgentConfig(agentConfig: WorkspaceAgentConfigService): void {
     this.agentConfig = agentConfig;
+    this.registerRoutes();
+  }
+
+  /** Aggregate module routes and adapter-level routes into the dispatch tables. */
+  private registerRoutes(): void {
+    const modules: MoaModule[] = [createAgentConfigModule(this.agentConfig)];
+    const routes: MoaRouteDef[] = [
+      ...modules.flatMap((module) => module.routes ?? []),
+      ...this.adapterRoutes(),
+    ];
+    this.exactRoutes = new Map();
+    this.patternRoutes = [];
+    for (const def of routes) {
+      if (def.pattern === undefined) {
+        const group = this.exactRoutes.get(def.path);
+        if (group === undefined) this.exactRoutes.set(def.path, [def]);
+        else group.push(def);
+      } else {
+        const group = this.patternRoutes.find((candidate) => candidate.pattern.source === (def.pattern as RegExp).source);
+        if (group === undefined) {
+          this.patternRoutes.push({ pattern: def.pattern, validateParam: def.validateParam, defs: [def] });
+        } else {
+          group.defs.push(def);
+        }
+      }
+    }
+  }
+
+  /** Adapter-level endpoints: workspaces, tips/board API, runs/archives/system. */
+  private adapterRoutes(): MoaRouteDef[] {
+    return [
+      { method: 'GET', path: '/api/workspaces', handler: (ctx) => this.workspaces(ctx.res) },
+      { method: 'GET', path: '/api/tips', handler: (ctx) => this.listTips(ctx.url, ctx.res) },
+      { method: 'POST', path: '/api/tips', handler: (ctx) => this.createTip(ctx) },
+      { method: 'GET', path: '/api/board', handler: (ctx) => this.readBoard(ctx.url, ctx.res) },
+      { method: 'POST', path: '/api/board', handler: (ctx) => this.mutateBoard(ctx) },
+      { method: 'DELETE', path: '/api/board', handler: (ctx) => this.mutateBoard(ctx) },
+      { method: 'GET', path: '/api/tasks', handler: (ctx) => this.listRuns(ctx.url, ctx.res) },
+      { method: 'GET', path: '/api/archives', handler: (ctx) => this.listArchives(ctx.res) },
+      { method: 'GET', path: '/api/system', handler: (ctx) => this.system(ctx.res) },
+      {
+        method: 'GET',
+        path: '/api/tasks/:id',
+        pattern: /^\/api\/tasks\/(.*)$/,
+        validateParam: requireTaskId,
+        handler: (ctx) => this.readRun(ctx.param as string, ctx.res),
+      },
+      {
+        method: 'GET',
+        path: '/api/tips/:id',
+        pattern: /^\/api\/tips\/([^/]+)$/,
+        validateParam: requireTipId,
+        handler: (ctx) => this.readTip(ctx.param as string, ctx.url, ctx.res),
+      },
+      {
+        method: 'PATCH',
+        path: '/api/tips/:id',
+        pattern: /^\/api\/tips\/([^/]+)$/,
+        validateParam: requireTipId,
+        handler: (ctx) => this.updateTip(ctx, ctx.param as string),
+      },
+      {
+        method: 'POST',
+        path: '/api/tips/:id/archive',
+        pattern: /^\/api\/tips\/([^/]+)\/archive$/,
+        validateParam: requireTipId,
+        handler: (ctx) => this.archiveTip(ctx, ctx.param as string),
+      },
+    ];
   }
 
   async handle(req: IncomingMessage, res: ServerResponse, serverPort?: number): Promise<boolean> {
@@ -384,109 +463,85 @@ export class ControlPlane {
       return true;
     }
 
-    let route: ReturnType<ControlPlane['route']>;
+    let route: ResolvedRoute | undefined;
     try {
-      route = this.route(path);
+      route = this.resolveRoute(path, req.method ?? '');
     } catch (error) {
-      sendCaughtError(res, error);
+      if (error instanceof MethodNotAllowedError) {
+        methodNotAllowed(res, error.allow);
+      } else {
+        sendCaughtError(res, error);
+      }
       return true;
     }
     if (route === undefined) return false;
-    if (!route.methods.includes(req.method ?? '')) {
-      methodNotAllowed(res, route.methods.join(', '));
-      return true;
-    }
 
+    const ctx = this.createContext(req, res, url, serverPort, route.param);
     try {
-      switch (route.name) {
-        case 'workspaces':
-          await this.workspaces(res);
-          break;
-        case 'tips':
-          if (req.method === 'GET') await this.listTips(url, res);
-          else await this.createTip(req, res, serverPort);
-          break;
-        case 'tip':
-          if (req.method === 'GET') await this.readTip(route.id, url, res);
-          else await this.updateTip(req, route.id, res, serverPort);
-          break;
-        case 'tip-archive':
-          await this.archiveTip(req, route.id, res, serverPort);
-          break;
-        case 'board':
-          if (req.method === 'GET') await this.readBoard(url, res);
-          else await this.mutateBoard(req, res, serverPort);
-          break;
-        case 'agent-config':
-          await this.readAgentConfig(url, res);
-          break;
-        case 'agent':
-          if (req.method === 'GET') await this.readAgent(route.id, url, res);
-          else if (req.method === 'PUT') await this.saveAgent(req, route.id, res, serverPort);
-          else await this.deleteAgent(req, route.id, res, serverPort);
-          break;
-        case 'agent-bindings':
-          await this.saveBindings(req, res, serverPort);
-          break;
-        case 'agent-local':
-          if (req.method === 'GET') await this.readLocalToml(url, res);
-          else await this.saveLocalToml(req, res, serverPort);
-          break;
-        case 'runs':
-          this.listRuns(url, res);
-          break;
-        case 'run':
-          this.readRun(route.id, res);
-          break;
-        case 'archives':
-          await this.listArchives(res);
-          break;
-        case 'system':
-          await this.system(res);
-          break;
-      }
+      await route.def.handler(ctx);
     } catch (error) {
       sendCaughtError(res, error);
     }
     return true;
   }
 
-  private route(path: string):
-    | { name: 'workspaces'; methods: string[] }
-    | { name: 'tips'; methods: string[] }
-    | { name: 'tip'; methods: string[]; id: string }
-    | { name: 'tip-archive'; methods: string[]; id: string }
-    | { name: 'board'; methods: string[] }
-    | { name: 'agent-config'; methods: string[] }
-    | { name: 'agent'; methods: string[]; id: string }
-    | { name: 'agent-bindings'; methods: string[] }
-    | { name: 'agent-local'; methods: string[] }
-    | { name: 'runs'; methods: string[] }
-    | { name: 'run'; methods: string[]; id: string }
-    | { name: 'archives'; methods: string[] }
-    | { name: 'system'; methods: string[] }
-    | undefined {
-    if (path === '/api/workspaces') return { name: 'workspaces', methods: ['GET'] };
-    if (path === '/api/tips') return { name: 'tips', methods: ['GET', 'POST'] };
-    if (path === '/api/board') return { name: 'board', methods: ['GET', 'POST', 'DELETE'] };
-    if (path === '/api/agent-config') return { name: 'agent-config', methods: ['GET'] };
-    if (path === '/api/agent-config/bindings') return { name: 'agent-bindings', methods: ['PUT'] };
-    if (path === '/api/agent-config/local-toml') return { name: 'agent-local', methods: ['GET', 'PUT'] };
-    if (path === '/api/tasks') return { name: 'runs', methods: ['GET'] };
+  /**
+   * Match a request path + method against the aggregated route tables. Exact
+   * paths win over pattern routes; parameter validation runs before method
+   * matching (an invalid path parameter is a 400 even for unsupported
+   * methods). Throws MethodNotAllowedError when the path exists for other
+   * methods; returns undefined for non-Control-Plane paths.
+   */
+  private resolveRoute(path: string, method: string): ResolvedRoute | undefined {
+    const exact = this.exactRoutes.get(path);
+    if (exact !== undefined) {
+      const hit = exact.find((def) => def.method === method);
+      if (hit !== undefined) return { def: hit, param: undefined };
+      throw new MethodNotAllowedError(exact.map((def) => def.method).join(', '));
+    }
+    for (const group of this.patternRoutes) {
+      const match = group.pattern.exec(path);
+      if (match === null) continue;
+      let param: string | undefined;
+      if (group.validateParam !== undefined) {
+        try {
+          param = group.validateParam(match[1]);
+        } catch (error) {
+          throw new ApiValidationError(errorMessage(error));
+        }
+      } else {
+        param = match[1];
+      }
+      const hit = group.defs.find((def) => def.method === method);
+      if (hit !== undefined) return { def: hit, param };
+      throw new MethodNotAllowedError(group.defs.map((def) => def.method).join(', '));
+    }
+    return undefined;
+  }
 
-    const agentMatch = /^\/api\/agent-config\/agents\/(.*)$/.exec(path);
-    if (agentMatch !== null) return { name: 'agent', methods: ['GET', 'PUT', 'DELETE'], id: requireAgentName(agentMatch[1]) };
-    if (path === '/api/archives') return { name: 'archives', methods: ['GET'] };
-    if (path === '/api/system') return { name: 'system', methods: ['GET'] };
-
-    const runMatch = /^\/api\/tasks\/(.*)$/.exec(path);
-    if (runMatch !== null) return { name: 'run', methods: ['GET'], id: requireTaskId(runMatch[1]) };
-
-    const match = /^\/api\/tips\/([^/]+)(\/archive)?$/.exec(path);
-    if (match === null) return undefined;
-    const id = requireTipId(match[1]);
-    if (match[2] === '/archive') return { name: 'tip-archive', methods: ['POST'], id };
-    return { name: 'tip', methods: ['GET', 'PATCH'], id };
+  private createContext(
+    req: IncomingMessage,
+    res: ServerResponse,
+    url: URL,
+    serverPort: number | undefined,
+    param: string | undefined,
+  ): MoaRouteContext {
+    return {
+      req,
+      res,
+      url,
+      serverPort,
+      param,
+      jsonBody: () => readJsonBody(req, serverPort),
+      resolveWorkspace: (id) => this.resolveWorkspace(id),
+      sendJson: (status, body) => sendJson(res, status, body),
+      badRequest: (message): never => {
+        throw new ApiValidationError(message);
+      },
+      rejectPathFields,
+      assertAllowedFields,
+      requireExpectedHash,
+    };
   }
 
   private runtimeProvider(): RuntimeReadProvider {
@@ -550,79 +605,6 @@ export class ControlPlane {
     sendJson(res, 200, { workspaces: rows.map(publicWorkspace) });
   }
 
-  private async readAgentConfig(url: URL, res: ServerResponse): Promise<void> {
-    if (url.searchParams.has('cwd') || url.searchParams.has('path')) {
-      throw new ApiValidationError('cwd/path are not accepted by the Control Plane API');
-    }
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
-    sendJson(res, 200, { workspace: workspace.id, ...(await this.agentConfig.inspect(workspace.cwd)) });
-  }
-
-  private async readAgent(name: string, url: URL, res: ServerResponse): Promise<void> {
-    if (url.searchParams.has('cwd') || url.searchParams.has('path')) {
-      throw new ApiValidationError('cwd/path are not accepted by the Control Plane API');
-    }
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
-    sendJson(res, 200, { workspace: workspace.id, agent: await this.agentConfig.readAgent(workspace.cwd, name) });
-  }
-
-  private async saveAgent(req: IncomingMessage, name: string, res: ServerResponse, serverPort?: number): Promise<void> {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ['workspace', 'content', 'expectedHash'], 'agent');
-    if (typeof body.content !== 'string') throw new ApiValidationError('content must be a Markdown string');
-    const workspace = await this.resolveWorkspace(body.workspace);
-    const result = await this.agentConfig.saveAgent(workspace.cwd, name, body.content, requireExpectedHash(body));
-    sendJson(res, 200, { workspace: workspace.id, agent: result });
-  }
-
-  private async deleteAgent(req: IncomingMessage, name: string, res: ServerResponse, serverPort?: number): Promise<void> {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ['workspace', 'expectedHash'], 'agent');
-    const workspace = await this.resolveWorkspace(body.workspace);
-    sendJson(res, 200, { workspace: workspace.id, agent: await this.agentConfig.deleteAgent(workspace.cwd, name, requireExpectedHash(body)) });
-  }
-
-  private async saveBindings(req: IncomingMessage, res: ServerResponse, serverPort?: number): Promise<void> {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ['workspace', 'changes', 'expectedHash'], 'bindings');
-    if (!Array.isArray(body.changes)) {
-      throw new ApiValidationError('changes must be an array');
-    }
-    const workspace = await this.resolveWorkspace(body.workspace);
-    const result = await this.agentConfig.saveBindings(
-      workspace.cwd,
-      body.changes as BindingChange[],
-      requireExpectedHash(body),
-    );
-    sendJson(res, 200, {
-      workspace: workspace.id,
-      bindings: result,
-      hash: result.hash,
-      content: result.content,
-    });
-  }
-
-  private async readLocalToml(url: URL, res: ServerResponse): Promise<void> {
-    if (url.searchParams.has('cwd') || url.searchParams.has('path')) {
-      throw new ApiValidationError('cwd/path are not accepted by the Control Plane API');
-    }
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
-    sendJson(res, 200, { workspace: workspace.id, localToml: await this.agentConfig.readLocalToml(workspace.cwd) });
-  }
-
-  private async saveLocalToml(req: IncomingMessage, res: ServerResponse, serverPort?: number): Promise<void> {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ['workspace', 'content', 'expectedHash'], 'local.toml');
-    if (typeof body.content !== 'string') throw new ApiValidationError('content must be a TOML string');
-    const workspace = await this.resolveWorkspace(body.workspace);
-    const result = await this.agentConfig.saveLocalToml(workspace.cwd, body.content, requireExpectedHash(body));
-    sendJson(res, 200, { workspace: workspace.id, localToml: result });
-  }
-
   private async listTips(url: URL, res: ServerResponse): Promise<void> {
     const { tips } = this.stores();
     const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
@@ -651,29 +633,29 @@ export class ControlPlane {
     sendJson(res, 200, tip);
   }
 
-  private async createTip(req: IncomingMessage, res: ServerResponse, serverPort?: number): Promise<void> {
+  private async createTip(ctx: MoaRouteContext): Promise<void> {
     const { tips } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
     const workspace = await this.resolveWorkspace(body.workspace);
     const { workspace: _workspace, ...input } = body;
     const tip = await tips.create(input as TipCreateInput, workspace.cwd);
-    sendJson(res, 200, tip);
+    ctx.sendJson(200, tip);
   }
 
-  private async updateTip(req: IncomingMessage, id: string, res: ServerResponse, serverPort?: number): Promise<void> {
+  private async updateTip(ctx: MoaRouteContext, id: string): Promise<void> {
     const { tips } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
     const workspace = await this.resolveWorkspace(body.workspace);
     const { workspace: _workspace, ...patch } = body;
     const tip = await tips.update(id, patch as TipUpdateInput, workspace.cwd);
-    sendJson(res, 200, tip);
+    ctx.sendJson(200, tip);
   }
 
-  private async archiveTip(req: IncomingMessage, id: string, res: ServerResponse, serverPort?: number): Promise<void> {
+  private async archiveTip(ctx: MoaRouteContext, id: string): Promise<void> {
     const { tips } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
     const workspace = await this.resolveWorkspace(body.workspace);
     const actor = body.actor;
@@ -681,15 +663,15 @@ export class ControlPlane {
       throw new ApiValidationError('actor must be a string');
     }
     const tip = await tips.archive(id, workspace.cwd, actor as string | null | undefined);
-    sendJson(res, 200, tip);
+    ctx.sendJson(200, tip);
   }
 
-  private async mutateBoard(req: IncomingMessage, res: ServerResponse, serverPort?: number): Promise<void> {
+  private async mutateBoard(ctx: MoaRouteContext): Promise<void> {
     const { board } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
 
-    const method = req.method as 'POST' | 'DELETE';
+    const method = ctx.req.method as 'POST' | 'DELETE';
     const allowed = new Set(['scope', 'workspace', 'key', 'tags', 'author', 'expectedTs', ...(method === 'POST' ? ['value'] : [])]);
     for (const field of Object.keys(body)) {
       if (!allowed.has(field)) throw new ApiValidationError(`unsupported board field: ${field}`);
@@ -761,9 +743,9 @@ export class ControlPlane {
     }, cwd);
 
     if (method === 'POST') {
-      sendJson(res, 200, { ok: true, entry: responseEntry });
+      ctx.sendJson(200, { ok: true, entry: responseEntry });
     } else {
-      sendJson(res, 200, { ok: true, ts: deletedTs });
+      ctx.sendJson(200, { ok: true, ts: deletedTs });
     }
   }
 

@@ -14229,6 +14229,9 @@ var require_dist2 = __commonJS({
   }
 });
 
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+import process3 from "node:process";
+
 // node_modules/zod/v4/core/core.js
 var _a;
 // @__NO_SIDE_EFFECTS__
@@ -18497,69 +18500,6 @@ var optionalProcessor = (schema, ctx, _json, params) => {
   seen.ref = def.innerType;
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
-function isZ4Schema(s) {
-  const schema = s;
-  return !!schema._zod;
-}
-function safeParse2(schema, data) {
-  if (isZ4Schema(schema)) {
-    const result2 = safeParse(schema, data);
-    return result2;
-  }
-  const v3Schema = schema;
-  const result = v3Schema.safeParse(data);
-  return result;
-}
-function getObjectShape(schema) {
-  if (!schema)
-    return void 0;
-  let rawShape;
-  if (isZ4Schema(schema)) {
-    const v4Schema = schema;
-    rawShape = v4Schema._zod?.def?.shape;
-  } else {
-    const v3Schema = schema;
-    rawShape = v3Schema.shape;
-  }
-  if (!rawShape)
-    return void 0;
-  if (typeof rawShape === "function") {
-    try {
-      return rawShape();
-    } catch {
-      return void 0;
-    }
-  }
-  return rawShape;
-}
-function getLiteralValue(schema) {
-  if (isZ4Schema(schema)) {
-    const v4Schema = schema;
-    const def2 = v4Schema._zod?.def;
-    if (def2) {
-      if (def2.value !== void 0)
-        return def2.value;
-      if (Array.isArray(def2.values) && def2.values.length > 0) {
-        return def2.values[0];
-      }
-    }
-  }
-  const v3Schema = schema;
-  const def = v3Schema._def;
-  if (def) {
-    if (def.value !== void 0)
-      return def.value;
-    if (Array.isArray(def.values) && def.values.length > 0) {
-      return def.values[0];
-    }
-  }
-  const directValue = schema.value;
-  if (directValue !== void 0)
-    return directValue;
-  return void 0;
-}
-
 // node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
@@ -18643,16 +18583,16 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, {
 // node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
-var safeParse3 = /* @__PURE__ */ _safeParse(ZodRealError);
+var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
 var safeParseAsync2 = /* @__PURE__ */ _safeParseAsync(ZodRealError);
-var encode2 = /* @__PURE__ */ _encode(ZodRealError);
-var decode2 = /* @__PURE__ */ _decode(ZodRealError);
-var encodeAsync2 = /* @__PURE__ */ _encodeAsync(ZodRealError);
-var decodeAsync2 = /* @__PURE__ */ _decodeAsync(ZodRealError);
-var safeEncode2 = /* @__PURE__ */ _safeEncode(ZodRealError);
-var safeDecode2 = /* @__PURE__ */ _safeDecode(ZodRealError);
-var safeEncodeAsync2 = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
-var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
+var encode = /* @__PURE__ */ _encode(ZodRealError);
+var decode = /* @__PURE__ */ _decode(ZodRealError);
+var encodeAsync = /* @__PURE__ */ _encodeAsync(ZodRealError);
+var decodeAsync = /* @__PURE__ */ _decodeAsync(ZodRealError);
+var safeEncode = /* @__PURE__ */ _safeEncode(ZodRealError);
+var safeDecode = /* @__PURE__ */ _safeDecode(ZodRealError);
+var safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
+var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
 // node_modules/zod/v4/classic/schemas.js
 var _installedGroups = /* @__PURE__ */ new WeakMap();
@@ -18705,18 +18645,18 @@ var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
   inst.type = def.type;
   Object.defineProperty(inst, "_def", { value: def });
   inst.parse = (data, params) => parse2(inst, data, params, { callee: inst.parse });
-  inst.safeParse = (data, params) => safeParse3(inst, data, params);
+  inst.safeParse = (data, params) => safeParse2(inst, data, params);
   inst.parseAsync = async (data, params) => parseAsync2(inst, data, params, { callee: inst.parseAsync });
   inst.safeParseAsync = async (data, params) => safeParseAsync2(inst, data, params);
   inst.spa = inst.safeParseAsync;
-  inst.encode = (data, params) => encode2(inst, data, params);
-  inst.decode = (data, params) => decode2(inst, data, params);
-  inst.encodeAsync = async (data, params) => encodeAsync2(inst, data, params);
-  inst.decodeAsync = async (data, params) => decodeAsync2(inst, data, params);
-  inst.safeEncode = (data, params) => safeEncode2(inst, data, params);
-  inst.safeDecode = (data, params) => safeDecode2(inst, data, params);
-  inst.safeEncodeAsync = async (data, params) => safeEncodeAsync2(inst, data, params);
-  inst.safeDecodeAsync = async (data, params) => safeDecodeAsync2(inst, data, params);
+  inst.encode = (data, params) => encode(inst, data, params);
+  inst.decode = (data, params) => decode(inst, data, params);
+  inst.encodeAsync = async (data, params) => encodeAsync(inst, data, params);
+  inst.decodeAsync = async (data, params) => decodeAsync(inst, data, params);
+  inst.safeEncode = (data, params) => safeEncode(inst, data, params);
+  inst.safeDecode = (data, params) => safeDecode(inst, data, params);
+  inst.safeEncodeAsync = async (data, params) => safeEncodeAsync(inst, data, params);
+  inst.safeDecodeAsync = async (data, params) => safeDecodeAsync(inst, data, params);
   _installLazyMethods(inst, "ZodType", {
     check(...chks) {
       const def2 = this.def;
@@ -19166,7 +19106,7 @@ var ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
     }
   });
 });
-function object2(shape, params) {
+function object(shape, params) {
   const def = {
     type: "object",
     shape: shape ?? {},
@@ -19517,10 +19457,10 @@ var TaskCreationParamsSchema = looseObject({
    */
   pollInterval: number2().optional()
 });
-var TaskMetadataSchema = object2({
+var TaskMetadataSchema = object({
   ttl: number2().optional()
 });
-var RelatedTaskMetadataSchema = object2({
+var RelatedTaskMetadataSchema = object({
   taskId: string2()
 });
 var RequestMetaSchema = looseObject({
@@ -19533,7 +19473,7 @@ var RequestMetaSchema = looseObject({
    */
   [RELATED_TASK_META_KEY]: RelatedTaskMetadataSchema.optional()
 });
-var BaseRequestParamsSchema = object2({
+var BaseRequestParamsSchema = object({
   /**
    * See [General fields: `_meta`](/specification/draft/basic/index#meta) for notes on `_meta` usage.
    */
@@ -19551,18 +19491,18 @@ var TaskAugmentedRequestParamsSchema = BaseRequestParamsSchema.extend({
   task: TaskMetadataSchema.optional()
 });
 var isTaskAugmentedRequestParams = (value) => TaskAugmentedRequestParamsSchema.safeParse(value).success;
-var RequestSchema = object2({
+var RequestSchema = object({
   method: string2(),
   params: BaseRequestParamsSchema.loose().optional()
 });
-var NotificationsParamsSchema = object2({
+var NotificationsParamsSchema = object({
   /**
    * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
    * for notes on _meta usage.
    */
   _meta: RequestMetaSchema.optional()
 });
-var NotificationSchema = object2({
+var NotificationSchema = object({
   method: string2(),
   params: NotificationsParamsSchema.loose().optional()
 });
@@ -19574,18 +19514,18 @@ var ResultSchema = looseObject({
   _meta: RequestMetaSchema.optional()
 });
 var RequestIdSchema = union([string2(), number2().int()]);
-var JSONRPCRequestSchema = object2({
+var JSONRPCRequestSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   id: RequestIdSchema,
   ...RequestSchema.shape
 }).strict();
 var isJSONRPCRequest = (value) => JSONRPCRequestSchema.safeParse(value).success;
-var JSONRPCNotificationSchema = object2({
+var JSONRPCNotificationSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   ...NotificationSchema.shape
 }).strict();
 var isJSONRPCNotification = (value) => JSONRPCNotificationSchema.safeParse(value).success;
-var JSONRPCResultResponseSchema = object2({
+var JSONRPCResultResponseSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   id: RequestIdSchema,
   result: ResultSchema
@@ -19602,10 +19542,10 @@ var ErrorCode;
   ErrorCode2[ErrorCode2["InternalError"] = -32603] = "InternalError";
   ErrorCode2[ErrorCode2["UrlElicitationRequired"] = -32042] = "UrlElicitationRequired";
 })(ErrorCode || (ErrorCode = {}));
-var JSONRPCErrorResponseSchema = object2({
+var JSONRPCErrorResponseSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   id: RequestIdSchema.optional(),
-  error: object2({
+  error: object({
     /**
      * The error type that occurred.
      */
@@ -19645,7 +19585,7 @@ var CancelledNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/cancelled"),
   params: CancelledNotificationParamsSchema
 });
-var IconSchema = object2({
+var IconSchema = object({
   /**
    * URL or data URI for the icon.
    */
@@ -19670,7 +19610,7 @@ var IconSchema = object2({
    */
   theme: _enum(["light", "dark"]).optional()
 });
-var IconsSchema = object2({
+var IconsSchema = object({
   /**
    * Optional set of sized icons that the client can display in a user interface.
    *
@@ -19684,7 +19624,7 @@ var IconsSchema = object2({
    */
   icons: array(IconSchema).optional()
 });
-var BaseMetadataSchema = object2({
+var BaseMetadataSchema = object({
   /** Intended for programmatic or logical use, but used as a display name in past specs or fallback */
   name: string2(),
   /**
@@ -19714,7 +19654,7 @@ var ImplementationSchema = BaseMetadataSchema.extend({
    */
   description: string2().optional()
 });
-var FormElicitationCapabilitySchema = intersection(object2({
+var FormElicitationCapabilitySchema = intersection(object({
   applyDefaults: boolean2().optional()
 }), record(string2(), unknown()));
 var ElicitationCapabilitySchema = preprocess((value) => {
@@ -19724,7 +19664,7 @@ var ElicitationCapabilitySchema = preprocess((value) => {
     }
   }
   return value;
-}, intersection(object2({
+}, intersection(object({
   form: FormElicitationCapabilitySchema.optional(),
   url: AssertObjectSchema.optional()
 }), record(string2(), unknown()).optional()));
@@ -19776,7 +19716,7 @@ var ServerTasksCapabilitySchema = looseObject({
     }).optional()
   }).optional()
 });
-var ClientCapabilitiesSchema = object2({
+var ClientCapabilitiesSchema = object({
   /**
    * Experimental, non-standard capabilities that the client supports.
    */
@@ -19784,7 +19724,7 @@ var ClientCapabilitiesSchema = object2({
   /**
    * Present if the client supports sampling from an LLM.
    */
-  sampling: object2({
+  sampling: object({
     /**
      * Present if the client supports context inclusion via includeContext parameter.
      * If not declared, servers SHOULD only use `includeContext: "none"` (or omit it).
@@ -19802,7 +19742,7 @@ var ClientCapabilitiesSchema = object2({
   /**
    * Present if the client supports listing roots.
    */
-  roots: object2({
+  roots: object({
     /**
      * Whether the client supports issuing notifications for changes to the roots list.
      */
@@ -19829,7 +19769,7 @@ var InitializeRequestSchema = RequestSchema.extend({
   method: literal("initialize"),
   params: InitializeRequestParamsSchema
 });
-var ServerCapabilitiesSchema = object2({
+var ServerCapabilitiesSchema = object({
   /**
    * Experimental, non-standard capabilities that the server supports.
    */
@@ -19845,7 +19785,7 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server offers any prompt templates.
    */
-  prompts: object2({
+  prompts: object({
     /**
      * Whether this server supports issuing notifications for changes to the prompt list.
      */
@@ -19854,7 +19794,7 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server offers any resources to read.
    */
-  resources: object2({
+  resources: object({
     /**
      * Whether this server supports clients subscribing to resource updates.
      */
@@ -19867,7 +19807,7 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server offers any tools to call.
    */
-  tools: object2({
+  tools: object({
     /**
      * Whether this server supports issuing notifications for changes to the tool list.
      */
@@ -19904,7 +19844,7 @@ var PingRequestSchema = RequestSchema.extend({
   method: literal("ping"),
   params: BaseRequestParamsSchema.optional()
 });
-var ProgressSchema = object2({
+var ProgressSchema = object({
   /**
    * The progress thus far. This should increase every time progress is made, even if the total is unknown.
    */
@@ -19918,7 +19858,7 @@ var ProgressSchema = object2({
    */
   message: optional(string2())
 });
-var ProgressNotificationParamsSchema = object2({
+var ProgressNotificationParamsSchema = object({
   ...NotificationsParamsSchema.shape,
   ...ProgressSchema.shape,
   /**
@@ -19948,7 +19888,7 @@ var PaginatedResultSchema = ResultSchema.extend({
   nextCursor: CursorSchema.optional()
 });
 var TaskStatusSchema = _enum(["working", "input_required", "completed", "failed", "cancelled"]);
-var TaskSchema = object2({
+var TaskSchema = object({
   taskId: string2(),
   status: TaskStatusSchema,
   /**
@@ -20005,7 +19945,7 @@ var CancelTaskRequestSchema = RequestSchema.extend({
   })
 });
 var CancelTaskResultSchema = ResultSchema.merge(TaskSchema);
-var ResourceContentsSchema = object2({
+var ResourceContentsSchema = object({
   /**
    * The URI of this resource.
    */
@@ -20041,7 +19981,7 @@ var BlobResourceContentsSchema = ResourceContentsSchema.extend({
   blob: Base64Schema
 });
 var RoleSchema = _enum(["user", "assistant"]);
-var AnnotationsSchema = object2({
+var AnnotationsSchema = object({
   /**
    * Intended audience(s) for the resource.
    */
@@ -20055,7 +19995,7 @@ var AnnotationsSchema = object2({
    */
   lastModified: iso_exports.datetime({ offset: true }).optional()
 });
-var ResourceSchema = object2({
+var ResourceSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -20088,7 +20028,7 @@ var ResourceSchema = object2({
    */
   _meta: optional(looseObject({}))
 });
-var ResourceTemplateSchema = object2({
+var ResourceTemplateSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -20167,7 +20107,7 @@ var ResourceUpdatedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/resources/updated"),
   params: ResourceUpdatedNotificationParamsSchema
 });
-var PromptArgumentSchema = object2({
+var PromptArgumentSchema = object({
   /**
    * The name of the argument.
    */
@@ -20181,7 +20121,7 @@ var PromptArgumentSchema = object2({
    */
   required: optional(boolean2())
 });
-var PromptSchema = object2({
+var PromptSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -20218,7 +20158,7 @@ var GetPromptRequestSchema = RequestSchema.extend({
   method: literal("prompts/get"),
   params: GetPromptRequestParamsSchema
 });
-var TextContentSchema = object2({
+var TextContentSchema = object({
   type: literal("text"),
   /**
    * The text content of the message.
@@ -20234,7 +20174,7 @@ var TextContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var ImageContentSchema = object2({
+var ImageContentSchema = object({
   type: literal("image"),
   /**
    * The base64-encoded image data.
@@ -20254,7 +20194,7 @@ var ImageContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var AudioContentSchema = object2({
+var AudioContentSchema = object({
   type: literal("audio"),
   /**
    * The base64-encoded audio data.
@@ -20274,7 +20214,7 @@ var AudioContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var ToolUseContentSchema = object2({
+var ToolUseContentSchema = object({
   type: literal("tool_use"),
   /**
    * The name of the tool to invoke.
@@ -20297,7 +20237,7 @@ var ToolUseContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var EmbeddedResourceSchema = object2({
+var EmbeddedResourceSchema = object({
   type: literal("resource"),
   resource: union([TextResourceContentsSchema, BlobResourceContentsSchema]),
   /**
@@ -20320,7 +20260,7 @@ var ContentBlockSchema = union([
   ResourceLinkSchema,
   EmbeddedResourceSchema
 ]);
-var PromptMessageSchema = object2({
+var PromptMessageSchema = object({
   role: RoleSchema,
   content: ContentBlockSchema
 });
@@ -20335,7 +20275,7 @@ var PromptListChangedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/prompts/list_changed"),
   params: NotificationsParamsSchema.optional()
 });
-var ToolAnnotationsSchema = object2({
+var ToolAnnotationsSchema = object({
   /**
    * A human-readable title for the tool.
    */
@@ -20374,7 +20314,7 @@ var ToolAnnotationsSchema = object2({
    */
   openWorldHint: boolean2().optional()
 });
-var ToolExecutionSchema = object2({
+var ToolExecutionSchema = object({
   /**
    * Indicates the tool's preference for task-augmented execution.
    * - "required": Clients MUST invoke the tool as a task
@@ -20385,7 +20325,7 @@ var ToolExecutionSchema = object2({
    */
   taskSupport: _enum(["required", "optional", "forbidden"]).optional()
 });
-var ToolSchema = object2({
+var ToolSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -20396,7 +20336,7 @@ var ToolSchema = object2({
    * A JSON Schema 2020-12 object defining the expected parameters for the tool.
    * Must have type: 'object' at the root level per MCP spec.
    */
-  inputSchema: object2({
+  inputSchema: object({
     type: literal("object"),
     properties: record(string2(), AssertObjectSchema).optional(),
     required: array(string2()).optional()
@@ -20406,7 +20346,7 @@ var ToolSchema = object2({
    * returned in the structuredContent field of a CallToolResult.
    * Must have type: 'object' at the root level per MCP spec.
    */
-  outputSchema: object2({
+  outputSchema: object({
     type: literal("object"),
     properties: record(string2(), AssertObjectSchema).optional(),
     required: array(string2()).optional()
@@ -20482,7 +20422,7 @@ var ToolListChangedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/tools/list_changed"),
   params: NotificationsParamsSchema.optional()
 });
-var ListChangedOptionsBaseSchema = object2({
+var ListChangedOptionsBaseSchema = object({
   /**
    * If true, the list will be refreshed automatically when a list changed notification is received.
    * The callback will be called with the updated list.
@@ -20531,13 +20471,13 @@ var LoggingMessageNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/message"),
   params: LoggingMessageNotificationParamsSchema
 });
-var ModelHintSchema = object2({
+var ModelHintSchema = object({
   /**
    * A hint for a model name.
    */
   name: string2().optional()
 });
-var ModelPreferencesSchema = object2({
+var ModelPreferencesSchema = object({
   /**
    * Optional hints to use for model selection.
    */
@@ -20555,7 +20495,7 @@ var ModelPreferencesSchema = object2({
    */
   intelligencePriority: number2().min(0).max(1).optional()
 });
-var ToolChoiceSchema = object2({
+var ToolChoiceSchema = object({
   /**
    * Controls when tools are used:
    * - "auto": Model decides whether to use tools (default)
@@ -20564,11 +20504,11 @@ var ToolChoiceSchema = object2({
    */
   mode: _enum(["auto", "required", "none"]).optional()
 });
-var ToolResultContentSchema = object2({
+var ToolResultContentSchema = object({
   type: literal("tool_result"),
   toolUseId: string2().describe("The unique identifier for the corresponding tool call."),
   content: array(ContentBlockSchema).default([]),
-  structuredContent: object2({}).loose().optional(),
+  structuredContent: object({}).loose().optional(),
   isError: boolean2().optional(),
   /**
    * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
@@ -20584,7 +20524,7 @@ var SamplingMessageContentBlockSchema = discriminatedUnion("type", [
   ToolUseContentSchema,
   ToolResultContentSchema
 ]);
-var SamplingMessageSchema = object2({
+var SamplingMessageSchema = object({
   role: RoleSchema,
   content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)]),
   /**
@@ -20684,13 +20624,13 @@ var CreateMessageResultWithToolsSchema = ResultSchema.extend({
    */
   content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)])
 });
-var BooleanSchemaSchema = object2({
+var BooleanSchemaSchema = object({
   type: literal("boolean"),
   title: string2().optional(),
   description: string2().optional(),
   default: boolean2().optional()
 });
-var StringSchemaSchema = object2({
+var StringSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
@@ -20699,7 +20639,7 @@ var StringSchemaSchema = object2({
   format: _enum(["email", "uri", "date", "date-time"]).optional(),
   default: string2().optional()
 });
-var NumberSchemaSchema = object2({
+var NumberSchemaSchema = object({
   type: _enum(["number", "integer"]),
   title: string2().optional(),
   description: string2().optional(),
@@ -20707,24 +20647,24 @@ var NumberSchemaSchema = object2({
   maximum: number2().optional(),
   default: number2().optional()
 });
-var UntitledSingleSelectEnumSchemaSchema = object2({
+var UntitledSingleSelectEnumSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
   enum: array(string2()),
   default: string2().optional()
 });
-var TitledSingleSelectEnumSchemaSchema = object2({
+var TitledSingleSelectEnumSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
-  oneOf: array(object2({
+  oneOf: array(object({
     const: string2(),
     title: string2()
   })),
   default: string2().optional()
 });
-var LegacyTitledEnumSchemaSchema = object2({
+var LegacyTitledEnumSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
@@ -20733,26 +20673,26 @@ var LegacyTitledEnumSchemaSchema = object2({
   default: string2().optional()
 });
 var SingleSelectEnumSchemaSchema = union([UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema]);
-var UntitledMultiSelectEnumSchemaSchema = object2({
+var UntitledMultiSelectEnumSchemaSchema = object({
   type: literal("array"),
   title: string2().optional(),
   description: string2().optional(),
   minItems: number2().optional(),
   maxItems: number2().optional(),
-  items: object2({
+  items: object({
     type: literal("string"),
     enum: array(string2())
   }),
   default: array(string2()).optional()
 });
-var TitledMultiSelectEnumSchemaSchema = object2({
+var TitledMultiSelectEnumSchemaSchema = object({
   type: literal("array"),
   title: string2().optional(),
   description: string2().optional(),
   minItems: number2().optional(),
   maxItems: number2().optional(),
-  items: object2({
-    anyOf: array(object2({
+  items: object({
+    anyOf: array(object({
       const: string2(),
       title: string2()
     }))
@@ -20777,7 +20717,7 @@ var ElicitRequestFormParamsSchema = TaskAugmentedRequestParamsSchema.extend({
    * A restricted subset of JSON Schema.
    * Only top-level properties are allowed, without nesting.
    */
-  requestedSchema: object2({
+  requestedSchema: object({
     type: literal("object"),
     properties: record(string2(), PrimitiveSchemaDefinitionSchema),
     required: array(string2()).optional()
@@ -20833,14 +20773,14 @@ var ElicitResultSchema = ResultSchema.extend({
    */
   content: preprocess((val) => val === null ? void 0 : val, record(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
 });
-var ResourceTemplateReferenceSchema = object2({
+var ResourceTemplateReferenceSchema = object({
   type: literal("ref/resource"),
   /**
    * The URI or URI template of the resource.
    */
   uri: string2()
 });
-var PromptReferenceSchema = object2({
+var PromptReferenceSchema = object({
   type: literal("ref/prompt"),
   /**
    * The name of the prompt or prompt template
@@ -20852,7 +20792,7 @@ var CompleteRequestParamsSchema = BaseRequestParamsSchema.extend({
   /**
    * The argument's information
    */
-  argument: object2({
+  argument: object({
     /**
      * The name of the argument
      */
@@ -20862,7 +20802,7 @@ var CompleteRequestParamsSchema = BaseRequestParamsSchema.extend({
      */
     value: string2()
   }),
-  context: object2({
+  context: object({
     /**
      * Previously-resolved variables in a URI template or prompt.
      */
@@ -20889,7 +20829,7 @@ var CompleteResultSchema = ResultSchema.extend({
     hasMore: optional(boolean2())
   })
 });
-var RootSchema = object2({
+var RootSchema = object({
   /**
    * The URI identifying the root. This *must* start with file:// for now.
    */
@@ -21018,6 +20958,162 @@ var UrlElicitationRequiredError = class extends McpError {
   }
 };
 
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
+var ReadBuffer = class {
+  append(chunk) {
+    this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
+  }
+  readMessage() {
+    if (!this._buffer) {
+      return null;
+    }
+    const index = this._buffer.indexOf("\n");
+    if (index === -1) {
+      return null;
+    }
+    const line = this._buffer.toString("utf8", 0, index).replace(/\r$/, "");
+    this._buffer = this._buffer.subarray(index + 1);
+    return deserializeMessage(line);
+  }
+  clear() {
+    this._buffer = void 0;
+  }
+};
+function deserializeMessage(line) {
+  return JSONRPCMessageSchema.parse(JSON.parse(line));
+}
+function serializeMessage(message) {
+  return JSON.stringify(message) + "\n";
+}
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+var StdioServerTransport = class {
+  constructor(_stdin = process3.stdin, _stdout = process3.stdout) {
+    this._stdin = _stdin;
+    this._stdout = _stdout;
+    this._readBuffer = new ReadBuffer();
+    this._started = false;
+    this._ondata = (chunk) => {
+      this._readBuffer.append(chunk);
+      this.processReadBuffer();
+    };
+    this._onerror = (error2) => {
+      this.onerror?.(error2);
+    };
+  }
+  /**
+   * Starts listening for messages on stdin.
+   */
+  async start() {
+    if (this._started) {
+      throw new Error("StdioServerTransport already started! If using Server class, note that connect() calls start() automatically.");
+    }
+    this._started = true;
+    this._stdin.on("data", this._ondata);
+    this._stdin.on("error", this._onerror);
+  }
+  processReadBuffer() {
+    while (true) {
+      try {
+        const message = this._readBuffer.readMessage();
+        if (message === null) {
+          break;
+        }
+        this.onmessage?.(message);
+      } catch (error2) {
+        this.onerror?.(error2);
+      }
+    }
+  }
+  async close() {
+    this._stdin.off("data", this._ondata);
+    this._stdin.off("error", this._onerror);
+    const remainingDataListeners = this._stdin.listenerCount("data");
+    if (remainingDataListeners === 0) {
+      this._stdin.pause();
+    }
+    this._readBuffer.clear();
+    this.onclose?.();
+  }
+  send(message) {
+    return new Promise((resolve5) => {
+      const json = serializeMessage(message);
+      if (this._stdout.write(json)) {
+        resolve5();
+      } else {
+        this._stdout.once("drain", resolve5);
+      }
+    });
+  }
+};
+
+// src/server.ts
+import { request } from "node:http";
+import { pathToFileURL } from "node:url";
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+function isZ4Schema(s) {
+  const schema = s;
+  return !!schema._zod;
+}
+function safeParse3(schema, data) {
+  if (isZ4Schema(schema)) {
+    const result2 = safeParse(schema, data);
+    return result2;
+  }
+  const v3Schema = schema;
+  const result = v3Schema.safeParse(data);
+  return result;
+}
+function getObjectShape(schema) {
+  if (!schema)
+    return void 0;
+  let rawShape;
+  if (isZ4Schema(schema)) {
+    const v4Schema = schema;
+    rawShape = v4Schema._zod?.def?.shape;
+  } else {
+    const v3Schema = schema;
+    rawShape = v3Schema.shape;
+  }
+  if (!rawShape)
+    return void 0;
+  if (typeof rawShape === "function") {
+    try {
+      return rawShape();
+    } catch {
+      return void 0;
+    }
+  }
+  return rawShape;
+}
+function getLiteralValue(schema) {
+  if (isZ4Schema(schema)) {
+    const v4Schema = schema;
+    const def2 = v4Schema._zod?.def;
+    if (def2) {
+      if (def2.value !== void 0)
+        return def2.value;
+      if (Array.isArray(def2.values) && def2.values.length > 0) {
+        return def2.values[0];
+      }
+    }
+  }
+  const v3Schema = schema;
+  const def = v3Schema._def;
+  if (def) {
+    if (def.value !== void 0)
+      return def.value;
+    if (Array.isArray(def.values) && def.values.length > 0) {
+      return def.values[0];
+    }
+  }
+  const directValue = schema.value;
+  if (directValue !== void 0)
+    return directValue;
+  return void 0;
+}
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
 function isTerminal(status) {
   return status === "completed" || status === "failed" || status === "cancelled";
@@ -21040,7 +21136,7 @@ function getMethodLiteral(schema) {
   return value;
 }
 function parseWithCompat(schema, data) {
-  const result = safeParse2(schema, data);
+  const result = safeParse3(schema, data);
   if (!result.success) {
     throw result.error;
   }
@@ -21638,7 +21734,7 @@ var Protocol = class {
           return reject(response);
         }
         try {
-          const parseResult = safeParse2(resultSchema, response.result);
+          const parseResult = safeParse3(resultSchema, response.result);
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
@@ -22399,7 +22495,7 @@ var Server = class extends Protocol {
     const method = methodValue;
     if (method === "tools/call") {
       const wrappedHandler = async (request2, extra) => {
-        const validatedRequest = safeParse2(CallToolRequestSchema, request2);
+        const validatedRequest = safeParse3(CallToolRequestSchema, request2);
         if (!validatedRequest.success) {
           const errorMessage2 = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call request: ${errorMessage2}`);
@@ -22407,14 +22503,14 @@ var Server = class extends Protocol {
         const { params } = validatedRequest.data;
         const result = await Promise.resolve(handler(request2, extra));
         if (params.task) {
-          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          const taskValidationResult = safeParse3(CreateTaskResultSchema, result);
           if (!taskValidationResult.success) {
             const errorMessage2 = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
             throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage2}`);
           }
           return taskValidationResult.data;
         }
-        const validationResult = safeParse2(CallToolResultSchema, result);
+        const validationResult = safeParse3(CallToolResultSchema, result);
         if (!validationResult.success) {
           const errorMessage2 = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call result: ${errorMessage2}`);
@@ -22697,104 +22793,10 @@ var Server = class extends Protocol {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
-import process3 from "node:process";
-
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
-var ReadBuffer = class {
-  append(chunk) {
-    this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
-  }
-  readMessage() {
-    if (!this._buffer) {
-      return null;
-    }
-    const index = this._buffer.indexOf("\n");
-    if (index === -1) {
-      return null;
-    }
-    const line = this._buffer.toString("utf8", 0, index).replace(/\r$/, "");
-    this._buffer = this._buffer.subarray(index + 1);
-    return deserializeMessage(line);
-  }
-  clear() {
-    this._buffer = void 0;
-  }
-};
-function deserializeMessage(line) {
-  return JSONRPCMessageSchema.parse(JSON.parse(line));
-}
-function serializeMessage(message) {
-  return JSON.stringify(message) + "\n";
-}
-
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
-var StdioServerTransport = class {
-  constructor(_stdin = process3.stdin, _stdout = process3.stdout) {
-    this._stdin = _stdin;
-    this._stdout = _stdout;
-    this._readBuffer = new ReadBuffer();
-    this._started = false;
-    this._ondata = (chunk) => {
-      this._readBuffer.append(chunk);
-      this.processReadBuffer();
-    };
-    this._onerror = (error2) => {
-      this.onerror?.(error2);
-    };
-  }
-  /**
-   * Starts listening for messages on stdin.
-   */
-  async start() {
-    if (this._started) {
-      throw new Error("StdioServerTransport already started! If using Server class, note that connect() calls start() automatically.");
-    }
-    this._started = true;
-    this._stdin.on("data", this._ondata);
-    this._stdin.on("error", this._onerror);
-  }
-  processReadBuffer() {
-    while (true) {
-      try {
-        const message = this._readBuffer.readMessage();
-        if (message === null) {
-          break;
-        }
-        this.onmessage?.(message);
-      } catch (error2) {
-        this.onerror?.(error2);
-      }
-    }
-  }
-  async close() {
-    this._stdin.off("data", this._ondata);
-    this._stdin.off("error", this._onerror);
-    const remainingDataListeners = this._stdin.listenerCount("data");
-    if (remainingDataListeners === 0) {
-      this._stdin.pause();
-    }
-    this._readBuffer.clear();
-    this.onclose?.();
-  }
-  send(message) {
-    return new Promise((resolve5) => {
-      const json = serializeMessage(message);
-      if (this._stdout.write(json)) {
-        resolve5();
-      } else {
-        this._stdout.once("drain", resolve5);
-      }
-    });
-  }
-};
-
-// src/server.ts
-import { request } from "node:http";
-import { pathToFileURL } from "node:url";
-
-// src/modules/debate/state.ts
-import { join as join2 } from "node:path";
+// src/core/store/board.ts
+import { createHash } from "node:crypto";
+import { appendFile, mkdir as mkdir2, readFile as readFile2, readdir as readdir2, stat, writeFile } from "node:fs/promises";
+import { isAbsolute, join as join2, resolve } from "node:path";
 
 // src/core/bus/registry.ts
 import { randomInt as randomInt2 } from "node:crypto";
@@ -23024,8 +23026,757 @@ function createRegistry(options = {}) {
   };
 }
 
-// src/modules/debate/state.ts
+// src/core/constants.ts
 var DEFAULT_WAIT_CAP_MS = 25 * 60 * 1e3;
+
+// src/core/store/board.ts
+var BOARD_VALUE_MAX_BYTES = 32 * 1024;
+var DEFAULT_READ_LIMIT = 100;
+var MAX_READ_LIMIT = 1e3;
+var KEY_MAX_BYTES = 512;
+var DEFAULT_BOARD_POLL_INTERVAL_MS = 250;
+function normalizeWorkspacePath(workspace) {
+  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute(workspace)) {
+    throw new Error("workspace must be an absolute path");
+  }
+  return resolve(workspace);
+}
+function workspaceIdForPath(workspace) {
+  return createHash("sha1").update(normalizeWorkspacePath(workspace)).digest("hex").slice(0, 16);
+}
+function validateKey(key) {
+  if (typeof key !== "string" || key.length === 0) throw new Error("key must be a non-empty string");
+  if (Buffer.byteLength(key, "utf8") > KEY_MAX_BYTES) throw new Error(`key exceeds ${KEY_MAX_BYTES} bytes`);
+  return key;
+}
+function validateValue(value) {
+  if (typeof value !== "string") throw new Error("value must be a string (markdown)");
+  const bytes = Buffer.byteLength(value, "utf8");
+  if (bytes > BOARD_VALUE_MAX_BYTES) {
+    throw new Error(`value too large: ${bytes} bytes > ${BOARD_VALUE_MAX_BYTES} (put large content in files, reference them from the board)`);
+  }
+  return value;
+}
+function normalizeTags(tags) {
+  if (tags === void 0 || tags === null) return [];
+  if (!Array.isArray(tags)) throw new Error("tags must be a string array");
+  return tags.map((tag) => {
+    if (typeof tag !== "string" || tag.length === 0) throw new Error("tags must be non-empty strings");
+    return tag;
+  });
+}
+function normalizeAuthor(author) {
+  if (author === void 0 || author === null || author === "") return "anonymous";
+  if (typeof author !== "string") throw new Error("author must be a string");
+  return author;
+}
+function isRecord(value) {
+  return (value.op === "write" || value.op === "delete") && typeof value.key === "string" && typeof value.author === "string" && typeof value.ts === "string" && (value.tags === void 0 || Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")) && (value.op === "delete" || typeof value.value === "string");
+}
+function cloneEntry(entry) {
+  return { ...entry, tags: [...entry.tags] };
+}
+function cloneEntries(entries) {
+  return new Map([...entries].map(([key, entry]) => [key, cloneEntry(entry)]));
+}
+function sameEntry(a, b) {
+  if (a === void 0 || b === void 0) return a === b;
+  return a.key === b.key && a.value === b.value && a.author === b.author && a.ts === b.ts && a.tags.length === b.tags.length && a.tags.every((tag, index) => tag === b.tags[index]);
+}
+function compareTimestamps(a, b) {
+  const ae = Date.parse(a);
+  const be = Date.parse(b);
+  if (Number.isFinite(ae) && Number.isFinite(be)) return ae - be;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function validPollInterval(value) {
+  return value !== void 0 && Number.isFinite(value) && value > 0 ? value : DEFAULT_BOARD_POLL_INTERVAL_MS;
+}
+function matchKeyNamespace(entryKey, searchKey) {
+  if (entryKey === searchKey) return true;
+  const prefix = searchKey.endsWith("/") ? searchKey : searchKey + "/";
+  if (entryKey.startsWith(prefix)) return true;
+  const baseKey = searchKey.endsWith("/") ? searchKey.slice(0, -1) : searchKey;
+  if (entryKey === baseKey) return true;
+  return false;
+}
+var BoardStore = class {
+  scopes = /* @__PURE__ */ new Map();
+  queues = /* @__PURE__ */ new Map();
+  homeDir;
+  workspaceCwd;
+  waitCapMs;
+  pollIntervalMs;
+  emitFn;
+  closed = false;
+  /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
+  lastEpoch = 0;
+  constructor(opts = {}) {
+    this.homeDir = opts.homeDir;
+    this.workspaceCwd = resolve(opts.workspaceCwd ?? process.cwd());
+    this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
+    this.pollIntervalMs = validPollInterval(opts.pollIntervalMs ?? opts.workspacePollIntervalMs);
+    this.emitFn = opts.emit;
+  }
+  // ---- tools ----
+  async write(key, value, tags, author, scopeInput, workspace) {
+    this.assertOpen();
+    const k = validateKey(key);
+    const v = validateValue(value);
+    const normalizedTags = normalizeTags(tags);
+    const normalizedAuthor = normalizeAuthor(author);
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const ts = this.nextTs();
+      const record2 = {
+        op: "write",
+        scope: scope.key,
+        key: k,
+        value: v,
+        author: normalizedAuthor,
+        ts,
+        ...normalizedTags.length > 0 ? { tags: normalizedTags } : {}
+      };
+      this.applyRecord(state, record2);
+      await this.persist(state, record2);
+      const entry = state.entries.get(k);
+      if (entry !== void 0 && entry.ts === ts) this.wakeWaiters(state, entry);
+      this.emit(scope, { type: "board_updated", op: "write", scope: scope.label, key: k, author: normalizedAuthor, ts });
+      return { ok: true, ts };
+    });
+  }
+  /**
+   * Folded read: with `key`, the live entry for that key (0/1 rows); with
+   * `tag`, live entries carrying that tag; with neither, every key's latest
+   * value. Newest first, capped by `limit` (default 100, max 1000).
+   */
+  async read(key, tag, scopeInput, limit, workspace) {
+    this.assertOpen();
+    if (workspace === void 0 && typeof limit === "string" && isAbsolute(limit)) {
+      workspace = limit;
+      limit = void 0;
+    }
+    if (key !== void 0 && key !== null) validateKey(key);
+    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    const cap = normalizeLimit(limit);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      let entries = [...state.entries.values()];
+      if (typeof key === "string") entries = entries.filter((entry) => entry.key === key);
+      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
+      entries.sort((a, b) => compareTimestamps(b.ts, a.ts));
+      return entries.slice(0, cap).map(cloneEntry);
+    });
+  }
+  /**
+   * Namespace search for Raw Board: matches exact `key` as well as any descendant
+   * under `key/` (handling trailing slashes naturally), but does not match `xyz`
+   * when searching for `x`. Filtering happens before limit, capped by `limit`.
+   */
+  async readNamespace(keyPrefix, tag, scopeInput, limit, workspace) {
+    this.assertOpen();
+    if (workspace === void 0 && typeof limit === "string" && isAbsolute(limit)) {
+      workspace = limit;
+      limit = void 0;
+    }
+    if (keyPrefix !== void 0 && keyPrefix !== null) validateKey(keyPrefix);
+    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    const cap = normalizeLimit(limit);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      let entries = [...state.entries.values()];
+      if (typeof keyPrefix === "string" && keyPrefix.length > 0) {
+        entries = entries.filter((entry) => matchKeyNamespace(entry.key, keyPrefix));
+      }
+      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
+      entries.sort((a, b) => compareTimestamps(b.ts, a.ts));
+      return entries.slice(0, cap).map(cloneEntry);
+    });
+  }
+  /** Lightweight browse: one row per live key, values replaced by their byte size. */
+  async list(scopeInput, workspace) {
+    this.assertOpen();
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      return [...state.entries.values()].sort((a, b) => compareTimestamps(b.ts, a.ts)).map((entry) => ({
+        key: entry.key,
+        author: entry.author,
+        ts: entry.ts,
+        tags: [...entry.tags],
+        bytes: Buffer.byteLength(entry.value, "utf8")
+      }));
+    });
+  }
+  /**
+   * Long-poll until `key` has a value — or, with `since` (ISO timestamp),
+   * until the entry is strictly newer than it ("wait for the next update").
+   * Resolves `{status:'ready', entry}` on wake, `{status:'timeout', retry:true}`
+   * at the cap (`timeoutMs` overrides, clamped to the cap), `{status:'closed'}`
+   * when a task scope is archived out from under the waiter. Deletes do not
+   * wake: waiters asked for a value, not a change.
+   */
+  async wait(key, scopeInput, timeoutMs, since, workspace) {
+    this.assertOpen();
+    if (workspace === void 0 && typeof since === "string" && isAbsolute(since)) {
+      workspace = since;
+      since = void 0;
+    }
+    const k = validateKey(key);
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    let sinceEpoch;
+    if (since !== void 0 && since !== null) {
+      if (typeof since !== "string" || Number.isNaN(Date.parse(since))) {
+        throw new Error(`invalid since timestamp: ${String(since)} (expected ISO 8601)`);
+      }
+      sinceEpoch = Date.parse(since);
+    }
+    let effectiveTimeout = this.waitCapMs;
+    if (timeoutMs !== void 0 && timeoutMs !== null) {
+      if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new Error("timeoutMs must be a positive number");
+      }
+      effectiveTimeout = Math.min(timeoutMs, this.waitCapMs);
+    }
+    const outcome = await this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const current = state.entries.get(k);
+      if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
+        return { kind: "now", payload: { status: "ready", entry: cloneEntry(current) } };
+      }
+      const promise = new Promise((resolve5) => {
+        const waiter = {
+          key: k,
+          sinceEpoch,
+          resolve: resolve5,
+          timer: setTimeout(() => {
+            state.waiters.delete(waiter);
+            this.stopPollIfIdle(state);
+            resolve5({ status: "timeout", retry: true });
+          }, effectiveTimeout)
+        };
+        state.waiters.add(waiter);
+        this.ensurePollTimer(scope, state);
+      });
+      return { kind: "suspended", promise };
+    });
+    return outcome.kind === "now" ? outcome.payload : outcome.promise;
+  }
+  async mutate(first, second, third, fourth) {
+    this.assertOpen();
+    const scopeMode = typeof second === "function";
+    const key = scopeMode ? void 0 : validateKey(first);
+    const scopeInput = scopeMode ? first : second;
+    const mutator = scopeMode ? second : third;
+    if (typeof mutator !== "function") throw new Error("mutate requires a function mutator");
+    const workspace = scopeMode ? third : fourth;
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const before = cloneEntries(state.entries);
+      const beforeVersions = new Map(state.versions);
+      const commitTs = this.nextTs();
+      let result;
+      try {
+        if (scopeMode) {
+          result = await mutator(state.entries, commitTs);
+          if (isMutationCommit(result)) {
+            for (const change of result.writes) {
+              const changedKey = validateKey(change.key);
+              const changedValue = validateValue(change.value);
+              const changedTags = normalizeTags(change.tags);
+              const changedAuthor = normalizeAuthor(change.author);
+              state.entries.set(changedKey, {
+                key: changedKey,
+                value: changedValue,
+                author: changedAuthor,
+                ts: commitTs,
+                tags: changedTags
+              });
+            }
+            result = result.result;
+          }
+        } else {
+          const current = key === void 0 ? void 0 : state.entries.get(key);
+          const returned = await mutator(
+            current === void 0 ? void 0 : cloneEntry(current),
+            commitTs
+          );
+          if (returned === void 0) {
+            result = returned;
+          } else if (returned === null) {
+            if (key !== void 0) state.entries.delete(key);
+            result = returned;
+          } else {
+            const candidate = typeof returned === "string" ? { ...current ?? { key, author: "anonymous", tags: [] }, value: returned } : typeof returned === "object" && returned !== null && "value" in returned ? { ...current ?? { key, author: "anonymous", tags: [] }, ...returned } : current;
+            if (candidate === void 0 || key === void 0) throw new Error("key mutator must return a value or BoardEntry");
+            const candidateKey = validateKey(candidate.key);
+            if (candidateKey !== key) throw new Error(`mutate key mismatch: expected ${key}, got ${candidateKey}`);
+            state.entries.set(key, {
+              key,
+              value: validateValue(candidate.value),
+              author: normalizeAuthor(candidate.author),
+              ts: commitTs,
+              tags: normalizeTags(candidate.tags)
+            });
+            result = returned;
+          }
+        }
+        const records = this.recordsForDiff(scope, state, before, commitTs);
+        for (const record2 of records) {
+          await this.persist(state, record2);
+          this.applyRecord(state, record2);
+          const entry = state.entries.get(record2.key);
+          if (record2.op === "write" && entry !== void 0 && entry.ts === record2.ts) this.wakeWaiters(state, entry);
+          this.emit(scope, {
+            type: "board_updated",
+            op: record2.op,
+            scope: scope.label,
+            key: record2.key,
+            author: record2.author,
+            ts: record2.ts
+          });
+        }
+        return result;
+      } catch (err) {
+        state.entries.clear();
+        for (const [entryKey, entry] of before) state.entries.set(entryKey, entry);
+        state.versions.clear();
+        for (const [versionKey, version2] of beforeVersions) state.versions.set(versionKey, version2);
+        throw err;
+      }
+    });
+  }
+  /** Tombstone delete: the key vanishes from read/list; the JSONL keeps the record. */
+  async delete(key, author, scopeInput, workspace) {
+    this.assertOpen();
+    const k = validateKey(key);
+    const normalizedAuthor = normalizeAuthor(author);
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const ts = this.nextTs();
+      const record2 = { op: "delete", scope: scope.key, key: k, author: normalizedAuthor, ts };
+      this.applyRecord(state, record2);
+      await this.persist(state, record2);
+      this.emit(scope, { type: "board_updated", op: "delete", scope: scope.label, key: k, author: normalizedAuthor, ts });
+      return { ok: true, ts };
+    });
+  }
+  // ---- workspace registry ----
+  /** Register an absolute project path and return stable sidecar metadata. */
+  async registerWorkspace(workspace) {
+    this.assertOpen();
+    const cwd = workspace === void 0 || workspace === null ? this.workspaceCwd : normalizeWorkspacePath(workspace);
+    const id = workspaceIdForPath(cwd);
+    const file = join2(this.boardsDir(), `ws-${id}.meta.json`);
+    const existing = await this.readWorkspaceInfo(file, id, cwd);
+    if (existing !== void 0) return existing;
+    const info = { id, cwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+    await this.writeWorkspaceSidecar(info);
+    return this.withWorkspaceUpdatedAt(info);
+  }
+  /** Scan valid workspace sidecars; malformed or hash/cwd-mismatched files are ignored. */
+  async listWorkspaces() {
+    this.assertOpen();
+    let names;
+    try {
+      names = await readdir2(this.boardsDir());
+    } catch (err) {
+      if (err.code === "ENOENT") return [];
+      throw err;
+    }
+    const workspaces = [];
+    for (const name of names) {
+      if (!/^ws-[0-9a-f]{16}\.meta\.json$/.test(name)) continue;
+      const id = name.slice("ws-".length, -".meta.json".length);
+      const info = await this.readWorkspaceInfo(join2(this.boardsDir(), name), id);
+      if (info !== void 0) workspaces.push(info);
+    }
+    workspaces.sort((a, b) => a.id.localeCompare(b.id));
+    return workspaces;
+  }
+  /** Alias that makes the scan operation explicit to callers. */
+  async scanWorkspaces() {
+    return this.listWorkspaces();
+  }
+  /** Resolve a sidecar id to its normalized project path, or undefined when absent. */
+  async resolveWorkspace(id) {
+    this.assertOpen();
+    const normalizedId = normalizeWorkspaceId(id);
+    if (normalizedId === void 0) return void 0;
+    const match = (await this.listWorkspaces()).find((workspace) => workspace.id === normalizedId);
+    return match?.cwd;
+  }
+  /** Explicit alias for callers that distinguish id resolution from path registration. */
+  async resolveWorkspaceId(id) {
+    return this.resolveWorkspace(id);
+  }
+  // ---- task lifecycle ----
+  /**
+   * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
+   * archive layer), wake any remaining waiters with `{status:'closed'}`, and
+   * drop the in-memory scope. Called by `DebateHub.complete`. Idempotent for
+   * tasks that never used the board (writes an empty file).
+   */
+  async archiveTask(taskId, dir) {
+    const key = `task:${taskId}`;
+    const state = this.scopes.get(key);
+    const records = state?.history ?? [];
+    await mkdir2(dir, { recursive: true });
+    const body = records.length > 0 ? records.map((record2) => JSON.stringify(record2)).join("\n") + "\n" : "";
+    await writeFile(resolve(dir, "board.jsonl"), body);
+    if (state !== void 0) {
+      for (const waiter of [...state.waiters]) {
+        state.waiters.delete(waiter);
+        clearTimeout(waiter.timer);
+        waiter.resolve({ status: "closed" });
+      }
+      this.scopes.delete(key);
+      this.queues.delete(key);
+    }
+  }
+  // ---- internals ----
+  parseScope(input, workspaceInput) {
+    if (input === void 0 || input === null) input = "workspace";
+    if (typeof input !== "string") throw new Error("scope must be a string");
+    const raw = input.trim();
+    if (raw === "workspace") {
+      const cwd = workspaceInput === void 0 || workspaceInput === null ? this.workspaceCwd : normalizeWorkspacePath(workspaceInput);
+      const id = workspaceIdForPath(cwd);
+      return { kind: "workspace", key: `workspace:${id}`, label: "workspace", id, cwd };
+    }
+    if (raw === "global") return { kind: "global", key: "global", label: "global" };
+    if (raw.startsWith("task:")) {
+      const taskId = raw.slice("task:".length);
+      if (taskId.length === 0) throw new Error("invalid scope: task:<task_id> requires a non-empty task_id");
+      return { kind: "task", key: raw, label: raw, taskId };
+    }
+    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
+  }
+  boardsDir() {
+    return join2(this.homeDir ?? moamcpHome(), "boards");
+  }
+  scopeState(scope) {
+    let state = this.scopes.get(scope.key);
+    if (state !== void 0) return state;
+    state = { entries: /* @__PURE__ */ new Map(), versions: /* @__PURE__ */ new Map(), loaded: false, waiters: /* @__PURE__ */ new Set() };
+    if (scope.kind === "task") {
+      state.history = [];
+    } else if (scope.kind === "global") {
+      state.file = join2(this.boardsDir(), "global.jsonl");
+    } else {
+      const id = scope.id ?? scope.key.slice("workspace:".length);
+      state.file = join2(this.boardsDir(), `ws-${id}.jsonl`);
+      state.metaFile = join2(this.boardsDir(), `ws-${id}.meta.json`);
+      state.metaCwd = scope.cwd ?? this.workspaceCwd;
+    }
+    this.scopes.set(scope.key, state);
+    return state;
+  }
+  /**
+   * Fold a task log once; for persistent logs, check the real file size on
+   * every operation and rebuild whenever it changes, is created, or shrinks.
+   */
+  async fold(state) {
+    if (state.file === void 0) {
+      state.loaded = true;
+      return;
+    }
+    if (state.metaFile !== void 0) await this.ensureWorkspaceSidecar(state);
+    const snapshot = await this.readPersistentSnapshot(state);
+    if (!snapshot.changed) return;
+    const previous = state.loaded ? cloneEntries(state.entries) : void 0;
+    state.entries.clear();
+    state.versions.clear();
+    state.loaded = true;
+    state.fileExists = snapshot.exists;
+    state.fileBytes = snapshot.bytes;
+    for (const line of snapshot.raw.split(/\r?\n/)) {
+      if (line.trim() === "") continue;
+      let record2;
+      try {
+        record2 = JSON.parse(line);
+      } catch {
+        console.warn(`[moamcp] board: skipping unparseable line in ${state.file}`);
+        continue;
+      }
+      if (!isRecord(record2)) {
+        console.warn(`[moamcp] board: skipping malformed record in ${state.file}`);
+        continue;
+      }
+      this.applyRecord(state, record2);
+    }
+    if (previous !== void 0) this.wakeRefreshedWaiters(state, previous);
+  }
+  /** Read a stable-enough snapshot while never claiming unread bytes were read. */
+  async readPersistentSnapshot(state) {
+    const file = state.file;
+    let currentSize;
+    try {
+      currentSize = (await stat(file)).size;
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+    const exists = currentSize !== void 0;
+    if (state.loaded && state.fileExists === exists && (!exists || state.fileBytes === currentSize)) {
+      return { changed: false, exists, bytes: state.fileBytes ?? 0, raw: "" };
+    }
+    if (!exists) return { changed: true, exists: false, bytes: 0, raw: "" };
+    let lastRaw = "";
+    let lastBytes = 0;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      try {
+        lastRaw = await readFile2(file, "utf8");
+      } catch (err) {
+        if (err.code === "ENOENT") {
+          return { changed: true, exists: false, bytes: 0, raw: "" };
+        }
+        throw err;
+      }
+      lastBytes = Buffer.byteLength(lastRaw, "utf8");
+      let afterSize;
+      try {
+        afterSize = (await stat(file)).size;
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+      if (afterSize === lastBytes) return { changed: true, exists: true, bytes: lastBytes, raw: lastRaw };
+    }
+    return { changed: true, exists: true, bytes: lastBytes, raw: lastRaw };
+  }
+  async readWorkspaceInfo(file, id, expectedCwd) {
+    try {
+      const parsed = JSON.parse(await readFile2(file, "utf8"));
+      if (parsed.id !== id) return void 0;
+      const cwd = parseWorkspaceCwd(parsed.cwd);
+      if (workspaceIdForPath(cwd) !== id || expectedCwd !== void 0 && cwd !== expectedCwd) return void 0;
+      if (typeof parsed.created_at !== "string" || Number.isNaN(Date.parse(parsed.created_at))) return void 0;
+      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at });
+    } catch {
+      return void 0;
+    }
+  }
+  async withWorkspaceUpdatedAt(info) {
+    const updatedAt = await this.workspaceUpdatedAt(info.id);
+    return updatedAt === void 0 ? info : { ...info, updatedAt };
+  }
+  async workspaceUpdatedAt(id) {
+    try {
+      return (await stat(join2(this.boardsDir(), `ws-${id}.jsonl`))).mtime.toISOString();
+    } catch (err) {
+      if (err.code === "ENOENT") return void 0;
+      throw err;
+    }
+  }
+  async writeWorkspaceSidecar(info) {
+    await mkdir2(this.boardsDir(), { recursive: true });
+    const file = join2(this.boardsDir(), `ws-${info.id}.meta.json`);
+    await writeFile(
+      file,
+      JSON.stringify({ id: info.id, cwd: info.cwd, created_at: info.createdAt }, null, 2)
+    );
+  }
+  /** Ensure an explicitly used workspace is registered, including an empty board. */
+  async ensureWorkspaceSidecar(state) {
+    if (state.metaFile === void 0 || state.metaCwd === void 0 || state.metaWritten) return;
+    const id = state.metaFile.match(/ws-([0-9a-f]{16})\.meta\.json$/)?.[1];
+    if (id === void 0) return;
+    const existing = await this.readWorkspaceInfo(state.metaFile, id, state.metaCwd);
+    if (existing !== void 0) {
+      state.metaWritten = true;
+      return;
+    }
+    await this.writeWorkspaceSidecar({ id, cwd: state.metaCwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+    state.metaWritten = true;
+  }
+  /** Apply a record only when its timestamp wins the folded LWW view. */
+  applyRecord(state, record2) {
+    const recordEpoch = Date.parse(record2.ts);
+    if (Number.isFinite(recordEpoch) && recordEpoch > this.lastEpoch) this.lastEpoch = recordEpoch;
+    const previous = state.versions.get(record2.key);
+    if (previous !== void 0 && compareTimestamps(record2.ts, previous) < 0) return false;
+    state.versions.set(record2.key, record2.ts);
+    if (record2.op === "write") {
+      state.entries.set(record2.key, {
+        key: record2.key,
+        value: record2.value,
+        author: record2.author,
+        ts: record2.ts,
+        tags: [...record2.tags ?? []]
+      });
+    } else {
+      state.entries.delete(record2.key);
+    }
+    return true;
+  }
+  /** Turn a callback's Map changes into append-only records at one commit ts. */
+  recordsForDiff(scope, state, before, commitTs) {
+    const keys = /* @__PURE__ */ new Set([...before.keys(), ...state.entries.keys()]);
+    const records = [];
+    for (const key of keys) {
+      const previous = before.get(key);
+      const current = state.entries.get(key);
+      if (sameEntry(previous, current)) continue;
+      if (current === void 0) {
+        records.push({
+          op: "delete",
+          scope: scope.key,
+          key,
+          author: previous?.author ?? "anonymous",
+          ts: commitTs
+        });
+        continue;
+      }
+      const entryKey = validateKey(current.key);
+      if (entryKey !== key) throw new Error(`mutate map key mismatch: expected ${key}, got ${entryKey}`);
+      const value = validateValue(current.value);
+      const author = normalizeAuthor(current.author);
+      const tags = normalizeTags(current.tags);
+      state.entries.set(key, { key, value, author, ts: commitTs, tags });
+      records.push({
+        op: "write",
+        scope: scope.key,
+        key,
+        value,
+        author,
+        ts: commitTs,
+        ...tags.length > 0 ? { tags } : {}
+      });
+    }
+    return records;
+  }
+  /** Append a record to the scope's JSONL (persistent scopes only) + task history. */
+  async persist(state, record2) {
+    if (state.history !== void 0) state.history.push(record2);
+    if (state.file === void 0) return;
+    await mkdir2(this.boardsDir(), { recursive: true });
+    if (state.metaFile !== void 0 && !state.metaWritten) {
+      await this.ensureWorkspaceSidecar(state).catch(() => {
+      });
+    }
+    await appendFile(state.file, JSON.stringify(record2) + "\n");
+  }
+  wakeWaiters(state, entry) {
+    const epoch = Date.parse(entry.ts);
+    for (const waiter of [...state.waiters]) {
+      if (waiter.key !== entry.key) continue;
+      if (waiter.sinceEpoch !== void 0 && epoch <= waiter.sinceEpoch) continue;
+      state.waiters.delete(waiter);
+      clearTimeout(waiter.timer);
+      waiter.resolve({ status: "ready", entry: cloneEntry(entry) });
+    }
+    this.stopPollIfIdle(state);
+  }
+  /** Refresh wake-up path: external writes wake waiters but never emit events. */
+  wakeRefreshedWaiters(state, previous) {
+    for (const [key, entry] of state.entries) {
+      const old = previous.get(key);
+      if (old === void 0 || old.ts !== entry.ts) this.wakeWaiters(state, entry);
+    }
+  }
+  /** Exactly one unref'd poll timer per persistent scope while it has waiters. */
+  ensurePollTimer(scope, state) {
+    if (state.file === void 0 || state.pollTimer !== void 0 || state.waiters.size === 0) return;
+    const timer = setInterval(() => void this.pollPersistent(scope, state), this.pollIntervalMs);
+    timer.unref();
+    state.pollTimer = timer;
+  }
+  stopPollIfIdle(state) {
+    if (state.waiters.size > 0 || state.pollTimer === void 0) return;
+    clearInterval(state.pollTimer);
+    state.pollTimer = void 0;
+  }
+  async pollPersistent(scope, state) {
+    if (state.waiters.size === 0) {
+      this.stopPollIfIdle(state);
+      return;
+    }
+    await this.enqueue(scope.key, async () => {
+      if (state.waiters.size === 0) {
+        this.stopPollIfIdle(state);
+        return;
+      }
+      await this.fold(state);
+      this.stopPollIfIdle(state);
+    }).catch(() => {
+    });
+  }
+  /** Close waiters and unref'd pollers; normal task archival remains separate. */
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    for (const state of this.scopes.values()) {
+      if (state.pollTimer !== void 0) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = void 0;
+      }
+      for (const waiter of [...state.waiters]) {
+        state.waiters.delete(waiter);
+        clearTimeout(waiter.timer);
+        waiter.resolve({ status: "closed" });
+      }
+    }
+  }
+  async dispose() {
+    await this.close();
+  }
+  assertOpen() {
+    if (this.closed) throw new Error("BoardStore is closed");
+  }
+  /** Strictly increasing ISO timestamp: same-millisecond writes still order (wait's `since` depends on it). */
+  nextTs() {
+    const now = Date.now();
+    this.lastEpoch = now > this.lastEpoch ? now : this.lastEpoch + 1;
+    return new Date(this.lastEpoch).toISOString();
+  }
+  emit(scope, event) {
+    this.emitFn?.(scope, event);
+  }
+  /** Serialize all mutations for one scope through a promise chain (mirrors DebateHub.enqueue). */
+  enqueue(scopeKey, fn) {
+    const prev = this.queues.get(scopeKey) ?? Promise.resolve();
+    const next = prev.then(fn, fn);
+    this.queues.set(
+      scopeKey,
+      next.catch(() => {
+      })
+    );
+    return next;
+  }
+};
+function parseWorkspaceCwd(value) {
+  if (typeof value !== "string" || value.length === 0 || !isAbsolute(value)) throw new Error("invalid workspace sidecar cwd");
+  return resolve(value);
+}
+function normalizeWorkspaceId(value) {
+  if (typeof value !== "string") return void 0;
+  const id = value.startsWith("ws-") ? value.slice("ws-".length) : value.startsWith("workspace:") ? value.slice("workspace:".length) : value;
+  return /^[0-9a-f]{16}$/.test(id) ? id : void 0;
+}
+function isMutationCommit(value) {
+  return typeof value === "object" && value !== null && "result" in value && Array.isArray(value.writes);
+}
+function normalizeLimit(limit) {
+  if (limit === void 0 || limit === null) return DEFAULT_READ_LIMIT;
+  if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1) {
+    throw new Error("limit must be a positive number");
+  }
+  return Math.min(Math.floor(limit), MAX_READ_LIMIT);
+}
+
+// src/modules/debate/state.ts
+import { join as join3 } from "node:path";
 var SUBMISSION_PROTOCOL = [
   "## \u26A0\uFE0F SUBMISSION PROTOCOL / \u63D0\u4EA4\u534F\u8BAE",
   "",
@@ -23049,7 +23800,7 @@ var SIGNOFF_PROTOCOL = [
   "  \u4E0D\u8981\u4E3A\u51D1\u6570\u800C\u7B7E\u5B57\u2014\u2014\u672A\u8FBE\u6210\u5171\u8BC6\u524D\u7EE7\u7EED\u63D0\u4EA4\u666E\u901A\u53D1\u8A00\u63A8\u8FDB\u8FA9\u8BBA\u3002"
 ].join("\n");
 function defaultLogsDir() {
-  return process.env.MOAMCP_LOGS_DIR ?? join2(moamcpHome(), "logs");
+  return process.env.MOAMCP_LOGS_DIR ?? join3(moamcpHome(), "logs");
 }
 var DebateHub = class {
   tasks = /* @__PURE__ */ new Map();
@@ -23352,15 +24103,684 @@ ${SIGNOFF_PROTOCOL}`;
   }
 };
 
-// src/core/bus/bus.ts
-import { createServer, get } from "node:http";
-import { writeFile as writeFile2, readFile as readFile4, rm } from "node:fs/promises";
-import { join as join6, resolve as resolve4 } from "node:path";
+// src/modules/board/index.ts
+var BOARD_SCOPE = {
+  type: "string",
+  description: 'Board scope: "workspace" (default \u2014 persisted, shared by all sessions of this project), "global" (persisted, cross-project), or "task:<task_id>" (debate-local, archived with the task).'
+};
+var BOARD_AUTHOR = {
+  type: "string",
+  description: 'Who writes this entry (default "anonymous"). Subagents should pass their own agent id.'
+};
+var BOARD_WORKSPACE = {
+  type: "string",
+  description: "Optional absolute project path for workspace scope; omitted keeps the server workspaceCwd default."
+};
+function boardTools(store) {
+  return [
+    {
+      name: "moa_board_write",
+      description: "Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 32KB \u2014 put large content in files and reference them. Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "Entry key (unique within the scope; rewriting replaces the value)" },
+          value: { type: "string", description: "Markdown payload, \u2264 32KB" },
+          tags: { type: "array", items: { type: "string" }, description: "Optional tags for moa_board_read tag filtering" },
+          author: BOARD_AUTHOR,
+          scope: BOARD_SCOPE,
+          workspace: BOARD_WORKSPACE
+        },
+        required: ["key", "value"]
+      },
+      handler: (a) => store.write(a.key, a.value, a.tags, a.author, a.scope, a.workspace)
+    },
+    {
+      name: "moa_board_read",
+      description: "Read live entries from the blackboard (deleted keys never appear). With key: that key's latest entry; with tag: entries carrying the tag; with neither: every key's latest value. Newest first, capped by limit (default 100).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          tag: { type: "string" },
+          scope: BOARD_SCOPE,
+          workspace: BOARD_WORKSPACE,
+          limit: { type: "number", description: "Max entries to return (default 100, hard cap 1000)" }
+        }
+      },
+      handler: (a) => store.read(a.key, a.tag, a.scope, a.limit, a.workspace)
+    },
+    {
+      name: "moa_board_list",
+      description: "Lightweight browse of the blackboard: one row per live key with {key, author, ts, tags, bytes} (no values).",
+      inputSchema: {
+        type: "object",
+        properties: { scope: BOARD_SCOPE, workspace: BOARD_WORKSPACE }
+      },
+      handler: (a) => store.list(a.scope, a.workspace)
+    },
+    {
+      name: "moa_board_wait",
+      description: 'Long-poll until key has a value \u2014 or, with since (ISO timestamp), until the entry is strictly newer than it ("wait for the next update"). Returns {status:"ready", entry}, {status:"timeout", retry:true} at the safety cap (default 25min like moa_wait_turn, MOAMCP_WAIT_CAP_MS / timeoutMs tune it), or {status:"closed"} when a task scope is archived while waiting.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          scope: BOARD_SCOPE,
+          workspace: BOARD_WORKSPACE,
+          timeoutMs: { type: "number", description: "Per-call cap override (clamped to the safety cap)" },
+          since: { type: "string", description: "ISO timestamp: wake only on entries strictly newer than it" }
+        },
+        required: ["key"]
+      },
+      handler: (a) => store.wait(a.key, a.scope, a.timeoutMs, a.since, a.workspace)
+    },
+    {
+      name: "moa_board_delete",
+      description: "Tombstone-delete a key: it disappears from read/list; the append-only JSONL keeps the deletion record.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          author: BOARD_AUTHOR,
+          scope: BOARD_SCOPE,
+          workspace: BOARD_WORKSPACE
+        },
+        required: ["key"]
+      },
+      handler: (a) => store.delete(a.key, a.author, a.scope, a.workspace)
+    }
+  ];
+}
+function createBoardModule(store) {
+  return {
+    id: "board",
+    tier: "stable",
+    tools: boardTools(store)
+  };
+}
+
+// src/modules/debate/index.ts
+var TASK_ID = { type: "string", description: "MOA task id" };
+var AGENT_ID = { type: "string", description: "Debate agent id (must be in preset agents)" };
+function debateTools(hub) {
+  return [
+    {
+      name: "moa_init",
+      description: "Initialize task state: agent list + debate params from an inline preset config. Returns {ok, card_url, agents} where agents is the dispatch map [{id, binding_slot?}] - use binding_slot to dispatch each debater with the correct model.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: TASK_ID,
+          preset_config: {
+            type: "object",
+            description: "Inline preset: { agents: (string|{id, binding_slot?, ...})[], debate?: { rounds?: number } }"
+          }
+        },
+        required: ["task_id", "preset_config"]
+      },
+      handler: (a) => hub.init(a.task_id, a.preset_config)
+    },
+    {
+      name: "moa_start_debate",
+      description: "Seed the debate state machine {turn:1, round:1, speaker: first agent} with reference results.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: TASK_ID,
+          reference_results: { description: "Reference Pool results, passed through to agents as context" }
+        },
+        required: ["task_id", "reference_results"]
+      },
+      handler: (a) => hub.startDebate(a.task_id, a.reference_results)
+    },
+    {
+      name: "moa_wait_turn",
+      description: `Long-poll until it is this agent's turn. Returns {speaker_id, round, prompt, full_context}, or {status:"debate_complete", transcript}, or {status:"timeout", retry:true} at the safety cap.`,
+      inputSchema: {
+        type: "object",
+        properties: { task_id: TASK_ID, agent_id: AGENT_ID },
+        required: ["task_id", "agent_id"]
+      },
+      handler: (a) => hub.waitTurn(a.task_id, a.agent_id)
+    },
+    {
+      name: "moa_submit_turn",
+      description: `Submit this agent's turn content. Validates turn order ({error:"not_your_turn"} otherwise), advances to the next speaker. Pass signoff:true to cast an early-close (unanimous signoff) vote; when every agent has signed off the debate closes early ({debate_complete:true, early:true, reason:"unanimous_signoff"}). Any normal (non-signoff) submission counts as dissent and resets accumulated signoffs.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: TASK_ID,
+          agent_id: AGENT_ID,
+          content: { type: "string", description: "The agent's debate contribution for this turn (the signoff statement when signoff is true)" },
+          signoff: {
+            type: "boolean",
+            description: "True to cast an early-close (unanimous signoff) vote instead of a normal turn; content carries the signoff statement. A normal (non-signoff) submission is a dissent that clears all accumulated signoffs."
+          }
+        },
+        required: ["task_id", "agent_id", "content"]
+      },
+      handler: (a) => hub.submitTurn(a.task_id, a.agent_id, a.content, a.signoff === true)
+    },
+    {
+      name: "moa_complete",
+      description: 'Write the archive to <logsDir>/{task_id}/ (probe.json, events.jsonl, result.json, plus board.jsonl \u2014 the task-scope blackboard notes; logsDir defaults to ~/.moamcp/logs, MOAMCP_LOGS_DIR overrides), close the task, wake remaining waiters (including board waiters, which get {status:"closed"}).',
+      inputSchema: {
+        type: "object",
+        properties: { task_id: TASK_ID },
+        required: ["task_id"]
+      },
+      handler: (a) => hub.complete(a.task_id)
+    }
+  ];
+}
+function createDebateModule(hub) {
+  return {
+    id: "debate",
+    tier: "stable",
+    tools: debateTools(hub)
+  };
+}
+
+// src/modules/tips/tips.ts
+import { randomUUID } from "node:crypto";
+import { isAbsolute as isAbsolute2 } from "node:path";
+var PROJECT_TIP_STATUSES = [
+  "captured",
+  "exploring",
+  "planned",
+  "implemented",
+  "deferred",
+  "discarded",
+  "archived"
+];
+var TipNotFoundError = class extends Error {
+  code = "TIP_NOT_FOUND";
+  constructor(id) {
+    super(`tip not found: ${id}`);
+    this.name = "TipNotFoundError";
+  }
+};
+var TipCorruptError = class extends Error {
+  code = "TIP_CORRUPT";
+  constructor(id, message) {
+    super(`corrupt tip ${id}: ${message}`);
+    this.name = "TipCorruptError";
+  }
+};
+var TipValidationError = class extends Error {
+  code = "TIP_INVALID";
+  constructor(message) {
+    super(message);
+    this.name = "TipValidationError";
+  }
+};
+var CONTEXT_MAX_BYTES = 8 * 1024;
+var TIP_LIST_DEFAULT_LIMIT = 100;
+var TIP_LIST_MAX_LIMIT = 1e3;
+var TIP_PREFIX = "tips/";
+var TIP_TAG = "tip";
+function assertWorkspace(workspace) {
+  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute2(workspace)) {
+    throw new TipValidationError("workspace must be an absolute path");
+  }
+  return normalizeWorkspacePath(workspace);
+}
+function tipKey(id) {
+  return `${TIP_PREFIX}${id}`;
+}
+function requireString(value, field, nonEmpty = true) {
+  if (typeof value !== "string" || nonEmpty && value.length === 0) {
+    throw new TipValidationError(`${field} must be a${nonEmpty ? " non-empty" : ""} string`);
+  }
+  return value;
+}
+function optionalString(value, field) {
+  if (value === void 0) return void 0;
+  return requireString(value, field);
+}
+function normalizeActor(value) {
+  if (value === void 0 || value === null || value === "") return "anonymous";
+  return requireString(value, "actor");
+}
+function validateStatus(value, field = "status") {
+  if (typeof value !== "string" || !PROJECT_TIP_STATUSES.includes(value)) {
+    throw new TipValidationError(`${field} must be one of: ${PROJECT_TIP_STATUSES.join(", ")}`);
+  }
+  return value;
+}
+function validateStringArray(value, field) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
+    throw new TipValidationError(`${field} must be an array of non-empty strings`);
+  }
+  const result = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const item of value) {
+    if (seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+function validateDocumentRefs(value) {
+  if (!Array.isArray(value)) throw new TipValidationError("documentRefs must be an array");
+  const result = [];
+  const seen = /* @__PURE__ */ new Set();
+  value.forEach((raw, index) => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new TipValidationError(`documentRefs[${index}] must be an object`);
+    }
+    const ref = raw;
+    const out = { path: requireString(ref.path, `documentRefs[${index}].path`) };
+    for (const field of ["section", "note", "contentHash"]) {
+      const item = ref[field];
+      if (item !== void 0) out[field] = requireString(item, `documentRefs[${index}].${field}`);
+    }
+    const stableValue = JSON.stringify(out);
+    if (seen.has(stableValue)) return;
+    seen.add(stableValue);
+    result.push(out);
+  });
+  return result;
+}
+function validateContext(value) {
+  if (Buffer.byteLength(value, "utf8") > CONTEXT_MAX_BYTES) {
+    throw new TipValidationError(`context exceeds ${CONTEXT_MAX_BYTES} bytes`);
+  }
+  return value;
+}
+function validateDate(value, field) {
+  const result = requireString(value, field);
+  if (Number.isNaN(Date.parse(result))) throw new TipValidationError(`${field} must be an ISO 8601 timestamp`);
+  return result;
+}
+function validateTip(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TipValidationError("tip value must be an object");
+  }
+  const raw = value;
+  const id = requireString(raw.id, "id");
+  if (!id.startsWith("tip_")) throw new TipValidationError("id must start with tip_");
+  const tip = {
+    id,
+    title: requireString(raw.title, "title"),
+    summary: requireString(raw.summary, "summary"),
+    status: validateStatus(raw.status),
+    createdAt: validateDate(raw.createdAt, "createdAt"),
+    updatedAt: validateDate(raw.updatedAt, "updatedAt")
+  };
+  if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
+  if (raw.module !== void 0) tip.module = optionalString(raw.module, "module");
+  if (raw.tags !== void 0) tip.tags = validateStringArray(raw.tags, "tags");
+  if (raw.nextAction !== void 0) tip.nextAction = requireString(raw.nextAction, "nextAction", false);
+  if (raw.documentRefs !== void 0) tip.documentRefs = validateDocumentRefs(raw.documentRefs);
+  if (raw.sourceRefs !== void 0) tip.sourceRefs = validateStringArray(raw.sourceRefs, "sourceRefs");
+  if (raw.relatedTipIds !== void 0) tip.relatedTipIds = validateStringArray(raw.relatedTipIds, "relatedTipIds");
+  if (raw.relatedProjects !== void 0) tip.relatedProjects = validateStringArray(raw.relatedProjects, "relatedProjects");
+  if (raw.sourceSessionId !== void 0) tip.sourceSessionId = requireString(raw.sourceSessionId, "sourceSessionId");
+  if (raw.author !== void 0) tip.author = requireString(raw.author, "author");
+  return tip;
+}
+function cloneTip(tip) {
+  return JSON.parse(JSON.stringify(tip));
+}
+function tipTags(tip) {
+  const tags = /* @__PURE__ */ new Set([TIP_TAG, `tip:status:${tip.status}`]);
+  if (tip.module !== void 0) tags.add(`tip:module:${tip.module}`);
+  for (const tag of tip.tags ?? []) tags.add(`tip:tag:${tag}`);
+  return [...tags];
+}
+function encodeTip(tip) {
+  const value = JSON.stringify(tip);
+  if (Buffer.byteLength(value, "utf8") > BOARD_VALUE_MAX_BYTES) {
+    throw new TipValidationError(`tip value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  }
+  return value;
+}
+function summaryOf(tip) {
+  const copy = cloneTip(tip);
+  const summary = {
+    id: copy.id,
+    title: copy.title,
+    summary: copy.summary,
+    status: copy.status,
+    createdAt: copy.createdAt,
+    updatedAt: copy.updatedAt
+  };
+  if (copy.module !== void 0) summary.module = copy.module;
+  if (copy.tags !== void 0) summary.tags = copy.tags;
+  if (copy.nextAction !== void 0) summary.nextAction = copy.nextAction;
+  if (copy.author !== void 0) summary.author = copy.author;
+  return summary;
+}
+function normalizeTipLimit(value) {
+  if (value === void 0 || value === null) return TIP_LIST_DEFAULT_LIMIT;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
+    throw new TipValidationError("limit must be a positive number");
+  }
+  return Math.min(Math.floor(value), TIP_LIST_MAX_LIMIT);
+}
+function statuses(value) {
+  if (value === void 0 || value === null) return void 0;
+  const list = Array.isArray(value) ? value : [value];
+  return list.map((item) => validateStatus(item));
+}
+function filterTags(value) {
+  if (value === void 0 || value === null) return void 0;
+  const list = Array.isArray(value) ? value : [value];
+  return validateStringArray(list, "tag");
+}
+var TipStore = class {
+  board;
+  constructor(board) {
+    this.board = board;
+  }
+  async create(first, second) {
+    const workspace = typeof first === "string" ? assertWorkspace(first) : assertWorkspace(second);
+    const input = typeof first === "string" ? second : first;
+    if (typeof input !== "object" || input === null || Array.isArray(input)) {
+      throw new TipValidationError("create input must be an object");
+    }
+    const raw = input;
+    for (const field of ["id", "createdAt", "updatedAt", "creator"]) {
+      if (field in raw) throw new TipValidationError(`${field} cannot be supplied when creating a tip`);
+    }
+    const title = requireString(raw.title, "title");
+    const summary = requireString(raw.summary, "summary");
+    const status = raw.status === void 0 ? "captured" : validateStatus(raw.status);
+    const id = `tip_${randomUUID()}`;
+    return this.board.mutate("workspace", (entries, commitTs) => {
+      const key = tipKey(id);
+      if (entries.has(key)) throw new TipValidationError(`tip id collision: ${id}`);
+      const tip = this.buildTip({ ...raw, id, title, summary, status, createdAt: commitTs, updatedAt: commitTs });
+      entries.set(key, {
+        key,
+        value: encodeTip(tip),
+        author: tip.author ?? "anonymous",
+        ts: commitTs,
+        tags: tipTags(tip)
+      });
+      return tip;
+    }, workspace);
+  }
+  async read(first, second) {
+    const workspace = assertWorkspace(isAbsolute2(first) ? first : second);
+    const id = isAbsolute2(first) ? second : first;
+    const normalizedId = requireString(id, "id");
+    const rows = await this.board.read(tipKey(normalizedId), void 0, "workspace", 1, workspace);
+    const entry = rows[0];
+    if (entry === void 0) return void 0;
+    return this.decodeEntry(normalizedId, entry);
+  }
+  async list(first, second) {
+    const workspace = assertWorkspace(typeof first === "string" ? first : second);
+    const options = typeof first === "string" ? second : first;
+    const filters = options ?? {};
+    if (filters.includeArchived !== void 0 && typeof filters.includeArchived !== "boolean") {
+      throw new TipValidationError("includeArchived must be a boolean");
+    }
+    const wantedStatuses = statuses(filters.status);
+    const wantedTags = filterTags(filters.tags ?? filters.tag);
+    const limit = normalizeTipLimit(filters.limit);
+    const rows = await this.board.read(void 0, void 0, "workspace", TIP_LIST_MAX_LIMIT, workspace);
+    const tips = [];
+    for (const row of rows) {
+      if (!row.key.startsWith(TIP_PREFIX)) continue;
+      const id = row.key.slice(TIP_PREFIX.length);
+      tips.push(this.decodeEntry(id, row));
+    }
+    const filtered = tips.filter((tip) => {
+      if (!filters.includeArchived && tip.status === "archived") return false;
+      if (wantedStatuses !== void 0 && !wantedStatuses.includes(tip.status)) return false;
+      if (filters.module !== void 0 && tip.module !== filters.module) return false;
+      if (wantedTags !== void 0 && !wantedTags.every((tag) => (tip.tags ?? []).includes(tag))) return false;
+      return true;
+    });
+    filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return filtered.slice(0, limit).map(summaryOf);
+  }
+  async update(first, second, third, fourth) {
+    const workspace = assertWorkspace(isAbsolute2(first) ? first : third);
+    const id = isAbsolute2(first) ? second : first;
+    const patch = isAbsolute2(first) ? third : second;
+    const normalizedId = requireString(id, "id");
+    if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new TipValidationError("update patch must be an object");
+    const rawPatch = patch;
+    const boardAuthor = normalizeActor(fourth !== void 0 ? fourth : rawPatch.actor);
+    for (const field of ["id", "createdAt", "updatedAt", "creator", "author"]) {
+      if (field in patch) throw new TipValidationError(`${field} cannot be changed`);
+    }
+    const contentPatch = { ...rawPatch };
+    delete contentPatch.actor;
+    const key = tipKey(normalizedId);
+    return this.board.mutate("workspace", (entries, commitTs) => {
+      const entry = entries.get(key);
+      if (entry === void 0) throw new TipNotFoundError(normalizedId);
+      const current = this.decodeEntry(normalizedId, entry);
+      const next = this.applyPatch(current, contentPatch);
+      next.updatedAt = commitTs;
+      entries.set(key, { key, value: encodeTip(next), author: boardAuthor, ts: commitTs, tags: tipTags(next) });
+      return next;
+    }, workspace);
+  }
+  async archive(first, second, third) {
+    const workspace = assertWorkspace(isAbsolute2(first) ? first : second);
+    const id = isAbsolute2(first) ? second : first;
+    const normalizedId = requireString(id, "id");
+    const boardAuthor = normalizeActor(third);
+    const key = tipKey(normalizedId);
+    return this.board.mutate("workspace", (entries, commitTs) => {
+      const entry = entries.get(key);
+      if (entry === void 0) throw new TipNotFoundError(normalizedId);
+      const current = this.decodeEntry(normalizedId, entry);
+      const archived = { ...current, status: "archived", updatedAt: commitTs };
+      entries.set(key, { key, value: encodeTip(archived), author: boardAuthor, ts: commitTs, tags: tipTags(archived) });
+      return archived;
+    }, workspace);
+  }
+  buildTip(raw) {
+    const tip = validateTip(raw);
+    if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
+    return tip;
+  }
+  applyPatch(current, patch) {
+    const next = cloneTip(current);
+    const raw = patch;
+    const required2 = ["title", "summary", "status"];
+    for (const field of required2) {
+      if (!(field in raw)) continue;
+      if (raw[field] === null) throw new TipValidationError(`${field} cannot be cleared`);
+      if (field === "status") next.status = validateStatus(raw[field]);
+      else next[field] = requireString(raw[field], field);
+    }
+    const optionalFields = [
+      "context",
+      "module",
+      "tags",
+      "nextAction",
+      "documentRefs",
+      "sourceRefs",
+      "relatedTipIds",
+      "relatedProjects",
+      "sourceSessionId"
+    ];
+    for (const field of optionalFields) {
+      if (!(field in raw)) continue;
+      const value = raw[field];
+      if (value === null) {
+        delete next[field];
+        continue;
+      }
+      if (field === "context") next.context = validateContext(requireString(value, field, false));
+      else if (field === "module") next.module = requireString(value, field);
+      else if (field === "tags" || field === "sourceRefs" || field === "relatedTipIds" || field === "relatedProjects") {
+        next[field] = validateStringArray(value, field);
+      } else if (field === "documentRefs") next.documentRefs = validateDocumentRefs(value);
+      else next[field] = requireString(value, field, field === "sourceSessionId");
+    }
+    return validateTip(next);
+  }
+  decodeEntry(id, entry) {
+    let value;
+    try {
+      value = JSON.parse(entry.value);
+    } catch {
+      throw new TipCorruptError(id, "value is not valid JSON");
+    }
+    try {
+      const tip = validateTip(value);
+      if (tip.id !== id || entry.key !== tipKey(id)) throw new TipValidationError("id/key mismatch");
+      return tip;
+    } catch (err) {
+      if (err instanceof TipCorruptError) throw err;
+      throw new TipCorruptError(id, err.message);
+    }
+  }
+};
+function isProjectTipStatus(value) {
+  return typeof value === "string" && PROJECT_TIP_STATUSES.includes(value);
+}
+
+// src/modules/tips/index.ts
+var TIP_STATUS = { type: "string", enum: [...PROJECT_TIP_STATUSES] };
+var TIP_WORKSPACE = {
+  type: "string",
+  description: "Absolute project path. Tips never infer a workspace from the MCP process cwd."
+};
+var TIP_DOCUMENT_REF = {
+  type: "object",
+  properties: {
+    path: { type: "string" },
+    section: { type: "string" },
+    note: { type: "string" },
+    contentHash: { type: "string" }
+  },
+  required: ["path"],
+  additionalProperties: false
+};
+var TIP_DOCUMENT_REFS = { type: "array", items: TIP_DOCUMENT_REF };
+var TIP_STRING_ARRAY = { type: "array", items: { type: "string" } };
+var TIP_CREATE_PROPERTIES = {
+  workspace: TIP_WORKSPACE,
+  title: { type: "string" },
+  summary: { type: "string" },
+  status: TIP_STATUS,
+  context: { type: "string" },
+  module: { type: "string" },
+  tags: TIP_STRING_ARRAY,
+  nextAction: { type: "string" },
+  documentRefs: TIP_DOCUMENT_REFS,
+  sourceRefs: TIP_STRING_ARRAY,
+  relatedTipIds: TIP_STRING_ARRAY,
+  relatedProjects: TIP_STRING_ARRAY,
+  sourceSessionId: { type: "string" },
+  author: { type: "string" }
+};
+var TIP_UPDATE_PROPERTIES = {
+  workspace: TIP_WORKSPACE,
+  id: { type: "string" },
+  title: { type: "string" },
+  summary: { type: "string" },
+  status: TIP_STATUS,
+  context: { type: ["string", "null"] },
+  module: { type: ["string", "null"] },
+  tags: { type: ["array", "null"], items: { type: "string" } },
+  nextAction: { type: ["string", "null"] },
+  documentRefs: { type: ["array", "null"], items: TIP_DOCUMENT_REF },
+  sourceRefs: { type: ["array", "null"], items: { type: "string" } },
+  relatedTipIds: { type: ["array", "null"], items: { type: "string" } },
+  relatedProjects: { type: ["array", "null"], items: { type: "string" } },
+  sourceSessionId: { type: ["string", "null"] },
+  actor: { type: "string" }
+};
+function tipTools(tips) {
+  return [
+    {
+      name: "moa_tip_create",
+      description: "Create a project-level Tip in the explicitly selected workspace.",
+      inputSchema: {
+        type: "object",
+        properties: TIP_CREATE_PROPERTIES,
+        required: ["workspace", "title", "summary"],
+        additionalProperties: false
+      },
+      handler: (a) => {
+        const { workspace, ...input } = a;
+        return tips.create(input, workspace);
+      }
+    },
+    {
+      name: "moa_tip_read",
+      description: "Read one complete project Tip, including context when present.",
+      inputSchema: {
+        type: "object",
+        properties: { workspace: TIP_WORKSPACE, id: { type: "string" } },
+        required: ["workspace", "id"],
+        additionalProperties: false
+      },
+      handler: (a) => tips.read(a.id, a.workspace)
+    },
+    {
+      name: "moa_tip_list",
+      description: "List lightweight project Tip summaries with status/module/tag filters; archived rows are hidden by default.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: TIP_WORKSPACE,
+          status: TIP_STATUS,
+          module: { type: "string" },
+          tag: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+          includeArchived: { type: "boolean" },
+          limit: { type: "number" }
+        },
+        required: ["workspace"],
+        additionalProperties: false
+      },
+      handler: (a) => {
+        const { workspace, ...filters } = a;
+        return tips.list(filters, workspace);
+      }
+    },
+    {
+      name: "moa_tip_update",
+      description: "Update a Tip atomically; omitted fields remain and nullable optional fields clear their values.",
+      inputSchema: {
+        type: "object",
+        properties: TIP_UPDATE_PROPERTIES,
+        required: ["workspace", "id"],
+        additionalProperties: false
+      },
+      handler: (a) => {
+        const { workspace, id, ...patch } = a;
+        return tips.update(id, patch, workspace);
+      }
+    },
+    {
+      name: "moa_tip_archive",
+      description: "Archive a project Tip without changing its other content; actor identifies the updater in BoardEntry.author.",
+      inputSchema: {
+        type: "object",
+        properties: { workspace: TIP_WORKSPACE, id: { type: "string" }, actor: { type: "string" } },
+        required: ["workspace", "id"],
+        additionalProperties: false
+      },
+      handler: (a) => tips.archive(a.id, a.workspace, a.actor)
+    }
+  ];
+}
+function createTipsModule(tips) {
+  return {
+    id: "tips",
+    tier: "stable",
+    tools: tipTools(tips)
+  };
+}
 
 // src/modules/debate/archive-index.ts
 import { constants } from "node:fs";
-import { lstat, open as open2, readdir as readdir2 } from "node:fs/promises";
-import { join as join3 } from "node:path";
+import { lstat, open as open2, readdir as readdir3 } from "node:fs/promises";
+import { join as join4 } from "node:path";
 import { TextDecoder } from "node:util";
 var ARCHIVE_FILE_NAMES = [
   "result.json",
@@ -23369,7 +24789,7 @@ var ARCHIVE_FILE_NAMES = [
   "board.jsonl"
 ];
 var nodeFileSystem = {
-  readdir: (path, options) => readdir2(path, options),
+  readdir: (path, options) => readdir3(path, options),
   lstat,
   open: open2
 };
@@ -23474,7 +24894,7 @@ var ArchiveIndex = class {
     });
   }
   async scanTask(taskId) {
-    const taskDir = join3(this.logsDir, taskId);
+    const taskDir = join4(this.logsDir, taskId);
     try {
       const taskStat = await this.fs.lstat(taskDir);
       if (!taskStat.isDirectory() || taskStat.isSymbolicLink()) return void 0;
@@ -23513,7 +24933,7 @@ var ArchiveIndex = class {
     };
   }
   async scanFile(taskDir, file) {
-    const filePath = join3(taskDir, file);
+    const filePath = join4(taskDir, file);
     let stat2;
     try {
       stat2 = await this.fs.lstat(filePath);
@@ -23546,13 +24966,13 @@ var ArchiveIndex = class {
     let handle;
     try {
       const noFollow = constants.O_NOFOLLOW ?? 0;
-      handle = await this.fs.open(join3(taskDir, file), constants.O_RDONLY | noFollow);
+      handle = await this.fs.open(join4(taskDir, file), constants.O_RDONLY | noFollow);
       const openedStat = await handle.stat();
       if (!openedStat.isFile() || !sameFile(originalStat, openedStat)) {
         return { error: fileError("read", file, "FILE_CHANGED") };
       }
       const raw = await readBounded(handle);
-      const currentStat = await this.fs.lstat(join3(taskDir, file));
+      const currentStat = await this.fs.lstat(join4(taskDir, file));
       if (currentStat.isSymbolicLink() || !currentStat.isFile() || !sameFile(openedStat, currentStat)) {
         return { error: fileError("read", file, "FILE_CHANGED") };
       }
@@ -23575,16 +24995,16 @@ var ArchiveIndex = class {
 };
 
 // src/modules/agentconfig/agent-config.ts
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 import {
   lstat as lstat2,
-  mkdir as mkdir2,
-  readdir as readdir3,
-  readFile as readFile2,
+  mkdir as mkdir3,
+  readdir as readdir4,
+  readFile as readFile3,
   realpath,
   unlink as unlink3
 } from "node:fs/promises";
-import { dirname, isAbsolute, join as join4, resolve } from "node:path";
+import { dirname, isAbsolute as isAbsolute3, join as join5, resolve as resolve3 } from "node:path";
 
 // node_modules/smol-toml/dist/date.js
 var DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[T ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[-+]\d{2}:\d{2})?$/i;
@@ -24282,11 +25702,11 @@ var AGENT_FILE_SUFFIX = ".md";
 var SECTION_NAMES = ["subagent", "subagent-slot"];
 var BINDING_FIELDS = ["model", "thinking_effort", "inherit"];
 var nodeFileSystem2 = {
-  readdir: (path, options) => readdir3(path, options),
+  readdir: (path, options) => readdir4(path, options),
   lstat: lstat2,
   realpath,
-  readFile: (path, encoding) => readFile2(path, encoding),
-  mkdir: (path, options) => mkdir2(path, options),
+  readFile: (path, encoding) => readFile3(path, encoding),
+  mkdir: (path, options) => mkdir3(path, options),
   unlink: unlink3,
   writeFileAtomic
 };
@@ -24348,7 +25768,7 @@ function isBusy(error2) {
   return code === "EPERM" || code === "EACCES" || code === "EBUSY" || code === "ENOTEMPTY";
 }
 function pathKey(value) {
-  const normalized = resolve(value).replaceAll("\\", "/");
+  const normalized = resolve3(value).replaceAll("\\", "/");
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 function samePath(a, b) {
@@ -24362,7 +25782,7 @@ function isInside(root, candidate) {
   return candidateKey.startsWith(prefix);
 }
 function contentHash(content) {
-  return createHash("sha256").update(content, "utf8").digest("hex");
+  return createHash2("sha256").update(content, "utf8").digest("hex");
 }
 function isKebabCaseName(value) {
   return typeof value === "string" && value.length > 0 && value.length <= AGENT_CONFIG_MAX_NAME_LENGTH && KEBAB_NAME.test(value);
@@ -24374,10 +25794,10 @@ function assertKebabName(value, field) {
   return value;
 }
 function assertWorkspaceCwd(workspaceCwd) {
-  if (typeof workspaceCwd !== "string" || !isAbsolute(workspaceCwd)) {
+  if (typeof workspaceCwd !== "string" || !isAbsolute3(workspaceCwd)) {
     throw new AgentConfigValidationError("workspace cwd must be an absolute path resolved by the workspace registry");
   }
-  return resolve(workspaceCwd);
+  return resolve3(workspaceCwd);
 }
 function assertExpectedHash(expectedHash) {
   if (expectedHash === null) return null;
@@ -24878,7 +26298,7 @@ var WorkspaceAgentConfigService = class {
     const agentName = assertKebabName(name, "agent name");
     const paths = await this.projectPaths(workspaceCwd);
     const fileName = `${agentName}${AGENT_FILE_SUFFIX}`;
-    const snapshot = await this.readManagedFile(join4(paths.agentsDir, fileName), AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+    const snapshot = await this.readManagedFile(join5(paths.agentsDir, fileName), AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
     if (!snapshot.exists) throw new AgentConfigNotFoundError("agent profile not found");
     try {
       const parsed = parseAgentDocument(agentName, fileName, snapshot.content);
@@ -24914,7 +26334,7 @@ var WorkspaceAgentConfigService = class {
     const expected = assertExpectedHash(expectedHash);
     const paths = await this.projectPaths(workspaceCwd);
     const fileName = `${agentName}${AGENT_FILE_SUFFIX}`;
-    const filePath = join4(paths.agentsDir, fileName);
+    const filePath = join5(paths.agentsDir, fileName);
     return this.withPathQueue(filePath, async () => {
       const current = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
       assertHashPrecondition(expected, current.hash);
@@ -24932,7 +26352,7 @@ var WorkspaceAgentConfigService = class {
     const agentName = assertKebabName(name, "agent name");
     const expected = assertExpectedHash(expectedHash);
     const paths = await this.projectPaths(workspaceCwd);
-    const filePath = join4(paths.agentsDir, `${agentName}${AGENT_FILE_SUFFIX}`);
+    const filePath = join5(paths.agentsDir, `${agentName}${AGENT_FILE_SUFFIX}`);
     return this.withPathQueue(filePath, async () => {
       const current = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
       assertHashPrecondition(expected, current.hash);
@@ -25048,7 +26468,7 @@ var WorkspaceAgentConfigService = class {
       if (!isKebabCaseName(name)) {
         throw new AgentConfigValidationError(`agent filename ${entry.name} is not kebab-case`);
       }
-      const filePath = join4(paths.agentsDir, entry.name);
+      const filePath = join5(paths.agentsDir, entry.name);
       const snapshot = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
       if (!snapshot.exists) continue;
       try {
@@ -25088,18 +26508,18 @@ var WorkspaceAgentConfigService = class {
       throw mapReadError(error2, "workspace root could not be inspected");
     }
     const projectRoot = await this.findProjectRoot(canonicalCwd);
-    const configDir = join4(projectRoot, KIMI_CONFIG_DIRECTORY_NAME);
+    const configDir = join5(projectRoot, KIMI_CONFIG_DIRECTORY_NAME);
     return {
       projectRoot,
       configDir,
-      agentsDir: join4(configDir, AGENT_DIRECTORY_NAME),
-      localToml: join4(configDir, LOCAL_TOML_FILE_NAME)
+      agentsDir: join5(configDir, AGENT_DIRECTORY_NAME),
+      localToml: join5(configDir, LOCAL_TOML_FILE_NAME)
     };
   }
   async findProjectRoot(cwd) {
     let current = cwd;
     while (true) {
-      const gitPath = join4(current, ".git");
+      const gitPath = join5(current, ".git");
       try {
         const stat2 = await this.fs.lstat(gitPath);
         if (stat2.isSymbolicLink()) throw new AgentConfigUnsafePathError(".git is a symbolic link");
@@ -25276,6 +26696,137 @@ function parseAgentDocument(name, fileName, content) {
     prompt,
     ...description === void 0 ? {} : { description },
     ...slot === void 0 ? {} : { slot }
+  };
+}
+
+// src/modules/agentconfig/index.ts
+function requireAgentName(rawParam) {
+  let name;
+  try {
+    name = decodeURIComponent(rawParam);
+  } catch {
+    throw new Error("invalid agent name");
+  }
+  if (!isKebabCaseName(name)) throw new Error("invalid agent name");
+  return name;
+}
+function rejectCwdPathQueries(ctx) {
+  if (ctx.url.searchParams.has("cwd") || ctx.url.searchParams.has("path")) {
+    throw ctx.badRequest("cwd/path are not accepted by the Control Plane API");
+  }
+}
+async function readAgentConfig(agentConfig, ctx) {
+  rejectCwdPathQueries(ctx);
+  const workspace = await ctx.resolveWorkspace(ctx.url.searchParams.get("workspace"));
+  ctx.sendJson(200, { workspace: workspace.id, ...await agentConfig.inspect(workspace.cwd) });
+}
+async function readAgent(agentConfig, ctx) {
+  rejectCwdPathQueries(ctx);
+  const workspace = await ctx.resolveWorkspace(ctx.url.searchParams.get("workspace"));
+  ctx.sendJson(200, { workspace: workspace.id, agent: await agentConfig.readAgent(workspace.cwd, ctx.param) });
+}
+async function saveAgent(agentConfig, ctx) {
+  const body = await ctx.jsonBody();
+  ctx.rejectPathFields(body);
+  ctx.assertAllowedFields(body, ["workspace", "content", "expectedHash"], "agent");
+  if (typeof body.content !== "string") throw ctx.badRequest("content must be a Markdown string");
+  const workspace = await ctx.resolveWorkspace(body.workspace);
+  const result = await agentConfig.saveAgent(workspace.cwd, ctx.param, body.content, ctx.requireExpectedHash(body));
+  ctx.sendJson(200, { workspace: workspace.id, agent: result });
+}
+async function deleteAgent(agentConfig, ctx) {
+  const body = await ctx.jsonBody();
+  ctx.rejectPathFields(body);
+  ctx.assertAllowedFields(body, ["workspace", "expectedHash"], "agent");
+  const workspace = await ctx.resolveWorkspace(body.workspace);
+  ctx.sendJson(200, { workspace: workspace.id, agent: await agentConfig.deleteAgent(workspace.cwd, ctx.param, ctx.requireExpectedHash(body)) });
+}
+async function saveBindings(agentConfig, ctx) {
+  const body = await ctx.jsonBody();
+  ctx.rejectPathFields(body);
+  ctx.assertAllowedFields(body, ["workspace", "changes", "expectedHash"], "bindings");
+  if (!Array.isArray(body.changes)) {
+    throw ctx.badRequest("changes must be an array");
+  }
+  const workspace = await ctx.resolveWorkspace(body.workspace);
+  const result = await agentConfig.saveBindings(
+    workspace.cwd,
+    body.changes,
+    ctx.requireExpectedHash(body)
+  );
+  ctx.sendJson(200, {
+    workspace: workspace.id,
+    bindings: result,
+    hash: result.hash,
+    content: result.content
+  });
+}
+async function readLocalToml(agentConfig, ctx) {
+  rejectCwdPathQueries(ctx);
+  const workspace = await ctx.resolveWorkspace(ctx.url.searchParams.get("workspace"));
+  ctx.sendJson(200, { workspace: workspace.id, localToml: await agentConfig.readLocalToml(workspace.cwd) });
+}
+async function saveLocalToml(agentConfig, ctx) {
+  const body = await ctx.jsonBody();
+  ctx.rejectPathFields(body);
+  ctx.assertAllowedFields(body, ["workspace", "content", "expectedHash"], "local.toml");
+  if (typeof body.content !== "string") throw ctx.badRequest("content must be a TOML string");
+  const workspace = await ctx.resolveWorkspace(body.workspace);
+  const result = await agentConfig.saveLocalToml(workspace.cwd, body.content, ctx.requireExpectedHash(body));
+  ctx.sendJson(200, { workspace: workspace.id, localToml: result });
+}
+var AGENT_PATH = "/api/agent-config/agents/:name";
+var AGENT_PATTERN = /^\/api\/agent-config\/agents\/(.*)$/;
+function agentConfigRoutes(agentConfig) {
+  return [
+    {
+      method: "GET",
+      path: "/api/agent-config",
+      handler: (ctx) => readAgentConfig(agentConfig, ctx)
+    },
+    {
+      method: "PUT",
+      path: "/api/agent-config/bindings",
+      handler: (ctx) => saveBindings(agentConfig, ctx)
+    },
+    {
+      method: "GET",
+      path: "/api/agent-config/local-toml",
+      handler: (ctx) => readLocalToml(agentConfig, ctx)
+    },
+    {
+      method: "PUT",
+      path: "/api/agent-config/local-toml",
+      handler: (ctx) => saveLocalToml(agentConfig, ctx)
+    },
+    {
+      method: "GET",
+      path: AGENT_PATH,
+      pattern: AGENT_PATTERN,
+      validateParam: requireAgentName,
+      handler: (ctx) => readAgent(agentConfig, ctx)
+    },
+    {
+      method: "PUT",
+      path: AGENT_PATH,
+      pattern: AGENT_PATTERN,
+      validateParam: requireAgentName,
+      handler: (ctx) => saveAgent(agentConfig, ctx)
+    },
+    {
+      method: "DELETE",
+      path: AGENT_PATH,
+      pattern: AGENT_PATTERN,
+      validateParam: requireAgentName,
+      handler: (ctx) => deleteAgent(agentConfig, ctx)
+    }
+  ];
+}
+function createAgentConfigModule(agentConfig = new WorkspaceAgentConfigService()) {
+  return {
+    id: "agentconfig",
+    tier: "stable",
+    routes: agentConfigRoutes(agentConfig)
   };
 }
 
@@ -29690,1116 +31241,6 @@ ${LIB_JS}
 </html>
 `;
 
-// src/modules/tips/tips.ts
-import { randomUUID } from "node:crypto";
-import { isAbsolute as isAbsolute3 } from "node:path";
-
-// src/core/store/board.ts
-import { createHash as createHash2 } from "node:crypto";
-import { appendFile, mkdir as mkdir3, readFile as readFile3, readdir as readdir4, stat, writeFile } from "node:fs/promises";
-import { isAbsolute as isAbsolute2, join as join5, resolve as resolve2 } from "node:path";
-var BOARD_VALUE_MAX_BYTES = 32 * 1024;
-var DEFAULT_READ_LIMIT = 100;
-var MAX_READ_LIMIT = 1e3;
-var KEY_MAX_BYTES = 512;
-var DEFAULT_BOARD_POLL_INTERVAL_MS = 250;
-function normalizeWorkspacePath(workspace) {
-  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute2(workspace)) {
-    throw new Error("workspace must be an absolute path");
-  }
-  return resolve2(workspace);
-}
-function workspaceIdForPath(workspace) {
-  return createHash2("sha1").update(normalizeWorkspacePath(workspace)).digest("hex").slice(0, 16);
-}
-function validateKey(key) {
-  if (typeof key !== "string" || key.length === 0) throw new Error("key must be a non-empty string");
-  if (Buffer.byteLength(key, "utf8") > KEY_MAX_BYTES) throw new Error(`key exceeds ${KEY_MAX_BYTES} bytes`);
-  return key;
-}
-function validateValue(value) {
-  if (typeof value !== "string") throw new Error("value must be a string (markdown)");
-  const bytes = Buffer.byteLength(value, "utf8");
-  if (bytes > BOARD_VALUE_MAX_BYTES) {
-    throw new Error(`value too large: ${bytes} bytes > ${BOARD_VALUE_MAX_BYTES} (put large content in files, reference them from the board)`);
-  }
-  return value;
-}
-function normalizeTags(tags) {
-  if (tags === void 0 || tags === null) return [];
-  if (!Array.isArray(tags)) throw new Error("tags must be a string array");
-  return tags.map((tag) => {
-    if (typeof tag !== "string" || tag.length === 0) throw new Error("tags must be non-empty strings");
-    return tag;
-  });
-}
-function normalizeAuthor(author) {
-  if (author === void 0 || author === null || author === "") return "anonymous";
-  if (typeof author !== "string") throw new Error("author must be a string");
-  return author;
-}
-function isRecord(value) {
-  return (value.op === "write" || value.op === "delete") && typeof value.key === "string" && typeof value.author === "string" && typeof value.ts === "string" && (value.tags === void 0 || Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")) && (value.op === "delete" || typeof value.value === "string");
-}
-function cloneEntry(entry) {
-  return { ...entry, tags: [...entry.tags] };
-}
-function cloneEntries(entries) {
-  return new Map([...entries].map(([key, entry]) => [key, cloneEntry(entry)]));
-}
-function sameEntry(a, b) {
-  if (a === void 0 || b === void 0) return a === b;
-  return a.key === b.key && a.value === b.value && a.author === b.author && a.ts === b.ts && a.tags.length === b.tags.length && a.tags.every((tag, index) => tag === b.tags[index]);
-}
-function compareTimestamps(a, b) {
-  const ae = Date.parse(a);
-  const be = Date.parse(b);
-  if (Number.isFinite(ae) && Number.isFinite(be)) return ae - be;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-function validPollInterval(value) {
-  return value !== void 0 && Number.isFinite(value) && value > 0 ? value : DEFAULT_BOARD_POLL_INTERVAL_MS;
-}
-function matchKeyNamespace(entryKey, searchKey) {
-  if (entryKey === searchKey) return true;
-  const prefix = searchKey.endsWith("/") ? searchKey : searchKey + "/";
-  if (entryKey.startsWith(prefix)) return true;
-  const baseKey = searchKey.endsWith("/") ? searchKey.slice(0, -1) : searchKey;
-  if (entryKey === baseKey) return true;
-  return false;
-}
-var BoardStore = class {
-  scopes = /* @__PURE__ */ new Map();
-  queues = /* @__PURE__ */ new Map();
-  homeDir;
-  workspaceCwd;
-  waitCapMs;
-  pollIntervalMs;
-  emitFn;
-  closed = false;
-  /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
-  lastEpoch = 0;
-  constructor(opts = {}) {
-    this.homeDir = opts.homeDir;
-    this.workspaceCwd = resolve2(opts.workspaceCwd ?? process.cwd());
-    this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
-    this.pollIntervalMs = validPollInterval(opts.pollIntervalMs ?? opts.workspacePollIntervalMs);
-    this.emitFn = opts.emit;
-  }
-  // ---- tools ----
-  async write(key, value, tags, author, scopeInput, workspace) {
-    this.assertOpen();
-    const k = validateKey(key);
-    const v = validateValue(value);
-    const normalizedTags = normalizeTags(tags);
-    const normalizedAuthor = normalizeAuthor(author);
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const ts = this.nextTs();
-      const record2 = {
-        op: "write",
-        scope: scope.key,
-        key: k,
-        value: v,
-        author: normalizedAuthor,
-        ts,
-        ...normalizedTags.length > 0 ? { tags: normalizedTags } : {}
-      };
-      this.applyRecord(state, record2);
-      await this.persist(state, record2);
-      const entry = state.entries.get(k);
-      if (entry !== void 0 && entry.ts === ts) this.wakeWaiters(state, entry);
-      this.emit(scope, { type: "board_updated", op: "write", scope: scope.label, key: k, author: normalizedAuthor, ts });
-      return { ok: true, ts };
-    });
-  }
-  /**
-   * Folded read: with `key`, the live entry for that key (0/1 rows); with
-   * `tag`, live entries carrying that tag; with neither, every key's latest
-   * value. Newest first, capped by `limit` (default 100, max 1000).
-   */
-  async read(key, tag, scopeInput, limit, workspace) {
-    this.assertOpen();
-    if (workspace === void 0 && typeof limit === "string" && isAbsolute2(limit)) {
-      workspace = limit;
-      limit = void 0;
-    }
-    if (key !== void 0 && key !== null) validateKey(key);
-    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    const cap = normalizeLimit(limit);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      let entries = [...state.entries.values()];
-      if (typeof key === "string") entries = entries.filter((entry) => entry.key === key);
-      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
-      entries.sort((a, b) => compareTimestamps(b.ts, a.ts));
-      return entries.slice(0, cap).map(cloneEntry);
-    });
-  }
-  /**
-   * Namespace search for Raw Board: matches exact `key` as well as any descendant
-   * under `key/` (handling trailing slashes naturally), but does not match `xyz`
-   * when searching for `x`. Filtering happens before limit, capped by `limit`.
-   */
-  async readNamespace(keyPrefix, tag, scopeInput, limit, workspace) {
-    this.assertOpen();
-    if (workspace === void 0 && typeof limit === "string" && isAbsolute2(limit)) {
-      workspace = limit;
-      limit = void 0;
-    }
-    if (keyPrefix !== void 0 && keyPrefix !== null) validateKey(keyPrefix);
-    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    const cap = normalizeLimit(limit);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      let entries = [...state.entries.values()];
-      if (typeof keyPrefix === "string" && keyPrefix.length > 0) {
-        entries = entries.filter((entry) => matchKeyNamespace(entry.key, keyPrefix));
-      }
-      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
-      entries.sort((a, b) => compareTimestamps(b.ts, a.ts));
-      return entries.slice(0, cap).map(cloneEntry);
-    });
-  }
-  /** Lightweight browse: one row per live key, values replaced by their byte size. */
-  async list(scopeInput, workspace) {
-    this.assertOpen();
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      return [...state.entries.values()].sort((a, b) => compareTimestamps(b.ts, a.ts)).map((entry) => ({
-        key: entry.key,
-        author: entry.author,
-        ts: entry.ts,
-        tags: [...entry.tags],
-        bytes: Buffer.byteLength(entry.value, "utf8")
-      }));
-    });
-  }
-  /**
-   * Long-poll until `key` has a value — or, with `since` (ISO timestamp),
-   * until the entry is strictly newer than it ("wait for the next update").
-   * Resolves `{status:'ready', entry}` on wake, `{status:'timeout', retry:true}`
-   * at the cap (`timeoutMs` overrides, clamped to the cap), `{status:'closed'}`
-   * when a task scope is archived out from under the waiter. Deletes do not
-   * wake: waiters asked for a value, not a change.
-   */
-  async wait(key, scopeInput, timeoutMs, since, workspace) {
-    this.assertOpen();
-    if (workspace === void 0 && typeof since === "string" && isAbsolute2(since)) {
-      workspace = since;
-      since = void 0;
-    }
-    const k = validateKey(key);
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    let sinceEpoch;
-    if (since !== void 0 && since !== null) {
-      if (typeof since !== "string" || Number.isNaN(Date.parse(since))) {
-        throw new Error(`invalid since timestamp: ${String(since)} (expected ISO 8601)`);
-      }
-      sinceEpoch = Date.parse(since);
-    }
-    let effectiveTimeout = this.waitCapMs;
-    if (timeoutMs !== void 0 && timeoutMs !== null) {
-      if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-        throw new Error("timeoutMs must be a positive number");
-      }
-      effectiveTimeout = Math.min(timeoutMs, this.waitCapMs);
-    }
-    const outcome = await this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const current = state.entries.get(k);
-      if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
-        return { kind: "now", payload: { status: "ready", entry: cloneEntry(current) } };
-      }
-      const promise = new Promise((resolve5) => {
-        const waiter = {
-          key: k,
-          sinceEpoch,
-          resolve: resolve5,
-          timer: setTimeout(() => {
-            state.waiters.delete(waiter);
-            this.stopPollIfIdle(state);
-            resolve5({ status: "timeout", retry: true });
-          }, effectiveTimeout)
-        };
-        state.waiters.add(waiter);
-        this.ensurePollTimer(scope, state);
-      });
-      return { kind: "suspended", promise };
-    });
-    return outcome.kind === "now" ? outcome.payload : outcome.promise;
-  }
-  async mutate(first, second, third, fourth) {
-    this.assertOpen();
-    const scopeMode = typeof second === "function";
-    const key = scopeMode ? void 0 : validateKey(first);
-    const scopeInput = scopeMode ? first : second;
-    const mutator = scopeMode ? second : third;
-    if (typeof mutator !== "function") throw new Error("mutate requires a function mutator");
-    const workspace = scopeMode ? third : fourth;
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const before = cloneEntries(state.entries);
-      const beforeVersions = new Map(state.versions);
-      const commitTs = this.nextTs();
-      let result;
-      try {
-        if (scopeMode) {
-          result = await mutator(state.entries, commitTs);
-          if (isMutationCommit(result)) {
-            for (const change of result.writes) {
-              const changedKey = validateKey(change.key);
-              const changedValue = validateValue(change.value);
-              const changedTags = normalizeTags(change.tags);
-              const changedAuthor = normalizeAuthor(change.author);
-              state.entries.set(changedKey, {
-                key: changedKey,
-                value: changedValue,
-                author: changedAuthor,
-                ts: commitTs,
-                tags: changedTags
-              });
-            }
-            result = result.result;
-          }
-        } else {
-          const current = key === void 0 ? void 0 : state.entries.get(key);
-          const returned = await mutator(
-            current === void 0 ? void 0 : cloneEntry(current),
-            commitTs
-          );
-          if (returned === void 0) {
-            result = returned;
-          } else if (returned === null) {
-            if (key !== void 0) state.entries.delete(key);
-            result = returned;
-          } else {
-            const candidate = typeof returned === "string" ? { ...current ?? { key, author: "anonymous", tags: [] }, value: returned } : typeof returned === "object" && returned !== null && "value" in returned ? { ...current ?? { key, author: "anonymous", tags: [] }, ...returned } : current;
-            if (candidate === void 0 || key === void 0) throw new Error("key mutator must return a value or BoardEntry");
-            const candidateKey = validateKey(candidate.key);
-            if (candidateKey !== key) throw new Error(`mutate key mismatch: expected ${key}, got ${candidateKey}`);
-            state.entries.set(key, {
-              key,
-              value: validateValue(candidate.value),
-              author: normalizeAuthor(candidate.author),
-              ts: commitTs,
-              tags: normalizeTags(candidate.tags)
-            });
-            result = returned;
-          }
-        }
-        const records = this.recordsForDiff(scope, state, before, commitTs);
-        for (const record2 of records) {
-          await this.persist(state, record2);
-          this.applyRecord(state, record2);
-          const entry = state.entries.get(record2.key);
-          if (record2.op === "write" && entry !== void 0 && entry.ts === record2.ts) this.wakeWaiters(state, entry);
-          this.emit(scope, {
-            type: "board_updated",
-            op: record2.op,
-            scope: scope.label,
-            key: record2.key,
-            author: record2.author,
-            ts: record2.ts
-          });
-        }
-        return result;
-      } catch (err) {
-        state.entries.clear();
-        for (const [entryKey, entry] of before) state.entries.set(entryKey, entry);
-        state.versions.clear();
-        for (const [versionKey, version2] of beforeVersions) state.versions.set(versionKey, version2);
-        throw err;
-      }
-    });
-  }
-  /** Tombstone delete: the key vanishes from read/list; the JSONL keeps the record. */
-  async delete(key, author, scopeInput, workspace) {
-    this.assertOpen();
-    const k = validateKey(key);
-    const normalizedAuthor = normalizeAuthor(author);
-    const scope = this.parseScope(scopeInput, workspace);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const ts = this.nextTs();
-      const record2 = { op: "delete", scope: scope.key, key: k, author: normalizedAuthor, ts };
-      this.applyRecord(state, record2);
-      await this.persist(state, record2);
-      this.emit(scope, { type: "board_updated", op: "delete", scope: scope.label, key: k, author: normalizedAuthor, ts });
-      return { ok: true, ts };
-    });
-  }
-  // ---- workspace registry ----
-  /** Register an absolute project path and return stable sidecar metadata. */
-  async registerWorkspace(workspace) {
-    this.assertOpen();
-    const cwd = workspace === void 0 || workspace === null ? this.workspaceCwd : normalizeWorkspacePath(workspace);
-    const id = workspaceIdForPath(cwd);
-    const file = join5(this.boardsDir(), `ws-${id}.meta.json`);
-    const existing = await this.readWorkspaceInfo(file, id, cwd);
-    if (existing !== void 0) return existing;
-    const info = { id, cwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
-    await this.writeWorkspaceSidecar(info);
-    return this.withWorkspaceUpdatedAt(info);
-  }
-  /** Scan valid workspace sidecars; malformed or hash/cwd-mismatched files are ignored. */
-  async listWorkspaces() {
-    this.assertOpen();
-    let names;
-    try {
-      names = await readdir4(this.boardsDir());
-    } catch (err) {
-      if (err.code === "ENOENT") return [];
-      throw err;
-    }
-    const workspaces = [];
-    for (const name of names) {
-      if (!/^ws-[0-9a-f]{16}\.meta\.json$/.test(name)) continue;
-      const id = name.slice("ws-".length, -".meta.json".length);
-      const info = await this.readWorkspaceInfo(join5(this.boardsDir(), name), id);
-      if (info !== void 0) workspaces.push(info);
-    }
-    workspaces.sort((a, b) => a.id.localeCompare(b.id));
-    return workspaces;
-  }
-  /** Alias that makes the scan operation explicit to callers. */
-  async scanWorkspaces() {
-    return this.listWorkspaces();
-  }
-  /** Resolve a sidecar id to its normalized project path, or undefined when absent. */
-  async resolveWorkspace(id) {
-    this.assertOpen();
-    const normalizedId = normalizeWorkspaceId(id);
-    if (normalizedId === void 0) return void 0;
-    const match = (await this.listWorkspaces()).find((workspace) => workspace.id === normalizedId);
-    return match?.cwd;
-  }
-  /** Explicit alias for callers that distinguish id resolution from path registration. */
-  async resolveWorkspaceId(id) {
-    return this.resolveWorkspace(id);
-  }
-  // ---- task lifecycle ----
-  /**
-   * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
-   * archive layer), wake any remaining waiters with `{status:'closed'}`, and
-   * drop the in-memory scope. Called by `DebateHub.complete`. Idempotent for
-   * tasks that never used the board (writes an empty file).
-   */
-  async archiveTask(taskId, dir) {
-    const key = `task:${taskId}`;
-    const state = this.scopes.get(key);
-    const records = state?.history ?? [];
-    await mkdir3(dir, { recursive: true });
-    const body = records.length > 0 ? records.map((record2) => JSON.stringify(record2)).join("\n") + "\n" : "";
-    await writeFile(resolve2(dir, "board.jsonl"), body);
-    if (state !== void 0) {
-      for (const waiter of [...state.waiters]) {
-        state.waiters.delete(waiter);
-        clearTimeout(waiter.timer);
-        waiter.resolve({ status: "closed" });
-      }
-      this.scopes.delete(key);
-      this.queues.delete(key);
-    }
-  }
-  // ---- internals ----
-  parseScope(input, workspaceInput) {
-    if (input === void 0 || input === null) input = "workspace";
-    if (typeof input !== "string") throw new Error("scope must be a string");
-    const raw = input.trim();
-    if (raw === "workspace") {
-      const cwd = workspaceInput === void 0 || workspaceInput === null ? this.workspaceCwd : normalizeWorkspacePath(workspaceInput);
-      const id = workspaceIdForPath(cwd);
-      return { kind: "workspace", key: `workspace:${id}`, label: "workspace", id, cwd };
-    }
-    if (raw === "global") return { kind: "global", key: "global", label: "global" };
-    if (raw.startsWith("task:")) {
-      const taskId = raw.slice("task:".length);
-      if (taskId.length === 0) throw new Error("invalid scope: task:<task_id> requires a non-empty task_id");
-      return { kind: "task", key: raw, label: raw, taskId };
-    }
-    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
-  }
-  boardsDir() {
-    return join5(this.homeDir ?? moamcpHome(), "boards");
-  }
-  scopeState(scope) {
-    let state = this.scopes.get(scope.key);
-    if (state !== void 0) return state;
-    state = { entries: /* @__PURE__ */ new Map(), versions: /* @__PURE__ */ new Map(), loaded: false, waiters: /* @__PURE__ */ new Set() };
-    if (scope.kind === "task") {
-      state.history = [];
-    } else if (scope.kind === "global") {
-      state.file = join5(this.boardsDir(), "global.jsonl");
-    } else {
-      const id = scope.id ?? scope.key.slice("workspace:".length);
-      state.file = join5(this.boardsDir(), `ws-${id}.jsonl`);
-      state.metaFile = join5(this.boardsDir(), `ws-${id}.meta.json`);
-      state.metaCwd = scope.cwd ?? this.workspaceCwd;
-    }
-    this.scopes.set(scope.key, state);
-    return state;
-  }
-  /**
-   * Fold a task log once; for persistent logs, check the real file size on
-   * every operation and rebuild whenever it changes, is created, or shrinks.
-   */
-  async fold(state) {
-    if (state.file === void 0) {
-      state.loaded = true;
-      return;
-    }
-    if (state.metaFile !== void 0) await this.ensureWorkspaceSidecar(state);
-    const snapshot = await this.readPersistentSnapshot(state);
-    if (!snapshot.changed) return;
-    const previous = state.loaded ? cloneEntries(state.entries) : void 0;
-    state.entries.clear();
-    state.versions.clear();
-    state.loaded = true;
-    state.fileExists = snapshot.exists;
-    state.fileBytes = snapshot.bytes;
-    for (const line of snapshot.raw.split(/\r?\n/)) {
-      if (line.trim() === "") continue;
-      let record2;
-      try {
-        record2 = JSON.parse(line);
-      } catch {
-        console.warn(`[moamcp] board: skipping unparseable line in ${state.file}`);
-        continue;
-      }
-      if (!isRecord(record2)) {
-        console.warn(`[moamcp] board: skipping malformed record in ${state.file}`);
-        continue;
-      }
-      this.applyRecord(state, record2);
-    }
-    if (previous !== void 0) this.wakeRefreshedWaiters(state, previous);
-  }
-  /** Read a stable-enough snapshot while never claiming unread bytes were read. */
-  async readPersistentSnapshot(state) {
-    const file = state.file;
-    let currentSize;
-    try {
-      currentSize = (await stat(file)).size;
-    } catch (err) {
-      if (err.code !== "ENOENT") throw err;
-    }
-    const exists = currentSize !== void 0;
-    if (state.loaded && state.fileExists === exists && (!exists || state.fileBytes === currentSize)) {
-      return { changed: false, exists, bytes: state.fileBytes ?? 0, raw: "" };
-    }
-    if (!exists) return { changed: true, exists: false, bytes: 0, raw: "" };
-    let lastRaw = "";
-    let lastBytes = 0;
-    for (let attempt = 0; attempt < 8; attempt++) {
-      try {
-        lastRaw = await readFile3(file, "utf8");
-      } catch (err) {
-        if (err.code === "ENOENT") {
-          return { changed: true, exists: false, bytes: 0, raw: "" };
-        }
-        throw err;
-      }
-      lastBytes = Buffer.byteLength(lastRaw, "utf8");
-      let afterSize;
-      try {
-        afterSize = (await stat(file)).size;
-      } catch (err) {
-        if (err.code !== "ENOENT") throw err;
-      }
-      if (afterSize === lastBytes) return { changed: true, exists: true, bytes: lastBytes, raw: lastRaw };
-    }
-    return { changed: true, exists: true, bytes: lastBytes, raw: lastRaw };
-  }
-  async readWorkspaceInfo(file, id, expectedCwd) {
-    try {
-      const parsed = JSON.parse(await readFile3(file, "utf8"));
-      if (parsed.id !== id) return void 0;
-      const cwd = parseWorkspaceCwd(parsed.cwd);
-      if (workspaceIdForPath(cwd) !== id || expectedCwd !== void 0 && cwd !== expectedCwd) return void 0;
-      if (typeof parsed.created_at !== "string" || Number.isNaN(Date.parse(parsed.created_at))) return void 0;
-      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at });
-    } catch {
-      return void 0;
-    }
-  }
-  async withWorkspaceUpdatedAt(info) {
-    const updatedAt = await this.workspaceUpdatedAt(info.id);
-    return updatedAt === void 0 ? info : { ...info, updatedAt };
-  }
-  async workspaceUpdatedAt(id) {
-    try {
-      return (await stat(join5(this.boardsDir(), `ws-${id}.jsonl`))).mtime.toISOString();
-    } catch (err) {
-      if (err.code === "ENOENT") return void 0;
-      throw err;
-    }
-  }
-  async writeWorkspaceSidecar(info) {
-    await mkdir3(this.boardsDir(), { recursive: true });
-    const file = join5(this.boardsDir(), `ws-${info.id}.meta.json`);
-    await writeFile(
-      file,
-      JSON.stringify({ id: info.id, cwd: info.cwd, created_at: info.createdAt }, null, 2)
-    );
-  }
-  /** Ensure an explicitly used workspace is registered, including an empty board. */
-  async ensureWorkspaceSidecar(state) {
-    if (state.metaFile === void 0 || state.metaCwd === void 0 || state.metaWritten) return;
-    const id = state.metaFile.match(/ws-([0-9a-f]{16})\.meta\.json$/)?.[1];
-    if (id === void 0) return;
-    const existing = await this.readWorkspaceInfo(state.metaFile, id, state.metaCwd);
-    if (existing !== void 0) {
-      state.metaWritten = true;
-      return;
-    }
-    await this.writeWorkspaceSidecar({ id, cwd: state.metaCwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
-    state.metaWritten = true;
-  }
-  /** Apply a record only when its timestamp wins the folded LWW view. */
-  applyRecord(state, record2) {
-    const recordEpoch = Date.parse(record2.ts);
-    if (Number.isFinite(recordEpoch) && recordEpoch > this.lastEpoch) this.lastEpoch = recordEpoch;
-    const previous = state.versions.get(record2.key);
-    if (previous !== void 0 && compareTimestamps(record2.ts, previous) < 0) return false;
-    state.versions.set(record2.key, record2.ts);
-    if (record2.op === "write") {
-      state.entries.set(record2.key, {
-        key: record2.key,
-        value: record2.value,
-        author: record2.author,
-        ts: record2.ts,
-        tags: [...record2.tags ?? []]
-      });
-    } else {
-      state.entries.delete(record2.key);
-    }
-    return true;
-  }
-  /** Turn a callback's Map changes into append-only records at one commit ts. */
-  recordsForDiff(scope, state, before, commitTs) {
-    const keys = /* @__PURE__ */ new Set([...before.keys(), ...state.entries.keys()]);
-    const records = [];
-    for (const key of keys) {
-      const previous = before.get(key);
-      const current = state.entries.get(key);
-      if (sameEntry(previous, current)) continue;
-      if (current === void 0) {
-        records.push({
-          op: "delete",
-          scope: scope.key,
-          key,
-          author: previous?.author ?? "anonymous",
-          ts: commitTs
-        });
-        continue;
-      }
-      const entryKey = validateKey(current.key);
-      if (entryKey !== key) throw new Error(`mutate map key mismatch: expected ${key}, got ${entryKey}`);
-      const value = validateValue(current.value);
-      const author = normalizeAuthor(current.author);
-      const tags = normalizeTags(current.tags);
-      state.entries.set(key, { key, value, author, ts: commitTs, tags });
-      records.push({
-        op: "write",
-        scope: scope.key,
-        key,
-        value,
-        author,
-        ts: commitTs,
-        ...tags.length > 0 ? { tags } : {}
-      });
-    }
-    return records;
-  }
-  /** Append a record to the scope's JSONL (persistent scopes only) + task history. */
-  async persist(state, record2) {
-    if (state.history !== void 0) state.history.push(record2);
-    if (state.file === void 0) return;
-    await mkdir3(this.boardsDir(), { recursive: true });
-    if (state.metaFile !== void 0 && !state.metaWritten) {
-      await this.ensureWorkspaceSidecar(state).catch(() => {
-      });
-    }
-    await appendFile(state.file, JSON.stringify(record2) + "\n");
-  }
-  wakeWaiters(state, entry) {
-    const epoch = Date.parse(entry.ts);
-    for (const waiter of [...state.waiters]) {
-      if (waiter.key !== entry.key) continue;
-      if (waiter.sinceEpoch !== void 0 && epoch <= waiter.sinceEpoch) continue;
-      state.waiters.delete(waiter);
-      clearTimeout(waiter.timer);
-      waiter.resolve({ status: "ready", entry: cloneEntry(entry) });
-    }
-    this.stopPollIfIdle(state);
-  }
-  /** Refresh wake-up path: external writes wake waiters but never emit events. */
-  wakeRefreshedWaiters(state, previous) {
-    for (const [key, entry] of state.entries) {
-      const old = previous.get(key);
-      if (old === void 0 || old.ts !== entry.ts) this.wakeWaiters(state, entry);
-    }
-  }
-  /** Exactly one unref'd poll timer per persistent scope while it has waiters. */
-  ensurePollTimer(scope, state) {
-    if (state.file === void 0 || state.pollTimer !== void 0 || state.waiters.size === 0) return;
-    const timer = setInterval(() => void this.pollPersistent(scope, state), this.pollIntervalMs);
-    timer.unref();
-    state.pollTimer = timer;
-  }
-  stopPollIfIdle(state) {
-    if (state.waiters.size > 0 || state.pollTimer === void 0) return;
-    clearInterval(state.pollTimer);
-    state.pollTimer = void 0;
-  }
-  async pollPersistent(scope, state) {
-    if (state.waiters.size === 0) {
-      this.stopPollIfIdle(state);
-      return;
-    }
-    await this.enqueue(scope.key, async () => {
-      if (state.waiters.size === 0) {
-        this.stopPollIfIdle(state);
-        return;
-      }
-      await this.fold(state);
-      this.stopPollIfIdle(state);
-    }).catch(() => {
-    });
-  }
-  /** Close waiters and unref'd pollers; normal task archival remains separate. */
-  async close() {
-    if (this.closed) return;
-    this.closed = true;
-    for (const state of this.scopes.values()) {
-      if (state.pollTimer !== void 0) {
-        clearInterval(state.pollTimer);
-        state.pollTimer = void 0;
-      }
-      for (const waiter of [...state.waiters]) {
-        state.waiters.delete(waiter);
-        clearTimeout(waiter.timer);
-        waiter.resolve({ status: "closed" });
-      }
-    }
-  }
-  async dispose() {
-    await this.close();
-  }
-  assertOpen() {
-    if (this.closed) throw new Error("BoardStore is closed");
-  }
-  /** Strictly increasing ISO timestamp: same-millisecond writes still order (wait's `since` depends on it). */
-  nextTs() {
-    const now = Date.now();
-    this.lastEpoch = now > this.lastEpoch ? now : this.lastEpoch + 1;
-    return new Date(this.lastEpoch).toISOString();
-  }
-  emit(scope, event) {
-    this.emitFn?.(scope, event);
-  }
-  /** Serialize all mutations for one scope through a promise chain (mirrors DebateHub.enqueue). */
-  enqueue(scopeKey, fn) {
-    const prev = this.queues.get(scopeKey) ?? Promise.resolve();
-    const next = prev.then(fn, fn);
-    this.queues.set(
-      scopeKey,
-      next.catch(() => {
-      })
-    );
-    return next;
-  }
-};
-function parseWorkspaceCwd(value) {
-  if (typeof value !== "string" || value.length === 0 || !isAbsolute2(value)) throw new Error("invalid workspace sidecar cwd");
-  return resolve2(value);
-}
-function normalizeWorkspaceId(value) {
-  if (typeof value !== "string") return void 0;
-  const id = value.startsWith("ws-") ? value.slice("ws-".length) : value.startsWith("workspace:") ? value.slice("workspace:".length) : value;
-  return /^[0-9a-f]{16}$/.test(id) ? id : void 0;
-}
-function isMutationCommit(value) {
-  return typeof value === "object" && value !== null && "result" in value && Array.isArray(value.writes);
-}
-function normalizeLimit(limit) {
-  if (limit === void 0 || limit === null) return DEFAULT_READ_LIMIT;
-  if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1) {
-    throw new Error("limit must be a positive number");
-  }
-  return Math.min(Math.floor(limit), MAX_READ_LIMIT);
-}
-
-// src/modules/tips/tips.ts
-var PROJECT_TIP_STATUSES = [
-  "captured",
-  "exploring",
-  "planned",
-  "implemented",
-  "deferred",
-  "discarded",
-  "archived"
-];
-var TipNotFoundError = class extends Error {
-  code = "TIP_NOT_FOUND";
-  constructor(id) {
-    super(`tip not found: ${id}`);
-    this.name = "TipNotFoundError";
-  }
-};
-var TipCorruptError = class extends Error {
-  code = "TIP_CORRUPT";
-  constructor(id, message) {
-    super(`corrupt tip ${id}: ${message}`);
-    this.name = "TipCorruptError";
-  }
-};
-var TipValidationError = class extends Error {
-  code = "TIP_INVALID";
-  constructor(message) {
-    super(message);
-    this.name = "TipValidationError";
-  }
-};
-var CONTEXT_MAX_BYTES = 8 * 1024;
-var TIP_LIST_DEFAULT_LIMIT = 100;
-var TIP_LIST_MAX_LIMIT = 1e3;
-var TIP_PREFIX = "tips/";
-var TIP_TAG = "tip";
-function assertWorkspace(workspace) {
-  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute3(workspace)) {
-    throw new TipValidationError("workspace must be an absolute path");
-  }
-  return normalizeWorkspacePath(workspace);
-}
-function tipKey(id) {
-  return `${TIP_PREFIX}${id}`;
-}
-function requireString(value, field, nonEmpty = true) {
-  if (typeof value !== "string" || nonEmpty && value.length === 0) {
-    throw new TipValidationError(`${field} must be a${nonEmpty ? " non-empty" : ""} string`);
-  }
-  return value;
-}
-function optionalString(value, field) {
-  if (value === void 0) return void 0;
-  return requireString(value, field);
-}
-function normalizeActor(value) {
-  if (value === void 0 || value === null || value === "") return "anonymous";
-  return requireString(value, "actor");
-}
-function validateStatus(value, field = "status") {
-  if (typeof value !== "string" || !PROJECT_TIP_STATUSES.includes(value)) {
-    throw new TipValidationError(`${field} must be one of: ${PROJECT_TIP_STATUSES.join(", ")}`);
-  }
-  return value;
-}
-function validateStringArray(value, field) {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
-    throw new TipValidationError(`${field} must be an array of non-empty strings`);
-  }
-  const result = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const item of value) {
-    if (seen.has(item)) continue;
-    seen.add(item);
-    result.push(item);
-  }
-  return result;
-}
-function validateDocumentRefs(value) {
-  if (!Array.isArray(value)) throw new TipValidationError("documentRefs must be an array");
-  const result = [];
-  const seen = /* @__PURE__ */ new Set();
-  value.forEach((raw, index) => {
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-      throw new TipValidationError(`documentRefs[${index}] must be an object`);
-    }
-    const ref = raw;
-    const out = { path: requireString(ref.path, `documentRefs[${index}].path`) };
-    for (const field of ["section", "note", "contentHash"]) {
-      const item = ref[field];
-      if (item !== void 0) out[field] = requireString(item, `documentRefs[${index}].${field}`);
-    }
-    const stableValue = JSON.stringify(out);
-    if (seen.has(stableValue)) return;
-    seen.add(stableValue);
-    result.push(out);
-  });
-  return result;
-}
-function validateContext(value) {
-  if (Buffer.byteLength(value, "utf8") > CONTEXT_MAX_BYTES) {
-    throw new TipValidationError(`context exceeds ${CONTEXT_MAX_BYTES} bytes`);
-  }
-  return value;
-}
-function validateDate(value, field) {
-  const result = requireString(value, field);
-  if (Number.isNaN(Date.parse(result))) throw new TipValidationError(`${field} must be an ISO 8601 timestamp`);
-  return result;
-}
-function validateTip(value) {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TipValidationError("tip value must be an object");
-  }
-  const raw = value;
-  const id = requireString(raw.id, "id");
-  if (!id.startsWith("tip_")) throw new TipValidationError("id must start with tip_");
-  const tip = {
-    id,
-    title: requireString(raw.title, "title"),
-    summary: requireString(raw.summary, "summary"),
-    status: validateStatus(raw.status),
-    createdAt: validateDate(raw.createdAt, "createdAt"),
-    updatedAt: validateDate(raw.updatedAt, "updatedAt")
-  };
-  if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
-  if (raw.module !== void 0) tip.module = optionalString(raw.module, "module");
-  if (raw.tags !== void 0) tip.tags = validateStringArray(raw.tags, "tags");
-  if (raw.nextAction !== void 0) tip.nextAction = requireString(raw.nextAction, "nextAction", false);
-  if (raw.documentRefs !== void 0) tip.documentRefs = validateDocumentRefs(raw.documentRefs);
-  if (raw.sourceRefs !== void 0) tip.sourceRefs = validateStringArray(raw.sourceRefs, "sourceRefs");
-  if (raw.relatedTipIds !== void 0) tip.relatedTipIds = validateStringArray(raw.relatedTipIds, "relatedTipIds");
-  if (raw.relatedProjects !== void 0) tip.relatedProjects = validateStringArray(raw.relatedProjects, "relatedProjects");
-  if (raw.sourceSessionId !== void 0) tip.sourceSessionId = requireString(raw.sourceSessionId, "sourceSessionId");
-  if (raw.author !== void 0) tip.author = requireString(raw.author, "author");
-  return tip;
-}
-function cloneTip(tip) {
-  return JSON.parse(JSON.stringify(tip));
-}
-function tipTags(tip) {
-  const tags = /* @__PURE__ */ new Set([TIP_TAG, `tip:status:${tip.status}`]);
-  if (tip.module !== void 0) tags.add(`tip:module:${tip.module}`);
-  for (const tag of tip.tags ?? []) tags.add(`tip:tag:${tag}`);
-  return [...tags];
-}
-function encodeTip(tip) {
-  const value = JSON.stringify(tip);
-  if (Buffer.byteLength(value, "utf8") > BOARD_VALUE_MAX_BYTES) {
-    throw new TipValidationError(`tip value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
-  }
-  return value;
-}
-function summaryOf(tip) {
-  const copy = cloneTip(tip);
-  const summary = {
-    id: copy.id,
-    title: copy.title,
-    summary: copy.summary,
-    status: copy.status,
-    createdAt: copy.createdAt,
-    updatedAt: copy.updatedAt
-  };
-  if (copy.module !== void 0) summary.module = copy.module;
-  if (copy.tags !== void 0) summary.tags = copy.tags;
-  if (copy.nextAction !== void 0) summary.nextAction = copy.nextAction;
-  if (copy.author !== void 0) summary.author = copy.author;
-  return summary;
-}
-function normalizeTipLimit(value) {
-  if (value === void 0 || value === null) return TIP_LIST_DEFAULT_LIMIT;
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
-    throw new TipValidationError("limit must be a positive number");
-  }
-  return Math.min(Math.floor(value), TIP_LIST_MAX_LIMIT);
-}
-function statuses(value) {
-  if (value === void 0 || value === null) return void 0;
-  const list = Array.isArray(value) ? value : [value];
-  return list.map((item) => validateStatus(item));
-}
-function filterTags(value) {
-  if (value === void 0 || value === null) return void 0;
-  const list = Array.isArray(value) ? value : [value];
-  return validateStringArray(list, "tag");
-}
-var TipStore = class {
-  board;
-  constructor(board) {
-    this.board = board;
-  }
-  async create(first, second) {
-    const workspace = typeof first === "string" ? assertWorkspace(first) : assertWorkspace(second);
-    const input = typeof first === "string" ? second : first;
-    if (typeof input !== "object" || input === null || Array.isArray(input)) {
-      throw new TipValidationError("create input must be an object");
-    }
-    const raw = input;
-    for (const field of ["id", "createdAt", "updatedAt", "creator"]) {
-      if (field in raw) throw new TipValidationError(`${field} cannot be supplied when creating a tip`);
-    }
-    const title = requireString(raw.title, "title");
-    const summary = requireString(raw.summary, "summary");
-    const status = raw.status === void 0 ? "captured" : validateStatus(raw.status);
-    const id = `tip_${randomUUID()}`;
-    return this.board.mutate("workspace", (entries, commitTs) => {
-      const key = tipKey(id);
-      if (entries.has(key)) throw new TipValidationError(`tip id collision: ${id}`);
-      const tip = this.buildTip({ ...raw, id, title, summary, status, createdAt: commitTs, updatedAt: commitTs });
-      entries.set(key, {
-        key,
-        value: encodeTip(tip),
-        author: tip.author ?? "anonymous",
-        ts: commitTs,
-        tags: tipTags(tip)
-      });
-      return tip;
-    }, workspace);
-  }
-  async read(first, second) {
-    const workspace = assertWorkspace(isAbsolute3(first) ? first : second);
-    const id = isAbsolute3(first) ? second : first;
-    const normalizedId = requireString(id, "id");
-    const rows = await this.board.read(tipKey(normalizedId), void 0, "workspace", 1, workspace);
-    const entry = rows[0];
-    if (entry === void 0) return void 0;
-    return this.decodeEntry(normalizedId, entry);
-  }
-  async list(first, second) {
-    const workspace = assertWorkspace(typeof first === "string" ? first : second);
-    const options = typeof first === "string" ? second : first;
-    const filters = options ?? {};
-    if (filters.includeArchived !== void 0 && typeof filters.includeArchived !== "boolean") {
-      throw new TipValidationError("includeArchived must be a boolean");
-    }
-    const wantedStatuses = statuses(filters.status);
-    const wantedTags = filterTags(filters.tags ?? filters.tag);
-    const limit = normalizeTipLimit(filters.limit);
-    const rows = await this.board.read(void 0, void 0, "workspace", TIP_LIST_MAX_LIMIT, workspace);
-    const tips = [];
-    for (const row of rows) {
-      if (!row.key.startsWith(TIP_PREFIX)) continue;
-      const id = row.key.slice(TIP_PREFIX.length);
-      tips.push(this.decodeEntry(id, row));
-    }
-    const filtered = tips.filter((tip) => {
-      if (!filters.includeArchived && tip.status === "archived") return false;
-      if (wantedStatuses !== void 0 && !wantedStatuses.includes(tip.status)) return false;
-      if (filters.module !== void 0 && tip.module !== filters.module) return false;
-      if (wantedTags !== void 0 && !wantedTags.every((tag) => (tip.tags ?? []).includes(tag))) return false;
-      return true;
-    });
-    filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-    return filtered.slice(0, limit).map(summaryOf);
-  }
-  async update(first, second, third, fourth) {
-    const workspace = assertWorkspace(isAbsolute3(first) ? first : third);
-    const id = isAbsolute3(first) ? second : first;
-    const patch = isAbsolute3(first) ? third : second;
-    const normalizedId = requireString(id, "id");
-    if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new TipValidationError("update patch must be an object");
-    const rawPatch = patch;
-    const boardAuthor = normalizeActor(fourth !== void 0 ? fourth : rawPatch.actor);
-    for (const field of ["id", "createdAt", "updatedAt", "creator", "author"]) {
-      if (field in patch) throw new TipValidationError(`${field} cannot be changed`);
-    }
-    const contentPatch = { ...rawPatch };
-    delete contentPatch.actor;
-    const key = tipKey(normalizedId);
-    return this.board.mutate("workspace", (entries, commitTs) => {
-      const entry = entries.get(key);
-      if (entry === void 0) throw new TipNotFoundError(normalizedId);
-      const current = this.decodeEntry(normalizedId, entry);
-      const next = this.applyPatch(current, contentPatch);
-      next.updatedAt = commitTs;
-      entries.set(key, { key, value: encodeTip(next), author: boardAuthor, ts: commitTs, tags: tipTags(next) });
-      return next;
-    }, workspace);
-  }
-  async archive(first, second, third) {
-    const workspace = assertWorkspace(isAbsolute3(first) ? first : second);
-    const id = isAbsolute3(first) ? second : first;
-    const normalizedId = requireString(id, "id");
-    const boardAuthor = normalizeActor(third);
-    const key = tipKey(normalizedId);
-    return this.board.mutate("workspace", (entries, commitTs) => {
-      const entry = entries.get(key);
-      if (entry === void 0) throw new TipNotFoundError(normalizedId);
-      const current = this.decodeEntry(normalizedId, entry);
-      const archived = { ...current, status: "archived", updatedAt: commitTs };
-      entries.set(key, { key, value: encodeTip(archived), author: boardAuthor, ts: commitTs, tags: tipTags(archived) });
-      return archived;
-    }, workspace);
-  }
-  buildTip(raw) {
-    const tip = validateTip(raw);
-    if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
-    return tip;
-  }
-  applyPatch(current, patch) {
-    const next = cloneTip(current);
-    const raw = patch;
-    const required2 = ["title", "summary", "status"];
-    for (const field of required2) {
-      if (!(field in raw)) continue;
-      if (raw[field] === null) throw new TipValidationError(`${field} cannot be cleared`);
-      if (field === "status") next.status = validateStatus(raw[field]);
-      else next[field] = requireString(raw[field], field);
-    }
-    const optionalFields = [
-      "context",
-      "module",
-      "tags",
-      "nextAction",
-      "documentRefs",
-      "sourceRefs",
-      "relatedTipIds",
-      "relatedProjects",
-      "sourceSessionId"
-    ];
-    for (const field of optionalFields) {
-      if (!(field in raw)) continue;
-      const value = raw[field];
-      if (value === null) {
-        delete next[field];
-        continue;
-      }
-      if (field === "context") next.context = validateContext(requireString(value, field, false));
-      else if (field === "module") next.module = requireString(value, field);
-      else if (field === "tags" || field === "sourceRefs" || field === "relatedTipIds" || field === "relatedProjects") {
-        next[field] = validateStringArray(value, field);
-      } else if (field === "documentRefs") next.documentRefs = validateDocumentRefs(value);
-      else next[field] = requireString(value, field, field === "sourceSessionId");
-    }
-    return validateTip(next);
-  }
-  decodeEntry(id, entry) {
-    let value;
-    try {
-      value = JSON.parse(entry.value);
-    } catch {
-      throw new TipCorruptError(id, "value is not valid JSON");
-    }
-    try {
-      const tip = validateTip(value);
-      if (tip.id !== id || entry.key !== tipKey(id)) throw new TipValidationError("id/key mismatch");
-      return tip;
-    } catch (err) {
-      if (err instanceof TipCorruptError) throw err;
-      throw new TipCorruptError(id, err.message);
-    }
-  }
-};
-function isProjectTipStatus(value) {
-  return typeof value === "string" && PROJECT_TIP_STATUSES.includes(value);
-}
-
 // src/adapters/control-plane.ts
 var CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
 var WORKSPACE_ID = /^[0-9a-f]{16}$/;
@@ -30829,6 +31270,13 @@ var BoardConflictError = class extends Error {
   }
   currentTs;
   status = 409;
+};
+var MethodNotAllowedError = class extends Error {
+  constructor(allow) {
+    super("method not allowed");
+    this.allow = allow;
+  }
+  allow;
 };
 function checkContentType(req) {
   const contentType = req.headers["content-type"];
@@ -30943,16 +31391,6 @@ function requireTaskId(value) {
   if (!isValidTaskId(id)) throw new ApiValidationError("invalid task id");
   return id;
 }
-function requireAgentName(value) {
-  let name;
-  try {
-    name = decodeURIComponent(value);
-  } catch {
-    throw new ApiValidationError("invalid agent name");
-  }
-  if (!isKebabCaseName(name)) throw new ApiValidationError("invalid agent name");
-  return name;
-}
 function parseLimit(value) {
   if (value === null || value === "") return void 0;
   if (!/^\d+$/.test(value)) throw new ApiValidationError("limit must be a positive integer");
@@ -31037,8 +31475,11 @@ var ControlPlane = class {
   tips;
   runtime;
   agentConfig;
+  exactRoutes = /* @__PURE__ */ new Map();
+  patternRoutes = [];
   constructor(board, tips, agentConfig = new WorkspaceAgentConfigService()) {
     this.agentConfig = agentConfig;
+    this.registerRoutes();
     if (board !== void 0) this.mount(board, tips);
   }
   mount(board, tips = new TipStore(board)) {
@@ -31051,6 +31492,73 @@ var ControlPlane = class {
   /** Test seam for the source-tree adapter; mounting itself performs no I/O. */
   mountAgentConfig(agentConfig) {
     this.agentConfig = agentConfig;
+    this.registerRoutes();
+  }
+  /** Aggregate module routes and adapter-level routes into the dispatch tables. */
+  registerRoutes() {
+    const modules = [createAgentConfigModule(this.agentConfig)];
+    const routes = [
+      ...modules.flatMap((module) => module.routes ?? []),
+      ...this.adapterRoutes()
+    ];
+    this.exactRoutes = /* @__PURE__ */ new Map();
+    this.patternRoutes = [];
+    for (const def of routes) {
+      if (def.pattern === void 0) {
+        const group = this.exactRoutes.get(def.path);
+        if (group === void 0) this.exactRoutes.set(def.path, [def]);
+        else group.push(def);
+      } else {
+        const group = this.patternRoutes.find((candidate) => candidate.pattern.source === def.pattern.source);
+        if (group === void 0) {
+          this.patternRoutes.push({ pattern: def.pattern, validateParam: def.validateParam, defs: [def] });
+        } else {
+          group.defs.push(def);
+        }
+      }
+    }
+  }
+  /** Adapter-level endpoints: workspaces, tips/board API, runs/archives/system. */
+  adapterRoutes() {
+    return [
+      { method: "GET", path: "/api/workspaces", handler: (ctx) => this.workspaces(ctx.res) },
+      { method: "GET", path: "/api/tips", handler: (ctx) => this.listTips(ctx.url, ctx.res) },
+      { method: "POST", path: "/api/tips", handler: (ctx) => this.createTip(ctx) },
+      { method: "GET", path: "/api/board", handler: (ctx) => this.readBoard(ctx.url, ctx.res) },
+      { method: "POST", path: "/api/board", handler: (ctx) => this.mutateBoard(ctx) },
+      { method: "DELETE", path: "/api/board", handler: (ctx) => this.mutateBoard(ctx) },
+      { method: "GET", path: "/api/tasks", handler: (ctx) => this.listRuns(ctx.url, ctx.res) },
+      { method: "GET", path: "/api/archives", handler: (ctx) => this.listArchives(ctx.res) },
+      { method: "GET", path: "/api/system", handler: (ctx) => this.system(ctx.res) },
+      {
+        method: "GET",
+        path: "/api/tasks/:id",
+        pattern: /^\/api\/tasks\/(.*)$/,
+        validateParam: requireTaskId,
+        handler: (ctx) => this.readRun(ctx.param, ctx.res)
+      },
+      {
+        method: "GET",
+        path: "/api/tips/:id",
+        pattern: /^\/api\/tips\/([^/]+)$/,
+        validateParam: requireTipId,
+        handler: (ctx) => this.readTip(ctx.param, ctx.url, ctx.res)
+      },
+      {
+        method: "PATCH",
+        path: "/api/tips/:id",
+        pattern: /^\/api\/tips\/([^/]+)$/,
+        validateParam: requireTipId,
+        handler: (ctx) => this.updateTip(ctx, ctx.param)
+      },
+      {
+        method: "POST",
+        path: "/api/tips/:id/archive",
+        pattern: /^\/api\/tips\/([^/]+)\/archive$/,
+        validateParam: requireTipId,
+        handler: (ctx) => this.archiveTip(ctx, ctx.param)
+      }
+    ];
   }
   async handle(req, res, serverPort) {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
@@ -31069,88 +31577,74 @@ var ControlPlane = class {
     }
     let route;
     try {
-      route = this.route(path);
+      route = this.resolveRoute(path, req.method ?? "");
     } catch (error2) {
-      sendCaughtError(res, error2);
+      if (error2 instanceof MethodNotAllowedError) {
+        methodNotAllowed(res, error2.allow);
+      } else {
+        sendCaughtError(res, error2);
+      }
       return true;
     }
     if (route === void 0) return false;
-    if (!route.methods.includes(req.method ?? "")) {
-      methodNotAllowed(res, route.methods.join(", "));
-      return true;
-    }
+    const ctx = this.createContext(req, res, url, serverPort, route.param);
     try {
-      switch (route.name) {
-        case "workspaces":
-          await this.workspaces(res);
-          break;
-        case "tips":
-          if (req.method === "GET") await this.listTips(url, res);
-          else await this.createTip(req, res, serverPort);
-          break;
-        case "tip":
-          if (req.method === "GET") await this.readTip(route.id, url, res);
-          else await this.updateTip(req, route.id, res, serverPort);
-          break;
-        case "tip-archive":
-          await this.archiveTip(req, route.id, res, serverPort);
-          break;
-        case "board":
-          if (req.method === "GET") await this.readBoard(url, res);
-          else await this.mutateBoard(req, res, serverPort);
-          break;
-        case "agent-config":
-          await this.readAgentConfig(url, res);
-          break;
-        case "agent":
-          if (req.method === "GET") await this.readAgent(route.id, url, res);
-          else if (req.method === "PUT") await this.saveAgent(req, route.id, res, serverPort);
-          else await this.deleteAgent(req, route.id, res, serverPort);
-          break;
-        case "agent-bindings":
-          await this.saveBindings(req, res, serverPort);
-          break;
-        case "agent-local":
-          if (req.method === "GET") await this.readLocalToml(url, res);
-          else await this.saveLocalToml(req, res, serverPort);
-          break;
-        case "runs":
-          this.listRuns(url, res);
-          break;
-        case "run":
-          this.readRun(route.id, res);
-          break;
-        case "archives":
-          await this.listArchives(res);
-          break;
-        case "system":
-          await this.system(res);
-          break;
-      }
+      await route.def.handler(ctx);
     } catch (error2) {
       sendCaughtError(res, error2);
     }
     return true;
   }
-  route(path) {
-    if (path === "/api/workspaces") return { name: "workspaces", methods: ["GET"] };
-    if (path === "/api/tips") return { name: "tips", methods: ["GET", "POST"] };
-    if (path === "/api/board") return { name: "board", methods: ["GET", "POST", "DELETE"] };
-    if (path === "/api/agent-config") return { name: "agent-config", methods: ["GET"] };
-    if (path === "/api/agent-config/bindings") return { name: "agent-bindings", methods: ["PUT"] };
-    if (path === "/api/agent-config/local-toml") return { name: "agent-local", methods: ["GET", "PUT"] };
-    if (path === "/api/tasks") return { name: "runs", methods: ["GET"] };
-    const agentMatch = /^\/api\/agent-config\/agents\/(.*)$/.exec(path);
-    if (agentMatch !== null) return { name: "agent", methods: ["GET", "PUT", "DELETE"], id: requireAgentName(agentMatch[1]) };
-    if (path === "/api/archives") return { name: "archives", methods: ["GET"] };
-    if (path === "/api/system") return { name: "system", methods: ["GET"] };
-    const runMatch = /^\/api\/tasks\/(.*)$/.exec(path);
-    if (runMatch !== null) return { name: "run", methods: ["GET"], id: requireTaskId(runMatch[1]) };
-    const match = /^\/api\/tips\/([^/]+)(\/archive)?$/.exec(path);
-    if (match === null) return void 0;
-    const id = requireTipId(match[1]);
-    if (match[2] === "/archive") return { name: "tip-archive", methods: ["POST"], id };
-    return { name: "tip", methods: ["GET", "PATCH"], id };
+  /**
+   * Match a request path + method against the aggregated route tables. Exact
+   * paths win over pattern routes; parameter validation runs before method
+   * matching (an invalid path parameter is a 400 even for unsupported
+   * methods). Throws MethodNotAllowedError when the path exists for other
+   * methods; returns undefined for non-Control-Plane paths.
+   */
+  resolveRoute(path, method) {
+    const exact = this.exactRoutes.get(path);
+    if (exact !== void 0) {
+      const hit = exact.find((def) => def.method === method);
+      if (hit !== void 0) return { def: hit, param: void 0 };
+      throw new MethodNotAllowedError(exact.map((def) => def.method).join(", "));
+    }
+    for (const group of this.patternRoutes) {
+      const match = group.pattern.exec(path);
+      if (match === null) continue;
+      let param;
+      if (group.validateParam !== void 0) {
+        try {
+          param = group.validateParam(match[1]);
+        } catch (error2) {
+          throw new ApiValidationError(errorMessage(error2));
+        }
+      } else {
+        param = match[1];
+      }
+      const hit = group.defs.find((def) => def.method === method);
+      if (hit !== void 0) return { def: hit, param };
+      throw new MethodNotAllowedError(group.defs.map((def) => def.method).join(", "));
+    }
+    return void 0;
+  }
+  createContext(req, res, url, serverPort, param) {
+    return {
+      req,
+      res,
+      url,
+      serverPort,
+      param,
+      jsonBody: () => readJsonBody(req, serverPort),
+      resolveWorkspace: (id) => this.resolveWorkspace(id),
+      sendJson: (status, body) => sendJson(res, status, body),
+      badRequest: (message) => {
+        throw new ApiValidationError(message);
+      },
+      rejectPathFields,
+      assertAllowedFields,
+      requireExpectedHash
+    };
   }
   runtimeProvider() {
     if (this.runtime === void 0) throw new ControlPlaneUnavailableError("runtime provider is not wired");
@@ -31203,72 +31697,6 @@ var ControlPlane = class {
     rows.sort((a, b) => workspaceActivity(b) - workspaceActivity(a) || b.createdAt.localeCompare(a.createdAt));
     sendJson(res, 200, { workspaces: rows.map(publicWorkspace) });
   }
-  async readAgentConfig(url, res) {
-    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
-      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
-    }
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
-    sendJson(res, 200, { workspace: workspace.id, ...await this.agentConfig.inspect(workspace.cwd) });
-  }
-  async readAgent(name, url, res) {
-    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
-      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
-    }
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
-    sendJson(res, 200, { workspace: workspace.id, agent: await this.agentConfig.readAgent(workspace.cwd, name) });
-  }
-  async saveAgent(req, name, res, serverPort) {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ["workspace", "content", "expectedHash"], "agent");
-    if (typeof body.content !== "string") throw new ApiValidationError("content must be a Markdown string");
-    const workspace = await this.resolveWorkspace(body.workspace);
-    const result = await this.agentConfig.saveAgent(workspace.cwd, name, body.content, requireExpectedHash(body));
-    sendJson(res, 200, { workspace: workspace.id, agent: result });
-  }
-  async deleteAgent(req, name, res, serverPort) {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ["workspace", "expectedHash"], "agent");
-    const workspace = await this.resolveWorkspace(body.workspace);
-    sendJson(res, 200, { workspace: workspace.id, agent: await this.agentConfig.deleteAgent(workspace.cwd, name, requireExpectedHash(body)) });
-  }
-  async saveBindings(req, res, serverPort) {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ["workspace", "changes", "expectedHash"], "bindings");
-    if (!Array.isArray(body.changes)) {
-      throw new ApiValidationError("changes must be an array");
-    }
-    const workspace = await this.resolveWorkspace(body.workspace);
-    const result = await this.agentConfig.saveBindings(
-      workspace.cwd,
-      body.changes,
-      requireExpectedHash(body)
-    );
-    sendJson(res, 200, {
-      workspace: workspace.id,
-      bindings: result,
-      hash: result.hash,
-      content: result.content
-    });
-  }
-  async readLocalToml(url, res) {
-    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
-      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
-    }
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
-    sendJson(res, 200, { workspace: workspace.id, localToml: await this.agentConfig.readLocalToml(workspace.cwd) });
-  }
-  async saveLocalToml(req, res, serverPort) {
-    const body = await readJsonBody(req, serverPort);
-    rejectPathFields(body);
-    assertAllowedFields(body, ["workspace", "content", "expectedHash"], "local.toml");
-    if (typeof body.content !== "string") throw new ApiValidationError("content must be a TOML string");
-    const workspace = await this.resolveWorkspace(body.workspace);
-    const result = await this.agentConfig.saveLocalToml(workspace.cwd, body.content, requireExpectedHash(body));
-    sendJson(res, 200, { workspace: workspace.id, localToml: result });
-  }
   async listTips(url, res) {
     const { tips } = this.stores();
     const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
@@ -31293,27 +31721,27 @@ var ControlPlane = class {
     if (tip === void 0) throw new TipNotFoundError(id);
     sendJson(res, 200, tip);
   }
-  async createTip(req, res, serverPort) {
+  async createTip(ctx) {
     const { tips } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
     const workspace = await this.resolveWorkspace(body.workspace);
     const { workspace: _workspace, ...input } = body;
     const tip = await tips.create(input, workspace.cwd);
-    sendJson(res, 200, tip);
+    ctx.sendJson(200, tip);
   }
-  async updateTip(req, id, res, serverPort) {
+  async updateTip(ctx, id) {
     const { tips } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
     const workspace = await this.resolveWorkspace(body.workspace);
     const { workspace: _workspace, ...patch } = body;
     const tip = await tips.update(id, patch, workspace.cwd);
-    sendJson(res, 200, tip);
+    ctx.sendJson(200, tip);
   }
-  async archiveTip(req, id, res, serverPort) {
+  async archiveTip(ctx, id) {
     const { tips } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
     const workspace = await this.resolveWorkspace(body.workspace);
     const actor = body.actor;
@@ -31321,13 +31749,13 @@ var ControlPlane = class {
       throw new ApiValidationError("actor must be a string");
     }
     const tip = await tips.archive(id, workspace.cwd, actor);
-    sendJson(res, 200, tip);
+    ctx.sendJson(200, tip);
   }
-  async mutateBoard(req, res, serverPort) {
+  async mutateBoard(ctx) {
     const { board } = this.stores();
-    const body = await readJsonBody(req, serverPort);
+    const body = await ctx.jsonBody();
     rejectPathFields(body);
-    const method = req.method;
+    const method = ctx.req.method;
     const allowed = /* @__PURE__ */ new Set(["scope", "workspace", "key", "tags", "author", "expectedTs", ...method === "POST" ? ["value"] : []]);
     for (const field of Object.keys(body)) {
       if (!allowed.has(field)) throw new ApiValidationError(`unsupported board field: ${field}`);
@@ -31381,9 +31809,9 @@ var ControlPlane = class {
       return responseEntry;
     }, cwd);
     if (method === "POST") {
-      sendJson(res, 200, { ok: true, entry: responseEntry });
+      ctx.sendJson(200, { ok: true, entry: responseEntry });
     } else {
-      sendJson(res, 200, { ok: true, ts: deletedTs });
+      ctx.sendJson(200, { ok: true, ts: deletedTs });
     }
   }
   async readBoard(url, res) {
@@ -31416,6 +31844,60 @@ var ControlPlane = class {
     });
   }
 };
+
+// src/adapters/mcp.ts
+function statusTool(bus) {
+  return {
+    name: "moa_status",
+    description: "Get the current Bus status: port, mode (own/reuse), active tasks, process info. Use this to discover the Bus port for the debate card URL.",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    },
+    handler: () => ({
+      bus: bus ? { port: bus.actualPort, mode: bus.mode } : void 0,
+      tasks: (bus?.activeTasks() ?? []).filter((taskId) => !taskId.startsWith("@")),
+      control_plane_url: bus ? controlPlaneUrl(bus.actualPort) : void 0,
+      pid: process.pid,
+      uptime_s: Math.round(process.uptime())
+    })
+  };
+}
+function createServer(hub = new DebateHub(), bus, board, tipStore) {
+  const boardStore = board ?? new BoardStore();
+  const tips = tipStore ?? new TipStore(boardStore);
+  bus?.mountControlPlane(boardStore, tips);
+  const modules = [
+    createDebateModule(hub),
+    createBoardModule(boardStore),
+    createTipsModule(tips)
+  ];
+  const tools = [
+    ...modules.flatMap((module) => module.tools ?? []),
+    statusTool(bus)
+  ];
+  const toolByName = new Map(tools.map((tool) => [tool.name, tool]));
+  const server = new Server(
+    { name: "moamcp", version: "0.1.0" },
+    { capabilities: { tools: {} } }
+  );
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
+  }));
+  server.setRequestHandler(CallToolRequestSchema, async (request2) => {
+    const { name, arguments: args } = request2.params;
+    const tool = toolByName.get(name);
+    if (tool === void 0) throw new Error(`unknown tool: ${name}`);
+    const result = await tool.handler(args ?? {});
+    return { content: [{ type: "text", text: JSON.stringify(result === void 0 ? null : result) }] };
+  });
+  return server;
+}
+
+// src/core/bus/bus.ts
+import { createServer as createServer2, get } from "node:http";
+import { writeFile as writeFile2, readFile as readFile4, rm } from "node:fs/promises";
+import { join as join6, resolve as resolve4 } from "node:path";
 
 // src/modules/debate/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
@@ -32853,7 +33335,7 @@ var Bus = class {
       listArchives: () => this.archiveIndex.list(),
       systemInfo: () => this.systemInfo()
     });
-    this.server = createServer((req, res) => void this.handle(req, res).catch(() => {
+    this.server = createServer2((req, res) => void this.handle(req, res).catch(() => {
       if (!res.headersSent) res.writeHead(500);
       res.end();
     }));
@@ -33245,349 +33727,6 @@ function reusePublishForwarder(port) {
     req.end(body);
   };
 }
-var TASK_ID = { type: "string", description: "MOA task id" };
-var AGENT_ID = { type: "string", description: "Debate agent id (must be in preset agents)" };
-var BOARD_SCOPE = {
-  type: "string",
-  description: 'Board scope: "workspace" (default \u2014 persisted, shared by all sessions of this project), "global" (persisted, cross-project), or "task:<task_id>" (debate-local, archived with the task).'
-};
-var BOARD_AUTHOR = {
-  type: "string",
-  description: 'Who writes this entry (default "anonymous"). Subagents should pass their own agent id.'
-};
-var BOARD_WORKSPACE = {
-  type: "string",
-  description: "Optional absolute project path for workspace scope; omitted keeps the server workspaceCwd default."
-};
-var TIP_STATUS = { type: "string", enum: [...PROJECT_TIP_STATUSES] };
-var TIP_WORKSPACE = {
-  type: "string",
-  description: "Absolute project path. Tips never infer a workspace from the MCP process cwd."
-};
-var TIP_DOCUMENT_REF = {
-  type: "object",
-  properties: {
-    path: { type: "string" },
-    section: { type: "string" },
-    note: { type: "string" },
-    contentHash: { type: "string" }
-  },
-  required: ["path"],
-  additionalProperties: false
-};
-var TIP_DOCUMENT_REFS = { type: "array", items: TIP_DOCUMENT_REF };
-var TIP_STRING_ARRAY = { type: "array", items: { type: "string" } };
-var TIP_CREATE_PROPERTIES = {
-  workspace: TIP_WORKSPACE,
-  title: { type: "string" },
-  summary: { type: "string" },
-  status: TIP_STATUS,
-  context: { type: "string" },
-  module: { type: "string" },
-  tags: TIP_STRING_ARRAY,
-  nextAction: { type: "string" },
-  documentRefs: TIP_DOCUMENT_REFS,
-  sourceRefs: TIP_STRING_ARRAY,
-  relatedTipIds: TIP_STRING_ARRAY,
-  relatedProjects: TIP_STRING_ARRAY,
-  sourceSessionId: { type: "string" },
-  author: { type: "string" }
-};
-var TIP_UPDATE_PROPERTIES = {
-  workspace: TIP_WORKSPACE,
-  id: { type: "string" },
-  title: { type: "string" },
-  summary: { type: "string" },
-  status: TIP_STATUS,
-  context: { type: ["string", "null"] },
-  module: { type: ["string", "null"] },
-  tags: { type: ["array", "null"], items: { type: "string" } },
-  nextAction: { type: ["string", "null"] },
-  documentRefs: { type: ["array", "null"], items: TIP_DOCUMENT_REF },
-  sourceRefs: { type: ["array", "null"], items: { type: "string" } },
-  relatedTipIds: { type: ["array", "null"], items: { type: "string" } },
-  relatedProjects: { type: ["array", "null"], items: { type: "string" } },
-  sourceSessionId: { type: ["string", "null"] },
-  actor: { type: "string" }
-};
-var TOOLS = [
-  {
-    name: "moa_init",
-    description: "Initialize task state: agent list + debate params from an inline preset config. Returns {ok, card_url, agents} where agents is the dispatch map [{id, binding_slot?}] - use binding_slot to dispatch each debater with the correct model.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task_id: TASK_ID,
-        preset_config: {
-          type: "object",
-          description: "Inline preset: { agents: (string|{id, binding_slot?, ...})[], debate?: { rounds?: number } }"
-        }
-      },
-      required: ["task_id", "preset_config"]
-    }
-  },
-  {
-    name: "moa_start_debate",
-    description: "Seed the debate state machine {turn:1, round:1, speaker: first agent} with reference results.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        task_id: TASK_ID,
-        reference_results: { description: "Reference Pool results, passed through to agents as context" }
-      },
-      required: ["task_id", "reference_results"]
-    }
-  },
-  {
-    name: "moa_wait_turn",
-    description: `Long-poll until it is this agent's turn. Returns {speaker_id, round, prompt, full_context}, or {status:"debate_complete", transcript}, or {status:"timeout", retry:true} at the safety cap.`,
-    inputSchema: {
-      type: "object",
-      properties: { task_id: TASK_ID, agent_id: AGENT_ID },
-      required: ["task_id", "agent_id"]
-    }
-  },
-  {
-    name: "moa_submit_turn",
-    description: `Submit this agent's turn content. Validates turn order ({error:"not_your_turn"} otherwise), advances to the next speaker. Pass signoff:true to cast an early-close (unanimous signoff) vote; when every agent has signed off the debate closes early ({debate_complete:true, early:true, reason:"unanimous_signoff"}). Any normal (non-signoff) submission counts as dissent and resets accumulated signoffs.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        task_id: TASK_ID,
-        agent_id: AGENT_ID,
-        content: { type: "string", description: "The agent's debate contribution for this turn (the signoff statement when signoff is true)" },
-        signoff: {
-          type: "boolean",
-          description: "True to cast an early-close (unanimous signoff) vote instead of a normal turn; content carries the signoff statement. A normal (non-signoff) submission is a dissent that clears all accumulated signoffs."
-        }
-      },
-      required: ["task_id", "agent_id", "content"]
-    }
-  },
-  {
-    name: "moa_complete",
-    description: 'Write the archive to <logsDir>/{task_id}/ (probe.json, events.jsonl, result.json, plus board.jsonl \u2014 the task-scope blackboard notes; logsDir defaults to ~/.moamcp/logs, MOAMCP_LOGS_DIR overrides), close the task, wake remaining waiters (including board waiters, which get {status:"closed"}).',
-    inputSchema: {
-      type: "object",
-      properties: { task_id: TASK_ID },
-      required: ["task_id"]
-    }
-  },
-  {
-    name: "moa_board_write",
-    description: "Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 32KB \u2014 put large content in files and reference them. Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        key: { type: "string", description: "Entry key (unique within the scope; rewriting replaces the value)" },
-        value: { type: "string", description: "Markdown payload, \u2264 32KB" },
-        tags: { type: "array", items: { type: "string" }, description: "Optional tags for moa_board_read tag filtering" },
-        author: BOARD_AUTHOR,
-        scope: BOARD_SCOPE,
-        workspace: BOARD_WORKSPACE
-      },
-      required: ["key", "value"]
-    }
-  },
-  {
-    name: "moa_board_read",
-    description: "Read live entries from the blackboard (deleted keys never appear). With key: that key's latest entry; with tag: entries carrying the tag; with neither: every key's latest value. Newest first, capped by limit (default 100).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        key: { type: "string" },
-        tag: { type: "string" },
-        scope: BOARD_SCOPE,
-        workspace: BOARD_WORKSPACE,
-        limit: { type: "number", description: "Max entries to return (default 100, hard cap 1000)" }
-      }
-    }
-  },
-  {
-    name: "moa_board_list",
-    description: "Lightweight browse of the blackboard: one row per live key with {key, author, ts, tags, bytes} (no values).",
-    inputSchema: {
-      type: "object",
-      properties: { scope: BOARD_SCOPE, workspace: BOARD_WORKSPACE }
-    }
-  },
-  {
-    name: "moa_board_wait",
-    description: 'Long-poll until key has a value \u2014 or, with since (ISO timestamp), until the entry is strictly newer than it ("wait for the next update"). Returns {status:"ready", entry}, {status:"timeout", retry:true} at the safety cap (default 25min like moa_wait_turn, MOAMCP_WAIT_CAP_MS / timeoutMs tune it), or {status:"closed"} when a task scope is archived while waiting.',
-    inputSchema: {
-      type: "object",
-      properties: {
-        key: { type: "string" },
-        scope: BOARD_SCOPE,
-        workspace: BOARD_WORKSPACE,
-        timeoutMs: { type: "number", description: "Per-call cap override (clamped to the safety cap)" },
-        since: { type: "string", description: "ISO timestamp: wake only on entries strictly newer than it" }
-      },
-      required: ["key"]
-    }
-  },
-  {
-    name: "moa_board_delete",
-    description: "Tombstone-delete a key: it disappears from read/list; the append-only JSONL keeps the deletion record.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        key: { type: "string" },
-        author: BOARD_AUTHOR,
-        scope: BOARD_SCOPE,
-        workspace: BOARD_WORKSPACE
-      },
-      required: ["key"]
-    }
-  },
-  {
-    name: "moa_tip_create",
-    description: "Create a project-level Tip in the explicitly selected workspace.",
-    inputSchema: {
-      type: "object",
-      properties: TIP_CREATE_PROPERTIES,
-      required: ["workspace", "title", "summary"],
-      additionalProperties: false
-    }
-  },
-  {
-    name: "moa_tip_read",
-    description: "Read one complete project Tip, including context when present.",
-    inputSchema: {
-      type: "object",
-      properties: { workspace: TIP_WORKSPACE, id: { type: "string" } },
-      required: ["workspace", "id"],
-      additionalProperties: false
-    }
-  },
-  {
-    name: "moa_tip_list",
-    description: "List lightweight project Tip summaries with status/module/tag filters; archived rows are hidden by default.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        workspace: TIP_WORKSPACE,
-        status: TIP_STATUS,
-        module: { type: "string" },
-        tag: { type: "string" },
-        tags: { type: "array", items: { type: "string" } },
-        includeArchived: { type: "boolean" },
-        limit: { type: "number" }
-      },
-      required: ["workspace"],
-      additionalProperties: false
-    }
-  },
-  {
-    name: "moa_tip_update",
-    description: "Update a Tip atomically; omitted fields remain and nullable optional fields clear their values.",
-    inputSchema: {
-      type: "object",
-      properties: TIP_UPDATE_PROPERTIES,
-      required: ["workspace", "id"],
-      additionalProperties: false
-    }
-  },
-  {
-    name: "moa_tip_archive",
-    description: "Archive a project Tip without changing its other content; actor identifies the updater in BoardEntry.author.",
-    inputSchema: {
-      type: "object",
-      properties: { workspace: TIP_WORKSPACE, id: { type: "string" }, actor: { type: "string" } },
-      required: ["workspace", "id"],
-      additionalProperties: false
-    }
-  },
-  {
-    name: "moa_status",
-    description: "Get the current Bus status: port, mode (own/reuse), active tasks, process info. Use this to discover the Bus port for the debate card URL.",
-    inputSchema: {
-      type: "object",
-      properties: {}
-    }
-  }
-];
-function createServer2(hub = new DebateHub(), bus, board, tipStore) {
-  const boardStore = board ?? new BoardStore();
-  const tips = tipStore ?? new TipStore(boardStore);
-  bus?.mountControlPlane(boardStore, tips);
-  const server = new Server(
-    { name: "moamcp", version: "0.1.0" },
-    { capabilities: { tools: {} } }
-  );
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-  server.setRequestHandler(CallToolRequestSchema, async (request2) => {
-    const { name, arguments: args } = request2.params;
-    const a = args ?? {};
-    let result;
-    switch (name) {
-      case "moa_init":
-        result = hub.init(a.task_id, a.preset_config);
-        break;
-      case "moa_start_debate":
-        result = await hub.startDebate(a.task_id, a.reference_results);
-        break;
-      case "moa_wait_turn":
-        result = await hub.waitTurn(a.task_id, a.agent_id);
-        break;
-      case "moa_submit_turn":
-        result = await hub.submitTurn(a.task_id, a.agent_id, a.content, a.signoff === true);
-        break;
-      case "moa_complete":
-        result = await hub.complete(a.task_id);
-        break;
-      case "moa_board_write":
-        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope, a.workspace);
-        break;
-      case "moa_board_read":
-        result = await boardStore.read(a.key, a.tag, a.scope, a.limit, a.workspace);
-        break;
-      case "moa_board_list":
-        result = await boardStore.list(a.scope, a.workspace);
-        break;
-      case "moa_board_wait":
-        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since, a.workspace);
-        break;
-      case "moa_board_delete":
-        result = await boardStore.delete(a.key, a.author, a.scope, a.workspace);
-        break;
-      case "moa_tip_create": {
-        const { workspace, ...input } = a;
-        result = await tips.create(input, workspace);
-        break;
-      }
-      case "moa_tip_read":
-        result = await tips.read(a.id, a.workspace);
-        break;
-      case "moa_tip_list": {
-        const { workspace, ...filters } = a;
-        result = await tips.list(filters, workspace);
-        break;
-      }
-      case "moa_tip_update": {
-        const { workspace, id, ...patch } = a;
-        result = await tips.update(id, patch, workspace);
-        break;
-      }
-      case "moa_tip_archive":
-        result = await tips.archive(a.id, a.workspace, a.actor);
-        break;
-      case "moa_status":
-        result = {
-          bus: bus ? { port: bus.actualPort, mode: bus.mode } : void 0,
-          tasks: (bus?.activeTasks() ?? []).filter((taskId) => !taskId.startsWith("@")),
-          control_plane_url: bus ? controlPlaneUrl(bus.actualPort) : void 0,
-          pid: process.pid,
-          uptime_s: Math.round(process.uptime())
-        };
-        break;
-      default:
-        throw new Error(`unknown tool: ${name}`);
-    }
-    return { content: [{ type: "text", text: JSON.stringify(result === void 0 ? null : result) }] };
-  });
-  return server;
-}
 async function main() {
   const waitCap = Number(process.env.MOAMCP_WAIT_CAP_MS);
   const busPort = Number(process.env.MOAMCP_BUS_PORT);
@@ -33637,7 +33776,7 @@ async function main() {
     board
   });
   const tips = new TipStore(board);
-  const server = createServer2(hub, bus, board, tips);
+  const server = createServer(hub, bus, board, tips);
   await server.connect(new StdioServerTransport());
   if (startResult.mode === "reuse") {
     console.error(
@@ -33682,7 +33821,7 @@ if (isMain) {
 }
 export {
   cardUrl,
-  createServer2 as createServer
+  createServer
 };
 /*! Bundled license information:
 

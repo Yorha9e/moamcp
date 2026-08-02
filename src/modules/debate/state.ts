@@ -9,8 +9,13 @@ import { join } from 'node:path';
 import type { BoardStore } from '../../core/store/board.js';
 import { moamcpHome } from '../../core/bus/registry.js';
 
-/** Safety cap for a single moa_wait_turn call (design doc §4c.4: 30min client timeout). */
-export const DEFAULT_WAIT_CAP_MS = 25 * 60 * 1000;
+/**
+ * Safety cap for a single moa_wait_turn call (design doc §4c.4: 30min client
+ * timeout). Owned by core (shared with board waits); re-exported here so this
+ * module's public surface stays unchanged.
+ */
+export { DEFAULT_WAIT_CAP_MS } from '../../core/constants.js';
+import { DEFAULT_WAIT_CAP_MS } from '../../core/constants.js';
 
 /**
  * Behavioral contract injected into every wait_turn prompt. Debaters (LLM
