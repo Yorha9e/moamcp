@@ -12,8 +12,8 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { BoardStore, BOARD_VALUE_MAX_BYTES, type BoardEvent, type BoardScope } from '../src/board.js';
-import { DebateHub } from '../src/state.js';
+import { BoardStore, BOARD_VALUE_MAX_BYTES, type BoardEvent, type BoardScope } from '../src/core/store/board.js';
+import { DebateHub } from '../src/modules/debate/state.js';
 import { createServer } from '../src/server.js';
 
 let home: string;

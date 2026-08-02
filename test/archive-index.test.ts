@@ -8,7 +8,7 @@ import {
   ArchiveIndex,
   isValidTaskId,
   type ArchiveIndexFileSystem,
-} from '../src/archive-index.js';
+} from '../src/core/store/archive-index.js';
 
 let home: string;
 let logsDir: string;

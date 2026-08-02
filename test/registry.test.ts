@@ -17,7 +17,7 @@ import {
   pidAliveWith,
   ulid,
   VERSION,
-} from '../src/registry.js';
+} from '../src/core/bus/registry.js';
 
 const CROCKFORD_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 

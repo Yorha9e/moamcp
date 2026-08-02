@@ -33,7 +33,7 @@ import { mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { writeFileAtomic } from './fs-utils.js';
+import { writeFileAtomic } from '../fs-utils.js';
 
 /** moamcp version stamped into every entry (diagnostics for cross-version reuse). */
 export const VERSION: string = (() => {

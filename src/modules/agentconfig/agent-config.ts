@@ -25,7 +25,7 @@ import {
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
-import { type AtomicWriteOptions, writeFileAtomic } from './fs-utils.js';
+import { type AtomicWriteOptions, writeFileAtomic } from '../../core/fs-utils.js';
 
 /** Fixed filename contract for project-local Agent Markdown files. */
 export const AGENT_DIRECTORY_NAME = 'agents';
