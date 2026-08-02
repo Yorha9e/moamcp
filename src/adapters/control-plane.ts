@@ -6,7 +6,7 @@
  * delegates all persistence and validation to BoardStore/TipStore.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { isValidTaskId, type ArchiveIndexEntry } from './archive-index.js';
+import { isValidTaskId, type ArchiveIndexEntry } from '../modules/debate/archive-index.js';
 import {
   AgentConfigBusyError,
   AgentConfigConflictError,
@@ -20,10 +20,10 @@ import {
   type AgentSection,
   type BindingChange,
   type BindingPatch,
-} from './agent-config.js';
-import { BoardStore, type BoardEntry, type WorkspaceInfo } from './board.js';
-import type { RunStatus, RunSummary } from './run-read-model.js';
-import { CONTROL_PLANE_HTML } from './web/control-plane-page.js';
+} from '../modules/agentconfig/agent-config.js';
+import { BoardStore, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
+import type { RunStatus, RunSummary } from '../modules/debate/run-read-model.js';
+import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
 import {
   TipCorruptError,
   TipNotFoundError,
@@ -33,7 +33,7 @@ import {
   type TipCreateInput,
   type TipListOptions,
   type TipUpdateInput,
-} from './tips.js';
+} from '../modules/tips/tips.js';
 
 /** JSON request body cap for browser mutations. */
 export const CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;

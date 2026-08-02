@@ -46,13 +46,13 @@ import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { writeFile, readFile, rm } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { join, resolve } from 'node:path';
-import { ArchiveIndex, isValidTaskId } from './archive-index.js';
-import type { BoardStore } from './board.js';
-import { ControlPlane, checkContentType, checkOrigin, type RuntimeSystemInfo } from './control-plane.js';
+import { ArchiveIndex, isValidTaskId } from '../../modules/debate/archive-index.js';
+import type { BoardStore } from '../store/board.js';
+import { ControlPlane, checkContentType, checkOrigin, type RuntimeSystemInfo } from '../../adapters/control-plane.js';
 import { createRegistry, pidAlive, VERSION, type InstanceRegistration } from './registry.js';
-import { RunReadModel } from './run-read-model.js';
-import type { TipStore } from './tips.js';
-import { DEBATE_CARD_HTML } from './web/debate-card.js';
+import { RunReadModel } from '../../modules/debate/run-read-model.js';
+import type { TipStore } from '../../modules/tips/tips.js';
+import { DEBATE_CARD_HTML } from '../../web/debate-card.js';
 
 /** Maximum consecutive `EADDRINUSE` port+1 retries (mirrors kap-server `PORT_RETRY_LIMIT`). */
 export const PORT_RETRY_LIMIT = 100;

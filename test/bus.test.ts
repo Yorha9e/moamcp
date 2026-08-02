@@ -14,9 +14,9 @@ import vm from 'node:vm';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
-import { DebateHub } from '../src/state.js';
-import { Bus, type BusStartResult } from '../src/bus.js';
-import { createRegistry, type InstanceRegistration } from '../src/registry.js';
+import { DebateHub } from '../src/modules/debate/state.js';
+import { Bus, type BusStartResult } from '../src/core/bus/bus.js';
+import { createRegistry, type InstanceRegistration } from '../src/core/bus/registry.js';
 
 let bus: Bus;
 let port: number;

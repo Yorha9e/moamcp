@@ -13,7 +13,7 @@ import {
   BoardStore,
   type BoardEntry,
   normalizeWorkspacePath,
-} from './board.js';
+} from '../../core/store/board.js';
 
 export const PROJECT_TIP_STATUSES = [
   'captured',

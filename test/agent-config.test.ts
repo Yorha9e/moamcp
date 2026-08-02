@@ -8,7 +8,7 @@ import {
   AGENT_CONFIG_MAX_AGENT_FILES,
   WorkspaceAgentConfigService,
   contentHash,
-} from '../src/agent-config.js';
+} from '../src/modules/agentconfig/agent-config.js';
 
 let home: string;
 let project: string;

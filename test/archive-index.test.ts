@@ -8,7 +8,7 @@ import {
   ArchiveIndex,
   isValidTaskId,
   type ArchiveIndexFileSystem,
-} from '../src/archive-index.js';
+} from '../src/modules/debate/archive-index.js';
 
 let home: string;
 let logsDir: string;

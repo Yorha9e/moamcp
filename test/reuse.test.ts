@@ -21,10 +21,10 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRegistry } from '../src/registry.js';
-import { workspaceIdForPath } from '../src/board.js';
+import { createRegistry } from '../src/core/bus/registry.js';
+import { workspaceIdForPath } from '../src/core/store/board.js';
 import { cardUrl } from '../src/server.js';
-import { DebateHub } from '../src/state.js';
+import { DebateHub } from '../src/modules/debate/state.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 

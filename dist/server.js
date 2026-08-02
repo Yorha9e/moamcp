@@ -22793,17 +22793,17 @@ var StdioServerTransport = class {
 import { request } from "node:http";
 import { pathToFileURL } from "node:url";
 
-// src/state.ts
+// src/modules/debate/state.ts
 import { join as join2 } from "node:path";
 
-// src/registry.ts
+// src/core/bus/registry.ts
 import { randomInt as randomInt2 } from "node:crypto";
 import { mkdir, readdir, readFile, unlink as unlink2 } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// src/fs-utils.ts
+// src/core/fs-utils.ts
 import { open, rename, unlink } from "node:fs/promises";
 import { randomInt } from "node:crypto";
 var RENAME_RETRY_LIMIT = 5;
@@ -22847,7 +22847,7 @@ async function writeFileAtomic(filePath, content, options = {}) {
   }
 }
 
-// src/registry.ts
+// src/core/bus/registry.ts
 var VERSION = (() => {
   try {
     const require2 = createRequire(import.meta.url);
@@ -23024,7 +23024,7 @@ function createRegistry(options = {}) {
   };
 }
 
-// src/state.ts
+// src/modules/debate/state.ts
 var DEFAULT_WAIT_CAP_MS = 25 * 60 * 1e3;
 var SUBMISSION_PROTOCOL = [
   "## \u26A0\uFE0F SUBMISSION PROTOCOL / \u63D0\u4EA4\u534F\u8BAE",
@@ -23352,12 +23352,12 @@ ${SIGNOFF_PROTOCOL}`;
   }
 };
 
-// src/bus.ts
+// src/core/bus/bus.ts
 import { createServer, get } from "node:http";
 import { writeFile as writeFile2, readFile as readFile4, rm } from "node:fs/promises";
 import { join as join6, resolve as resolve4 } from "node:path";
 
-// src/archive-index.ts
+// src/modules/debate/archive-index.ts
 import { constants } from "node:fs";
 import { lstat, open as open2, readdir as readdir2 } from "node:fs/promises";
 import { join as join3 } from "node:path";
@@ -23574,7 +23574,7 @@ var ArchiveIndex = class {
   }
 };
 
-// src/agent-config.ts
+// src/modules/agentconfig/agent-config.ts
 import { createHash } from "node:crypto";
 import {
   lstat as lstat2,
@@ -24268,7 +24268,7 @@ function parse3(toml, { maxDepth = 1e3, integersAsBigInt } = {}) {
   return res;
 }
 
-// src/agent-config.ts
+// src/modules/agentconfig/agent-config.ts
 var import_yaml = __toESM(require_dist2(), 1);
 var AGENT_DIRECTORY_NAME = "agents";
 var KIMI_CONFIG_DIRECTORY_NAME = ".kimi-code";
@@ -29690,11 +29690,11 @@ ${LIB_JS}
 </html>
 `;
 
-// src/tips.ts
+// src/modules/tips/tips.ts
 import { randomUUID } from "node:crypto";
 import { isAbsolute as isAbsolute3 } from "node:path";
 
-// src/board.ts
+// src/core/store/board.ts
 import { createHash as createHash2 } from "node:crypto";
 import { appendFile, mkdir as mkdir3, readFile as readFile3, readdir as readdir4, stat, writeFile } from "node:fs/promises";
 import { isAbsolute as isAbsolute2, join as join5, resolve as resolve2 } from "node:path";
@@ -30443,7 +30443,7 @@ function normalizeLimit(limit) {
   return Math.min(Math.floor(limit), MAX_READ_LIMIT);
 }
 
-// src/tips.ts
+// src/modules/tips/tips.ts
 var PROJECT_TIP_STATUSES = [
   "captured",
   "exploring",
@@ -30800,7 +30800,7 @@ function isProjectTipStatus(value) {
   return typeof value === "string" && PROJECT_TIP_STATUSES.includes(value);
 }
 
-// src/control-plane.ts
+// src/adapters/control-plane.ts
 var CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
 var WORKSPACE_ID = /^[0-9a-f]{16}$/;
 var RUN_STATUSES = /* @__PURE__ */ new Set(["initialized", "debating", "complete", "closed"]);
@@ -31417,7 +31417,7 @@ var ControlPlane = class {
   }
 };
 
-// src/run-read-model.ts
+// src/modules/debate/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
   "task_initialized",
   "debate_started",
@@ -32769,7 +32769,7 @@ ${LIB_JS}
 </html>
 `;
 
-// src/bus.ts
+// src/core/bus/bus.ts
 var PORT_RETRY_LIMIT = 100;
 var PROBE_TIMEOUT_MS = 200;
 var REUSE_WATCH_INTERVAL_MS = 1e4;

@@ -12,11 +12,11 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { request } from 'node:http';
 import { pathToFileURL } from 'node:url';
-import { DebateHub, defaultLogsDir, type DomainEvent, type PresetConfig } from './state.js';
-import { Bus } from './bus.js';
-import { controlPlaneUrl } from './control-plane.js';
-import { BoardStore } from './board.js';
-import { PROJECT_TIP_STATUSES, TipStore, type TipCreateInput, type TipUpdateInput } from './tips.js';
+import { DebateHub, defaultLogsDir, type DomainEvent, type PresetConfig } from './modules/debate/state.js';
+import { Bus } from './core/bus/bus.js';
+import { controlPlaneUrl } from './adapters/control-plane.js';
+import { BoardStore } from './core/store/board.js';
+import { PROJECT_TIP_STATUSES, TipStore, type TipCreateInput, type TipUpdateInput } from './modules/tips/tips.js';
 
 /** Best-effort forward timeout for reuse-mode publishes (design §3.3: no retries). */
 const REUSE_PUBLISH_TIMEOUT_MS = 2000;

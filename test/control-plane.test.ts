@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { WorkspaceAgentConfigService } from '../src/agent-config.js';
-import { BoardStore, workspaceIdForPath } from '../src/board.js';
-import { ControlPlane } from '../src/control-plane.js';
-import { Bus } from '../src/bus.js';
+import { WorkspaceAgentConfigService } from '../src/modules/agentconfig/agent-config.js';
+import { BoardStore, workspaceIdForPath } from '../src/core/store/board.js';
+import { ControlPlane } from '../src/adapters/control-plane.js';
+import { Bus } from '../src/core/bus/bus.js';
 import { createServer } from '../src/server.js';
-import { TipStore } from '../src/tips.js';
+import { TipStore } from '../src/modules/tips/tips.js';
 
 let home: string;
 let workspaceA: string;

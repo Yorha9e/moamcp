@@ -10,8 +10,8 @@ import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
-import { DebateHub } from '../src/state.js';
-import { Bus } from '../src/bus.js';
+import { DebateHub } from '../src/modules/debate/state.js';
+import { Bus } from '../src/core/bus/bus.js';
 
 let client: Client;
 let logsDir: string;

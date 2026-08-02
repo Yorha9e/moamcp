@@ -6,8 +6,8 @@
  * stored as pending promises per task and resolved by submit/complete.
  */
 import { join } from 'node:path';
-import type { BoardStore } from './board.js';
-import { moamcpHome } from './registry.js';
+import type { BoardStore } from '../../core/store/board.js';
+import { moamcpHome } from '../../core/bus/registry.js';
 
 /** Safety cap for a single moa_wait_turn call (design doc §4c.4: 30min client timeout). */
 export const DEFAULT_WAIT_CAP_MS = 25 * 60 * 1000;

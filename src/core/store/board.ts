@@ -35,8 +35,8 @@ import { createHash } from 'node:crypto';
 import { appendFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
-import { moamcpHome } from './registry.js';
-import { DEFAULT_WAIT_CAP_MS } from './state.js';
+import { moamcpHome } from '../bus/registry.js';
+import { DEFAULT_WAIT_CAP_MS } from '../../modules/debate/state.js';
 
 /** Hard cap on a single entry value (markdown payload; larger content belongs in files). */
 export const BOARD_VALUE_MAX_BYTES = 32 * 1024;

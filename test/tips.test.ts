@@ -5,14 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { BoardStore } from '../src/board.js';
+import { BoardStore } from '../src/core/store/board.js';
 import {
   PROJECT_TIP_STATUSES,
   TipCorruptError,
   TipNotFoundError,
   TipStore,
   type ProjectTip,
-} from '../src/tips.js';
+} from '../src/modules/tips/tips.js';
 import { createServer } from '../src/server.js';
 
 let home: string;
