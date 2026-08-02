@@ -14,7 +14,9 @@ import { request } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { DebateHub, defaultLogsDir, type DomainEvent, type PresetConfig } from './state.js';
 import { Bus } from './bus.js';
+import { controlPlaneUrl } from './control-plane.js';
 import { BoardStore } from './board.js';
+import { PROJECT_TIP_STATUSES, TipStore, type TipCreateInput, type TipUpdateInput } from './tips.js';
 
 /** Best-effort forward timeout for reuse-mode publishes (design §3.3: no retries). */
 const REUSE_PUBLISH_TIMEOUT_MS = 2000;
@@ -71,6 +73,62 @@ const BOARD_SCOPE = {
 const BOARD_AUTHOR = {
   type: 'string',
   description: 'Who writes this entry (default "anonymous"). Subagents should pass their own agent id.',
+} as const;
+const BOARD_WORKSPACE = {
+  type: 'string',
+  description: 'Optional absolute project path for workspace scope; omitted keeps the server workspaceCwd default.',
+} as const;
+
+const TIP_STATUS = { type: 'string', enum: [...PROJECT_TIP_STATUSES] } as const;
+const TIP_WORKSPACE = {
+  type: 'string',
+  description: 'Absolute project path. Tips never infer a workspace from the MCP process cwd.',
+} as const;
+const TIP_DOCUMENT_REF = {
+  type: 'object',
+  properties: {
+    path: { type: 'string' },
+    section: { type: 'string' },
+    note: { type: 'string' },
+    contentHash: { type: 'string' },
+  },
+  required: ['path'],
+  additionalProperties: false,
+} as const;
+const TIP_DOCUMENT_REFS = { type: 'array', items: TIP_DOCUMENT_REF } as const;
+const TIP_STRING_ARRAY = { type: 'array', items: { type: 'string' } } as const;
+const TIP_CREATE_PROPERTIES = {
+  workspace: TIP_WORKSPACE,
+  title: { type: 'string' },
+  summary: { type: 'string' },
+  status: TIP_STATUS,
+  context: { type: 'string' },
+  module: { type: 'string' },
+  tags: TIP_STRING_ARRAY,
+  nextAction: { type: 'string' },
+  documentRefs: TIP_DOCUMENT_REFS,
+  sourceRefs: TIP_STRING_ARRAY,
+  relatedTipIds: TIP_STRING_ARRAY,
+  relatedProjects: TIP_STRING_ARRAY,
+  sourceSessionId: { type: 'string' },
+  author: { type: 'string' },
+} as const;
+const TIP_UPDATE_PROPERTIES = {
+  workspace: TIP_WORKSPACE,
+  id: { type: 'string' },
+  title: { type: 'string' },
+  summary: { type: 'string' },
+  status: TIP_STATUS,
+  context: { type: ['string', 'null'] },
+  module: { type: ['string', 'null'] },
+  tags: { type: ['array', 'null'], items: { type: 'string' } },
+  nextAction: { type: ['string', 'null'] },
+  documentRefs: { type: ['array', 'null'], items: TIP_DOCUMENT_REF },
+  sourceRefs: { type: ['array', 'null'], items: { type: 'string' } },
+  relatedTipIds: { type: ['array', 'null'], items: { type: 'string' } },
+  relatedProjects: { type: ['array', 'null'], items: { type: 'string' } },
+  sourceSessionId: { type: ['string', 'null'] },
+  actor: { type: 'string' },
 } as const;
 
 const TOOLS = [
@@ -156,6 +214,7 @@ const TOOLS = [
         tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags for moa_board_read tag filtering' },
         author: BOARD_AUTHOR,
         scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE,
       },
       required: ['key', 'value'],
     },
@@ -171,6 +230,7 @@ const TOOLS = [
         key: { type: 'string' },
         tag: { type: 'string' },
         scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE,
         limit: { type: 'number', description: 'Max entries to return (default 100, hard cap 1000)' },
       },
     },
@@ -180,7 +240,7 @@ const TOOLS = [
     description: 'Lightweight browse of the blackboard: one row per live key with {key, author, ts, tags, bytes} (no values).',
     inputSchema: {
       type: 'object',
-      properties: { scope: BOARD_SCOPE },
+      properties: { scope: BOARD_SCOPE, workspace: BOARD_WORKSPACE },
     },
   },
   {
@@ -194,6 +254,7 @@ const TOOLS = [
       properties: {
         key: { type: 'string' },
         scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE,
         timeoutMs: { type: 'number', description: 'Per-call cap override (clamped to the safety cap)' },
         since: { type: 'string', description: 'ISO timestamp: wake only on entries strictly newer than it' },
       },
@@ -209,8 +270,67 @@ const TOOLS = [
         key: { type: 'string' },
         author: BOARD_AUTHOR,
         scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE,
       },
       required: ['key'],
+    },
+  },
+  {
+    name: 'moa_tip_create',
+    description: 'Create a project-level Tip in the explicitly selected workspace.',
+    inputSchema: {
+      type: 'object',
+      properties: TIP_CREATE_PROPERTIES,
+      required: ['workspace', 'title', 'summary'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'moa_tip_read',
+    description: 'Read one complete project Tip, including context when present.',
+    inputSchema: {
+      type: 'object',
+      properties: { workspace: TIP_WORKSPACE, id: { type: 'string' } },
+      required: ['workspace', 'id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'moa_tip_list',
+    description: 'List lightweight project Tip summaries with status/module/tag filters; archived rows are hidden by default.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace: TIP_WORKSPACE,
+        status: TIP_STATUS,
+        module: { type: 'string' },
+        tag: { type: 'string' },
+        tags: { type: 'array', items: { type: 'string' } },
+        includeArchived: { type: 'boolean' },
+        limit: { type: 'number' },
+      },
+      required: ['workspace'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'moa_tip_update',
+    description: 'Update a Tip atomically; omitted fields remain and nullable optional fields clear their values.',
+    inputSchema: {
+      type: 'object',
+      properties: TIP_UPDATE_PROPERTIES,
+      required: ['workspace', 'id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'moa_tip_archive',
+    description: 'Archive a project Tip without changing its other content; actor identifies the updater in BoardEntry.author.',
+    inputSchema: {
+      type: 'object',
+      properties: { workspace: TIP_WORKSPACE, id: { type: 'string' }, actor: { type: 'string' } },
+      required: ['workspace', 'id'],
+      additionalProperties: false,
     },
   },
   {
@@ -223,8 +343,10 @@ const TOOLS = [
   },
 ];
 
-export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?: BoardStore): Server {
+export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?: BoardStore, tipStore?: TipStore): Server {
   const boardStore = board ?? new BoardStore();
+  const tips = tipStore ?? new TipStore(boardStore);
+  bus?.mountControlPlane(boardStore, tips);
   const server = new Server(
     { name: 'moamcp', version: '0.1.0' },
     { capabilities: { tools: {} } },
@@ -253,24 +375,46 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?
         result = await hub.complete(a.task_id as string);
         break;
       case 'moa_board_write':
-        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope);
+        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope, a.workspace);
         break;
       case 'moa_board_read':
-        result = await boardStore.read(a.key, a.tag, a.scope, a.limit);
+        result = await boardStore.read(a.key, a.tag, a.scope, a.limit, a.workspace);
         break;
       case 'moa_board_list':
-        result = await boardStore.list(a.scope);
+        result = await boardStore.list(a.scope, a.workspace);
         break;
       case 'moa_board_wait':
-        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since);
+        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since, a.workspace);
         break;
       case 'moa_board_delete':
-        result = await boardStore.delete(a.key, a.author, a.scope);
+        result = await boardStore.delete(a.key, a.author, a.scope, a.workspace);
+        break;
+      case 'moa_tip_create': {
+        const { workspace, ...input } = a;
+        result = await tips.create(input as TipCreateInput, workspace as string);
+        break;
+      }
+      case 'moa_tip_read':
+        result = await tips.read(a.id as string, a.workspace as string);
+        break;
+      case 'moa_tip_list': {
+        const { workspace, ...filters } = a;
+        result = await tips.list(filters, workspace as string);
+        break;
+      }
+      case 'moa_tip_update': {
+        const { workspace, id, ...patch } = a;
+        result = await tips.update(id as string, patch as TipUpdateInput, workspace as string);
+        break;
+      }
+      case 'moa_tip_archive':
+        result = await tips.archive(a.id as string, a.workspace as string, a.actor as string | null | undefined);
         break;
       case 'moa_status':
         result = {
           bus: bus ? { port: bus.actualPort, mode: bus.mode } : undefined,
-          tasks: bus?.activeTasks() ?? [],
+          tasks: (bus?.activeTasks() ?? []).filter((taskId) => !taskId.startsWith('@')),
+          control_plane_url: bus ? controlPlaneUrl(bus.actualPort) : undefined,
           pid: process.pid,
           uptime_s: Math.round(process.uptime()),
         };
@@ -278,7 +422,8 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?
       default:
         throw new Error(`unknown tool: ${name}`);
     }
-    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+    // JSON has no undefined value; expose an absent optional result as null over MCP.
+    return { content: [{ type: 'text', text: JSON.stringify(result === undefined ? null : result) }] };
   });
 
   return server;
@@ -347,7 +492,7 @@ async function main(): Promise<void> {
   };
   // Shared blackboard: task-scope events ride the task's SSE stream (card-
   // visible); workspace/global events fan out on a synthetic `@board/<scope>`
-  // bus channel — subscribers can already listen, card panels are future work.
+  // bus channel for Control Plane invalidation (card panels are future work).
   // Routing goes through the mutable `sink`, so a reuse-mode takeover re-points
   // board events (forwarded ↔ local Bus) exactly like debate events.
   const board = new BoardStore({
@@ -362,7 +507,8 @@ async function main(): Promise<void> {
     cardUrlFactory: (taskId) => cardUrl(cardPort, taskId),
     board,
   });
-  const server = createServer(hub, bus, board);
+  const tips = new TipStore(board);
+  const server = createServer(hub, bus, board, tips);
   await server.connect(new StdioServerTransport());
   if (startResult.mode === 'reuse') {
     console.error(

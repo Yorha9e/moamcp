@@ -29,10 +29,11 @@
  * file name to guarantee uniqueness).
  */
 import { randomInt } from 'node:crypto';
-import { mkdir, open, readdir, readFile, rename, unlink } from 'node:fs/promises';
+import { mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { writeFileAtomic } from './fs-utils.js';
 
 /** moamcp version stamped into every entry (diagnostics for cross-version reuse). */
 export const VERSION: string = (() => {
@@ -185,54 +186,6 @@ async function readInstanceFile(filePath: string): Promise<InstanceInfo | undefi
     return decode(await readFile(filePath, 'utf8'));
   } catch {
     return undefined;
-  }
-}
-
-/**
- * Replace-rename with a short retry on Windows: right after a previous write
- * lands, antivirus real-time scanning (Windows Defender) can briefly hold the
- * destination without FILE_SHARE_DELETE, making the overwrite rename fail
- * with EPERM/EACCES. The scan releases the handle quickly, so a few retries
- * with a small backoff ride it out.
- */
-const RENAME_RETRY_LIMIT = 5;
-const RENAME_RETRY_DELAY_MS = 50;
-
-async function renameReplace(tmpPath: string, filePath: string): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      await rename(tmpPath, filePath);
-      return;
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (attempt >= RENAME_RETRY_LIMIT || (code !== 'EPERM' && code !== 'EACCES')) throw err;
-      await new Promise((r) => setTimeout(r, RENAME_RETRY_DELAY_MS * (attempt + 1)));
-    }
-  }
-}
-
-/** Atomic (rename-based) write. Single-writer per file, so no lock is needed. */
-async function writeFileAtomic(filePath: string, content: string): Promise<void> {
-  const tmpPath = `${filePath}.tmp.${process.pid}.${randomInt(0x1_0000_0000).toString(16)}`;
-  let renamed = false;
-  try {
-    const fh = await open(tmpPath, 'w');
-    try {
-      await fh.writeFile(content);
-    } finally {
-      await fh.close();
-    }
-    await renameReplace(tmpPath, filePath);
-    renamed = true;
-  } finally {
-    if (!renamed) {
-      // Write failed: never leave a half-written temp behind.
-      try {
-        await unlink(tmpPath);
-      } catch {
-        // best-effort cleanup
-      }
-    }
   }
 }
 

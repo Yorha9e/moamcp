@@ -6,7 +6,7 @@
  * moa_complete, and the five moa_board_* tools end-to-end over MCP.
  */
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -89,6 +89,37 @@ it('read filters by tag and by key+tag; bare read returns every key latest, capp
   const capped = await b.read(undefined, undefined, 'workspace', 2);
   expect(capped).toHaveLength(2);
   expect(capped[0].key).toBe('api'); // newest first: the api rewrite was the last write
+});
+
+it('read strictly matches exact key, while readNamespace matches key namespace', async () => {
+  const b = store();
+  await b.write('x/', 'x slash', undefined, 'a', 'workspace');
+  await b.write('x/child', 'x child', undefined, 'a', 'workspace');
+  await b.write('x/child/grand', 'x grand', undefined, 'a', 'workspace');
+  await b.write('xyz', 'unrelated xyz', undefined, 'a', 'workspace');
+  await b.write('x_y', 'unrelated x_y', undefined, 'a', 'workspace');
+
+  // Exact read for 'x' when 'x' does not exist -> returns []
+  expect(await b.read('x', undefined, 'workspace')).toEqual([]);
+
+  // Exact read for 'x' after writing exact 'x' -> returns ONLY 'x'
+  await b.write('x', 'exact x', undefined, 'a', 'workspace');
+  const exactX = await b.read('x', undefined, 'workspace');
+  expect(exactX).toHaveLength(1);
+  expect(exactX[0]).toMatchObject({ key: 'x', value: 'exact x' });
+
+  // readNamespace for 'x' and 'x/' matches x, x/, x/child, x/child/grand, but not xyz or x_y
+  const matchX = await b.readNamespace('x', undefined, 'workspace');
+  expect(matchX.map((e) => e.key).sort()).toEqual(['x', 'x/', 'x/child', 'x/child/grand']);
+
+  const matchXSlash = await b.readNamespace('x/', undefined, 'workspace');
+  expect(matchXSlash.map((e) => e.key).sort()).toEqual(['x', 'x/', 'x/child', 'x/child/grand']);
+
+  // Ensure filtering happens before limit: requesting limit 2 with namespace 'x' returns 2 of the x matches, ignoring xyz/x_y
+  const cappedX = await b.readNamespace('x', undefined, 'workspace', 2);
+  expect(cappedX).toHaveLength(2);
+  expect(cappedX.every((e) => e.key.startsWith('x'))).toBe(true);
+  expect(cappedX.some((e) => e.key === 'xyz')).toBe(false);
 });
 
 it('three-level scope isolation: same key, four independent boards', async () => {
@@ -365,4 +396,150 @@ it('the five moa_board_* tools work end-to-end over MCP, default scope workspace
   } finally {
     await client.close();
   }
+});
+
+it('isolates explicit workspace paths and registers an empty workspace on read/list', async () => {
+  const cwdA = join(home, 'project-a');
+  const cwdB = join(home, 'project-b');
+  const emptyCwd = join(home, 'project-empty');
+  const b = store({ cwd: cwdA });
+
+  await b.write('same-key', 'project A', undefined, 'a', 'workspace', cwdA);
+  await b.write('same-key', 'project B', undefined, 'b', 'workspace', cwdB);
+  expect((await b.read('same-key', undefined, 'workspace', undefined, cwdA))[0].value).toBe('project A');
+  expect((await b.read('same-key', undefined, 'workspace', undefined, cwdB))[0].value).toBe('project B');
+
+  expect(await b.read('missing', undefined, 'workspace', undefined, emptyCwd)).toEqual([]);
+  expect(await b.list('workspace', emptyCwd)).toEqual([]);
+  const files = await readdir(join(home, 'boards'));
+  const emptyId = createHash('sha1').update(emptyCwd).digest('hex').slice(0, 16);
+  expect(files).toContain(`ws-${emptyId}.meta.json`);
+});
+
+it('scans workspace sidecars, skips corrupt and mismatched metadata, and resolves ids', async () => {
+  const cwdA = join(home, 'scan-a');
+  const cwdB = join(home, 'scan-b');
+  const b = store();
+  const a = await b.registerWorkspace(cwdA);
+  const other = await b.registerWorkspace(cwdB);
+  const invalidId = '0'.repeat(16);
+  const badCwdId = 'f'.repeat(16);
+
+  await writeFile(join(home, 'boards', `ws-${invalidId}.meta.json`), '{not json');
+  await writeFile(
+    join(home, 'boards', `ws-${badCwdId}.meta.json`),
+    JSON.stringify({ id: badCwdId, cwd: 'relative/project' }),
+  );
+  // The filename hashes cwdA, but the embedded id is for cwdB.
+  await writeFile(
+    join(home, 'boards', `ws-${a.id}.meta.json`),
+    JSON.stringify({ id: other.id, cwd: cwdA }),
+  );
+  // The filename hashes cwdB, but the embedded id is for cwdA.
+  await writeFile(
+    join(home, 'boards', `ws-${other.id}.meta.json`),
+    JSON.stringify({ id: a.id, cwd: cwdB }),
+  );
+
+  expect(await b.listWorkspaces()).toEqual([]);
+
+  const repairedA = await b.registerWorkspace(cwdA);
+  const repairedB = await b.registerWorkspace(cwdB);
+  expect(await b.scanWorkspaces()).toEqual([repairedA, repairedB].sort((x, y) => x.id.localeCompare(y.id)));
+  const repeatedA = await b.registerWorkspace(cwdA);
+  expect(repeatedA.createdAt).toBe(repairedA.createdAt);
+  expect(await b.resolveWorkspace(a.id)).toBe(cwdA);
+  expect(await b.resolveWorkspace(`ws-${other.id}`)).toBe(cwdB);
+  expect(await b.resolveWorkspace('not-a-workspace-id')).toBeUndefined();
+});
+
+it('workspace info preserves createdAt and exposes board activity time', async () => {
+  const cwd = join(home, 'workspace-info');
+  const b = store();
+  const first = await b.registerWorkspace(cwd);
+  const repeated = await b.registerWorkspace(cwd);
+  expect(repeated.createdAt).toBe(first.createdAt);
+  const sidecar = JSON.parse(await readFile(join(home, 'boards', `ws-${first.id}.meta.json`), 'utf8'));
+  expect(sidecar.created_at).toBe(first.createdAt);
+
+  await b.write('activity', 'v', undefined, 'agent', 'workspace', cwd);
+  const listed = (await b.listWorkspaces()).find((workspace) => workspace.id === first.id);
+  expect(listed).toMatchObject({ id: first.id, cwd, createdAt: first.createdAt });
+  expect(listed?.updatedAt).toEqual(expect.any(String));
+});
+
+it('two BoardStore instances refresh each other after peer appends', async () => {
+  const cwd = join(home, 'shared-project');
+  const first = new BoardStore({ homeDir: home, workspaceCwd: cwd });
+  const second = new BoardStore({ homeDir: home, workspaceCwd: cwd });
+
+  await first.write('from-first', 'one', undefined, 'first', 'workspace');
+  expect((await second.read('from-first', undefined, 'workspace'))[0].value).toBe('one');
+  await second.write('from-second', 'two', undefined, 'second', 'workspace');
+  expect((await first.read('from-second', undefined, 'workspace'))[0].value).toBe('two');
+
+  await first.close();
+  await second.close();
+});
+
+it('persistent wait polls peer appends and wakes without a local event', async () => {
+  const cwd = join(home, 'poll-project');
+  const waiting = new BoardStore({ homeDir: home, workspaceCwd: cwd, waitCapMs: 500, pollIntervalMs: 15 });
+  const writer = new BoardStore({ homeDir: home, workspaceCwd: cwd, waitCapMs: 500, pollIntervalMs: 15 });
+
+  const pending = waiting.wait('from-peer', 'workspace', 400);
+  await sleep(35);
+  await writer.write('from-peer', 'external value', undefined, 'peer', 'workspace');
+  expect(await pending).toMatchObject({ status: 'ready', entry: { value: 'external value', author: 'peer' } });
+
+  await waiting.close();
+  await writer.close();
+});
+
+it('keeps one poll timer per scope and cleans it on timeout and close', async () => {
+  const cwd = join(home, 'timer-project');
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwd, waitCapMs: 250, pollIntervalMs: 15 });
+  const internals = b as unknown as {
+    scopes: Map<string, { waiters: Set<unknown>; pollTimer?: unknown }>;
+  };
+
+  expect(await b.wait('times-out', 'workspace', 35)).toEqual({ status: 'timeout', retry: true });
+  const state = [...internals.scopes.values()][0];
+  expect(state.waiters.size).toBe(0);
+  expect(state.pollTimer).toBeUndefined();
+
+  const first = b.wait('first', 'workspace', 200);
+  const second = b.wait('second', 'workspace', 200);
+  await sleep(30);
+  expect(state.waiters.size).toBe(2);
+  const timer = state.pollTimer;
+  expect(timer).toBeDefined();
+
+  await b.write('first', 'ready', undefined, 'writer', 'workspace');
+  expect(await first).toMatchObject({ status: 'ready', entry: { value: 'ready' } });
+  await sleep(5);
+  expect(state.pollTimer).toBe(timer); // the second waiter still owns the one timer
+
+  await b.close();
+  expect(await second).toEqual({ status: 'closed' });
+  expect(state.waiters.size).toBe(0);
+  expect(state.pollTimer).toBeUndefined();
+});
+
+it('mutate callback receives one commit timestamp shared by changed entries', async () => {
+  const cwd = join(home, 'mutate-project');
+  const b = store({ cwd });
+  const commitTs = await b.mutate('workspace', (entries, ts) => {
+    entries.set('alpha', { key: 'alpha', value: 'A', author: 'mutator', ts: 'ignored', tags: ['one'] });
+    entries.set('beta', { key: 'beta', value: 'B', author: 'mutator', ts: 'ignored', tags: ['two'] });
+    return ts;
+  }, cwd);
+
+  const alpha = (await b.read('alpha', undefined, 'workspace', undefined, cwd))[0];
+  const beta = (await b.read('beta', undefined, 'workspace', undefined, cwd))[0];
+  expect(commitTs).toMatch(/Z$/);
+  expect(alpha.ts).toBe(commitTs);
+  expect(beta.ts).toBe(commitTs);
+  const records = (await readFile(wsBoardFile(cwd), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+  expect(new Set(records.map((record) => record.ts))).toEqual(new Set([commitTs]));
 });

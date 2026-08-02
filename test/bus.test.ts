@@ -5,7 +5,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer as createHttpServer, get, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -86,6 +86,11 @@ it('serves the frontend card at GET /', async () => {
   const html = await res.text();
   expect(html).toContain('MOA Debate');
   expect(html).toContain("EventSource('/subscribe?task_id=");
+  // Shared app navigation deep-links to each Control Plane section.
+  expect(html).toContain('href="/control-plane?section=memory"');
+  expect(html).toContain('href="/control-plane?section=runs"');
+  expect(html).toContain('href="/control-plane?section=system"');
+  expect(html).toMatch(/id="debateNav" class="active" aria-current="page"/);
 });
 
 // ---- frontend card DOM stub: run the card's inline <script> headlessly and
@@ -120,14 +125,26 @@ class El {
     return this.children[this.children.length - 1] ?? null;
   }
   get classList() {
+    const self = this;
     return {
       add: (c: string) => {
-        const parts = this.className.split(' ').filter(Boolean);
+        const parts = self.className.split(' ').filter(Boolean);
         if (!parts.includes(c)) parts.push(c);
-        this.className = parts.join(' ');
+        self.className = parts.join(' ');
       },
       remove: (c: string) => {
-        this.className = this.className.split(' ').filter((p) => p && p !== c).join(' ');
+        self.className = self.className.split(' ').filter((p) => p && p !== c).join(' ');
+      },
+      contains: (c: string): boolean => self.className.split(' ').includes(c),
+      toggle: (c: string): boolean => {
+        const parts = self.className.split(' ').filter(Boolean);
+        if (parts.includes(c)) {
+          self.className = parts.filter((p) => p !== c).join(' ');
+          return false;
+        }
+        parts.push(c);
+        self.className = parts.join(' ');
+        return true;
       },
     };
   }
@@ -148,11 +165,31 @@ class El {
     if (i >= 0) this.children.splice(i, 1);
     return c;
   }
+  replaceChildren(...children: El[]): void {
+    for (const c of this.children) c.parent = null;
+    this.children = [];
+    for (const c of children) {
+      c.parent = this;
+      this.children.push(c);
+    }
+  }
+  remove(): void {
+    if (this.parent) this.parent.removeChild(this);
+  }
+  contains(node: El | null): boolean {
+    let cur: El | null = node;
+    while (cur) {
+      if (cur === this) return true;
+      cur = cur.parent;
+    }
+    return false;
+  }
   querySelector(sel: string): El | null {
-    const cls = sel.startsWith('.') ? sel.slice(1) : null;
+    const idSel = sel.startsWith('#') ? sel.slice(1) : null;
+    const cls = !idSel && sel.startsWith('.') ? sel.slice(1) : null;
     const walk = (el: El): El | null => {
       for (const c of el.children) {
-        if (cls ? c.className.split(' ').includes(cls) : c.tag === sel) return c;
+        if (idSel ? c.attrs.id === idSel : cls ? c.className.split(' ').includes(cls) : c.tag === sel) return c;
         const hit = walk(c);
         if (hit) return hit;
       }
@@ -230,7 +267,12 @@ function runCardScript(script: string, taskId: string) {
     byId.get(id)!.hidden = true;
   }
   const docListeners: Record<string, Array<(ev: any) => void>> = {};
+  const bodyEl = new El('body');
+  bodyEl.attrs.id = 'body';
   const document = {
+    body: bodyEl,
+    documentElement: new El('html'),
+    head: new El('head'),
     getElementById: (id: string) => byId.get(id) as El,
     createElement: (tag: string) => new El(tag),
     createTextNode: (text: string) => new El('#text', text),
@@ -238,16 +280,26 @@ function runCardScript(script: string, taskId: string) {
     addEventListener: (type: string, h: (ev: any) => void) => {
       (docListeners[type] ??= []).push(h);
     },
+    removeEventListener: (type: string, h: (ev: any) => void) => {
+      const l = docListeners[type] ?? [];
+      const i = l.indexOf(h);
+      if (i >= 0) l.splice(i, 1);
+    },
   };
   FakeEventSource.instances = [];
   const sandbox: Record<string, unknown> = {
     document,
     location: { search: '?task_id=' + encodeURIComponent(taskId), href: '' },
+    history: { replaceState: () => {} },
     fetch: () => Promise.reject(new Error('stub: offline')), // omkc-status / archive fetches fail clean
     EventSource: FakeEventSource,
     URLSearchParams, AbortController, console,
     setTimeout, clearTimeout, setInterval, clearInterval,
+    confirm: () => true, // auto-confirm (e.g. archive dialogs)
   };
+  // window self-reference: after createContext, sandbox IS the global object,
+  // so window correctly points to it (window.document, window.location, etc.).
+  sandbox.window = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(script, sandbox, { timeout: 5000 });
   const sse = FakeEventSource.instances[0];
@@ -269,9 +321,11 @@ function runCardScript(script: string, taskId: string) {
 it('frontend card: stage pills click through to their section and toggle a detail row', async () => {
   const res = await fetch(`http://127.0.0.1:${port}/`);
   const html = await res.text();
-  const match = html.match(/<script>([\s\S]*?)<\/script>/);
-  expect(match).toBeTruthy();
-  const card = runCardScript(match![1], 'ui-1');
+  // Concatenate all inline <script> blocks (the new v3 page may emit LIB_JS
+  // and page-private JS as separate tags; the old page used a single tag).
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n');
+  expect(scripts.length).toBeGreaterThan(0);
+  const card = runCardScript(scripts, 'ui-1');
   const detail = card.el('stageDetail');
 
   // Bootstrap: stage 0 (共识) active, detail row closed.
@@ -290,7 +344,7 @@ it('frontend card: stage pills click through to their section and toggle a detai
   expect(detail.hidden).toBe(false);
   expect(detail.textContent).toContain('Round 1/2');
   expect(detail.textContent).toContain('a1');
-  expect(detail.textContent).toContain('已提交 0 个 turn');
+  expect(detail.textContent).toContain('0 turns submitted');
   expect(transcript.scrollCalls).toHaveLength(1);
   expect(transcript.className).toContain('flash');
   expect(st2.getAttribute('aria-expanded')).toBe('true');
@@ -300,7 +354,7 @@ it('frontend card: stage pills click through to their section and toggle a detai
 
   // Live refresh: a submitted turn updates the open detail row.
   card.emit({ type: 'turn_submitted', agent_id: 'a1', round: 1, turn: 1, content: 'a1 argues', ts: '2026-07-23T10:00:03.000Z' });
-  expect(detail.textContent).toContain('已提交 1 个 turn');
+  expect(detail.textContent).toContain('1 turns submitted');
 
   // Clicking the same pill again closes the row.
   card.click(st2);
@@ -310,7 +364,7 @@ it('frontend card: stage pills click through to their section and toggle a detai
   // Reference pill: snapshot summary truncated at 500 chars.
   card.click(card.el('st1'));
   expect(detail.hidden).toBe(false);
-  expect(detail.textContent).toContain('reference_results 摘要');
+  expect(detail.textContent).toContain('reference_results summary');
   expect(detail.textContent).toContain('R'.repeat(500));
   expect(detail.textContent).not.toContain('R'.repeat(501));
 
@@ -322,7 +376,7 @@ it('frontend card: stage pills click through to their section and toggle a detai
   card.click(card.el('st0'));
   card.docClick(card.el('st0'));
   expect(detail.hidden).toBe(false);
-  expect(detail.textContent).toContain('任务已初始化');
+  expect(detail.textContent).toContain('Task initialized');
   card.outsideClick();
 
   // Pending stages are clickable too: VERDICT card still hidden → no scroll,
@@ -330,7 +384,7 @@ it('frontend card: stage pills click through to their section and toggle a detai
   const verdict = card.el('verdict');
   card.click(card.el('st4'));
   expect(detail.hidden).toBe(false);
-  expect(detail.textContent).toContain('该阶段尚未开始');
+  expect(detail.textContent).toContain('This stage has not started');
   expect(detail.textContent).toContain('moa_complete');
   expect(verdict.scrollCalls).toHaveLength(0);
   card.outsideClick();
@@ -342,14 +396,14 @@ it('frontend card: stage pills click through to their section and toggle a detai
   const st3 = card.el('st3');
   st3.listeners.keydown?.[0]?.({ key: 'Enter', preventDefault: () => {} });
   expect(detail.hidden).toBe(false);
-  expect(detail.textContent).toContain('归档已写入，裁决已输出');
+  expect(detail.textContent).toContain('Archive written; verdict is available');
   expect(verdict.scrollCalls).toHaveLength(1);
   expect(card.el('st4').getAttribute('aria-expanded')).toBe('false');
 
   // 结论 pill now scrolls to the revealed VERDICT card and quotes the summary
   // (second scroll on the card: Enter on 聚合 already landed there once).
   card.click(card.el('st4'));
-  expect(detail.textContent).toContain('归档已写入 · logs/ui-1');
+  expect(detail.textContent).toContain('Archive written · logs/ui-1');
   expect(verdict.scrollCalls).toHaveLength(2);
   expect(card.el('st4').getAttribute('aria-expanded')).toBe('true');
   expect(st3.getAttribute('aria-expanded')).toBe('false');
@@ -407,6 +461,160 @@ it('POST /publish fans a custom event out to subscribers', async () => {
   expect(sub.events[0]).toMatchObject({ type: 'hub_note', msg: 'hello', task_id: 'bus-2' });
 });
 
+it('projects local and reuse-style POST /publish envelopes through the same Runs API', async () => {
+  const ts = '2026-08-01T10:00:00.000Z';
+  const event = {
+    type: 'task_initialized',
+    ts,
+    task_id: 'spoofed-id',
+    agents: ['Reviewer', 'Builder'],
+    agent_specs: [{ id: 'Reviewer', binding_slot: 'Opus-Slot' }, { id: 'Builder' }],
+    rounds: 3,
+    content: 'must not enter summaries',
+  };
+  bus.publish('local-run', event);
+  const published = await fetch(`http://127.0.0.1:${port}/publish`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ task_id: 'forwarded-run', event }),
+  });
+  expect(published.status).toBe(200);
+
+  const all = await fetch(`http://127.0.0.1:${port}/api/tasks`);
+  expect(all.status).toBe(200);
+  const allBody = await all.json() as { tasks: any[] };
+  const local = allBody.tasks.find((task) => task.taskId === 'local-run');
+  const forwarded = allBody.tasks.find((task) => task.taskId === 'forwarded-run');
+  expect({ ...forwarded, taskId: 'local-run' }).toEqual(local);
+  expect(local).toMatchObject({ status: 'initialized', createdAt: ts, roundsConfigured: 3 });
+  expect(JSON.stringify(local)).not.toContain('must not enter summaries');
+  expect(allBody.tasks.find((task) => task.taskId === 'spoofed-id')).toBeUndefined();
+
+  expect((await (await fetch(`http://127.0.0.1:${port}/api/tasks?status=initialized`)).json() as any)
+    .tasks.map((task: any) => task.taskId)).toEqual(expect.arrayContaining(['local-run', 'forwarded-run']));
+  expect((await (await fetch(`http://127.0.0.1:${port}/api/tasks?query=opus-slot`)).json() as any)
+    .tasks.map((task: any) => task.taskId)).toEqual(expect.arrayContaining(['local-run', 'forwarded-run']));
+  expect((await (await fetch(`http://127.0.0.1:${port}/api/tasks?query=reviewer`)).json() as any)
+    .tasks.map((task: any) => task.taskId)).toEqual(expect.arrayContaining(['local-run', 'forwarded-run']));
+
+  bus.publish('detail & run', { ...event, task_id: 'also-spoofed' });
+  const detail = await fetch(`http://127.0.0.1:${port}/api/tasks/${encodeURIComponent('detail & run')}`);
+  expect(detail.status).toBe(200);
+  expect(await detail.json()).toMatchObject({
+    task: { taskId: 'detail & run' },
+    cardUrl: `http://127.0.0.1:${port}/?task_id=detail%20%26%20run`,
+  });
+
+  expect((await fetch(`http://127.0.0.1:${port}/api/tasks?status=running`)).status).toBe(400);
+  expect((await fetch(`http://127.0.0.1:${port}/api/tasks/missing`)).status).toBe(404);
+  expect((await fetch(`http://127.0.0.1:${port}/api/tasks/bad%2Fid`)).status).toBe(400);
+  expect((await fetch(`http://127.0.0.1:${port}/api/tasks/%ZZ`)).status).toBe(400);
+});
+
+it('publish() retains valid producer ts, falls back to receipt ts for invalid ts, and overrides event.task_id', async () => {
+  const producerTs = '2026-08-05T08:00:00.000Z';
+  bus.publish('valid-ts-run', {
+    type: 'task_initialized',
+    ts: producerTs,
+    task_id: 'fake-id-1',
+    agents: ['Agent1'],
+  });
+
+  const validRun = await (await fetch(`http://127.0.0.1:${port}/api/tasks/valid-ts-run`)).json() as any;
+  expect(validRun.task.createdAt).toBe(producerTs);
+  expect(validRun.task.taskId).toBe('valid-ts-run');
+
+  const beforePublish = Date.now();
+  bus.publish('invalid-ts-run', {
+    type: 'task_initialized',
+    ts: 'not-a-valid-timestamp',
+    task_id: 'fake-id-2',
+    agents: ['Agent2'],
+  });
+  const afterPublish = Date.now();
+
+  const invalidRun = await (await fetch(`http://127.0.0.1:${port}/api/tasks/invalid-ts-run`)).json() as any;
+  expect(invalidRun.task.taskId).toBe('invalid-ts-run');
+  const createdAtMs = Date.parse(invalidRun.task.createdAt);
+  expect(Number.isFinite(createdAtMs)).toBe(true);
+  expect(createdAtMs).toBeGreaterThanOrEqual(beforePublish - 1000);
+  expect(createdAtMs).toBeLessThanOrEqual(afterPublish + 1000);
+
+  expect((await fetch(`http://127.0.0.1:${port}/api/tasks/fake-id-1`)).status).toBe(404);
+  expect((await fetch(`http://127.0.0.1:${port}/api/tasks/fake-id-2`)).status).toBe(404);
+});
+
+it('lists safe archive metadata, isolates degraded entries, and reports an unreadable root as 503', async () => {
+  const healthy = join(logsDir, 'archive-healthy');
+  const damaged = join(logsDir, 'archive-damaged');
+  await mkdir(healthy, { recursive: true });
+  await mkdir(damaged, { recursive: true });
+  await writeFile(join(healthy, 'result.json'), JSON.stringify({
+    status: 'complete', turns: 4, transcript: [{ content: 'private transcript' }],
+  }));
+  await writeFile(join(damaged, 'result.json'), '{bad json');
+
+  const response = await fetch(`http://127.0.0.1:${port}/api/archives`);
+  expect(response.status).toBe(200);
+  const body = await response.json() as { archives: any[] };
+  expect(body.archives.find((entry) => entry.taskId === 'archive-healthy')).toMatchObject({
+    degraded: false,
+    summary: { status: 'complete', turns: 4 },
+  });
+  expect(body.archives.find((entry) => entry.taskId === 'archive-damaged')).toMatchObject({
+    degraded: true,
+    errors: [{ operation: 'parse', file: 'result.json', code: 'INVALID_JSON' }],
+  });
+  expect(JSON.stringify(body)).not.toContain('private transcript');
+
+  const isolatedCwd = await mkdtemp(join(tmpdir(), 'moamcp-archive-unavailable-'));
+  const notDirectory = join(isolatedCwd, 'logs-file');
+  await writeFile(notDirectory, 'not a directory');
+  const isolated = new Bus({ port: 0, cwd: isolatedCwd, logsDir: notDirectory });
+  try {
+    await isolated.start();
+    const unavailable = await fetch(`http://127.0.0.1:${isolated.actualPort}/api/archives`);
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toEqual({ error: 'archive index is unavailable' });
+    const system = await (await fetch(`http://127.0.0.1:${isolated.actualPort}/api/system`)).json() as any;
+    expect(system.archives).toEqual({ available: false, count: null });
+  } finally {
+    await isolated.stop();
+    await rm(isolatedCwd, { recursive: true, force: true });
+  }
+});
+
+it('reports system health without leaking system channels into run or legacy task lists', async () => {
+  bus.publish('@system/private', { type: 'task_initialized', agents: ['secret-agent'] });
+  const subscription = await subscribe('@system/health-watch');
+  const response = await fetch(`http://127.0.0.1:${port}/api/system`);
+  expect(response.status).toBe(200);
+  const system = await response.json() as any;
+  expect(system).toMatchObject({
+    process: {
+      pid: process.pid,
+      instanceId: null,
+      version: expect.any(String),
+      startedAt: expect.any(String),
+      uptimeSeconds: expect.any(Number),
+    },
+    bus: { requestedPort: 0, actualPort: port, mode: 'own' },
+    registry: { listenerEntries: expect.any(Array) },
+    runs: { total: expect.any(Number), live: expect.any(Number), recent: expect.any(Number), recentWindowSeconds: 3600 },
+    sse: { channelCount: expect.any(Number), subscriberCount: expect.any(Number) },
+    archives: { available: true, count: expect.any(Number) },
+    reuseWatch: { intervalMs: 10000, timeoutMs: 1000, failThreshold: 3 },
+  });
+  expect(system.sse.subscriberCount).toBeGreaterThanOrEqual(1);
+  expect(system.runs.total).toBeGreaterThanOrEqual(3);
+  subscription.close();
+
+  const legacy = await (await fetch(`http://127.0.0.1:${port}/tasks`)).json() as { tasks: string[] };
+  expect(legacy.tasks.every((taskId) => !taskId.startsWith('@'))).toBe(true);
+  const runs = await (await fetch(`http://127.0.0.1:${port}/api/tasks`)).json() as { tasks: any[] };
+  expect(runs.tasks.every((task) => !task.taskId.startsWith('@'))).toBe(true);
+});
+
 it('serves archived files at GET /archive after moa_complete', async () => {
   // bus-1 was completed (and archived to {logsDir}/bus-1) in the SSE test above.
   const res = await fetch(`http://127.0.0.1:${port}/archive?task_id=bus-1&file=result.json`);
@@ -420,6 +628,9 @@ it('serves archived files at GET /archive after moa_complete', async () => {
   expect(await jsonl.text()).toContain('"speaker":"a1"');
 
   // Whitelist + traversal guards.
+  await writeFile(join(logsDir, 'result.json'), JSON.stringify({ root: 'secret' }), 'utf8');
+  const dotTask = await fetch(`http://127.0.0.1:${port}/archive?task_id=.&file=result.json`);
+  expect(dotTask.status).toBe(400);
   const badFile = await fetch(`http://127.0.0.1:${port}/archive?task_id=bus-1&file=../../package.json`);
   expect(badFile.status).toBe(400);
   const badTask = await fetch(`http://127.0.0.1:${port}/archive?task_id=..&file=result.json`);
@@ -453,6 +664,30 @@ async function freePort(): Promise<number> {
   const port = await listenOn(probe, 0);
   await new Promise<void>((r) => probe.close(() => r()));
   return port;
+}
+
+/**
+ * Find `count` consecutive free ports (probing each, retrying on collision).
+ * Tests that assert a port+1 walk must not assume base+1 is free: parallel
+ * test files and stray local listeners can hold it, so probe the whole run.
+ */
+async function freePortRun(count: number): Promise<number> {
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const base = await freePort();
+    let ok = true;
+    for (let i = 1; i < count; i++) {
+      const probe = createHttpServer();
+      try {
+        await listenOn(probe, base + i);
+        await new Promise<void>((r) => probe.close(() => r()));
+      } catch {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return base;
+  }
+  throw new Error(`could not find a free run of ${count} ports`);
 }
 
 /** Occupy `count` consecutive ports (re-probing until a free run is found). */
@@ -517,7 +752,7 @@ async function tmpBusDir(): Promise<{ cwd: string; instancesDir: string }> {
 
 describe('port discovery: instance registry + port rules', () => {
   it('yields port+1 past a non-moamcp listener and writes the bound port back', async () => {
-    const base = await freePort();
+    const base = await freePortRun(2);
     const blocker = plainBlocker();
     await listenOn(blocker, base);
     const { cwd, instancesDir } = await tmpBusDir();
@@ -533,6 +768,16 @@ describe('port discovery: instance registry + port rules', () => {
       expect(live[0]).toMatchObject({ pid: process.pid, port: base + 1 });
       // Compat bus.port also records the winner.
       expect(await readFile(join(cwd, 'bus.port'), 'utf8')).toBe(String(base + 1));
+      const system = await (await fetch(`http://127.0.0.1:${port}/api/system`)).json() as any;
+      expect(system.process.instanceId).toBe(live[0].id);
+      expect(system.process.startedAt).toBe(new Date(live[0].startedAt).toISOString());
+      expect(system.registry.listenerEntries).toEqual([{
+        id: live[0].id,
+        pid: process.pid,
+        port: base + 1,
+        startedAt: system.process.startedAt,
+        version: live[0].version,
+      }]);
     } finally {
       await bus.stop();
       await new Promise<void>((r) => blocker.close(() => r()));
@@ -541,7 +786,7 @@ describe('port discovery: instance registry + port rules', () => {
   });
 
   it('excludes its own pid entry from reuse detection', async () => {
-    const base = await freePort();
+    const base = await freePortRun(2);
     // 200 on /tasks: without self-exclusion the probe would pass and wrongly signal reuse.
     const blocker = moamcpLikeBlocker();
     await listenOn(blocker, base);
@@ -559,7 +804,7 @@ describe('port discovery: instance registry + port rules', () => {
   });
 
   it('live entry but failing probe → treated as non-moamcp, port+1 (pid-recycle guard)', async () => {
-    const base = await freePort();
+    const base = await freePortRun(2);
     const blocker = plainBlocker(); // 404 on /tasks
     await listenOn(blocker, base);
     const child = liveChild();
@@ -584,7 +829,7 @@ describe('port discovery: instance registry + port rules', () => {
   });
 
   it('live entry + hanging listener → probe times out (200ms), port+1', async () => {
-    const base = await freePort();
+    const base = await freePortRun(2);
     const blocker = hangingBlocker();
     await listenOn(blocker, base);
     const child = liveChild();

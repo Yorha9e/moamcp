@@ -8,15 +8,20 @@
   },
   "files": [
     "dist",
-    "kimi.plugin.json"
+    "kimi.plugin.json",
+    "agents",
+    "skills",
+    "commands"
   ],
   "scripts": {
-    "build": "tsc --noEmit -p tsconfig.json && esbuild src/server.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server.js",
+    "build": "tsc --noEmit -p tsconfig.json && node build.js",
     "start": "node dist/server.js",
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "smol-toml": "^1.7.1",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

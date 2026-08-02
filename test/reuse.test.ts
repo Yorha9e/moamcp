@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRegistry } from '../src/registry.js';
+import { workspaceIdForPath } from '../src/board.js';
 import { cardUrl } from '../src/server.js';
 import { DebateHub } from '../src/state.js';
 
@@ -294,6 +295,12 @@ beforeAll(() => {
     platform: 'node',
     format: 'esm',
     target: 'node22',
+    banner: {
+      js: "import { createRequire as __cr } from 'node:module'; var require = __cr(import.meta.url);",
+    },
+    alias: {
+      process: 'node:process',
+    },
     outfile: join(root, 'dist', 'server.js'),
   });
 }, 150000);
@@ -358,6 +365,22 @@ describe('reuse mode (two real server processes sharing MOAMCP_HOME)', () => {
     // Instance 1's /tasks sees the forwarded task.
     const tasks = (await (await fetch(`http://127.0.0.1:${port}/tasks`)).json()) as { tasks: string[] };
     expect(tasks.tasks).toContain('reuse-task');
+
+    // The reuser owns no HTTP listener, but its TipStore writes shared sidecars;
+    // the owner Control Plane resolves the selected id rather than its own cwd.
+    const tip = await reuser.rpc.callTool('moa_tip_create', {
+      workspace: reuserCwd,
+      title: 'Tip from reuser',
+      summary: 'shared through the BoardStore sidecar',
+    });
+    expect(tip).toMatchObject({ title: 'Tip from reuser', summary: 'shared through the BoardStore sidecar' });
+    const status = await reuser.rpc.callTool('moa_status', {});
+    expect(status.control_plane_url).toBe(`http://127.0.0.1:${port}/control-plane`);
+    const workspaceId = workspaceIdForPath(reuserCwd);
+    const workspaces = (await (await fetch(`http://127.0.0.1:${port}/api/workspaces`)).json()) as { workspaces: Array<{ id: string; cwd: string }> };
+    expect(workspaces.workspaces).toContainEqual(expect.objectContaining({ id: workspaceId, cwd: reuserCwd }));
+    const ownerView = await (await fetch(`http://127.0.0.1:${port}/api/tips?workspace=${workspaceId}`)).json() as { tips: Array<{ title: string }> };
+    expect(ownerView.tips).toContainEqual(expect.objectContaining({ title: 'Tip from reuser' }));
     sub.close();
   }, 30000);
 

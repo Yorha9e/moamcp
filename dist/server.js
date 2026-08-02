@@ -1,11 +1,18 @@
 #!/usr/bin/env node
+import { createRequire as __cr } from 'node:module'; var require = __cr(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+var __commonJS = (cb, mod) => function __require2() {
   try {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   } catch (e) {
@@ -161,10 +168,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify(x) {
+    function stringify2(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -410,11 +417,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants);
+          this.rhs = optimizeExpr(this.rhs, names, constants2);
         return this;
       }
       get names() {
@@ -431,10 +438,10 @@ var require_codegen = __commonJS({
       render({ _n }) {
         return `${this.lhs} = ${this.rhs};` + _n;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants);
+        this.rhs = optimizeExpr(this.rhs, names, constants2);
         return this;
       }
       get names() {
@@ -495,8 +502,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants) {
-        this.code = optimizeExpr(this.code, names, constants);
+      optimizeNames(names, constants2) {
+        this.code = optimizeExpr(this.code, names, constants2);
         return this;
       }
       get names() {
@@ -525,12 +532,12 @@ var require_codegen = __commonJS({
         }
         return nodes.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         const { nodes } = this;
         let i = nodes.length;
         while (i--) {
           const n = nodes[i];
-          if (n.optimizeNames(names, constants))
+          if (n.optimizeNames(names, constants2))
             continue;
           subtractNames(names, n.names);
           nodes.splice(i, 1);
@@ -583,12 +590,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         var _a3;
-        this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants);
-        if (!(super.optimizeNames(names, constants) || this.else))
+        this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants2);
+        if (!(super.optimizeNames(names, constants2) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants);
+        this.condition = optimizeExpr(this.condition, names, constants2);
         return this;
       }
       get names() {
@@ -611,10 +618,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants) {
-        if (!super.optimizeNames(names, constants))
+      optimizeNames(names, constants2) {
+        if (!super.optimizeNames(names, constants2))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants);
+        this.iteration = optimizeExpr(this.iteration, names, constants2);
         return this;
       }
       get names() {
@@ -650,10 +657,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants) {
-        if (!super.optimizeNames(names, constants))
+      optimizeNames(names, constants2) {
+        if (!super.optimizeNames(names, constants2))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants);
+        this.iterable = optimizeExpr(this.iterable, names, constants2);
         return this;
       }
       get names() {
@@ -695,11 +702,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         var _a3, _b;
-        super.optimizeNames(names, constants);
-        (_a3 = this.catch) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+        super.optimizeNames(names, constants2);
+        (_a3 = this.catch) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants2);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants2);
         return this;
       }
       get names() {
@@ -1000,7 +1007,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants) {
+    function optimizeExpr(expr, names, constants2) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -1015,14 +1022,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n) {
-        const c = constants[n.str];
+        const c = constants2[n.str];
         if (c === void 0 || names[n.str] !== 1)
           return n;
         delete names[n.str];
         return c;
       }
       function canOptimize(e) {
-        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== void 0);
+        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants2[c.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -2984,7 +2991,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root, ref);
+      let _sch = resolve5.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3011,7 +3018,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve3(root, ref) {
+    function resolve5(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3638,21 +3645,21 @@ var require_fast_uri = __commonJS({
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse3(serialize(uri, options), options);
+        parse4(serialize(uri, options), options);
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve5(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-      const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
+      const resolved = resolveComponent(parse4(baseURI, schemelessOptions), parse4(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
     function resolveComponent(base, relative, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse3(serialize(base, options), options);
-        relative = parse3(serialize(relative, options), options);
+        base = parse4(serialize(base, options), options);
+        relative = parse4(serialize(relative, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative.scheme) {
@@ -3881,7 +3888,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed, malformedAuthorityOrPort };
     }
-    function parse3(uri, opts) {
+    function parse4(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -3906,11 +3913,11 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve3,
+      resolve: resolve5,
       resolveComponent,
       equal,
       serialize,
-      parse: parse3
+      parse: parse4
     };
     module.exports = fastUri;
     module.exports.default = fastUri;
@@ -6892,6 +6899,7333 @@ var require_dist = __commonJS({
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = formatsPlugin;
+  }
+});
+
+// node_modules/yaml/dist/nodes/identity.js
+var require_identity = __commonJS({
+  "node_modules/yaml/dist/nodes/identity.js"(exports) {
+    "use strict";
+    var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
+    var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
+    var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
+    var PAIR = /* @__PURE__ */ Symbol.for("yaml.pair");
+    var SCALAR = /* @__PURE__ */ Symbol.for("yaml.scalar");
+    var SEQ = /* @__PURE__ */ Symbol.for("yaml.seq");
+    var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
+    var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
+    var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
+    var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
+    var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
+    var isScalar = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
+    var isSeq = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SEQ;
+    function isCollection(node) {
+      if (node && typeof node === "object")
+        switch (node[NODE_TYPE]) {
+          case MAP:
+          case SEQ:
+            return true;
+        }
+      return false;
+    }
+    function isNode(node) {
+      if (node && typeof node === "object")
+        switch (node[NODE_TYPE]) {
+          case ALIAS:
+          case MAP:
+          case SCALAR:
+          case SEQ:
+            return true;
+        }
+      return false;
+    }
+    var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
+    exports.ALIAS = ALIAS;
+    exports.DOC = DOC;
+    exports.MAP = MAP;
+    exports.NODE_TYPE = NODE_TYPE;
+    exports.PAIR = PAIR;
+    exports.SCALAR = SCALAR;
+    exports.SEQ = SEQ;
+    exports.hasAnchor = hasAnchor;
+    exports.isAlias = isAlias;
+    exports.isCollection = isCollection;
+    exports.isDocument = isDocument;
+    exports.isMap = isMap;
+    exports.isNode = isNode;
+    exports.isPair = isPair;
+    exports.isScalar = isScalar;
+    exports.isSeq = isSeq;
+  }
+});
+
+// node_modules/yaml/dist/visit.js
+var require_visit = __commonJS({
+  "node_modules/yaml/dist/visit.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove node");
+    function visit(node, visitor) {
+      const visitor_ = initVisitor(visitor);
+      if (identity.isDocument(node)) {
+        const cd = visit_(null, node.contents, visitor_, Object.freeze([node]));
+        if (cd === REMOVE)
+          node.contents = null;
+      } else
+        visit_(null, node, visitor_, Object.freeze([]));
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    function visit_(key, node, visitor, path) {
+      const ctrl = callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+        replaceNode(key, path, ctrl);
+        return visit_(key, ctrl, visitor, path);
+      }
+      if (typeof ctrl !== "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            const ci = visit_(i, node.items[i], visitor, path);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              node.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          const ck = visit_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          else if (ck === REMOVE)
+            node.key = null;
+          const cv = visit_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          else if (cv === REMOVE)
+            node.value = null;
+        }
+      }
+      return ctrl;
+    }
+    async function visitAsync(node, visitor) {
+      const visitor_ = initVisitor(visitor);
+      if (identity.isDocument(node)) {
+        const cd = await visitAsync_(null, node.contents, visitor_, Object.freeze([node]));
+        if (cd === REMOVE)
+          node.contents = null;
+      } else
+        await visitAsync_(null, node, visitor_, Object.freeze([]));
+    }
+    visitAsync.BREAK = BREAK;
+    visitAsync.SKIP = SKIP;
+    visitAsync.REMOVE = REMOVE;
+    async function visitAsync_(key, node, visitor, path) {
+      const ctrl = await callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+        replaceNode(key, path, ctrl);
+        return visitAsync_(key, ctrl, visitor, path);
+      }
+      if (typeof ctrl !== "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            const ci = await visitAsync_(i, node.items[i], visitor, path);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              node.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          else if (ck === REMOVE)
+            node.key = null;
+          const cv = await visitAsync_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          else if (cv === REMOVE)
+            node.value = null;
+        }
+      }
+      return ctrl;
+    }
+    function initVisitor(visitor) {
+      if (typeof visitor === "object" && (visitor.Collection || visitor.Node || visitor.Value)) {
+        return Object.assign({
+          Alias: visitor.Node,
+          Map: visitor.Node,
+          Scalar: visitor.Node,
+          Seq: visitor.Node
+        }, visitor.Value && {
+          Map: visitor.Value,
+          Scalar: visitor.Value,
+          Seq: visitor.Value
+        }, visitor.Collection && {
+          Map: visitor.Collection,
+          Seq: visitor.Collection
+        }, visitor);
+      }
+      return visitor;
+    }
+    function callVisitor(key, node, visitor, path) {
+      if (typeof visitor === "function")
+        return visitor(key, node, path);
+      if (identity.isMap(node))
+        return visitor.Map?.(key, node, path);
+      if (identity.isSeq(node))
+        return visitor.Seq?.(key, node, path);
+      if (identity.isPair(node))
+        return visitor.Pair?.(key, node, path);
+      if (identity.isScalar(node))
+        return visitor.Scalar?.(key, node, path);
+      if (identity.isAlias(node))
+        return visitor.Alias?.(key, node, path);
+      return void 0;
+    }
+    function replaceNode(key, path, node) {
+      const parent = path[path.length - 1];
+      if (identity.isCollection(parent)) {
+        parent.items[key] = node;
+      } else if (identity.isPair(parent)) {
+        if (key === "key")
+          parent.key = node;
+        else
+          parent.value = node;
+      } else if (identity.isDocument(parent)) {
+        parent.contents = node;
+      } else {
+        const pt = identity.isAlias(parent) ? "alias" : "scalar";
+        throw new Error(`Cannot replace node with ${pt} parent`);
+      }
+    }
+    exports.visit = visit;
+    exports.visitAsync = visitAsync;
+  }
+});
+
+// node_modules/yaml/dist/doc/directives.js
+var require_directives = __commonJS({
+  "node_modules/yaml/dist/doc/directives.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var visit = require_visit();
+    var escapeChars = {
+      "!": "%21",
+      ",": "%2C",
+      "[": "%5B",
+      "]": "%5D",
+      "{": "%7B",
+      "}": "%7D"
+    };
+    var escapeTagName = (tn) => tn.replace(/[!,[\]{}]/g, (ch) => escapeChars[ch]);
+    var Directives = class _Directives {
+      constructor(yaml, tags) {
+        this.docStart = null;
+        this.docEnd = false;
+        this.yaml = Object.assign({}, _Directives.defaultYaml, yaml);
+        this.tags = Object.assign({}, _Directives.defaultTags, tags);
+      }
+      clone() {
+        const copy = new _Directives(this.yaml, this.tags);
+        copy.docStart = this.docStart;
+        return copy;
+      }
+      /**
+       * During parsing, get a Directives instance for the current document and
+       * update the stream state according to the current version's spec.
+       */
+      atDocument() {
+        const res = new _Directives(this.yaml, this.tags);
+        switch (this.yaml.version) {
+          case "1.1":
+            this.atNextDocument = true;
+            break;
+          case "1.2":
+            this.atNextDocument = false;
+            this.yaml = {
+              explicit: _Directives.defaultYaml.explicit,
+              version: "1.2"
+            };
+            this.tags = Object.assign({}, _Directives.defaultTags);
+            break;
+        }
+        return res;
+      }
+      /**
+       * @param onError - May be called even if the action was successful
+       * @returns `true` on success
+       */
+      add(line, onError) {
+        if (this.atNextDocument) {
+          this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
+          this.tags = Object.assign({}, _Directives.defaultTags);
+          this.atNextDocument = false;
+        }
+        const parts = line.trim().split(/[ \t]+/);
+        const name = parts.shift();
+        switch (name) {
+          case "%TAG": {
+            if (parts.length !== 2) {
+              onError(0, "%TAG directive should contain exactly two parts");
+              if (parts.length < 2)
+                return false;
+            }
+            const [handle, prefix] = parts;
+            this.tags[handle] = prefix;
+            return true;
+          }
+          case "%YAML": {
+            this.yaml.explicit = true;
+            if (parts.length !== 1) {
+              onError(0, "%YAML directive should contain exactly one part");
+              return false;
+            }
+            const [version2] = parts;
+            if (version2 === "1.1" || version2 === "1.2") {
+              this.yaml.version = version2;
+              return true;
+            } else {
+              const isValid = /^\d+\.\d+$/.test(version2);
+              onError(6, `Unsupported YAML version ${version2}`, isValid);
+              return false;
+            }
+          }
+          default:
+            onError(0, `Unknown directive ${name}`, true);
+            return false;
+        }
+      }
+      /**
+       * Resolves a tag, matching handles to those defined in %TAG directives.
+       *
+       * @returns Resolved tag, which may also be the non-specific tag `'!'` or a
+       *   `'!local'` tag, or `null` if unresolvable.
+       */
+      tagName(source, onError) {
+        if (source === "!")
+          return "!";
+        if (source[0] !== "!") {
+          onError(`Not a valid tag: ${source}`);
+          return null;
+        }
+        if (source[1] === "<") {
+          const verbatim = source.slice(2, -1);
+          if (verbatim === "!" || verbatim === "!!") {
+            onError(`Verbatim tags aren't resolved, so ${source} is invalid.`);
+            return null;
+          }
+          if (source[source.length - 1] !== ">")
+            onError("Verbatim tags must end with a >");
+          return verbatim;
+        }
+        const [, handle, suffix] = source.match(/^(.*!)([^!]*)$/s);
+        if (!suffix)
+          onError(`The ${source} tag has no suffix`);
+        const prefix = this.tags[handle];
+        if (prefix) {
+          try {
+            return prefix + decodeURIComponent(suffix);
+          } catch (error2) {
+            onError(String(error2));
+            return null;
+          }
+        }
+        if (handle === "!")
+          return source;
+        onError(`Could not resolve tag: ${source}`);
+        return null;
+      }
+      /**
+       * Given a fully resolved tag, returns its printable string form,
+       * taking into account current tag prefixes and defaults.
+       */
+      tagString(tag) {
+        for (const [handle, prefix] of Object.entries(this.tags)) {
+          if (tag.startsWith(prefix))
+            return handle + escapeTagName(tag.substring(prefix.length));
+        }
+        return tag[0] === "!" ? tag : `!<${tag}>`;
+      }
+      toString(doc) {
+        const lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
+        const tagEntries = Object.entries(this.tags);
+        let tagNames;
+        if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
+          const tags = {};
+          visit.visit(doc.contents, (_key, node) => {
+            if (identity.isNode(node) && node.tag)
+              tags[node.tag] = true;
+          });
+          tagNames = Object.keys(tags);
+        } else
+          tagNames = [];
+        for (const [handle, prefix] of tagEntries) {
+          if (handle === "!!" && prefix === "tag:yaml.org,2002:")
+            continue;
+          if (!doc || tagNames.some((tn) => tn.startsWith(prefix)))
+            lines.push(`%TAG ${handle} ${prefix}`);
+        }
+        return lines.join("\n");
+      }
+    };
+    Directives.defaultYaml = { explicit: false, version: "1.2" };
+    Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
+    exports.Directives = Directives;
+  }
+});
+
+// node_modules/yaml/dist/doc/anchors.js
+var require_anchors = __commonJS({
+  "node_modules/yaml/dist/doc/anchors.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var visit = require_visit();
+    function anchorIsValid(anchor) {
+      if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
+        const sa = JSON.stringify(anchor);
+        const msg = `Anchor must not contain whitespace or control characters: ${sa}`;
+        throw new Error(msg);
+      }
+      return true;
+    }
+    function anchorNames(root) {
+      const anchors = /* @__PURE__ */ new Set();
+      visit.visit(root, {
+        Value(_key, node) {
+          if (node.anchor)
+            anchors.add(node.anchor);
+        }
+      });
+      return anchors;
+    }
+    function findNewAnchor(prefix, exclude) {
+      for (let i = 1; true; ++i) {
+        const name = `${prefix}${i}`;
+        if (!exclude.has(name))
+          return name;
+      }
+    }
+    function createNodeAnchors(doc, prefix) {
+      const aliasObjects = [];
+      const sourceObjects = /* @__PURE__ */ new Map();
+      let prevAnchors = null;
+      return {
+        onAnchor: (source) => {
+          aliasObjects.push(source);
+          prevAnchors ?? (prevAnchors = anchorNames(doc));
+          const anchor = findNewAnchor(prefix, prevAnchors);
+          prevAnchors.add(anchor);
+          return anchor;
+        },
+        /**
+         * With circular references, the source node is only resolved after all
+         * of its child nodes are. This is why anchors are set only after all of
+         * the nodes have been created.
+         */
+        setAnchors: () => {
+          for (const source of aliasObjects) {
+            const ref = sourceObjects.get(source);
+            if (typeof ref === "object" && ref.anchor && (identity.isScalar(ref.node) || identity.isCollection(ref.node))) {
+              ref.node.anchor = ref.anchor;
+            } else {
+              const error2 = new Error("Failed to resolve repeated object (this should not happen)");
+              error2.source = source;
+              throw error2;
+            }
+          }
+        },
+        sourceObjects
+      };
+    }
+    exports.anchorIsValid = anchorIsValid;
+    exports.anchorNames = anchorNames;
+    exports.createNodeAnchors = createNodeAnchors;
+    exports.findNewAnchor = findNewAnchor;
+  }
+});
+
+// node_modules/yaml/dist/doc/applyReviver.js
+var require_applyReviver = __commonJS({
+  "node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+    "use strict";
+    function applyReviver(reviver, obj, key, val) {
+      if (val && typeof val === "object") {
+        if (Array.isArray(val)) {
+          for (let i = 0, len = val.length; i < len; ++i) {
+            const v0 = val[i];
+            const v1 = applyReviver(reviver, val, String(i), v0);
+            if (v1 === void 0)
+              delete val[i];
+            else if (v1 !== v0)
+              val[i] = v1;
+          }
+        } else if (val instanceof Map) {
+          for (const k of Array.from(val.keys())) {
+            const v0 = val.get(k);
+            const v1 = applyReviver(reviver, val, k, v0);
+            if (v1 === void 0)
+              val.delete(k);
+            else if (v1 !== v0)
+              val.set(k, v1);
+          }
+        } else if (val instanceof Set) {
+          for (const v0 of Array.from(val)) {
+            const v1 = applyReviver(reviver, val, v0, v0);
+            if (v1 === void 0)
+              val.delete(v0);
+            else if (v1 !== v0) {
+              val.delete(v0);
+              val.add(v1);
+            }
+          }
+        } else {
+          for (const [k, v0] of Object.entries(val)) {
+            const v1 = applyReviver(reviver, val, k, v0);
+            if (v1 === void 0)
+              delete val[k];
+            else if (v1 !== v0)
+              val[k] = v1;
+          }
+        }
+      }
+      return reviver.call(obj, key, val);
+    }
+    exports.applyReviver = applyReviver;
+  }
+});
+
+// node_modules/yaml/dist/nodes/toJS.js
+var require_toJS = __commonJS({
+  "node_modules/yaml/dist/nodes/toJS.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function toJS(value, arg, ctx) {
+      if (Array.isArray(value))
+        return value.map((v, i) => toJS(v, String(i), ctx));
+      if (value && typeof value.toJSON === "function") {
+        if (!ctx || !identity.hasAnchor(value))
+          return value.toJSON(arg, ctx);
+        const data = { aliasCount: 0, count: 1, res: void 0 };
+        ctx.anchors.set(value, data);
+        ctx.onCreate = (res2) => {
+          data.res = res2;
+          delete ctx.onCreate;
+        };
+        const res = value.toJSON(arg, ctx);
+        if (ctx.onCreate)
+          ctx.onCreate(res);
+        return res;
+      }
+      if (typeof value === "bigint" && !ctx?.keep)
+        return Number(value);
+      return value;
+    }
+    exports.toJS = toJS;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Node.js
+var require_Node = __commonJS({
+  "node_modules/yaml/dist/nodes/Node.js"(exports) {
+    "use strict";
+    var applyReviver = require_applyReviver();
+    var identity = require_identity();
+    var toJS = require_toJS();
+    var NodeBase = class {
+      constructor(type) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: type });
+      }
+      /** Create a copy of this node.  */
+      clone() {
+        const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /** A plain JavaScript representation of this node. */
+      toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        if (!identity.isDocument(doc))
+          throw new TypeError("A document argument is required");
+        const ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc,
+          keep: true,
+          mapAsMap: mapAsMap === true,
+          mapKeyWarned: false,
+          maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+        };
+        const res = toJS.toJS(this, "", ctx);
+        if (typeof onAnchor === "function")
+          for (const { count, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count);
+        return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+    };
+    exports.NodeBase = NodeBase;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Alias.js
+var require_Alias = __commonJS({
+  "node_modules/yaml/dist/nodes/Alias.js"(exports) {
+    "use strict";
+    var anchors = require_anchors();
+    var visit = require_visit();
+    var identity = require_identity();
+    var Node = require_Node();
+    var toJS = require_toJS();
+    var Alias = class extends Node.NodeBase {
+      constructor(source) {
+        super(identity.ALIAS);
+        this.source = source;
+        Object.defineProperty(this, "tag", {
+          set() {
+            throw new Error("Alias nodes cannot have tags");
+          }
+        });
+      }
+      /**
+       * Resolve the value of this alias within `doc`, finding the last
+       * instance of the `source` anchor before this node.
+       */
+      resolve(doc, ctx) {
+        if (ctx?.maxAliasCount === 0)
+          throw new ReferenceError("Alias resolution is disabled");
+        let nodes;
+        if (ctx?.aliasResolveCache) {
+          nodes = ctx.aliasResolveCache;
+        } else {
+          nodes = [];
+          visit.visit(doc, {
+            Node: (_key, node) => {
+              if (identity.isAlias(node) || identity.hasAnchor(node))
+                nodes.push(node);
+            }
+          });
+          if (ctx)
+            ctx.aliasResolveCache = nodes;
+        }
+        let found = void 0;
+        for (const node of nodes) {
+          if (node === this)
+            break;
+          if (node.anchor === this.source)
+            found = node;
+        }
+        return found;
+      }
+      toJSON(_arg, ctx) {
+        if (!ctx)
+          return { source: this.source };
+        const { anchors: anchors2, doc, maxAliasCount } = ctx;
+        const source = this.resolve(doc, ctx);
+        if (!source) {
+          const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+          throw new ReferenceError(msg);
+        }
+        let data = anchors2.get(source);
+        if (!data) {
+          toJS.toJS(source, null, ctx);
+          data = anchors2.get(source);
+        }
+        if (data?.res === void 0) {
+          const msg = "This should not happen: Alias anchor was not resolved?";
+          throw new ReferenceError(msg);
+        }
+        if (maxAliasCount >= 0) {
+          data.count += 1;
+          if (data.aliasCount === 0)
+            data.aliasCount = getAliasCount(doc, source, anchors2);
+          if (data.count * data.aliasCount > maxAliasCount) {
+            const msg = "Excessive alias count indicates a resource exhaustion attack";
+            throw new ReferenceError(msg);
+          }
+        }
+        return data.res;
+      }
+      toString(ctx, _onComment, _onChompKeep) {
+        const src = `*${this.source}`;
+        if (ctx) {
+          anchors.anchorIsValid(this.source);
+          if (ctx.options.verifyAliasOrder && !ctx.anchors.has(this.source)) {
+            const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+            throw new Error(msg);
+          }
+          if (ctx.implicitKey)
+            return `${src} `;
+        }
+        return src;
+      }
+    };
+    function getAliasCount(doc, node, anchors2) {
+      if (identity.isAlias(node)) {
+        const source = node.resolve(doc);
+        const anchor = anchors2 && source && anchors2.get(source);
+        return anchor ? anchor.count * anchor.aliasCount : 0;
+      } else if (identity.isCollection(node)) {
+        let count = 0;
+        for (const item of node.items) {
+          const c = getAliasCount(doc, item, anchors2);
+          if (c > count)
+            count = c;
+        }
+        return count;
+      } else if (identity.isPair(node)) {
+        const kc = getAliasCount(doc, node.key, anchors2);
+        const vc = getAliasCount(doc, node.value, anchors2);
+        return Math.max(kc, vc);
+      }
+      return 1;
+    }
+    exports.Alias = Alias;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Scalar.js
+var require_Scalar = __commonJS({
+  "node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Node = require_Node();
+    var toJS = require_toJS();
+    var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
+    var Scalar = class extends Node.NodeBase {
+      constructor(value) {
+        super(identity.SCALAR);
+        this.value = value;
+      }
+      toJSON(arg, ctx) {
+        return ctx?.keep ? this.value : toJS.toJS(this.value, arg, ctx);
+      }
+      toString() {
+        return String(this.value);
+      }
+    };
+    Scalar.BLOCK_FOLDED = "BLOCK_FOLDED";
+    Scalar.BLOCK_LITERAL = "BLOCK_LITERAL";
+    Scalar.PLAIN = "PLAIN";
+    Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
+    Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
+    exports.Scalar = Scalar;
+    exports.isScalarValue = isScalarValue;
+  }
+});
+
+// node_modules/yaml/dist/doc/createNode.js
+var require_createNode = __commonJS({
+  "node_modules/yaml/dist/doc/createNode.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var defaultTagPrefix = "tag:yaml.org,2002:";
+    function findTagObject(value, tagName, tags) {
+      if (tagName) {
+        const match = tags.filter((t) => t.tag === tagName);
+        const tagObj = match.find((t) => !t.format) ?? match[0];
+        if (!tagObj)
+          throw new Error(`Tag ${tagName} not found`);
+        return tagObj;
+      }
+      return tags.find((t) => t.identify?.(value) && !t.format);
+    }
+    function createNode(value, tagName, ctx) {
+      if (identity.isDocument(value))
+        value = value.contents;
+      if (identity.isNode(value))
+        return value;
+      if (identity.isPair(value)) {
+        const map = ctx.schema[identity.MAP].createNode?.(ctx.schema, null, ctx);
+        map.items.push(value);
+        return map;
+      }
+      if (value instanceof String || value instanceof Number || value instanceof Boolean || typeof BigInt !== "undefined" && value instanceof BigInt) {
+        value = value.valueOf();
+      }
+      const { aliasDuplicateObjects, onAnchor, onTagObj, schema, sourceObjects } = ctx;
+      let ref = void 0;
+      if (aliasDuplicateObjects && value && typeof value === "object") {
+        ref = sourceObjects.get(value);
+        if (ref) {
+          ref.anchor ?? (ref.anchor = onAnchor(value));
+          return new Alias.Alias(ref.anchor);
+        } else {
+          ref = { anchor: null, node: null };
+          sourceObjects.set(value, ref);
+        }
+      }
+      if (tagName?.startsWith("!!"))
+        tagName = defaultTagPrefix + tagName.slice(2);
+      let tagObj = findTagObject(value, tagName, schema.tags);
+      if (!tagObj) {
+        if (value && typeof value.toJSON === "function") {
+          value = value.toJSON();
+        }
+        if (!value || typeof value !== "object") {
+          const node2 = new Scalar.Scalar(value);
+          if (ref)
+            ref.node = node2;
+          return node2;
+        }
+        tagObj = value instanceof Map ? schema[identity.MAP] : Symbol.iterator in Object(value) ? schema[identity.SEQ] : schema[identity.MAP];
+      }
+      if (onTagObj) {
+        onTagObj(tagObj);
+        delete ctx.onTagObj;
+      }
+      const node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : typeof tagObj?.nodeClass?.from === "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar.Scalar(value);
+      if (tagName)
+        node.tag = tagName;
+      else if (!tagObj.default)
+        node.tag = tagObj.tag;
+      if (ref)
+        ref.node = node;
+      return node;
+    }
+    exports.createNode = createNode;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Collection.js
+var require_Collection = __commonJS({
+  "node_modules/yaml/dist/nodes/Collection.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var identity = require_identity();
+    var Node = require_Node();
+    function collectionFromPath(schema, path, value) {
+      let v = value;
+      for (let i = path.length - 1; i >= 0; --i) {
+        const k = path[i];
+        if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
+          const a = [];
+          a[k] = v;
+          v = a;
+        } else {
+          v = /* @__PURE__ */ new Map([[k, v]]);
+        }
+      }
+      return createNode.createNode(v, void 0, {
+        aliasDuplicateObjects: false,
+        keepUndefined: false,
+        onAnchor: () => {
+          throw new Error("This should not happen, please report a bug.");
+        },
+        schema,
+        sourceObjects: /* @__PURE__ */ new Map()
+      });
+    }
+    var isEmptyPath = (path) => path == null || typeof path === "object" && !!path[Symbol.iterator]().next().done;
+    var Collection = class extends Node.NodeBase {
+      constructor(type, schema) {
+        super(type);
+        Object.defineProperty(this, "schema", {
+          value: schema,
+          configurable: true,
+          enumerable: false,
+          writable: true
+        });
+      }
+      /**
+       * Create a copy of this collection.
+       *
+       * @param schema - If defined, overwrites the original's schema
+       */
+      clone(schema) {
+        const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        if (schema)
+          copy.schema = schema;
+        copy.items = copy.items.map((it) => identity.isNode(it) || identity.isPair(it) ? it.clone(schema) : it);
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /**
+       * Adds a value to the collection. For `!!map` and `!!omap` the value must
+       * be a Pair instance or a `{ key, value }` object, which may not have a key
+       * that already exists in the map.
+       */
+      addIn(path, value) {
+        if (isEmptyPath(path))
+          this.add(value);
+        else {
+          const [key, ...rest] = path;
+          const node = this.get(key, true);
+          if (identity.isCollection(node))
+            node.addIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        }
+      }
+      /**
+       * Removes a value from the collection.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        const [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.delete(key);
+        const node = this.get(key, true);
+        if (identity.isCollection(node))
+          return node.deleteIn(rest);
+        else
+          throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        const [key, ...rest] = path;
+        const node = this.get(key, true);
+        if (rest.length === 0)
+          return !keepScalar && identity.isScalar(node) ? node.value : node;
+        else
+          return identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
+      }
+      hasAllNullValues(allowScalar) {
+        return this.items.every((node) => {
+          if (!identity.isPair(node))
+            return false;
+          const n = node.value;
+          return n == null || allowScalar && identity.isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
+        });
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       */
+      hasIn(path) {
+        const [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.has(key);
+        const node = this.get(key, true);
+        return identity.isCollection(node) ? node.hasIn(rest) : false;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        const [key, ...rest] = path;
+        if (rest.length === 0) {
+          this.set(key, value);
+        } else {
+          const node = this.get(key, true);
+          if (identity.isCollection(node))
+            node.setIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        }
+      }
+    };
+    exports.Collection = Collection;
+    exports.collectionFromPath = collectionFromPath;
+    exports.isEmptyPath = isEmptyPath;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyComment.js
+var require_stringifyComment = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+    "use strict";
+    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
+    function indentComment(comment, indent) {
+      if (/^\n+$/.test(comment))
+        return comment.substring(1);
+      return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
+    }
+    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
+    exports.indentComment = indentComment;
+    exports.lineComment = lineComment;
+    exports.stringifyComment = stringifyComment;
+  }
+});
+
+// node_modules/yaml/dist/stringify/foldFlowLines.js
+var require_foldFlowLines = __commonJS({
+  "node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+    "use strict";
+    var FOLD_FLOW = "flow";
+    var FOLD_BLOCK = "block";
+    var FOLD_QUOTED = "quoted";
+    function foldFlowLines(text, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+      if (!lineWidth || lineWidth < 0)
+        return text;
+      if (lineWidth < minContentWidth)
+        minContentWidth = 0;
+      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
+      if (text.length <= endStep)
+        return text;
+      const folds = [];
+      const escapedFolds = {};
+      let end = lineWidth - indent.length;
+      if (typeof indentAtStart === "number") {
+        if (indentAtStart > lineWidth - Math.max(2, minContentWidth))
+          folds.push(0);
+        else
+          end = lineWidth - indentAtStart;
+      }
+      let split = void 0;
+      let prev = void 0;
+      let overflow = false;
+      let i = -1;
+      let escStart = -1;
+      let escEnd = -1;
+      if (mode === FOLD_BLOCK) {
+        i = consumeMoreIndentedLines(text, i, indent.length);
+        if (i !== -1)
+          end = i + endStep;
+      }
+      for (let ch; ch = text[i += 1]; ) {
+        if (mode === FOLD_QUOTED && ch === "\\") {
+          escStart = i;
+          switch (text[i + 1]) {
+            case "x":
+              i += 3;
+              break;
+            case "u":
+              i += 5;
+              break;
+            case "U":
+              i += 9;
+              break;
+            default:
+              i += 1;
+          }
+          escEnd = i;
+        }
+        if (ch === "\n") {
+          if (mode === FOLD_BLOCK)
+            i = consumeMoreIndentedLines(text, i, indent.length);
+          end = i + indent.length + endStep;
+          split = void 0;
+        } else {
+          if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
+            const next = text[i + 1];
+            if (next && next !== " " && next !== "\n" && next !== "	")
+              split = i;
+          }
+          if (i >= end) {
+            if (split) {
+              folds.push(split);
+              end = split + endStep;
+              split = void 0;
+            } else if (mode === FOLD_QUOTED) {
+              while (prev === " " || prev === "	") {
+                prev = ch;
+                ch = text[i += 1];
+                overflow = true;
+              }
+              const j = i > escEnd + 1 ? i - 2 : escStart - 1;
+              if (escapedFolds[j])
+                return text;
+              folds.push(j);
+              escapedFolds[j] = true;
+              end = j + endStep;
+              split = void 0;
+            } else {
+              overflow = true;
+            }
+          }
+        }
+        prev = ch;
+      }
+      if (overflow && onOverflow)
+        onOverflow();
+      if (folds.length === 0)
+        return text;
+      if (onFold)
+        onFold();
+      let res = text.slice(0, folds[0]);
+      for (let i2 = 0; i2 < folds.length; ++i2) {
+        const fold = folds[i2];
+        const end2 = folds[i2 + 1] || text.length;
+        if (fold === 0)
+          res = `
+${indent}${text.slice(0, end2)}`;
+        else {
+          if (mode === FOLD_QUOTED && escapedFolds[fold])
+            res += `${text[fold]}\\`;
+          res += `
+${indent}${text.slice(fold + 1, end2)}`;
+        }
+      }
+      return res;
+    }
+    function consumeMoreIndentedLines(text, i, indent) {
+      let end = i;
+      let start = i + 1;
+      let ch = text[start];
+      while (ch === " " || ch === "	") {
+        if (i < start + indent) {
+          ch = text[++i];
+        } else {
+          do {
+            ch = text[++i];
+          } while (ch && ch !== "\n");
+          end = i;
+          start = i + 1;
+          ch = text[start];
+        }
+      }
+      return end;
+    }
+    exports.FOLD_BLOCK = FOLD_BLOCK;
+    exports.FOLD_FLOW = FOLD_FLOW;
+    exports.FOLD_QUOTED = FOLD_QUOTED;
+    exports.foldFlowLines = foldFlowLines;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyString.js
+var require_stringifyString = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var foldFlowLines = require_foldFlowLines();
+    var getFoldOptions = (ctx, isBlock) => ({
+      indentAtStart: isBlock ? ctx.indent.length : ctx.indentAtStart,
+      lineWidth: ctx.options.lineWidth,
+      minContentWidth: ctx.options.minContentWidth
+    });
+    var containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
+    function lineLengthOverLimit(str, lineWidth, indentLength) {
+      if (!lineWidth || lineWidth < 0)
+        return false;
+      const limit = lineWidth - indentLength;
+      const strLen = str.length;
+      if (strLen <= limit)
+        return false;
+      for (let i = 0, start = 0; i < strLen; ++i) {
+        if (str[i] === "\n") {
+          if (i - start > limit)
+            return true;
+          start = i + 1;
+          if (strLen - start <= limit)
+            return false;
+        }
+      }
+      return true;
+    }
+    function doubleQuotedString(value, ctx) {
+      const json = JSON.stringify(value);
+      if (ctx.options.doubleQuotedAsJSON)
+        return json;
+      const { implicitKey } = ctx;
+      const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      let str = "";
+      let start = 0;
+      for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
+        if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n") {
+          str += json.slice(start, i) + "\\ ";
+          i += 1;
+          start = i;
+          ch = "\\";
+        }
+        if (ch === "\\")
+          switch (json[i + 1]) {
+            case "u":
+              {
+                str += json.slice(start, i);
+                const code = json.substr(i + 2, 4);
+                switch (code) {
+                  case "0000":
+                    str += "\\0";
+                    break;
+                  case "0007":
+                    str += "\\a";
+                    break;
+                  case "000b":
+                    str += "\\v";
+                    break;
+                  case "001b":
+                    str += "\\e";
+                    break;
+                  case "0085":
+                    str += "\\N";
+                    break;
+                  case "00a0":
+                    str += "\\_";
+                    break;
+                  case "2028":
+                    str += "\\L";
+                    break;
+                  case "2029":
+                    str += "\\P";
+                    break;
+                  default:
+                    if (code.substr(0, 2) === "00")
+                      str += "\\x" + code.substr(2);
+                    else
+                      str += json.substr(i, 6);
+                }
+                i += 5;
+                start = i + 1;
+              }
+              break;
+            case "n":
+              if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength) {
+                i += 1;
+              } else {
+                str += json.slice(start, i) + "\n\n";
+                while (json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"') {
+                  str += "\n";
+                  i += 2;
+                }
+                str += indent;
+                if (json[i + 2] === " ")
+                  str += "\\";
+                i += 1;
+                start = i + 1;
+              }
+              break;
+            default:
+              i += 1;
+          }
+      }
+      str = start ? str + json.slice(start) : json;
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+    }
+    function singleQuotedString(value, ctx) {
+      if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
+        return doubleQuotedString(value, ctx);
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
+${indent}`) + "'";
+      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+    }
+    function quotedString(value, ctx) {
+      const { singleQuote } = ctx.options;
+      let qs;
+      if (singleQuote === false)
+        qs = doubleQuotedString;
+      else {
+        const hasDouble = value.includes('"');
+        const hasSingle = value.includes("'");
+        if (hasDouble && !hasSingle)
+          qs = singleQuotedString;
+        else if (hasSingle && !hasDouble)
+          qs = doubleQuotedString;
+        else
+          qs = singleQuote ? singleQuotedString : doubleQuotedString;
+      }
+      return qs(value, ctx);
+    }
+    var blockEndNewlines;
+    try {
+      blockEndNewlines = new RegExp("(^|(?<!\n))\n+(?!\n|$)", "g");
+    } catch {
+      blockEndNewlines = /\n+(?!\n|$)/g;
+    }
+    function blockString({ comment, type, value }, ctx, onComment, onChompKeep) {
+      const { blockQuote, commentString, lineWidth } = ctx.options;
+      if (!blockQuote || /\n[\t ]+$/.test(value)) {
+        return quotedString(value, ctx);
+      }
+      const indent = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
+      const literal2 = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent.length);
+      if (!value)
+        return literal2 ? "|\n" : ">\n";
+      let chomp;
+      let endStart;
+      for (endStart = value.length; endStart > 0; --endStart) {
+        const ch = value[endStart - 1];
+        if (ch !== "\n" && ch !== "	" && ch !== " ")
+          break;
+      }
+      let end = value.substring(endStart);
+      const endNlPos = end.indexOf("\n");
+      if (endNlPos === -1) {
+        chomp = "-";
+      } else if (value === end || endNlPos !== end.length - 1) {
+        chomp = "+";
+        if (onChompKeep)
+          onChompKeep();
+      } else {
+        chomp = "";
+      }
+      if (end) {
+        value = value.slice(0, -end.length);
+        if (end[end.length - 1] === "\n")
+          end = end.slice(0, -1);
+        end = end.replace(blockEndNewlines, `$&${indent}`);
+      }
+      let startWithSpace = false;
+      let startEnd;
+      let startNlPos = -1;
+      for (startEnd = 0; startEnd < value.length; ++startEnd) {
+        const ch = value[startEnd];
+        if (ch === " ")
+          startWithSpace = true;
+        else if (ch === "\n")
+          startNlPos = startEnd;
+        else
+          break;
+      }
+      let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
+      if (start) {
+        value = value.substring(start.length);
+        start = start.replace(/\n+/g, `$&${indent}`);
+      }
+      const indentSize = indent ? "2" : "1";
+      let header = (startWithSpace ? indentSize : "") + chomp;
+      if (comment) {
+        header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
+        if (onComment)
+          onComment();
+      }
+      if (!literal2) {
+        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent}`);
+        let literalFallback = false;
+        const foldOptions = getFoldOptions(ctx, true);
+        if (blockQuote !== "folded" && type !== Scalar.Scalar.BLOCK_FOLDED) {
+          foldOptions.onOverflow = () => {
+            literalFallback = true;
+          };
+        }
+        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
+        if (!literalFallback)
+          return `>${header}
+${indent}${body}`;
+      }
+      value = value.replace(/\n+/g, `$&${indent}`);
+      return `|${header}
+${indent}${start}${value}${end}`;
+    }
+    function plainString(item, ctx, onComment, onChompKeep) {
+      const { type, value } = item;
+      const { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
+      if (implicitKey && value.includes("\n") || inFlow && /[[\]{},]/.test(value)) {
+        return quotedString(value, ctx);
+      }
+      if (/^[\n\t ,[\]{}#&*!|>'"%@`]|^[?-]$|^[?-][ \t]|[\n:][ \t]|[ \t]\n|[\n\t ]#|[\n\t :]$/.test(value)) {
+        return implicitKey || inFlow || !value.includes("\n") ? quotedString(value, ctx) : blockString(item, ctx, onComment, onChompKeep);
+      }
+      if (!implicitKey && !inFlow && type !== Scalar.Scalar.PLAIN && value.includes("\n")) {
+        return blockString(item, ctx, onComment, onChompKeep);
+      }
+      if (containsDocumentMarker(value)) {
+        if (indent === "") {
+          ctx.forceBlockIndent = true;
+          return blockString(item, ctx, onComment, onChompKeep);
+        } else if (implicitKey && indent === indentStep) {
+          return quotedString(value, ctx);
+        }
+      }
+      const str = value.replace(/\n+/g, `$&
+${indent}`);
+      if (actualString) {
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
+        const { compat, tags } = ctx.doc.schema;
+        if (tags.some(test) || compat?.some(test))
+          return quotedString(value, ctx);
+      }
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+    }
+    function stringifyString(item, ctx, onComment, onChompKeep) {
+      const { implicitKey, inFlow } = ctx;
+      const ss = typeof item.value === "string" ? item : Object.assign({}, item, { value: String(item.value) });
+      let { type } = item;
+      if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
+        if (/[\x00-\x08\x0b-\x1f\x7f-\x9f\u{D800}-\u{DFFF}]/u.test(ss.value))
+          type = Scalar.Scalar.QUOTE_DOUBLE;
+      }
+      const _stringify = (_type) => {
+        switch (_type) {
+          case Scalar.Scalar.BLOCK_FOLDED:
+          case Scalar.Scalar.BLOCK_LITERAL:
+            return implicitKey || inFlow ? quotedString(ss.value, ctx) : blockString(ss, ctx, onComment, onChompKeep);
+          case Scalar.Scalar.QUOTE_DOUBLE:
+            return doubleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.QUOTE_SINGLE:
+            return singleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.PLAIN:
+            return plainString(ss, ctx, onComment, onChompKeep);
+          default:
+            return null;
+        }
+      };
+      let res = _stringify(type);
+      if (res === null) {
+        const { defaultKeyType, defaultStringType } = ctx.options;
+        const t = implicitKey && defaultKeyType || defaultStringType;
+        res = _stringify(t);
+        if (res === null)
+          throw new Error(`Unsupported default string type ${t}`);
+      }
+      return res;
+    }
+    exports.stringifyString = stringifyString;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringify.js
+var require_stringify = __commonJS({
+  "node_modules/yaml/dist/stringify/stringify.js"(exports) {
+    "use strict";
+    var anchors = require_anchors();
+    var identity = require_identity();
+    var stringifyComment = require_stringifyComment();
+    var stringifyString = require_stringifyString();
+    function createStringifyContext(doc, options) {
+      const opt = Object.assign({
+        blockQuote: true,
+        commentString: stringifyComment.stringifyComment,
+        defaultKeyType: null,
+        defaultStringType: "PLAIN",
+        directives: null,
+        doubleQuotedAsJSON: false,
+        doubleQuotedMinMultiLineLength: 40,
+        falseStr: "false",
+        flowCollectionPadding: true,
+        indentSeq: true,
+        lineWidth: 80,
+        minContentWidth: 20,
+        nullStr: "null",
+        simpleKeys: false,
+        singleQuote: null,
+        trailingComma: false,
+        trueStr: "true",
+        verifyAliasOrder: true
+      }, doc.schema.toStringOptions, options);
+      let inFlow;
+      switch (opt.collectionStyle) {
+        case "block":
+          inFlow = false;
+          break;
+        case "flow":
+          inFlow = true;
+          break;
+        default:
+          inFlow = null;
+      }
+      return {
+        anchors: /* @__PURE__ */ new Set(),
+        doc,
+        flowCollectionPadding: opt.flowCollectionPadding ? " " : "",
+        indent: "",
+        indentStep: typeof opt.indent === "number" ? " ".repeat(opt.indent) : "  ",
+        inFlow,
+        options: opt
+      };
+    }
+    function getTagObject(tags, item) {
+      if (item.tag) {
+        const match = tags.filter((t) => t.tag === item.tag);
+        if (match.length > 0)
+          return match.find((t) => t.format === item.format) ?? match[0];
+      }
+      let tagObj = void 0;
+      let obj;
+      if (identity.isScalar(item)) {
+        obj = item.value;
+        let match = tags.filter((t) => t.identify?.(obj));
+        if (match.length > 1) {
+          const testMatch = match.filter((t) => t.test);
+          if (testMatch.length > 0)
+            match = testMatch;
+        }
+        tagObj = match.find((t) => t.format === item.format) ?? match.find((t) => !t.format);
+      } else {
+        obj = item;
+        tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
+      }
+      if (!tagObj) {
+        const name = obj?.constructor?.name ?? (obj === null ? "null" : typeof obj);
+        throw new Error(`Tag not resolved for ${name} value`);
+      }
+      return tagObj;
+    }
+    function stringifyProps(node, tagObj, { anchors: anchors$1, doc }) {
+      if (!doc.directives)
+        return "";
+      const props = [];
+      const anchor = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
+      if (anchor && anchors.anchorIsValid(anchor)) {
+        anchors$1.add(anchor);
+        props.push(`&${anchor}`);
+      }
+      const tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
+      if (tag)
+        props.push(doc.directives.tagString(tag));
+      return props.join(" ");
+    }
+    function stringify2(item, ctx, onComment, onChompKeep) {
+      if (identity.isPair(item))
+        return item.toString(ctx, onComment, onChompKeep);
+      if (identity.isAlias(item)) {
+        if (ctx.doc.directives)
+          return item.toString(ctx);
+        if (ctx.resolvedAliases?.has(item)) {
+          throw new TypeError(`Cannot stringify circular structure without alias nodes`);
+        } else {
+          if (ctx.resolvedAliases)
+            ctx.resolvedAliases.add(item);
+          else
+            ctx.resolvedAliases = /* @__PURE__ */ new Set([item]);
+          item = item.resolve(ctx.doc);
+        }
+      }
+      let tagObj = void 0;
+      const node = identity.isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
+      tagObj ?? (tagObj = getTagObject(ctx.doc.schema.tags, node));
+      const props = stringifyProps(node, tagObj, ctx);
+      if (props.length > 0)
+        ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
+      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      if (!props)
+        return str;
+      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
+${ctx.indent}${str}`;
+    }
+    exports.createStringifyContext = createStringifyContext;
+    exports.stringify = stringify2;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyPair.js
+var require_stringifyPair = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var stringify2 = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
+      const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
+      let keyComment = identity.isNode(key) && key.comment || null;
+      if (simpleKeys) {
+        if (keyComment) {
+          throw new Error("With simple keys, key nodes cannot have comments");
+        }
+        if (identity.isCollection(key) || !identity.isNode(key) && typeof key === "object") {
+          const msg = "With simple keys, collection cannot be used as a key value";
+          throw new Error(msg);
+        }
+      }
+      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
+      ctx = Object.assign({}, ctx, {
+        allNullValues: false,
+        implicitKey: !explicitKey && (simpleKeys || !allNullValues),
+        indent: indent + indentStep
+      });
+      let keyCommentDone = false;
+      let chompKeep = false;
+      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
+        if (simpleKeys)
+          throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
+        explicitKey = true;
+      }
+      if (ctx.inFlow) {
+        if (allNullValues || value == null) {
+          if (keyCommentDone && onComment)
+            onComment();
+          return str === "" ? "?" : explicitKey ? `? ${str}` : str;
+        }
+      } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
+        str = `? ${str}`;
+        if (keyComment && !keyCommentDone) {
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        } else if (chompKeep && onChompKeep)
+          onChompKeep();
+        return str;
+      }
+      if (keyCommentDone)
+        keyComment = null;
+      if (explicitKey) {
+        if (keyComment)
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        str = `? ${str}
+${indent}:`;
+      } else {
+        str = `${str}:`;
+        if (keyComment)
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+      }
+      let vsb, vcb, valueComment;
+      if (identity.isNode(value)) {
+        vsb = !!value.spaceBefore;
+        vcb = value.commentBefore;
+        valueComment = value.comment;
+      } else {
+        vsb = false;
+        vcb = null;
+        valueComment = null;
+        if (value && typeof value === "object")
+          value = doc.createNode(value);
+      }
+      ctx.implicitKey = false;
+      if (!explicitKey && !keyComment && identity.isScalar(value))
+        ctx.indentAtStart = str.length + 1;
+      chompKeep = false;
+      if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
+        ctx.indent = ctx.indent.substring(2);
+      }
+      let valueCommentDone = false;
+      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      let ws = " ";
+      if (keyComment || vsb || vcb) {
+        ws = vsb ? "\n" : "";
+        if (vcb) {
+          const cs = commentString(vcb);
+          ws += `
+${stringifyComment.indentComment(cs, ctx.indent)}`;
+        }
+        if (valueStr === "" && !ctx.inFlow) {
+          if (ws === "\n" && valueComment)
+            ws = "\n\n";
+        } else {
+          ws += `
+${ctx.indent}`;
+        }
+      } else if (!explicitKey && identity.isCollection(value)) {
+        const vs0 = valueStr[0];
+        const nl0 = valueStr.indexOf("\n");
+        const hasNewline = nl0 !== -1;
+        const flow = ctx.inFlow ?? value.flow ?? value.items.length === 0;
+        if (hasNewline || !flow) {
+          let hasPropsLine = false;
+          if (hasNewline && (vs0 === "&" || vs0 === "!")) {
+            let sp0 = valueStr.indexOf(" ");
+            if (vs0 === "&" && sp0 !== -1 && sp0 < nl0 && valueStr[sp0 + 1] === "!") {
+              sp0 = valueStr.indexOf(" ", sp0 + 1);
+            }
+            if (sp0 === -1 || nl0 < sp0)
+              hasPropsLine = true;
+          }
+          if (!hasPropsLine)
+            ws = `
+${ctx.indent}`;
+        }
+      } else if (valueStr === "" || valueStr[0] === "\n") {
+        ws = "";
+      }
+      str += ws + valueStr;
+      if (ctx.inFlow) {
+        if (valueCommentDone && onComment)
+          onComment();
+      } else if (valueComment && !valueCommentDone) {
+        str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment));
+      } else if (chompKeep && onChompKeep) {
+        onChompKeep();
+      }
+      return str;
+    }
+    exports.stringifyPair = stringifyPair;
+  }
+});
+
+// node_modules/yaml/dist/log.js
+var require_log = __commonJS({
+  "node_modules/yaml/dist/log.js"(exports) {
+    "use strict";
+    var node_process = __require("node:process");
+    function debug(logLevel, ...messages) {
+      if (logLevel === "debug")
+        console.log(...messages);
+    }
+    function warn(logLevel, warning) {
+      if (logLevel === "debug" || logLevel === "warn") {
+        if (typeof node_process.emitWarning === "function")
+          node_process.emitWarning(warning);
+        else
+          console.warn(warning);
+      }
+    }
+    exports.debug = debug;
+    exports.warn = warn;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/merge.js
+var require_merge = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var MERGE_KEY = "<<";
+    var merge2 = {
+      identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
+      default: "key",
+      tag: "tag:yaml.org,2002:merge",
+      test: /^<<$/,
+      resolve: () => Object.assign(new Scalar.Scalar(Symbol(MERGE_KEY)), {
+        addToJSMap: addMergeToJSMap
+      }),
+      stringify: () => MERGE_KEY
+    };
+    var isMergeKey = (ctx, key) => (merge2.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge2.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge2.tag && tag.default);
+    function addMergeToJSMap(ctx, map, value) {
+      const source = resolveAliasValue(ctx, value);
+      if (identity.isSeq(source))
+        for (const it of source.items)
+          mergeValue(ctx, map, it);
+      else if (Array.isArray(source))
+        for (const it of source)
+          mergeValue(ctx, map, it);
+      else
+        mergeValue(ctx, map, source);
+    }
+    function mergeValue(ctx, map, value) {
+      const source = resolveAliasValue(ctx, value);
+      if (!identity.isMap(source))
+        throw new Error("Merge sources must be maps or map aliases");
+      const srcMap = source.toJSON(null, ctx, Map);
+      for (const [key, value2] of srcMap) {
+        if (map instanceof Map) {
+          if (!map.has(key))
+            map.set(key, value2);
+        } else if (map instanceof Set) {
+          map.add(key);
+        } else if (!Object.prototype.hasOwnProperty.call(map, key)) {
+          Object.defineProperty(map, key, {
+            value: value2,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
+      }
+      return map;
+    }
+    function resolveAliasValue(ctx, value) {
+      return ctx && identity.isAlias(value) ? value.resolve(ctx.doc, ctx) : value;
+    }
+    exports.addMergeToJSMap = addMergeToJSMap;
+    exports.isMergeKey = isMergeKey;
+    exports.merge = merge2;
+  }
+});
+
+// node_modules/yaml/dist/nodes/addPairToJSMap.js
+var require_addPairToJSMap = __commonJS({
+  "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+    "use strict";
+    var log = require_log();
+    var merge2 = require_merge();
+    var stringify2 = require_stringify();
+    var identity = require_identity();
+    var toJS = require_toJS();
+    function addPairToJSMap(ctx, map, { key, value }) {
+      if (identity.isNode(key) && key.addToJSMap)
+        key.addToJSMap(ctx, map, value);
+      else if (merge2.isMergeKey(ctx, key))
+        merge2.addMergeToJSMap(ctx, map, value);
+      else {
+        const jsKey = toJS.toJS(key, "", ctx);
+        if (map instanceof Map) {
+          map.set(jsKey, toJS.toJS(value, jsKey, ctx));
+        } else if (map instanceof Set) {
+          map.add(jsKey);
+        } else {
+          const stringKey = stringifyKey(key, jsKey, ctx);
+          const jsValue = toJS.toJS(value, stringKey, ctx);
+          if (stringKey in map)
+            Object.defineProperty(map, stringKey, {
+              value: jsValue,
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          else
+            map[stringKey] = jsValue;
+        }
+      }
+      return map;
+    }
+    function stringifyKey(key, jsKey, ctx) {
+      if (jsKey === null)
+        return "";
+      if (typeof jsKey !== "object")
+        return String(jsKey);
+      if (identity.isNode(key) && ctx?.doc) {
+        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
+        strCtx.anchors = /* @__PURE__ */ new Set();
+        for (const node of ctx.anchors.keys())
+          strCtx.anchors.add(node.anchor);
+        strCtx.inFlow = true;
+        strCtx.inStringifyKey = true;
+        const strKey = key.toString(strCtx);
+        if (!ctx.mapKeyWarned) {
+          let jsonStr = JSON.stringify(strKey);
+          if (jsonStr.length > 40)
+            jsonStr = jsonStr.substring(0, 36) + '..."';
+          log.warn(ctx.doc.options.logLevel, `Keys with collection values will be stringified due to JS Object restrictions: ${jsonStr}. Set mapAsMap: true to use object keys.`);
+          ctx.mapKeyWarned = true;
+        }
+        return strKey;
+      }
+      return JSON.stringify(jsKey);
+    }
+    exports.addPairToJSMap = addPairToJSMap;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Pair.js
+var require_Pair = __commonJS({
+  "node_modules/yaml/dist/nodes/Pair.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var stringifyPair = require_stringifyPair();
+    var addPairToJSMap = require_addPairToJSMap();
+    var identity = require_identity();
+    function createPair(key, value, ctx) {
+      const k = createNode.createNode(key, void 0, ctx);
+      const v = createNode.createNode(value, void 0, ctx);
+      return new Pair(k, v);
+    }
+    var Pair = class _Pair {
+      constructor(key, value = null) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR });
+        this.key = key;
+        this.value = value;
+      }
+      clone(schema) {
+        let { key, value } = this;
+        if (identity.isNode(key))
+          key = key.clone(schema);
+        if (identity.isNode(value))
+          value = value.clone(schema);
+        return new _Pair(key, value);
+      }
+      toJSON(_, ctx) {
+        const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        return addPairToJSMap.addPairToJSMap(ctx, pair, this);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        return ctx?.doc ? stringifyPair.stringifyPair(this, ctx, onComment, onChompKeep) : JSON.stringify(this);
+      }
+    };
+    exports.Pair = Pair;
+    exports.createPair = createPair;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyCollection.js
+var require_stringifyCollection = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var stringify2 = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyCollection(collection, ctx, options) {
+      const flow = ctx.inFlow ?? collection.flow;
+      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify3(collection, ctx, options);
+    }
+    function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
+      const { indent, options: { commentString } } = ctx;
+      const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
+      let chompKeep = false;
+      const lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        let comment2 = null;
+        if (identity.isNode(item)) {
+          if (!chompKeep && item.spaceBefore)
+            lines.push("");
+          addCommentBefore(ctx, lines, item.commentBefore, chompKeep);
+          if (item.comment)
+            comment2 = item.comment;
+        } else if (identity.isPair(item)) {
+          const ik = identity.isNode(item.key) ? item.key : null;
+          if (ik) {
+            if (!chompKeep && ik.spaceBefore)
+              lines.push("");
+            addCommentBefore(ctx, lines, ik.commentBefore, chompKeep);
+          }
+        }
+        chompKeep = false;
+        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        if (comment2)
+          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
+        if (chompKeep && comment2)
+          chompKeep = false;
+        lines.push(blockItemPrefix + str2);
+      }
+      let str;
+      if (lines.length === 0) {
+        str = flowChars.start + flowChars.end;
+      } else {
+        str = lines[0];
+        for (let i = 1; i < lines.length; ++i) {
+          const line = lines[i];
+          str += line ? `
+${indent}${line}` : "\n";
+        }
+      }
+      if (comment) {
+        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        if (onComment)
+          onComment();
+      } else if (chompKeep && onChompKeep)
+        onChompKeep();
+      return str;
+    }
+    function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
+      const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
+      itemIndent += indentStep;
+      const itemCtx = Object.assign({}, ctx, {
+        indent: itemIndent,
+        inFlow: true,
+        type: null
+      });
+      let reqNewline = false;
+      let linesAtValue = 0;
+      const lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        let comment = null;
+        if (identity.isNode(item)) {
+          if (item.spaceBefore)
+            lines.push("");
+          addCommentBefore(ctx, lines, item.commentBefore, false);
+          if (item.comment)
+            comment = item.comment;
+        } else if (identity.isPair(item)) {
+          const ik = identity.isNode(item.key) ? item.key : null;
+          if (ik) {
+            if (ik.spaceBefore)
+              lines.push("");
+            addCommentBefore(ctx, lines, ik.commentBefore, false);
+            if (ik.comment)
+              reqNewline = true;
+          }
+          const iv = identity.isNode(item.value) ? item.value : null;
+          if (iv) {
+            if (iv.comment)
+              comment = iv.comment;
+            if (iv.commentBefore)
+              reqNewline = true;
+          } else if (item.value == null && ik?.comment) {
+            comment = ik.comment;
+          }
+        }
+        if (comment)
+          reqNewline = true;
+        let str = stringify2.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
+        if (i < items.length - 1) {
+          str += ",";
+        } else if (ctx.options.trailingComma) {
+          if (ctx.options.lineWidth > 0) {
+            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+          }
+          if (reqNewline) {
+            str += ",";
+          }
+        }
+        if (comment)
+          str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
+        lines.push(str);
+        linesAtValue = lines.length;
+      }
+      const { start, end } = flowChars;
+      if (lines.length === 0) {
+        return start + end;
+      } else {
+        if (!reqNewline) {
+          const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
+          reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
+        }
+        if (reqNewline) {
+          let str = start;
+          for (const line of lines)
+            str += line ? `
+${indentStep}${indent}${line}` : "\n";
+          return `${str}
+${indent}${end}`;
+        } else {
+          return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
+        }
+      }
+    }
+    function addCommentBefore({ indent, options: { commentString } }, lines, comment, chompKeep) {
+      if (comment && chompKeep)
+        comment = comment.replace(/^\n+/, "");
+      if (comment) {
+        const ic = stringifyComment.indentComment(commentString(comment), indent);
+        lines.push(ic.trimStart());
+      }
+    }
+    exports.stringifyCollection = stringifyCollection;
+  }
+});
+
+// node_modules/yaml/dist/nodes/YAMLMap.js
+var require_YAMLMap = __commonJS({
+  "node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+    "use strict";
+    var stringifyCollection = require_stringifyCollection();
+    var addPairToJSMap = require_addPairToJSMap();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    function findPair(items, key) {
+      const k = identity.isScalar(key) ? key.value : key;
+      for (const it of items) {
+        if (identity.isPair(it)) {
+          if (it.key === key || it.key === k)
+            return it;
+          if (identity.isScalar(it.key) && it.key.value === k)
+            return it;
+        }
+      }
+      return void 0;
+    }
+    var YAMLMap = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:map";
+      }
+      constructor(schema) {
+        super(identity.MAP, schema);
+        this.items = [];
+      }
+      /**
+       * A generic collection parsing method that can be extended
+       * to other node classes that inherit from YAMLMap
+       */
+      static from(schema, obj, ctx) {
+        const { keepUndefined, replacer } = ctx;
+        const map = new this(schema);
+        const add = (key, value) => {
+          if (typeof replacer === "function")
+            value = replacer.call(obj, key, value);
+          else if (Array.isArray(replacer) && !replacer.includes(key))
+            return;
+          if (value !== void 0 || keepUndefined)
+            map.items.push(Pair.createPair(key, value, ctx));
+        };
+        if (obj instanceof Map) {
+          for (const [key, value] of obj)
+            add(key, value);
+        } else if (obj && typeof obj === "object") {
+          for (const key of Object.keys(obj))
+            add(key, obj[key]);
+        }
+        if (typeof schema.sortMapEntries === "function") {
+          map.items.sort(schema.sortMapEntries);
+        }
+        return map;
+      }
+      /**
+       * Adds a value to the collection.
+       *
+       * @param overwrite - If not set `true`, using a key that is already in the
+       *   collection will throw. Otherwise, overwrites the previous value.
+       */
+      add(pair, overwrite) {
+        let _pair;
+        if (identity.isPair(pair))
+          _pair = pair;
+        else if (!pair || typeof pair !== "object" || !("key" in pair)) {
+          _pair = new Pair.Pair(pair, pair?.value);
+        } else
+          _pair = new Pair.Pair(pair.key, pair.value);
+        const prev = findPair(this.items, _pair.key);
+        const sortEntries = this.schema?.sortMapEntries;
+        if (prev) {
+          if (!overwrite)
+            throw new Error(`Key ${_pair.key} already set`);
+          if (identity.isScalar(prev.value) && Scalar.isScalarValue(_pair.value))
+            prev.value.value = _pair.value;
+          else
+            prev.value = _pair.value;
+        } else if (sortEntries) {
+          const i = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+          if (i === -1)
+            this.items.push(_pair);
+          else
+            this.items.splice(i, 0, _pair);
+        } else {
+          this.items.push(_pair);
+        }
+      }
+      delete(key) {
+        const it = findPair(this.items, key);
+        if (!it)
+          return false;
+        const del = this.items.splice(this.items.indexOf(it), 1);
+        return del.length > 0;
+      }
+      get(key, keepScalar) {
+        const it = findPair(this.items, key);
+        const node = it?.value;
+        return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
+      }
+      has(key) {
+        return !!findPair(this.items, key);
+      }
+      set(key, value) {
+        this.add(new Pair.Pair(key, value), true);
+      }
+      /**
+       * @param ctx - Conversion context, originally set in Document#toJS()
+       * @param {Class} Type - If set, forces the returned collection type
+       * @returns Instance of Type, Map, or Object
+       */
+      toJSON(_, ctx, Type) {
+        const map = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        if (ctx?.onCreate)
+          ctx.onCreate(map);
+        for (const item of this.items)
+          addPairToJSMap.addPairToJSMap(ctx, map, item);
+        return map;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        for (const item of this.items) {
+          if (!identity.isPair(item))
+            throw new Error(`Map items must all be pairs; found ${JSON.stringify(item)} instead`);
+        }
+        if (!ctx.allNullValues && this.hasAllNullValues(false))
+          ctx = Object.assign({}, ctx, { allNullValues: true });
+        return stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "",
+          flowChars: { start: "{", end: "}" },
+          itemIndent: ctx.indent || "",
+          onChompKeep,
+          onComment
+        });
+      }
+    };
+    exports.YAMLMap = YAMLMap;
+    exports.findPair = findPair;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/map.js
+var require_map = __commonJS({
+  "node_modules/yaml/dist/schema/common/map.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var YAMLMap = require_YAMLMap();
+    var map = {
+      collection: "map",
+      default: true,
+      nodeClass: YAMLMap.YAMLMap,
+      tag: "tag:yaml.org,2002:map",
+      resolve(map2, onError) {
+        if (!identity.isMap(map2))
+          onError("Expected a mapping for this tag");
+        return map2;
+      },
+      createNode: (schema, obj, ctx) => YAMLMap.YAMLMap.from(schema, obj, ctx)
+    };
+    exports.map = map;
+  }
+});
+
+// node_modules/yaml/dist/nodes/YAMLSeq.js
+var require_YAMLSeq = __commonJS({
+  "node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var stringifyCollection = require_stringifyCollection();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var toJS = require_toJS();
+    var YAMLSeq = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:seq";
+      }
+      constructor(schema) {
+        super(identity.SEQ, schema);
+        this.items = [];
+      }
+      add(value) {
+        this.items.push(value);
+      }
+      /**
+       * Removes a value from the collection.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       *
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          return false;
+        const del = this.items.splice(idx, 1);
+        return del.length > 0;
+      }
+      get(key, keepScalar) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          return void 0;
+        const it = this.items[idx];
+        return !keepScalar && identity.isScalar(it) ? it.value : it;
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       */
+      has(key) {
+        const idx = asItemIndex(key);
+        return typeof idx === "number" && idx < this.items.length;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       *
+       * If `key` does not contain a representation of an integer, this will throw.
+       * It may be wrapped in a `Scalar`.
+       */
+      set(key, value) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          throw new Error(`Expected a valid index, not ${key}.`);
+        const prev = this.items[idx];
+        if (identity.isScalar(prev) && Scalar.isScalarValue(value))
+          prev.value = value;
+        else
+          this.items[idx] = value;
+      }
+      toJSON(_, ctx) {
+        const seq = [];
+        if (ctx?.onCreate)
+          ctx.onCreate(seq);
+        let i = 0;
+        for (const item of this.items)
+          seq.push(toJS.toJS(item, String(i++), ctx));
+        return seq;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        return stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "- ",
+          flowChars: { start: "[", end: "]" },
+          itemIndent: (ctx.indent || "") + "  ",
+          onChompKeep,
+          onComment
+        });
+      }
+      static from(schema, obj, ctx) {
+        const { replacer } = ctx;
+        const seq = new this(schema);
+        if (obj && Symbol.iterator in Object(obj)) {
+          let i = 0;
+          for (let it of obj) {
+            if (typeof replacer === "function") {
+              const key = obj instanceof Set ? it : String(i++);
+              it = replacer.call(obj, key, it);
+            }
+            seq.items.push(createNode.createNode(it, void 0, ctx));
+          }
+        }
+        return seq;
+      }
+    };
+    function asItemIndex(key) {
+      let idx = identity.isScalar(key) ? key.value : key;
+      if (idx && typeof idx === "string")
+        idx = Number(idx);
+      return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
+    }
+    exports.YAMLSeq = YAMLSeq;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/seq.js
+var require_seq = __commonJS({
+  "node_modules/yaml/dist/schema/common/seq.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var YAMLSeq = require_YAMLSeq();
+    var seq = {
+      collection: "seq",
+      default: true,
+      nodeClass: YAMLSeq.YAMLSeq,
+      tag: "tag:yaml.org,2002:seq",
+      resolve(seq2, onError) {
+        if (!identity.isSeq(seq2))
+          onError("Expected a sequence for this tag");
+        return seq2;
+      },
+      createNode: (schema, obj, ctx) => YAMLSeq.YAMLSeq.from(schema, obj, ctx)
+    };
+    exports.seq = seq;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/string.js
+var require_string = __commonJS({
+  "node_modules/yaml/dist/schema/common/string.js"(exports) {
+    "use strict";
+    var stringifyString = require_stringifyString();
+    var string3 = {
+      identify: (value) => typeof value === "string",
+      default: true,
+      tag: "tag:yaml.org,2002:str",
+      resolve: (str) => str,
+      stringify(item, ctx, onComment, onChompKeep) {
+        ctx = Object.assign({ actualString: true }, ctx);
+        return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.string = string3;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/null.js
+var require_null = __commonJS({
+  "node_modules/yaml/dist/schema/common/null.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var nullTag = {
+      identify: (value) => value == null,
+      createNode: () => new Scalar.Scalar(null),
+      default: true,
+      tag: "tag:yaml.org,2002:null",
+      test: /^(?:~|[Nn]ull|NULL)?$/,
+      resolve: () => new Scalar.Scalar(null),
+      stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
+    };
+    exports.nullTag = nullTag;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/bool.js
+var require_bool = __commonJS({
+  "node_modules/yaml/dist/schema/core/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var boolTag = {
+      identify: (value) => typeof value === "boolean",
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
+      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
+      stringify({ source, value }, ctx) {
+        if (source && boolTag.test.test(source)) {
+          const sv = source[0] === "t" || source[0] === "T";
+          if (value === sv)
+            return source;
+        }
+        return value ? ctx.options.trueStr : ctx.options.falseStr;
+      }
+    };
+    exports.boolTag = boolTag;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyNumber.js
+var require_stringifyNumber = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+    "use strict";
+    function stringifyNumber({ format, minFractionDigits, tag, value }) {
+      if (typeof value === "bigint")
+        return String(value);
+      const num = typeof value === "number" ? value : Number(value);
+      if (!isFinite(num))
+        return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
+      let n = Object.is(value, -0) ? "-0" : JSON.stringify(value);
+      if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
+        let i = n.indexOf(".");
+        if (i < 0) {
+          i = n.length;
+          n += ".";
+        }
+        let d = minFractionDigits - (n.length - i - 1);
+        while (d-- > 0)
+          n += "0";
+      }
+      return n;
+    }
+    exports.stringifyNumber = stringifyNumber;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/float.js
+var require_float = __commonJS({
+  "node_modules/yaml/dist/schema/core/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var stringifyNumber = require_stringifyNumber();
+    var floatNaN = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var floatExp = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str),
+      stringify(node) {
+        const num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    };
+    var float = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str));
+        const dot = str.indexOf(".");
+        if (dot !== -1 && str[str.length - 1] === "0")
+          node.minFractionDigits = str.length - dot - 1;
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/int.js
+var require_int = __commonJS({
+  "node_modules/yaml/dist/schema/core/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
+    var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
+    function intStringify(node, radix, prefix) {
+      const { value } = node;
+      if (intIdentify(value) && value >= 0)
+        return prefix + value.toString(radix);
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intOct = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^0o[0-7]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0o")
+    };
+    var int2 = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var intHex = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^0x[0-9a-fA-F]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int2;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/schema.js
+var require_schema = __commonJS({
+  "node_modules/yaml/dist/schema/core/schema.js"(exports) {
+    "use strict";
+    var map = require_map();
+    var _null4 = require_null();
+    var seq = require_seq();
+    var string3 = require_string();
+    var bool = require_bool();
+    var float = require_float();
+    var int2 = require_int();
+    var schema = [
+      map.map,
+      seq.seq,
+      string3.string,
+      _null4.nullTag,
+      bool.boolTag,
+      int2.intOct,
+      int2.int,
+      int2.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float
+    ];
+    exports.schema = schema;
+  }
+});
+
+// node_modules/yaml/dist/schema/json/schema.js
+var require_schema2 = __commonJS({
+  "node_modules/yaml/dist/schema/json/schema.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var map = require_map();
+    var seq = require_seq();
+    function intIdentify(value) {
+      return typeof value === "bigint" || Number.isInteger(value);
+    }
+    var stringifyJSON = ({ value }) => JSON.stringify(value);
+    var jsonScalars = [
+      {
+        identify: (value) => typeof value === "string",
+        default: true,
+        tag: "tag:yaml.org,2002:str",
+        resolve: (str) => str,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => value == null,
+        createNode: () => new Scalar.Scalar(null),
+        default: true,
+        tag: "tag:yaml.org,2002:null",
+        test: /^null$/,
+        resolve: () => null,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => typeof value === "boolean",
+        default: true,
+        tag: "tag:yaml.org,2002:bool",
+        test: /^true$|^false$/,
+        resolve: (str) => str === "true",
+        stringify: stringifyJSON
+      },
+      {
+        identify: intIdentify,
+        default: true,
+        tag: "tag:yaml.org,2002:int",
+        test: /^-?(?:0|[1-9][0-9]*)$/,
+        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
+        stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
+      },
+      {
+        identify: (value) => typeof value === "number",
+        default: true,
+        tag: "tag:yaml.org,2002:float",
+        test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
+        resolve: (str) => parseFloat(str),
+        stringify: stringifyJSON
+      }
+    ];
+    var jsonError = {
+      default: true,
+      tag: "",
+      test: /^/,
+      resolve(str, onError) {
+        onError(`Unresolved plain scalar ${JSON.stringify(str)}`);
+        return str;
+      }
+    };
+    var schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
+    exports.schema = schema;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/binary.js
+var require_binary = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+    "use strict";
+    var node_buffer = __require("buffer");
+    var Scalar = require_Scalar();
+    var stringifyString = require_stringifyString();
+    var binary = {
+      identify: (value) => value instanceof Uint8Array,
+      // Buffer inherits from Uint8Array
+      default: false,
+      tag: "tag:yaml.org,2002:binary",
+      /**
+       * Returns a Buffer in node and an Uint8Array in browsers
+       *
+       * To use the resulting buffer as an image, you'll want to do something like:
+       *
+       *   const blob = new Blob([buffer], { type: 'image/jpeg' })
+       *   document.querySelector('#photo').src = URL.createObjectURL(blob)
+       */
+      resolve(src, onError) {
+        if (typeof node_buffer.Buffer === "function") {
+          return node_buffer.Buffer.from(src, "base64");
+        } else if (typeof atob === "function") {
+          const str = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str.length);
+          for (let i = 0; i < str.length; ++i)
+            buffer[i] = str.charCodeAt(i);
+          return buffer;
+        } else {
+          onError("This environment does not support reading binary tags; either Buffer or atob is required");
+          return src;
+        }
+      },
+      stringify({ comment, type, value }, ctx, onComment, onChompKeep) {
+        if (!value)
+          return "";
+        const buf = value;
+        let str;
+        if (typeof node_buffer.Buffer === "function") {
+          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+        } else if (typeof btoa === "function") {
+          let s = "";
+          for (let i = 0; i < buf.length; ++i)
+            s += String.fromCharCode(buf[i]);
+          str = btoa(s);
+        } else {
+          throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
+        }
+        type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
+        if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
+          const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
+          const n = Math.ceil(str.length / lineWidth);
+          const lines = new Array(n);
+          for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
+            lines[i] = str.substr(o, lineWidth);
+          }
+          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+        }
+        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.binary = binary;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+var require_pairs = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    var YAMLSeq = require_YAMLSeq();
+    function resolvePairs(seq, onError) {
+      if (identity.isSeq(seq)) {
+        for (let i = 0; i < seq.items.length; ++i) {
+          let item = seq.items[i];
+          if (identity.isPair(item))
+            continue;
+          else if (identity.isMap(item)) {
+            if (item.items.length > 1)
+              onError("Each pair must have its own sequence indicator");
+            const pair = item.items[0] || new Pair.Pair(new Scalar.Scalar(null));
+            if (item.commentBefore)
+              pair.key.commentBefore = pair.key.commentBefore ? `${item.commentBefore}
+${pair.key.commentBefore}` : item.commentBefore;
+            if (item.comment) {
+              const cn = pair.value ?? pair.key;
+              cn.comment = cn.comment ? `${item.comment}
+${cn.comment}` : item.comment;
+            }
+            item = pair;
+          }
+          seq.items[i] = identity.isPair(item) ? item : new Pair.Pair(item);
+        }
+      } else
+        onError("Expected a sequence for this tag");
+      return seq;
+    }
+    function createPairs(schema, iterable, ctx) {
+      const { replacer } = ctx;
+      const pairs2 = new YAMLSeq.YAMLSeq(schema);
+      pairs2.tag = "tag:yaml.org,2002:pairs";
+      let i = 0;
+      if (iterable && Symbol.iterator in Object(iterable))
+        for (let it of iterable) {
+          if (typeof replacer === "function")
+            it = replacer.call(iterable, String(i++), it);
+          let key, value;
+          if (Array.isArray(it)) {
+            if (it.length === 2) {
+              key = it[0];
+              value = it[1];
+            } else
+              throw new TypeError(`Expected [key, value] tuple: ${it}`);
+          } else if (it && it instanceof Object) {
+            const keys = Object.keys(it);
+            if (keys.length === 1) {
+              key = keys[0];
+              value = it[key];
+            } else {
+              throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
+            }
+          } else {
+            key = it;
+          }
+          pairs2.items.push(Pair.createPair(key, value, ctx));
+        }
+      return pairs2;
+    }
+    var pairs = {
+      collection: "seq",
+      default: false,
+      tag: "tag:yaml.org,2002:pairs",
+      resolve: resolvePairs,
+      createNode: createPairs
+    };
+    exports.createPairs = createPairs;
+    exports.pairs = pairs;
+    exports.resolvePairs = resolvePairs;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/omap.js
+var require_omap = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var toJS = require_toJS();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var pairs = require_pairs();
+    var YAMLOMap = class _YAMLOMap extends YAMLSeq.YAMLSeq {
+      constructor() {
+        super();
+        this.add = YAMLMap.YAMLMap.prototype.add.bind(this);
+        this.delete = YAMLMap.YAMLMap.prototype.delete.bind(this);
+        this.get = YAMLMap.YAMLMap.prototype.get.bind(this);
+        this.has = YAMLMap.YAMLMap.prototype.has.bind(this);
+        this.set = YAMLMap.YAMLMap.prototype.set.bind(this);
+        this.tag = _YAMLOMap.tag;
+      }
+      /**
+       * If `ctx` is given, the return type is actually `Map<unknown, unknown>`,
+       * but TypeScript won't allow widening the signature of a child method.
+       */
+      toJSON(_, ctx) {
+        if (!ctx)
+          return super.toJSON(_);
+        const map = /* @__PURE__ */ new Map();
+        if (ctx?.onCreate)
+          ctx.onCreate(map);
+        for (const pair of this.items) {
+          let key, value;
+          if (identity.isPair(pair)) {
+            key = toJS.toJS(pair.key, "", ctx);
+            value = toJS.toJS(pair.value, key, ctx);
+          } else {
+            key = toJS.toJS(pair, "", ctx);
+          }
+          if (map.has(key))
+            throw new Error("Ordered maps must not include duplicate keys");
+          map.set(key, value);
+        }
+        return map;
+      }
+      static from(schema, iterable, ctx) {
+        const pairs$1 = pairs.createPairs(schema, iterable, ctx);
+        const omap2 = new this();
+        omap2.items = pairs$1.items;
+        return omap2;
+      }
+    };
+    YAMLOMap.tag = "tag:yaml.org,2002:omap";
+    var omap = {
+      collection: "seq",
+      identify: (value) => value instanceof Map,
+      nodeClass: YAMLOMap,
+      default: false,
+      tag: "tag:yaml.org,2002:omap",
+      resolve(seq, onError) {
+        const pairs$1 = pairs.resolvePairs(seq, onError);
+        const seenKeys = [];
+        for (const { key } of pairs$1.items) {
+          if (identity.isScalar(key)) {
+            if (seenKeys.includes(key.value)) {
+              onError(`Ordered maps must not include duplicate keys: ${key.value}`);
+            } else {
+              seenKeys.push(key.value);
+            }
+          }
+        }
+        return Object.assign(new YAMLOMap(), pairs$1);
+      },
+      createNode: (schema, iterable, ctx) => YAMLOMap.from(schema, iterable, ctx)
+    };
+    exports.YAMLOMap = YAMLOMap;
+    exports.omap = omap;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/bool.js
+var require_bool2 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function boolStringify({ value, source }, ctx) {
+      const boolObj = value ? trueTag : falseTag;
+      if (source && boolObj.test.test(source))
+        return source;
+      return value ? ctx.options.trueStr : ctx.options.falseStr;
+    }
+    var trueTag = {
+      identify: (value) => value === true,
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:Y|y|[Yy]es|YES|[Tt]rue|TRUE|[Oo]n|ON)$/,
+      resolve: () => new Scalar.Scalar(true),
+      stringify: boolStringify
+    };
+    var falseTag = {
+      identify: (value) => value === false,
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:N|n|[Nn]o|NO|[Ff]alse|FALSE|[Oo]ff|OFF)$/,
+      resolve: () => new Scalar.Scalar(false),
+      stringify: boolStringify
+    };
+    exports.falseTag = falseTag;
+    exports.trueTag = trueTag;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/float.js
+var require_float2 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var stringifyNumber = require_stringifyNumber();
+    var floatNaN = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var floatExp = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str.replace(/_/g, "")),
+      stringify(node) {
+        const num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    };
+    var float = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str.replace(/_/g, "")));
+        const dot = str.indexOf(".");
+        if (dot !== -1) {
+          const f = str.substring(dot + 1).replace(/_/g, "");
+          if (f[f.length - 1] === "0")
+            node.minFractionDigits = f.length;
+        }
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/int.js
+var require_int2 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
+    function intResolve(str, offset, radix, { intAsBigInt }) {
+      const sign = str[0];
+      if (sign === "-" || sign === "+")
+        offset += 1;
+      str = str.substring(offset).replace(/_/g, "");
+      if (intAsBigInt) {
+        switch (radix) {
+          case 2:
+            str = `0b${str}`;
+            break;
+          case 8:
+            str = `0o${str}`;
+            break;
+          case 16:
+            str = `0x${str}`;
+            break;
+        }
+        const n2 = BigInt(str);
+        return sign === "-" ? BigInt(-1) * n2 : n2;
+      }
+      const n = parseInt(str, radix);
+      return sign === "-" ? -1 * n : n;
+    }
+    function intStringify(node, radix, prefix) {
+      const { value } = node;
+      if (intIdentify(value)) {
+        const str = value.toString(radix);
+        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
+      }
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intBin = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "BIN",
+      test: /^[-+]?0b[0-1_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
+      stringify: (node) => intStringify(node, 2, "0b")
+    };
+    var intOct = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^[-+]?0[0-7_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0")
+    };
+    var int2 = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9][0-9_]*$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var intHex = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^[-+]?0x[0-9a-fA-F_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int2;
+    exports.intBin = intBin;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/set.js
+var require_set = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSet = class _YAMLSet extends YAMLMap.YAMLMap {
+      constructor(schema) {
+        super(schema);
+        this.tag = _YAMLSet.tag;
+      }
+      add(key) {
+        let pair;
+        if (identity.isPair(key))
+          pair = key;
+        else if (key && typeof key === "object" && "key" in key && "value" in key && key.value === null)
+          pair = new Pair.Pair(key.key, null);
+        else
+          pair = new Pair.Pair(key, null);
+        const prev = YAMLMap.findPair(this.items, pair.key);
+        if (!prev)
+          this.items.push(pair);
+      }
+      /**
+       * If `keepPair` is `true`, returns the Pair matching `key`.
+       * Otherwise, returns the value of that Pair's key.
+       */
+      get(key, keepPair) {
+        const pair = YAMLMap.findPair(this.items, key);
+        return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
+      }
+      set(key, value) {
+        if (typeof value !== "boolean")
+          throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
+        const prev = YAMLMap.findPair(this.items, key);
+        if (prev && !value) {
+          this.items.splice(this.items.indexOf(prev), 1);
+        } else if (!prev && value) {
+          this.items.push(new Pair.Pair(key));
+        }
+      }
+      toJSON(_, ctx) {
+        return super.toJSON(_, ctx, Set);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        if (this.hasAllNullValues(true))
+          return super.toString(Object.assign({}, ctx, { allNullValues: true }), onComment, onChompKeep);
+        else
+          throw new Error("Set items must all have null values");
+      }
+      static from(schema, iterable, ctx) {
+        const { replacer } = ctx;
+        const set2 = new this(schema);
+        if (iterable && Symbol.iterator in Object(iterable))
+          for (let value of iterable) {
+            if (typeof replacer === "function")
+              value = replacer.call(iterable, value, value);
+            set2.items.push(Pair.createPair(value, null, ctx));
+          }
+        return set2;
+      }
+    };
+    YAMLSet.tag = "tag:yaml.org,2002:set";
+    var set = {
+      collection: "map",
+      identify: (value) => value instanceof Set,
+      nodeClass: YAMLSet,
+      default: false,
+      tag: "tag:yaml.org,2002:set",
+      createNode: (schema, iterable, ctx) => YAMLSet.from(schema, iterable, ctx),
+      resolve(map, onError) {
+        if (identity.isMap(map)) {
+          if (map.hasAllNullValues(true))
+            return Object.assign(new YAMLSet(), map);
+          else
+            onError("Set items must all have null values");
+        } else
+          onError("Expected a mapping for this tag");
+        return map;
+      }
+    };
+    exports.YAMLSet = YAMLSet;
+    exports.set = set;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+var require_timestamp = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    function parseSexagesimal(str, asBigInt) {
+      const sign = str[0];
+      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+      const num = (n) => asBigInt ? BigInt(n) : Number(n);
+      const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
+      return sign === "-" ? num(-1) * res : res;
+    }
+    function stringifySexagesimal(node) {
+      let { value } = node;
+      let num = (n) => n;
+      if (typeof value === "bigint")
+        num = (n) => BigInt(n);
+      else if (isNaN(value) || !isFinite(value))
+        return stringifyNumber.stringifyNumber(node);
+      let sign = "";
+      if (value < 0) {
+        sign = "-";
+        value *= num(-1);
+      }
+      const _60 = num(60);
+      const parts = [value % _60];
+      if (value < 60) {
+        parts.unshift(0);
+      } else {
+        value = (value - parts[0]) / _60;
+        parts.unshift(value % _60);
+        if (value >= 60) {
+          value = (value - parts[0]) / _60;
+          parts.unshift(value);
+        }
+      }
+      return sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
+    }
+    var intTime = {
+      identify: (value) => typeof value === "bigint" || Number.isInteger(value),
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
+      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
+      stringify: stringifySexagesimal
+    };
+    var floatTime = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
+      resolve: (str) => parseSexagesimal(str, false),
+      stringify: stringifySexagesimal
+    };
+    var timestamp = {
+      identify: (value) => value instanceof Date,
+      default: true,
+      tag: "tag:yaml.org,2002:timestamp",
+      // If the time zone is omitted, the timestamp is assumed to be specified in UTC. The time part
+      // may be omitted altogether, resulting in a date format. In such a case, the time part is
+      // assumed to be 00:00:00Z (start of day, UTC).
+      test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
+      resolve(str) {
+        const match = str.match(timestamp.test);
+        if (!match)
+          throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
+        const [, year, month, day, hour, minute, second] = match.map(Number);
+        const millisec = match[7] ? Number((match[7] + "00").substr(1, 3)) : 0;
+        let date3 = Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0, millisec);
+        const tz = match[8];
+        if (tz && tz !== "Z") {
+          let d = parseSexagesimal(tz, false);
+          if (Math.abs(d) < 30)
+            d *= 60;
+          date3 -= 6e4 * d;
+        }
+        return new Date(date3);
+      },
+      stringify: ({ value }) => value?.toISOString().replace(/(T00:00:00)?\.000Z$/, "") ?? ""
+    };
+    exports.floatTime = floatTime;
+    exports.intTime = intTime;
+    exports.timestamp = timestamp;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/schema.js
+var require_schema3 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+    "use strict";
+    var map = require_map();
+    var _null4 = require_null();
+    var seq = require_seq();
+    var string3 = require_string();
+    var binary = require_binary();
+    var bool = require_bool2();
+    var float = require_float2();
+    var int2 = require_int2();
+    var merge2 = require_merge();
+    var omap = require_omap();
+    var pairs = require_pairs();
+    var set = require_set();
+    var timestamp = require_timestamp();
+    var schema = [
+      map.map,
+      seq.seq,
+      string3.string,
+      _null4.nullTag,
+      bool.trueTag,
+      bool.falseTag,
+      int2.intBin,
+      int2.intOct,
+      int2.int,
+      int2.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float,
+      binary.binary,
+      merge2.merge,
+      omap.omap,
+      pairs.pairs,
+      set.set,
+      timestamp.intTime,
+      timestamp.floatTime,
+      timestamp.timestamp
+    ];
+    exports.schema = schema;
+  }
+});
+
+// node_modules/yaml/dist/schema/tags.js
+var require_tags = __commonJS({
+  "node_modules/yaml/dist/schema/tags.js"(exports) {
+    "use strict";
+    var map = require_map();
+    var _null4 = require_null();
+    var seq = require_seq();
+    var string3 = require_string();
+    var bool = require_bool();
+    var float = require_float();
+    var int2 = require_int();
+    var schema = require_schema();
+    var schema$1 = require_schema2();
+    var binary = require_binary();
+    var merge2 = require_merge();
+    var omap = require_omap();
+    var pairs = require_pairs();
+    var schema$2 = require_schema3();
+    var set = require_set();
+    var timestamp = require_timestamp();
+    var schemas = /* @__PURE__ */ new Map([
+      ["core", schema.schema],
+      ["failsafe", [map.map, seq.seq, string3.string]],
+      ["json", schema$1.schema],
+      ["yaml11", schema$2.schema],
+      ["yaml-1.1", schema$2.schema]
+    ]);
+    var tagsByName = {
+      binary: binary.binary,
+      bool: bool.boolTag,
+      float: float.float,
+      floatExp: float.floatExp,
+      floatNaN: float.floatNaN,
+      floatTime: timestamp.floatTime,
+      int: int2.int,
+      intHex: int2.intHex,
+      intOct: int2.intOct,
+      intTime: timestamp.intTime,
+      map: map.map,
+      merge: merge2.merge,
+      null: _null4.nullTag,
+      omap: omap.omap,
+      pairs: pairs.pairs,
+      seq: seq.seq,
+      set: set.set,
+      timestamp: timestamp.timestamp
+    };
+    var coreKnownTags = {
+      "tag:yaml.org,2002:binary": binary.binary,
+      "tag:yaml.org,2002:merge": merge2.merge,
+      "tag:yaml.org,2002:omap": omap.omap,
+      "tag:yaml.org,2002:pairs": pairs.pairs,
+      "tag:yaml.org,2002:set": set.set,
+      "tag:yaml.org,2002:timestamp": timestamp.timestamp
+    };
+    function getTags(customTags, schemaName, addMergeTag) {
+      const schemaTags = schemas.get(schemaName);
+      if (schemaTags && !customTags) {
+        return addMergeTag && !schemaTags.includes(merge2.merge) ? schemaTags.concat(merge2.merge) : schemaTags.slice();
+      }
+      let tags = schemaTags;
+      if (!tags) {
+        if (Array.isArray(customTags))
+          tags = [];
+        else {
+          const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
+        }
+      }
+      if (Array.isArray(customTags)) {
+        for (const tag of customTags)
+          tags = tags.concat(tag);
+      } else if (typeof customTags === "function") {
+        tags = customTags(tags.slice());
+      }
+      if (addMergeTag)
+        tags = tags.concat(merge2.merge);
+      return tags.reduce((tags2, tag) => {
+        const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
+        if (!tagObj) {
+          const tagName = JSON.stringify(tag);
+          const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
+        }
+        if (!tags2.includes(tagObj))
+          tags2.push(tagObj);
+        return tags2;
+      }, []);
+    }
+    exports.coreKnownTags = coreKnownTags;
+    exports.getTags = getTags;
+  }
+});
+
+// node_modules/yaml/dist/schema/Schema.js
+var require_Schema = __commonJS({
+  "node_modules/yaml/dist/schema/Schema.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var map = require_map();
+    var seq = require_seq();
+    var string3 = require_string();
+    var tags = require_tags();
+    var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+    var Schema = class _Schema {
+      constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema, sortMapEntries, toStringDefaults }) {
+        this.compat = Array.isArray(compat) ? tags.getTags(compat, "compat") : compat ? tags.getTags(null, compat) : null;
+        this.name = typeof schema === "string" && schema || "core";
+        this.knownTags = resolveKnownTags ? tags.coreKnownTags : {};
+        this.tags = tags.getTags(customTags, this.name, merge2);
+        this.toStringOptions = toStringDefaults ?? null;
+        Object.defineProperty(this, identity.MAP, { value: map.map });
+        Object.defineProperty(this, identity.SCALAR, { value: string3.string });
+        Object.defineProperty(this, identity.SEQ, { value: seq.seq });
+        this.sortMapEntries = typeof sortMapEntries === "function" ? sortMapEntries : sortMapEntries === true ? sortMapEntriesByKey : null;
+      }
+      clone() {
+        const copy = Object.create(_Schema.prototype, Object.getOwnPropertyDescriptors(this));
+        copy.tags = this.tags.slice();
+        return copy;
+      }
+    };
+    exports.Schema = Schema;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyDocument.js
+var require_stringifyDocument = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var stringify2 = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyDocument(doc, options) {
+      const lines = [];
+      let hasDirectives = options.directives === true;
+      if (options.directives !== false && doc.directives) {
+        const dir = doc.directives.toString(doc);
+        if (dir) {
+          lines.push(dir);
+          hasDirectives = true;
+        } else if (doc.directives.docStart)
+          hasDirectives = true;
+      }
+      if (hasDirectives)
+        lines.push("---");
+      const ctx = stringify2.createStringifyContext(doc, options);
+      const { commentString } = ctx.options;
+      if (doc.commentBefore) {
+        if (lines.length !== 1)
+          lines.unshift("");
+        const cs = commentString(doc.commentBefore);
+        lines.unshift(stringifyComment.indentComment(cs, ""));
+      }
+      let chompKeep = false;
+      let contentComment = null;
+      if (doc.contents) {
+        if (identity.isNode(doc.contents)) {
+          if (doc.contents.spaceBefore && hasDirectives)
+            lines.push("");
+          if (doc.contents.commentBefore) {
+            const cs = commentString(doc.contents.commentBefore);
+            lines.push(stringifyComment.indentComment(cs, ""));
+          }
+          ctx.forceBlockIndent = !!doc.comment;
+          contentComment = doc.contents.comment;
+        }
+        const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
+        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        if (contentComment)
+          body += stringifyComment.lineComment(body, "", commentString(contentComment));
+        if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
+          lines[lines.length - 1] = `--- ${body}`;
+        } else
+          lines.push(body);
+      } else {
+        lines.push(stringify2.stringify(doc.contents, ctx));
+      }
+      if (doc.directives?.docEnd) {
+        if (doc.comment) {
+          const cs = commentString(doc.comment);
+          if (cs.includes("\n")) {
+            lines.push("...");
+            lines.push(stringifyComment.indentComment(cs, ""));
+          } else {
+            lines.push(`... ${cs}`);
+          }
+        } else {
+          lines.push("...");
+        }
+      } else {
+        let dc = doc.comment;
+        if (dc && chompKeep)
+          dc = dc.replace(/^\n+/, "");
+        if (dc) {
+          if ((!chompKeep || contentComment) && lines[lines.length - 1] !== "")
+            lines.push("");
+          lines.push(stringifyComment.indentComment(commentString(dc), ""));
+        }
+      }
+      return lines.join("\n") + "\n";
+    }
+    exports.stringifyDocument = stringifyDocument;
+  }
+});
+
+// node_modules/yaml/dist/doc/Document.js
+var require_Document = __commonJS({
+  "node_modules/yaml/dist/doc/Document.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var toJS = require_toJS();
+    var Schema = require_Schema();
+    var stringifyDocument = require_stringifyDocument();
+    var anchors = require_anchors();
+    var applyReviver = require_applyReviver();
+    var createNode = require_createNode();
+    var directives = require_directives();
+    var Document = class _Document {
+      constructor(value, replacer, options) {
+        this.commentBefore = null;
+        this.comment = null;
+        this.errors = [];
+        this.warnings = [];
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.DOC });
+        let _replacer = null;
+        if (typeof replacer === "function" || Array.isArray(replacer)) {
+          _replacer = replacer;
+        } else if (options === void 0 && replacer) {
+          options = replacer;
+          replacer = void 0;
+        }
+        const opt = Object.assign({
+          intAsBigInt: false,
+          keepSourceTokens: false,
+          logLevel: "warn",
+          prettyErrors: true,
+          strict: true,
+          stringKeys: false,
+          uniqueKeys: true,
+          version: "1.2"
+        }, options);
+        this.options = opt;
+        let { version: version2 } = opt;
+        if (options?._directives) {
+          this.directives = options._directives.atDocument();
+          if (this.directives.yaml.explicit)
+            version2 = this.directives.yaml.version;
+        } else
+          this.directives = new directives.Directives({ version: version2 });
+        this.setSchema(version2, options);
+        this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
+      }
+      /**
+       * Create a deep copy of this Document and its contents.
+       *
+       * Custom Node values that inherit from `Object` still refer to their original instances.
+       */
+      clone() {
+        const copy = Object.create(_Document.prototype, {
+          [identity.NODE_TYPE]: { value: identity.DOC }
+        });
+        copy.commentBefore = this.commentBefore;
+        copy.comment = this.comment;
+        copy.errors = this.errors.slice();
+        copy.warnings = this.warnings.slice();
+        copy.options = Object.assign({}, this.options);
+        if (this.directives)
+          copy.directives = this.directives.clone();
+        copy.schema = this.schema.clone();
+        copy.contents = identity.isNode(this.contents) ? this.contents.clone(copy.schema) : this.contents;
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /** Adds a value to the document. */
+      add(value) {
+        if (assertCollection(this.contents))
+          this.contents.add(value);
+      }
+      /** Adds a value to the document. */
+      addIn(path, value) {
+        if (assertCollection(this.contents))
+          this.contents.addIn(path, value);
+      }
+      /**
+       * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
+       *
+       * If `node` already has an anchor, `name` is ignored.
+       * Otherwise, the `node.anchor` value will be set to `name`,
+       * or if an anchor with that name is already present in the document,
+       * `name` will be used as a prefix for a new unique anchor.
+       * If `name` is undefined, the generated anchor will use 'a' as a prefix.
+       */
+      createAlias(node, name) {
+        if (!node.anchor) {
+          const prev = anchors.anchorNames(this);
+          node.anchor = // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          !name || prev.has(name) ? anchors.findNewAnchor(name || "a", prev) : name;
+        }
+        return new Alias.Alias(node.anchor);
+      }
+      createNode(value, replacer, options) {
+        let _replacer = void 0;
+        if (typeof replacer === "function") {
+          value = replacer.call({ "": value }, "", value);
+          _replacer = replacer;
+        } else if (Array.isArray(replacer)) {
+          const keyToStr = (v) => typeof v === "number" || v instanceof String || v instanceof Number;
+          const asStr = replacer.filter(keyToStr).map(String);
+          if (asStr.length > 0)
+            replacer = replacer.concat(asStr);
+          _replacer = replacer;
+        } else if (options === void 0 && replacer) {
+          options = replacer;
+          replacer = void 0;
+        }
+        const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {};
+        const { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(
+          this,
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          anchorPrefix || "a"
+        );
+        const ctx = {
+          aliasDuplicateObjects: aliasDuplicateObjects ?? true,
+          keepUndefined: keepUndefined ?? false,
+          onAnchor,
+          onTagObj,
+          replacer: _replacer,
+          schema: this.schema,
+          sourceObjects
+        };
+        const node = createNode.createNode(value, tag, ctx);
+        if (flow && identity.isCollection(node))
+          node.flow = true;
+        setAnchors();
+        return node;
+      }
+      /**
+       * Convert a key and a value into a `Pair` using the current schema,
+       * recursively wrapping all values as `Scalar` or `Collection` nodes.
+       */
+      createPair(key, value, options = {}) {
+        const k = this.createNode(key, null, options);
+        const v = this.createNode(value, null, options);
+        return new Pair.Pair(k, v);
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        return assertCollection(this.contents) ? this.contents.delete(key) : false;
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        if (Collection.isEmptyPath(path)) {
+          if (this.contents == null)
+            return false;
+          this.contents = null;
+          return true;
+        }
+        return assertCollection(this.contents) ? this.contents.deleteIn(path) : false;
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      get(key, keepScalar) {
+        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+      }
+      /**
+       * Returns item at `path`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        if (Collection.isEmptyPath(path))
+          return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+      }
+      /**
+       * Checks if the document includes a value with the key `key`.
+       */
+      has(key) {
+        return identity.isCollection(this.contents) ? this.contents.has(key) : false;
+      }
+      /**
+       * Checks if the document includes a value at `path`.
+       */
+      hasIn(path) {
+        if (Collection.isEmptyPath(path))
+          return this.contents !== void 0;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path) : false;
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      set(key, value) {
+        if (this.contents == null) {
+          this.contents = Collection.collectionFromPath(this.schema, [key], value);
+        } else if (assertCollection(this.contents)) {
+          this.contents.set(key, value);
+        }
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        if (Collection.isEmptyPath(path)) {
+          this.contents = value;
+        } else if (this.contents == null) {
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path), value);
+        } else if (assertCollection(this.contents)) {
+          this.contents.setIn(path, value);
+        }
+      }
+      /**
+       * Change the YAML version and schema used by the document.
+       * A `null` version disables support for directives, explicit tags, anchors, and aliases.
+       * It also requires the `schema` option to be given as a `Schema` instance value.
+       *
+       * Overrides all previously set schema options.
+       */
+      setSchema(version2, options = {}) {
+        if (typeof version2 === "number")
+          version2 = String(version2);
+        let opt;
+        switch (version2) {
+          case "1.1":
+            if (this.directives)
+              this.directives.yaml.version = "1.1";
+            else
+              this.directives = new directives.Directives({ version: "1.1" });
+            opt = { resolveKnownTags: false, schema: "yaml-1.1" };
+            break;
+          case "1.2":
+          case "next":
+            if (this.directives)
+              this.directives.yaml.version = version2;
+            else
+              this.directives = new directives.Directives({ version: version2 });
+            opt = { resolveKnownTags: true, schema: "core" };
+            break;
+          case null:
+            if (this.directives)
+              delete this.directives;
+            opt = null;
+            break;
+          default: {
+            const sv = JSON.stringify(version2);
+            throw new Error(`Expected '1.1', '1.2' or null as first argument, but found: ${sv}`);
+          }
+        }
+        if (options.schema instanceof Object)
+          this.schema = options.schema;
+        else if (opt)
+          this.schema = new Schema.Schema(Object.assign(opt, options));
+        else
+          throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
+      }
+      // json & jsonArg are only used from toJSON()
+      toJS({ json, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        const ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc: this,
+          keep: !json,
+          mapAsMap: mapAsMap === true,
+          mapKeyWarned: false,
+          maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+        };
+        const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
+        if (typeof onAnchor === "function")
+          for (const { count, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count);
+        return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+      /**
+       * A JSON representation of the document `contents`.
+       *
+       * @param jsonArg Used by `JSON.stringify` to indicate the array index or
+       *   property name.
+       */
+      toJSON(jsonArg, onAnchor) {
+        return this.toJS({ json: true, jsonArg, mapAsMap: false, onAnchor });
+      }
+      /** A YAML representation of the document. */
+      toString(options = {}) {
+        if (this.errors.length > 0)
+          throw new Error("Document with errors cannot be stringified");
+        if ("indent" in options && (!Number.isInteger(options.indent) || Number(options.indent) <= 0)) {
+          const s = JSON.stringify(options.indent);
+          throw new Error(`"indent" option must be a positive integer, not ${s}`);
+        }
+        return stringifyDocument.stringifyDocument(this, options);
+      }
+    };
+    function assertCollection(contents) {
+      if (identity.isCollection(contents))
+        return true;
+      throw new Error("Expected a YAML collection as document contents");
+    }
+    exports.Document = Document;
+  }
+});
+
+// node_modules/yaml/dist/errors.js
+var require_errors2 = __commonJS({
+  "node_modules/yaml/dist/errors.js"(exports) {
+    "use strict";
+    var YAMLError = class extends Error {
+      constructor(name, pos, code, message) {
+        super();
+        this.name = name;
+        this.code = code;
+        this.message = message;
+        this.pos = pos;
+      }
+    };
+    var YAMLParseError = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLParseError", pos, code, message);
+      }
+    };
+    var YAMLWarning = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLWarning", pos, code, message);
+      }
+    };
+    var prettifyError = (src, lc) => (error2) => {
+      if (error2.pos[0] === -1)
+        return;
+      error2.linePos = error2.pos.map((pos) => lc.linePos(pos));
+      const { line, col } = error2.linePos[0];
+      error2.message += ` at line ${line}, column ${col}`;
+      let ci = col - 1;
+      let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
+      if (ci >= 60 && lineStr.length > 80) {
+        const trimStart = Math.min(ci - 39, lineStr.length - 79);
+        lineStr = "\u2026" + lineStr.substring(trimStart);
+        ci -= trimStart - 1;
+      }
+      if (lineStr.length > 80)
+        lineStr = lineStr.substring(0, 79) + "\u2026";
+      if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
+        if (prev.length > 80)
+          prev = prev.substring(0, 79) + "\u2026\n";
+        lineStr = prev + lineStr;
+      }
+      if (/[^ ]/.test(lineStr)) {
+        let count = 1;
+        const end = error2.linePos[1];
+        if (end?.line === line && end.col > col) {
+          count = Math.max(1, Math.min(end.col - col, 80 - ci));
+        }
+        const pointer = " ".repeat(ci) + "^".repeat(count);
+        error2.message += `:
+
+${lineStr}
+${pointer}
+`;
+      }
+    };
+    exports.YAMLError = YAMLError;
+    exports.YAMLParseError = YAMLParseError;
+    exports.YAMLWarning = YAMLWarning;
+    exports.prettifyError = prettifyError;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-props.js
+var require_resolve_props = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+    "use strict";
+    function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
+      let spaceBefore = false;
+      let atNewline = startOnNewline;
+      let hasSpace = startOnNewline;
+      let comment = "";
+      let commentSep = "";
+      let hasNewline = false;
+      let reqSpace = false;
+      let tab = null;
+      let anchor = null;
+      let tag = null;
+      let newlineAfterProp = null;
+      let comma = null;
+      let found = null;
+      let start = null;
+      for (const token of tokens) {
+        if (reqSpace) {
+          if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
+            onError(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+          reqSpace = false;
+        }
+        if (tab) {
+          if (atNewline && token.type !== "comment" && token.type !== "newline") {
+            onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
+          }
+          tab = null;
+        }
+        switch (token.type) {
+          case "space":
+            if (!flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token.source.includes("	")) {
+              tab = token;
+            }
+            hasSpace = true;
+            break;
+          case "comment": {
+            if (!hasSpace)
+              onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+            const cb = token.source.substring(1) || " ";
+            if (!comment)
+              comment = cb;
+            else
+              comment += commentSep + cb;
+            commentSep = "";
+            atNewline = false;
+            break;
+          }
+          case "newline":
+            if (atNewline) {
+              if (comment)
+                comment += token.source;
+              else if (!found || indicator !== "seq-item-ind")
+                spaceBefore = true;
+            } else
+              commentSep += token.source;
+            atNewline = true;
+            hasNewline = true;
+            if (anchor || tag)
+              newlineAfterProp = token;
+            hasSpace = true;
+            break;
+          case "anchor":
+            if (anchor)
+              onError(token, "MULTIPLE_ANCHORS", "A node can have at most one anchor");
+            if (token.source.endsWith(":"))
+              onError(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
+            anchor = token;
+            start ?? (start = token.offset);
+            atNewline = false;
+            hasSpace = false;
+            reqSpace = true;
+            break;
+          case "tag": {
+            if (tag)
+              onError(token, "MULTIPLE_TAGS", "A node can have at most one tag");
+            tag = token;
+            start ?? (start = token.offset);
+            atNewline = false;
+            hasSpace = false;
+            reqSpace = true;
+            break;
+          }
+          case indicator:
+            if (anchor || tag)
+              onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
+            if (found)
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
+            found = token;
+            atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind";
+            hasSpace = false;
+            break;
+          case "comma":
+            if (flow) {
+              if (comma)
+                onError(token, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`);
+              comma = token;
+              atNewline = false;
+              hasSpace = false;
+              break;
+            }
+          // else fallthrough
+          default:
+            onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.type} token`);
+            atNewline = false;
+            hasSpace = false;
+        }
+      }
+      const last = tokens[tokens.length - 1];
+      const end = last ? last.offset + last.source.length : offset;
+      if (reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "")) {
+        onError(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+      }
+      if (tab && (atNewline && tab.indent <= parentIndent || next?.type === "block-map" || next?.type === "block-seq"))
+        onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
+      return {
+        comma,
+        found,
+        spaceBefore,
+        comment,
+        hasNewline,
+        anchor,
+        tag,
+        newlineAfterProp,
+        end,
+        start: start ?? end
+      };
+    }
+    exports.resolveProps = resolveProps;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-contains-newline.js
+var require_util_contains_newline = __commonJS({
+  "node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+    "use strict";
+    function containsNewline(key) {
+      if (!key)
+        return null;
+      switch (key.type) {
+        case "alias":
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          if (key.source.includes("\n"))
+            return true;
+          if (key.end) {
+            for (const st of key.end)
+              if (st.type === "newline")
+                return true;
+          }
+          return false;
+        case "flow-collection":
+          for (const it of key.items) {
+            for (const st of it.start)
+              if (st.type === "newline")
+                return true;
+            if (it.sep) {
+              for (const st of it.sep)
+                if (st.type === "newline")
+                  return true;
+            }
+            if (containsNewline(it.key) || containsNewline(it.value))
+              return true;
+          }
+          return false;
+        default:
+          return true;
+      }
+    }
+    exports.containsNewline = containsNewline;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-flow-indent-check.js
+var require_util_flow_indent_check = __commonJS({
+  "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+    "use strict";
+    var utilContainsNewline = require_util_contains_newline();
+    function flowIndentCheck(indent, fc, onError) {
+      if (fc?.type === "flow-collection") {
+        const end = fc.end[0];
+        if (end.indent === indent && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
+          const msg = "Flow end indicator should be more indented than parent";
+          onError(end, "BAD_INDENT", msg, true);
+        }
+      }
+    }
+    exports.flowIndentCheck = flowIndentCheck;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-map-includes.js
+var require_util_map_includes = __commonJS({
+  "node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function mapIncludes(ctx, items, search) {
+      const { uniqueKeys } = ctx.options;
+      if (uniqueKeys === false)
+        return false;
+      const isEqual = typeof uniqueKeys === "function" ? uniqueKeys : (a, b) => a === b || identity.isScalar(a) && identity.isScalar(b) && a.value === b.value;
+      return items.some((pair) => isEqual(pair.key, search));
+    }
+    exports.mapIncludes = mapIncludes;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-block-map.js
+var require_resolve_block_map = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+    "use strict";
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var resolveProps = require_resolve_props();
+    var utilContainsNewline = require_util_contains_newline();
+    var utilFlowIndentCheck = require_util_flow_indent_check();
+    var utilMapIncludes = require_util_map_includes();
+    var startColMsg = "All mapping items must start at the same column";
+    function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag) {
+      const NodeClass = tag?.nodeClass ?? YAMLMap.YAMLMap;
+      const map = new NodeClass(ctx.schema);
+      if (ctx.atRoot)
+        ctx.atRoot = false;
+      let offset = bm.offset;
+      let commentEnd = null;
+      for (const collItem of bm.items) {
+        const { start, key, sep, value } = collItem;
+        const keyProps = resolveProps.resolveProps(start, {
+          indicator: "explicit-key-ind",
+          next: key ?? sep?.[0],
+          offset,
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: true
+        });
+        const implicitKey = !keyProps.found;
+        if (implicitKey) {
+          if (key) {
+            if (key.type === "block-seq")
+              onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key");
+            else if ("indent" in key && key.indent !== bm.indent)
+              onError(offset, "BAD_INDENT", startColMsg);
+          }
+          if (!keyProps.anchor && !keyProps.tag && !sep) {
+            commentEnd = keyProps.end;
+            if (keyProps.comment) {
+              if (map.comment)
+                map.comment += "\n" + keyProps.comment;
+              else
+                map.comment = keyProps.comment;
+            }
+            continue;
+          }
+          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
+            onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+          }
+        } else if (keyProps.found?.indent !== bm.indent) {
+          onError(offset, "BAD_INDENT", startColMsg);
+        }
+        ctx.atKey = true;
+        const keyStart = keyProps.end;
+        const keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
+        if (ctx.schema.compat)
+          utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError);
+        ctx.atKey = false;
+        if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
+          onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+        const valueProps = resolveProps.resolveProps(sep ?? [], {
+          indicator: "map-value-ind",
+          next: value,
+          offset: keyNode.range[2],
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: !key || key.type === "block-scalar"
+        });
+        offset = valueProps.end;
+        if (valueProps.found) {
+          if (implicitKey) {
+            if (value?.type === "block-map" && !valueProps.hasNewline)
+              onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings");
+            if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
+              onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
+          }
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          if (ctx.schema.compat)
+            utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
+          offset = valueNode.range[2];
+          const pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          map.items.push(pair);
+        } else {
+          if (implicitKey)
+            onError(keyNode.range, "MISSING_CHAR", "Implicit map keys need to be followed by map values");
+          if (valueProps.comment) {
+            if (keyNode.comment)
+              keyNode.comment += "\n" + valueProps.comment;
+            else
+              keyNode.comment = valueProps.comment;
+          }
+          const pair = new Pair.Pair(keyNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          map.items.push(pair);
+        }
+      }
+      if (commentEnd && commentEnd < offset)
+        onError(commentEnd, "IMPOSSIBLE", "Map comment with trailing content");
+      map.range = [bm.offset, offset, commentEnd ?? offset];
+      return map;
+    }
+    exports.resolveBlockMap = resolveBlockMap;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-block-seq.js
+var require_resolve_block_seq = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+    "use strict";
+    var YAMLSeq = require_YAMLSeq();
+    var resolveProps = require_resolve_props();
+    var utilFlowIndentCheck = require_util_flow_indent_check();
+    function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag) {
+      const NodeClass = tag?.nodeClass ?? YAMLSeq.YAMLSeq;
+      const seq = new NodeClass(ctx.schema);
+      if (ctx.atRoot)
+        ctx.atRoot = false;
+      if (ctx.atKey)
+        ctx.atKey = false;
+      let offset = bs.offset;
+      let commentEnd = null;
+      for (const { start, value } of bs.items) {
+        const props = resolveProps.resolveProps(start, {
+          indicator: "seq-item-ind",
+          next: value,
+          offset,
+          onError,
+          parentIndent: bs.indent,
+          startOnNewline: true
+        });
+        if (!props.found) {
+          if (props.anchor || props.tag || value) {
+            if (value?.type === "block-seq")
+              onError(props.end, "BAD_INDENT", "All sequence items must start at the same column");
+            else
+              onError(offset, "MISSING_CHAR", "Sequence item without - indicator");
+          } else {
+            commentEnd = props.end;
+            if (props.comment)
+              seq.comment = props.comment;
+            continue;
+          }
+        }
+        const node = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, start, null, props, onError);
+        if (ctx.schema.compat)
+          utilFlowIndentCheck.flowIndentCheck(bs.indent, value, onError);
+        offset = node.range[2];
+        seq.items.push(node);
+      }
+      seq.range = [bs.offset, offset, commentEnd ?? offset];
+      return seq;
+    }
+    exports.resolveBlockSeq = resolveBlockSeq;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-end.js
+var require_resolve_end = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+    "use strict";
+    function resolveEnd(end, offset, reqSpace, onError) {
+      let comment = "";
+      if (end) {
+        let hasSpace = false;
+        let sep = "";
+        for (const token of end) {
+          const { source, type } = token;
+          switch (type) {
+            case "space":
+              hasSpace = true;
+              break;
+            case "comment": {
+              if (reqSpace && !hasSpace)
+                onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+              const cb = source.substring(1) || " ";
+              if (!comment)
+                comment = cb;
+              else
+                comment += sep + cb;
+              sep = "";
+              break;
+            }
+            case "newline":
+              if (comment)
+                sep += source;
+              hasSpace = true;
+              break;
+            default:
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
+          }
+          offset += source.length;
+        }
+      }
+      return { comment, offset };
+    }
+    exports.resolveEnd = resolveEnd;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-flow-collection.js
+var require_resolve_flow_collection = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var resolveEnd = require_resolve_end();
+    var resolveProps = require_resolve_props();
+    var utilContainsNewline = require_util_contains_newline();
+    var utilMapIncludes = require_util_map_includes();
+    var blockMsg = "Block collections are not allowed within flow collections";
+    var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
+    function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
+      const isMap = fc.start.source === "{";
+      const fcName = isMap ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const coll = new NodeClass(ctx.schema);
+      coll.flow = true;
+      const atRoot = ctx.atRoot;
+      if (atRoot)
+        ctx.atRoot = false;
+      if (ctx.atKey)
+        ctx.atKey = false;
+      let offset = fc.offset + fc.start.source.length;
+      for (let i = 0; i < fc.items.length; ++i) {
+        const collItem = fc.items[i];
+        const { start, key, sep, value } = collItem;
+        const props = resolveProps.resolveProps(start, {
+          flow: fcName,
+          indicator: "explicit-key-ind",
+          next: key ?? sep?.[0],
+          offset,
+          onError,
+          parentIndent: fc.indent,
+          startOnNewline: false
+        });
+        if (!props.found) {
+          if (!props.anchor && !props.tag && !sep && !value) {
+            if (i === 0 && props.comma)
+              onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+            else if (i < fc.items.length - 1)
+              onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`);
+            if (props.comment) {
+              if (coll.comment)
+                coll.comment += "\n" + props.comment;
+              else
+                coll.comment = props.comment;
+            }
+            offset = props.end;
+            continue;
+          }
+          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+            onError(
+              key,
+              // checked by containsNewline()
+              "MULTILINE_IMPLICIT_KEY",
+              "Implicit keys of flow sequence pairs need to be on a single line"
+            );
+        }
+        if (i === 0) {
+          if (props.comma)
+            onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+        } else {
+          if (!props.comma)
+            onError(props.start, "MISSING_CHAR", `Missing , between ${fcName} items`);
+          if (props.comment) {
+            let prevItemComment = "";
+            loop: for (const st of start) {
+              switch (st.type) {
+                case "comma":
+                case "space":
+                  break;
+                case "comment":
+                  prevItemComment = st.source.substring(1);
+                  break loop;
+                default:
+                  break loop;
+              }
+            }
+            if (prevItemComment) {
+              let prev = coll.items[coll.items.length - 1];
+              if (identity.isPair(prev))
+                prev = prev.value ?? prev.key;
+              if (prev.comment)
+                prev.comment += "\n" + prevItemComment;
+              else
+                prev.comment = prevItemComment;
+              props.comment = props.comment.substring(prevItemComment.length + 1);
+            }
+          }
+        }
+        if (!isMap && !sep && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+          coll.items.push(valueNode);
+          offset = valueNode.range[2];
+          if (isBlock(value))
+            onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
+        } else {
+          ctx.atKey = true;
+          const keyStart = props.end;
+          const keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
+          if (isBlock(key))
+            onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
+          ctx.atKey = false;
+          const valueProps = resolveProps.resolveProps(sep ?? [], {
+            flow: fcName,
+            indicator: "map-value-ind",
+            next: value,
+            offset: keyNode.range[2],
+            onError,
+            parentIndent: fc.indent,
+            startOnNewline: false
+          });
+          if (valueProps.found) {
+            if (!isMap && !props.found && ctx.options.strict) {
+              if (sep)
+                for (const st of sep) {
+                  if (st === valueProps.found)
+                    break;
+                  if (st.type === "newline") {
+                    onError(st, "MULTILINE_IMPLICIT_KEY", "Implicit keys of flow sequence pairs need to be on a single line");
+                    break;
+                  }
+                }
+              if (props.start < valueProps.found.offset - 1024)
+                onError(valueProps.found, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
+            }
+          } else if (value) {
+            if ("source" in value && value.source?.[0] === ":")
+              onError(value, "MISSING_CHAR", `Missing space after : in ${fcName}`);
+            else
+              onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
+          }
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          if (valueNode) {
+            if (isBlock(value))
+              onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
+          } else if (valueProps.comment) {
+            if (keyNode.comment)
+              keyNode.comment += "\n" + valueProps.comment;
+            else
+              keyNode.comment = valueProps.comment;
+          }
+          const pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          if (isMap) {
+            const map = coll;
+            if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
+              onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+            map.items.push(pair);
+          } else {
+            const map = new YAMLMap.YAMLMap(ctx.schema);
+            map.flow = true;
+            map.items.push(pair);
+            const endRange = (valueNode ?? keyNode).range;
+            map.range = [keyNode.range[0], endRange[1], endRange[2]];
+            coll.items.push(map);
+          }
+          offset = valueNode ? valueNode.range[2] : valueProps.end;
+        }
+      }
+      const expectedEnd = isMap ? "}" : "]";
+      const [ce, ...ee] = fc.end;
+      let cePos = offset;
+      if (ce?.source === expectedEnd)
+        cePos = ce.offset + ce.source.length;
+      else {
+        const name = fcName[0].toUpperCase() + fcName.substring(1);
+        const msg = atRoot ? `${name} must end with a ${expectedEnd}` : `${name} in block collection must be sufficiently indented and end with a ${expectedEnd}`;
+        onError(offset, atRoot ? "MISSING_CHAR" : "BAD_INDENT", msg);
+        if (ce && ce.source.length !== 1)
+          ee.unshift(ce);
+      }
+      if (ee.length > 0) {
+        const end = resolveEnd.resolveEnd(ee, cePos, ctx.options.strict, onError);
+        if (end.comment) {
+          if (coll.comment)
+            coll.comment += "\n" + end.comment;
+          else
+            coll.comment = end.comment;
+        }
+        coll.range = [fc.offset, cePos, end.offset];
+      } else {
+        coll.range = [fc.offset, cePos, cePos];
+      }
+      return coll;
+    }
+    exports.resolveFlowCollection = resolveFlowCollection;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-collection.js
+var require_compose_collection = __commonJS({
+  "node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var resolveBlockMap = require_resolve_block_map();
+    var resolveBlockSeq = require_resolve_block_seq();
+    var resolveFlowCollection = require_resolve_flow_collection();
+    function resolveCollection(CN, ctx, token, onError, tagName, tag) {
+      const coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag);
+      const Coll = coll.constructor;
+      if (tagName === "!" || tagName === Coll.tagName) {
+        coll.tag = Coll.tagName;
+        return coll;
+      }
+      if (tagName)
+        coll.tag = tagName;
+      return coll;
+    }
+    function composeCollection(CN, ctx, token, props, onError) {
+      const tagToken = props.tag;
+      const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
+      if (token.type === "block-seq") {
+        const { anchor, newlineAfterProp: nl } = props;
+        const lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
+        if (lastProp && (!nl || nl.offset < lastProp.offset)) {
+          const message = "Missing newline after block sequence props";
+          onError(lastProp, "MISSING_CHAR", message);
+        }
+      }
+      const expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
+      if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.YAMLSeq.tagName && expType === "seq") {
+        return resolveCollection(CN, ctx, token, onError, tagName);
+      }
+      let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
+      if (!tag) {
+        const kt = ctx.schema.knownTags[tagName];
+        if (kt?.collection === expType) {
+          ctx.schema.tags.push(Object.assign({}, kt, { default: false }));
+          tag = kt;
+        } else {
+          if (kt) {
+            onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection ?? "scalar"}`, true);
+          } else {
+            onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
+          }
+          return resolveCollection(CN, ctx, token, onError, tagName);
+        }
+      }
+      const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
+      const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
+      const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
+      node.range = coll.range;
+      node.tag = tagName;
+      if (tag?.format)
+        node.format = tag.format;
+      return node;
+    }
+    exports.composeCollection = composeCollection;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-block-scalar.js
+var require_resolve_block_scalar = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function resolveBlockScalar(ctx, scalar, onError) {
+      const start = scalar.offset;
+      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+      if (!header)
+        return { value: "", type: null, comment: "", range: [start, start, start] };
+      const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
+      const lines = scalar.source ? splitLines(scalar.source) : [];
+      let chompStart = lines.length;
+      for (let i = lines.length - 1; i >= 0; --i) {
+        const content = lines[i][1];
+        if (content === "" || content === "\r")
+          chompStart = i;
+        else
+          break;
+      }
+      if (chompStart === 0) {
+        const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
+        let end2 = start + header.length;
+        if (scalar.source)
+          end2 += scalar.source.length;
+        return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
+      }
+      let trimIndent = scalar.indent + header.indent;
+      let offset = scalar.offset + header.length;
+      let contentStart = 0;
+      for (let i = 0; i < chompStart; ++i) {
+        const [indent, content] = lines[i];
+        if (content === "" || content === "\r") {
+          if (header.indent === 0 && indent.length > trimIndent)
+            trimIndent = indent.length;
+        } else {
+          if (indent.length < trimIndent) {
+            const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
+            onError(offset + indent.length, "MISSING_CHAR", message);
+          }
+          if (header.indent === 0)
+            trimIndent = indent.length;
+          contentStart = i;
+          if (trimIndent === 0 && !ctx.atRoot) {
+            const message = "Block scalar values in collections must be indented";
+            onError(offset, "BAD_INDENT", message);
+          }
+          break;
+        }
+        offset += indent.length + content.length + 1;
+      }
+      for (let i = lines.length - 1; i >= chompStart; --i) {
+        if (lines[i][0].length > trimIndent)
+          chompStart = i + 1;
+      }
+      let value = "";
+      let sep = "";
+      let prevMoreIndented = false;
+      for (let i = 0; i < contentStart; ++i)
+        value += lines[i][0].slice(trimIndent) + "\n";
+      for (let i = contentStart; i < chompStart; ++i) {
+        let [indent, content] = lines[i];
+        offset += indent.length + content.length + 1;
+        const crlf = content[content.length - 1] === "\r";
+        if (crlf)
+          content = content.slice(0, -1);
+        if (content && indent.length < trimIndent) {
+          const src = header.indent ? "explicit indentation indicator" : "first line";
+          const message = `Block scalar lines must not be less indented than their ${src}`;
+          onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
+          indent = "";
+        }
+        if (type === Scalar.Scalar.BLOCK_LITERAL) {
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
+        } else if (indent.length > trimIndent || content[0] === "	") {
+          if (sep === " ")
+            sep = "\n";
+          else if (!prevMoreIndented && sep === "\n")
+            sep = "\n\n";
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
+          prevMoreIndented = true;
+        } else if (content === "") {
+          if (sep === "\n")
+            value += "\n";
+          else
+            sep = "\n";
+        } else {
+          value += sep + content;
+          sep = " ";
+          prevMoreIndented = false;
+        }
+      }
+      switch (header.chomp) {
+        case "-":
+          break;
+        case "+":
+          for (let i = chompStart; i < lines.length; ++i)
+            value += "\n" + lines[i][0].slice(trimIndent);
+          if (value[value.length - 1] !== "\n")
+            value += "\n";
+          break;
+        default:
+          value += "\n";
+      }
+      const end = start + header.length + scalar.source.length;
+      return { value, type, comment: header.comment, range: [start, end, end] };
+    }
+    function parseBlockScalarHeader({ offset, props }, strict, onError) {
+      if (props[0].type !== "block-scalar-header") {
+        onError(props[0], "IMPOSSIBLE", "Block scalar header not found");
+        return null;
+      }
+      const { source } = props[0];
+      const mode = source[0];
+      let indent = 0;
+      let chomp = "";
+      let error2 = -1;
+      for (let i = 1; i < source.length; ++i) {
+        const ch = source[i];
+        if (!chomp && (ch === "-" || ch === "+"))
+          chomp = ch;
+        else {
+          const n = Number(ch);
+          if (!indent && n)
+            indent = n;
+          else if (error2 === -1)
+            error2 = offset + i;
+        }
+      }
+      if (error2 !== -1)
+        onError(error2, "UNEXPECTED_TOKEN", `Block scalar header includes extra characters: ${source}`);
+      let hasSpace = false;
+      let comment = "";
+      let length = source.length;
+      for (let i = 1; i < props.length; ++i) {
+        const token = props[i];
+        switch (token.type) {
+          case "space":
+            hasSpace = true;
+          // fallthrough
+          case "newline":
+            length += token.source.length;
+            break;
+          case "comment":
+            if (strict && !hasSpace) {
+              const message = "Comments must be separated from other tokens by white space characters";
+              onError(token, "MISSING_CHAR", message);
+            }
+            length += token.source.length;
+            comment = token.source.substring(1);
+            break;
+          case "error":
+            onError(token, "UNEXPECTED_TOKEN", token.message);
+            length += token.source.length;
+            break;
+          /* istanbul ignore next should not happen */
+          default: {
+            const message = `Unexpected token in block scalar header: ${token.type}`;
+            onError(token, "UNEXPECTED_TOKEN", message);
+            const ts = token.source;
+            if (ts && typeof ts === "string")
+              length += ts.length;
+          }
+        }
+      }
+      return { mode, indent, chomp, comment, length };
+    }
+    function splitLines(source) {
+      const split = source.split(/\n( *)/);
+      const first = split[0];
+      const m = first.match(/^( *)/);
+      const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
+      const lines = [line0];
+      for (let i = 1; i < split.length; i += 2)
+        lines.push([split[i], split[i + 1]]);
+      return lines;
+    }
+    exports.resolveBlockScalar = resolveBlockScalar;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-flow-scalar.js
+var require_resolve_flow_scalar = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var resolveEnd = require_resolve_end();
+    function resolveFlowScalar(scalar, strict, onError) {
+      const { offset, type, source, end } = scalar;
+      let _type;
+      let value;
+      const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
+      switch (type) {
+        case "scalar":
+          _type = Scalar.Scalar.PLAIN;
+          value = plainValue(source, _onError);
+          break;
+        case "single-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_SINGLE;
+          value = singleQuotedValue(source, _onError);
+          break;
+        case "double-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_DOUBLE;
+          value = doubleQuotedValue(source, _onError);
+          break;
+        /* istanbul ignore next should not happen */
+        default:
+          onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
+          return {
+            value: "",
+            type: null,
+            comment: "",
+            range: [offset, offset + source.length, offset + source.length]
+          };
+      }
+      const valueEnd = offset + source.length;
+      const re = resolveEnd.resolveEnd(end, valueEnd, strict, onError);
+      return {
+        value,
+        type: _type,
+        comment: re.comment,
+        range: [offset, valueEnd, re.offset]
+      };
+    }
+    function plainValue(source, onError) {
+      let badChar = "";
+      switch (source[0]) {
+        /* istanbul ignore next should not happen */
+        case "	":
+          badChar = "a tab character";
+          break;
+        case ",":
+          badChar = "flow indicator character ,";
+          break;
+        case "%":
+          badChar = "directive indicator character %";
+          break;
+        case "|":
+        case ">": {
+          badChar = `block scalar indicator ${source[0]}`;
+          break;
+        }
+        case "@":
+        case "`": {
+          badChar = `reserved character ${source[0]}`;
+          break;
+        }
+      }
+      if (badChar)
+        onError(0, "BAD_SCALAR_START", `Plain value cannot start with ${badChar}`);
+      return foldLines(source);
+    }
+    function singleQuotedValue(source, onError) {
+      if (source[source.length - 1] !== "'" || source.length === 1)
+        onError(source.length, "MISSING_CHAR", "Missing closing 'quote");
+      return foldLines(source.slice(1, -1)).replace(/''/g, "'");
+    }
+    function foldLines(source) {
+      let first, line;
+      try {
+        first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
+        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+      } catch {
+        first = /(.*?)[ \t]*\r?\n/sy;
+        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+      }
+      let match = first.exec(source);
+      if (!match)
+        return source;
+      let res = match[1];
+      let sep = " ";
+      let pos = first.lastIndex;
+      line.lastIndex = pos;
+      while (match = line.exec(source)) {
+        if (match[1] === "") {
+          if (sep === "\n")
+            res += sep;
+          else
+            sep = "\n";
+        } else {
+          res += sep + match[1];
+          sep = " ";
+        }
+        pos = line.lastIndex;
+      }
+      const last = /[ \t]*(.*)/sy;
+      last.lastIndex = pos;
+      match = last.exec(source);
+      return res + sep + (match?.[1] ?? "");
+    }
+    function doubleQuotedValue(source, onError) {
+      let res = "";
+      for (let i = 1; i < source.length - 1; ++i) {
+        const ch = source[i];
+        if (ch === "\r" && source[i + 1] === "\n")
+          continue;
+        if (ch === "\n") {
+          const { fold, offset } = foldNewline(source, i);
+          res += fold;
+          i = offset;
+        } else if (ch === "\\") {
+          let next = source[++i];
+          const cc = escapeCodes[next];
+          if (cc)
+            res += cc;
+          else if (next === "\n") {
+            next = source[i + 1];
+            while (next === " " || next === "	")
+              next = source[++i + 1];
+          } else if (next === "\r" && source[i + 1] === "\n") {
+            next = source[++i + 1];
+            while (next === " " || next === "	")
+              next = source[++i + 1];
+          } else if (next === "x" || next === "u" || next === "U") {
+            const length = next === "x" ? 2 : next === "u" ? 4 : 8;
+            res += parseCharCode(source, i + 1, length, onError);
+            i += length;
+          } else {
+            const raw = source.substr(i - 1, 2);
+            onError(i - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+            res += raw;
+          }
+        } else if (ch === " " || ch === "	") {
+          const wsStart = i;
+          let next = source[i + 1];
+          while (next === " " || next === "	")
+            next = source[++i + 1];
+          if (next !== "\n" && !(next === "\r" && source[i + 2] === "\n"))
+            res += i > wsStart ? source.slice(wsStart, i + 1) : ch;
+        } else {
+          res += ch;
+        }
+      }
+      if (source[source.length - 1] !== '"' || source.length === 1)
+        onError(source.length, "MISSING_CHAR", 'Missing closing "quote');
+      return res;
+    }
+    function foldNewline(source, offset) {
+      let fold = "";
+      let ch = source[offset + 1];
+      while (ch === " " || ch === "	" || ch === "\n" || ch === "\r") {
+        if (ch === "\r" && source[offset + 2] !== "\n")
+          break;
+        if (ch === "\n")
+          fold += "\n";
+        offset += 1;
+        ch = source[offset + 1];
+      }
+      if (!fold)
+        fold = " ";
+      return { fold, offset };
+    }
+    var escapeCodes = {
+      "0": "\0",
+      // null character
+      a: "\x07",
+      // bell character
+      b: "\b",
+      // backspace
+      e: "\x1B",
+      // escape character
+      f: "\f",
+      // form feed
+      n: "\n",
+      // line feed
+      r: "\r",
+      // carriage return
+      t: "	",
+      // horizontal tab
+      v: "\v",
+      // vertical tab
+      N: "\x85",
+      // Unicode next line
+      _: "\xA0",
+      // Unicode non-breaking space
+      L: "\u2028",
+      // Unicode line separator
+      P: "\u2029",
+      // Unicode paragraph separator
+      " ": " ",
+      '"': '"',
+      "/": "/",
+      "\\": "\\",
+      "	": "	"
+    };
+    function parseCharCode(source, offset, length, onError) {
+      const cc = source.substr(offset, length);
+      const ok = cc.length === length && /^[0-9a-fA-F]+$/.test(cc);
+      const code = ok ? parseInt(cc, 16) : NaN;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        const raw = source.substr(offset - 2, length + 2);
+        onError(offset - 2, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+        return raw;
+      }
+    }
+    exports.resolveFlowScalar = resolveFlowScalar;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-scalar.js
+var require_compose_scalar = __commonJS({
+  "node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var resolveBlockScalar = require_resolve_block_scalar();
+    var resolveFlowScalar = require_resolve_flow_scalar();
+    function composeScalar(ctx, token, tagToken, onError) {
+      const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token, onError) : resolveFlowScalar.resolveFlowScalar(token, ctx.options.strict, onError);
+      const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
+      let tag;
+      if (ctx.options.stringKeys && ctx.atKey) {
+        tag = ctx.schema[identity.SCALAR];
+      } else if (tagName)
+        tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
+      else if (token.type === "scalar")
+        tag = findScalarTagByTest(ctx, value, token, onError);
+      else
+        tag = ctx.schema[identity.SCALAR];
+      let scalar;
+      try {
+        const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
+        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+      } catch (error2) {
+        const msg = error2 instanceof Error ? error2.message : String(error2);
+        onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
+        scalar = new Scalar.Scalar(value);
+      }
+      scalar.range = range;
+      scalar.source = value;
+      if (type)
+        scalar.type = type;
+      if (tagName)
+        scalar.tag = tagName;
+      if (tag.format)
+        scalar.format = tag.format;
+      if (comment)
+        scalar.comment = comment;
+      return scalar;
+    }
+    function findScalarTagByName(schema, value, tagName, tagToken, onError) {
+      if (tagName === "!")
+        return schema[identity.SCALAR];
+      const matchWithTest = [];
+      for (const tag of schema.tags) {
+        if (!tag.collection && tag.tag === tagName) {
+          if (tag.default && tag.test)
+            matchWithTest.push(tag);
+          else
+            return tag;
+        }
+      }
+      for (const tag of matchWithTest)
+        if (tag.test?.test(value))
+          return tag;
+      const kt = schema.knownTags[tagName];
+      if (kt && !kt.collection) {
+        schema.tags.push(Object.assign({}, kt, { default: false, test: void 0 }));
+        return kt;
+      }
+      onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, tagName !== "tag:yaml.org,2002:str");
+      return schema[identity.SCALAR];
+    }
+    function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
+      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
+      if (schema.compat) {
+        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
+        if (tag.tag !== compat.tag) {
+          const ts = directives.tagString(tag.tag);
+          const cs = directives.tagString(compat.tag);
+          const msg = `Value may be parsed as either ${ts} or ${cs}`;
+          onError(token, "TAG_RESOLVE_FAILED", msg, true);
+        }
+      }
+      return tag;
+    }
+    exports.composeScalar = composeScalar;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-empty-scalar-position.js
+var require_util_empty_scalar_position = __commonJS({
+  "node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+    "use strict";
+    function emptyScalarPosition(offset, before, pos) {
+      if (before) {
+        pos ?? (pos = before.length);
+        for (let i = pos - 1; i >= 0; --i) {
+          let st = before[i];
+          switch (st.type) {
+            case "space":
+            case "comment":
+            case "newline":
+              offset -= st.source.length;
+              continue;
+          }
+          st = before[++i];
+          while (st?.type === "space") {
+            offset += st.source.length;
+            st = before[++i];
+          }
+          break;
+        }
+      }
+      return offset;
+    }
+    exports.emptyScalarPosition = emptyScalarPosition;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-node.js
+var require_compose_node = __commonJS({
+  "node_modules/yaml/dist/compose/compose-node.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var composeCollection = require_compose_collection();
+    var composeScalar = require_compose_scalar();
+    var resolveEnd = require_resolve_end();
+    var utilEmptyScalarPosition = require_util_empty_scalar_position();
+    var CN = { composeNode, composeEmptyNode };
+    function composeNode(ctx, token, props, onError) {
+      const atKey = ctx.atKey;
+      const { spaceBefore, comment, anchor, tag } = props;
+      let node;
+      let isSrcToken = true;
+      switch (token.type) {
+        case "alias":
+          node = composeAlias(ctx, token, onError);
+          if (anchor || tag)
+            onError(token, "ALIAS_PROPS", "An alias node must not specify any properties");
+          break;
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "block-scalar":
+          node = composeScalar.composeScalar(ctx, token, tag, onError);
+          if (anchor)
+            node.anchor = anchor.source.substring(1);
+          break;
+        case "block-map":
+        case "block-seq":
+        case "flow-collection":
+          try {
+            node = composeCollection.composeCollection(CN, ctx, token, props, onError);
+            if (anchor)
+              node.anchor = anchor.source.substring(1);
+          } catch (error2) {
+            const message = error2 instanceof Error ? error2.message : String(error2);
+            onError(token, "RESOURCE_EXHAUSTION", message);
+          }
+          break;
+        default: {
+          const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+          onError(token, "UNEXPECTED_TOKEN", message);
+          isSrcToken = false;
+        }
+      }
+      node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError));
+      if (anchor && node.anchor === "")
+        onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
+        const msg = "With stringKeys, all keys must be strings";
+        onError(tag ?? token, "NON_STRING_KEY", msg);
+      }
+      if (spaceBefore)
+        node.spaceBefore = true;
+      if (comment) {
+        if (token.type === "scalar" && token.source === "")
+          node.comment = comment;
+        else
+          node.commentBefore = comment;
+      }
+      if (ctx.options.keepSourceTokens && isSrcToken)
+        node.srcToken = token;
+      return node;
+    }
+    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError) {
+      const token = {
+        type: "scalar",
+        offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
+        indent: -1,
+        source: ""
+      };
+      const node = composeScalar.composeScalar(ctx, token, tag, onError);
+      if (anchor) {
+        node.anchor = anchor.source.substring(1);
+        if (node.anchor === "")
+          onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      }
+      if (spaceBefore)
+        node.spaceBefore = true;
+      if (comment) {
+        node.comment = comment;
+        node.range[2] = end;
+      }
+      return node;
+    }
+    function composeAlias({ options }, { offset, source, end }, onError) {
+      const alias = new Alias.Alias(source.substring(1));
+      if (alias.source === "")
+        onError(offset, "BAD_ALIAS", "Alias cannot be an empty string");
+      if (alias.source.endsWith(":"))
+        onError(offset + source.length - 1, "BAD_ALIAS", "Alias ending in : is ambiguous", true);
+      const valueEnd = offset + source.length;
+      const re = resolveEnd.resolveEnd(end, valueEnd, options.strict, onError);
+      alias.range = [offset, valueEnd, re.offset];
+      if (re.comment)
+        alias.comment = re.comment;
+      return alias;
+    }
+    exports.composeEmptyNode = composeEmptyNode;
+    exports.composeNode = composeNode;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-doc.js
+var require_compose_doc = __commonJS({
+  "node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+    "use strict";
+    var Document = require_Document();
+    var composeNode = require_compose_node();
+    var resolveEnd = require_resolve_end();
+    var resolveProps = require_resolve_props();
+    function composeDoc(options, directives, { offset, start, value, end }, onError) {
+      const opts = Object.assign({ _directives: directives }, options);
+      const doc = new Document.Document(void 0, opts);
+      const ctx = {
+        atKey: false,
+        atRoot: true,
+        directives: doc.directives,
+        options: doc.options,
+        schema: doc.schema
+      };
+      const props = resolveProps.resolveProps(start, {
+        indicator: "doc-start",
+        next: value ?? end?.[0],
+        offset,
+        onError,
+        parentIndent: 0,
+        startOnNewline: true
+      });
+      if (props.found) {
+        doc.directives.docStart = true;
+        if (value && (value.type === "block-map" || value.type === "block-seq") && !props.hasNewline)
+          onError(props.end, "MISSING_CHAR", "Block collection cannot start on same line with directives-end marker");
+      }
+      doc.contents = value ? composeNode.composeNode(ctx, value, props, onError) : composeNode.composeEmptyNode(ctx, props.end, start, null, props, onError);
+      const contentEnd = doc.contents.range[2];
+      const re = resolveEnd.resolveEnd(end, contentEnd, false, onError);
+      if (re.comment)
+        doc.comment = re.comment;
+      doc.range = [offset, contentEnd, re.offset];
+      return doc;
+    }
+    exports.composeDoc = composeDoc;
+  }
+});
+
+// node_modules/yaml/dist/compose/composer.js
+var require_composer = __commonJS({
+  "node_modules/yaml/dist/compose/composer.js"(exports) {
+    "use strict";
+    var node_process = __require("node:process");
+    var directives = require_directives();
+    var Document = require_Document();
+    var errors = require_errors2();
+    var identity = require_identity();
+    var composeDoc = require_compose_doc();
+    var resolveEnd = require_resolve_end();
+    function getErrorPos(src) {
+      if (typeof src === "number")
+        return [src, src + 1];
+      if (Array.isArray(src))
+        return src.length === 2 ? src : [src[0], src[1]];
+      const { offset, source } = src;
+      return [offset, offset + (typeof source === "string" ? source.length : 1)];
+    }
+    function parsePrelude(prelude) {
+      let comment = "";
+      let atComment = false;
+      let afterEmptyLine = false;
+      for (let i = 0; i < prelude.length; ++i) {
+        const source = prelude[i];
+        switch (source[0]) {
+          case "#":
+            comment += (comment === "" ? "" : afterEmptyLine ? "\n\n" : "\n") + (source.substring(1) || " ");
+            atComment = true;
+            afterEmptyLine = false;
+            break;
+          case "%":
+            if (prelude[i + 1]?.[0] !== "#")
+              i += 1;
+            atComment = false;
+            break;
+          default:
+            if (!atComment)
+              afterEmptyLine = true;
+            atComment = false;
+        }
+      }
+      return { comment, afterEmptyLine };
+    }
+    var Composer = class {
+      constructor(options = {}) {
+        this.doc = null;
+        this.atDirectives = false;
+        this.prelude = [];
+        this.errors = [];
+        this.warnings = [];
+        this.onError = (source, code, message, warning) => {
+          const pos = getErrorPos(source);
+          if (warning)
+            this.warnings.push(new errors.YAMLWarning(pos, code, message));
+          else
+            this.errors.push(new errors.YAMLParseError(pos, code, message));
+        };
+        this.directives = new directives.Directives({ version: options.version || "1.2" });
+        this.options = options;
+      }
+      decorate(doc, afterDoc) {
+        const { comment, afterEmptyLine } = parsePrelude(this.prelude);
+        if (comment) {
+          const dc = doc.contents;
+          if (afterDoc) {
+            doc.comment = doc.comment ? `${doc.comment}
+${comment}` : comment;
+          } else if (afterEmptyLine || doc.directives.docStart || !dc) {
+            doc.commentBefore = comment;
+          } else if (identity.isCollection(dc) && !dc.flow && dc.items.length > 0) {
+            let it = dc.items[0];
+            if (identity.isPair(it))
+              it = it.key;
+            const cb = it.commentBefore;
+            it.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          } else {
+            const cb = dc.commentBefore;
+            dc.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          }
+        }
+        if (afterDoc) {
+          for (let i = 0; i < this.errors.length; ++i)
+            doc.errors.push(this.errors[i]);
+          for (let i = 0; i < this.warnings.length; ++i)
+            doc.warnings.push(this.warnings[i]);
+        } else {
+          doc.errors = this.errors;
+          doc.warnings = this.warnings;
+        }
+        this.prelude = [];
+        this.errors = [];
+        this.warnings = [];
+      }
+      /**
+       * Current stream status information.
+       *
+       * Mostly useful at the end of input for an empty stream.
+       */
+      streamInfo() {
+        return {
+          comment: parsePrelude(this.prelude).comment,
+          directives: this.directives,
+          errors: this.errors,
+          warnings: this.warnings
+        };
+      }
+      /**
+       * Compose tokens into documents.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *compose(tokens, forceDoc = false, endOffset = -1) {
+        for (const token of tokens)
+          yield* this.next(token);
+        yield* this.end(forceDoc, endOffset);
+      }
+      /** Advance the composer by one CST token. */
+      *next(token) {
+        if (node_process.env.LOG_STREAM)
+          console.dir(token, { depth: null });
+        switch (token.type) {
+          case "directive":
+            this.directives.add(token.source, (offset, message, warning) => {
+              const pos = getErrorPos(token);
+              pos[0] += offset;
+              this.onError(pos, "BAD_DIRECTIVE", message, warning);
+            });
+            this.prelude.push(token.source);
+            this.atDirectives = true;
+            break;
+          case "document": {
+            const doc = composeDoc.composeDoc(this.options, this.directives, token, this.onError);
+            if (this.atDirectives && !doc.directives.docStart)
+              this.onError(token, "MISSING_CHAR", "Missing directives-end/doc-start indicator line");
+            this.decorate(doc, false);
+            if (this.doc)
+              yield this.doc;
+            this.doc = doc;
+            this.atDirectives = false;
+            break;
+          }
+          case "byte-order-mark":
+          case "space":
+            break;
+          case "comment":
+          case "newline":
+            this.prelude.push(token.source);
+            break;
+          case "error": {
+            const msg = token.source ? `${token.message}: ${JSON.stringify(token.source)}` : token.message;
+            const error2 = new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg);
+            if (this.atDirectives || !this.doc)
+              this.errors.push(error2);
+            else
+              this.doc.errors.push(error2);
+            break;
+          }
+          case "doc-end": {
+            if (!this.doc) {
+              const msg = "Unexpected doc-end without preceding document";
+              this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg));
+              break;
+            }
+            this.doc.directives.docEnd = true;
+            const end = resolveEnd.resolveEnd(token.end, token.offset + token.source.length, this.doc.options.strict, this.onError);
+            this.decorate(this.doc, true);
+            if (end.comment) {
+              const dc = this.doc.comment;
+              this.doc.comment = dc ? `${dc}
+${end.comment}` : end.comment;
+            }
+            this.doc.range[2] = end.offset;
+            break;
+          }
+          default:
+            this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
+        }
+      }
+      /**
+       * Call at end of input to yield any remaining document.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *end(forceDoc = false, endOffset = -1) {
+        if (this.doc) {
+          this.decorate(this.doc, true);
+          yield this.doc;
+          this.doc = null;
+        } else if (forceDoc) {
+          const opts = Object.assign({ _directives: this.directives }, this.options);
+          const doc = new Document.Document(void 0, opts);
+          if (this.atDirectives)
+            this.onError(endOffset, "MISSING_CHAR", "Missing directives-end indicator line");
+          doc.range = [0, endOffset, endOffset];
+          this.decorate(doc, false);
+          yield doc;
+        }
+      }
+    };
+    exports.Composer = Composer;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst-scalar.js
+var require_cst_scalar = __commonJS({
+  "node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+    "use strict";
+    var resolveBlockScalar = require_resolve_block_scalar();
+    var resolveFlowScalar = require_resolve_flow_scalar();
+    var errors = require_errors2();
+    var stringifyString = require_stringifyString();
+    function resolveAsScalar(token, strict = true, onError) {
+      if (token) {
+        const _onError = (pos, code, message) => {
+          const offset = typeof pos === "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
+          if (onError)
+            onError(offset, code, message);
+          else
+            throw new errors.YAMLParseError([offset, offset + 1], code, message);
+        };
+        switch (token.type) {
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return resolveFlowScalar.resolveFlowScalar(token, strict, _onError);
+          case "block-scalar":
+            return resolveBlockScalar.resolveBlockScalar({ options: { strict } }, token, _onError);
+        }
+      }
+      return null;
+    }
+    function createScalarToken(value, context) {
+      const { implicitKey = false, indent, inFlow = false, offset = -1, type = "PLAIN" } = context;
+      const source = stringifyString.stringifyString({ type, value }, {
+        implicitKey,
+        indent: indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: true, lineWidth: -1 }
+      });
+      const end = context.end ?? [
+        { type: "newline", offset: -1, indent, source: "\n" }
+      ];
+      switch (source[0]) {
+        case "|":
+        case ">": {
+          const he = source.indexOf("\n");
+          const head = source.substring(0, he);
+          const body = source.substring(he + 1) + "\n";
+          const props = [
+            { type: "block-scalar-header", offset, indent, source: head }
+          ];
+          if (!addEndtoBlockProps(props, end))
+            props.push({ type: "newline", offset: -1, indent, source: "\n" });
+          return { type: "block-scalar", offset, indent, props, source: body };
+        }
+        case '"':
+          return { type: "double-quoted-scalar", offset, indent, source, end };
+        case "'":
+          return { type: "single-quoted-scalar", offset, indent, source, end };
+        default:
+          return { type: "scalar", offset, indent, source, end };
+      }
+    }
+    function setScalarValue(token, value, context = {}) {
+      let { afterKey = false, implicitKey = false, inFlow = false, type } = context;
+      let indent = "indent" in token ? token.indent : null;
+      if (afterKey && typeof indent === "number")
+        indent += 2;
+      if (!type)
+        switch (token.type) {
+          case "single-quoted-scalar":
+            type = "QUOTE_SINGLE";
+            break;
+          case "double-quoted-scalar":
+            type = "QUOTE_DOUBLE";
+            break;
+          case "block-scalar": {
+            const header = token.props[0];
+            if (header.type !== "block-scalar-header")
+              throw new Error("Invalid block scalar header");
+            type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
+            break;
+          }
+          default:
+            type = "PLAIN";
+        }
+      const source = stringifyString.stringifyString({ type, value }, {
+        implicitKey: implicitKey || indent === null,
+        indent: indent !== null && indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: true, lineWidth: -1 }
+      });
+      switch (source[0]) {
+        case "|":
+        case ">":
+          setBlockScalarValue(token, source);
+          break;
+        case '"':
+          setFlowScalarValue(token, source, "double-quoted-scalar");
+          break;
+        case "'":
+          setFlowScalarValue(token, source, "single-quoted-scalar");
+          break;
+        default:
+          setFlowScalarValue(token, source, "scalar");
+      }
+    }
+    function setBlockScalarValue(token, source) {
+      const he = source.indexOf("\n");
+      const head = source.substring(0, he);
+      const body = source.substring(he + 1) + "\n";
+      if (token.type === "block-scalar") {
+        const header = token.props[0];
+        if (header.type !== "block-scalar-header")
+          throw new Error("Invalid block scalar header");
+        header.source = head;
+        token.source = body;
+      } else {
+        const { offset } = token;
+        const indent = "indent" in token ? token.indent : -1;
+        const props = [
+          { type: "block-scalar-header", offset, indent, source: head }
+        ];
+        if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
+          props.push({ type: "newline", offset: -1, indent, source: "\n" });
+        for (const key of Object.keys(token))
+          if (key !== "type" && key !== "offset")
+            delete token[key];
+        Object.assign(token, { type: "block-scalar", indent, props, source: body });
+      }
+    }
+    function addEndtoBlockProps(props, end) {
+      if (end)
+        for (const st of end)
+          switch (st.type) {
+            case "space":
+            case "comment":
+              props.push(st);
+              break;
+            case "newline":
+              props.push(st);
+              return true;
+          }
+      return false;
+    }
+    function setFlowScalarValue(token, source, type) {
+      switch (token.type) {
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          token.type = type;
+          token.source = source;
+          break;
+        case "block-scalar": {
+          const end = token.props.slice(1);
+          let oa = source.length;
+          if (token.props[0].type === "block-scalar-header")
+            oa -= token.props[0].source.length;
+          for (const tok of end)
+            tok.offset += oa;
+          delete token.props;
+          Object.assign(token, { type, source, end });
+          break;
+        }
+        case "block-map":
+        case "block-seq": {
+          const offset = token.offset + source.length;
+          const nl = { type: "newline", offset, indent: token.indent, source: "\n" };
+          delete token.items;
+          Object.assign(token, { type, source, end: [nl] });
+          break;
+        }
+        default: {
+          const indent = "indent" in token ? token.indent : -1;
+          const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
+          for (const key of Object.keys(token))
+            if (key !== "type" && key !== "offset")
+              delete token[key];
+          Object.assign(token, { type, indent, source, end });
+        }
+      }
+    }
+    exports.createScalarToken = createScalarToken;
+    exports.resolveAsScalar = resolveAsScalar;
+    exports.setScalarValue = setScalarValue;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst-stringify.js
+var require_cst_stringify = __commonJS({
+  "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+    "use strict";
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    function stringifyToken(token) {
+      switch (token.type) {
+        case "block-scalar": {
+          let res = "";
+          for (const tok of token.props)
+            res += stringifyToken(tok);
+          return res + token.source;
+        }
+        case "block-map":
+        case "block-seq": {
+          let res = "";
+          for (const item of token.items)
+            res += stringifyItem(item);
+          return res;
+        }
+        case "flow-collection": {
+          let res = token.start.source;
+          for (const item of token.items)
+            res += stringifyItem(item);
+          for (const st of token.end)
+            res += st.source;
+          return res;
+        }
+        case "document": {
+          let res = stringifyItem(token);
+          if (token.end)
+            for (const st of token.end)
+              res += st.source;
+          return res;
+        }
+        default: {
+          let res = token.source;
+          if ("end" in token && token.end)
+            for (const st of token.end)
+              res += st.source;
+          return res;
+        }
+      }
+    }
+    function stringifyItem({ start, key, sep, value }) {
+      let res = "";
+      for (const st of start)
+        res += st.source;
+      if (key)
+        res += stringifyToken(key);
+      if (sep)
+        for (const st of sep)
+          res += st.source;
+      if (value)
+        res += stringifyToken(value);
+      return res;
+    }
+    exports.stringify = stringify2;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst-visit.js
+var require_cst_visit = __commonJS({
+  "node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+    "use strict";
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove item");
+    function visit(cst, visitor) {
+      if ("type" in cst && cst.type === "document")
+        cst = { start: cst.start, value: cst.value };
+      _visit(Object.freeze([]), cst, visitor);
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    visit.itemAtPath = (cst, path) => {
+      let item = cst;
+      for (const [field, index] of path) {
+        const tok = item?.[field];
+        if (tok && "items" in tok) {
+          item = tok.items[index];
+        } else
+          return void 0;
+      }
+      return item;
+    };
+    visit.parentCollection = (cst, path) => {
+      const parent = visit.itemAtPath(cst, path.slice(0, -1));
+      const field = path[path.length - 1][0];
+      const coll = parent?.[field];
+      if (coll && "items" in coll)
+        return coll;
+      throw new Error("Parent collection not found");
+    };
+    function _visit(path, item, visitor) {
+      let ctrl = visitor(item, path);
+      if (typeof ctrl === "symbol")
+        return ctrl;
+      for (const field of ["key", "value"]) {
+        const token = item[field];
+        if (token && "items" in token) {
+          for (let i = 0; i < token.items.length; ++i) {
+            const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              token.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+          if (typeof ctrl === "function" && field === "key")
+            ctrl = ctrl(item, path);
+        }
+      }
+      return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
+    }
+    exports.visit = visit;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst.js
+var require_cst = __commonJS({
+  "node_modules/yaml/dist/parse/cst.js"(exports) {
+    "use strict";
+    var cstScalar = require_cst_scalar();
+    var cstStringify = require_cst_stringify();
+    var cstVisit = require_cst_visit();
+    var BOM = "\uFEFF";
+    var DOCUMENT = "";
+    var FLOW_END = "";
+    var SCALAR = "";
+    var isCollection = (token) => !!token && "items" in token;
+    var isScalar = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
+    function prettyToken(token) {
+      switch (token) {
+        case BOM:
+          return "<BOM>";
+        case DOCUMENT:
+          return "<DOC>";
+        case FLOW_END:
+          return "<FLOW_END>";
+        case SCALAR:
+          return "<SCALAR>";
+        default:
+          return JSON.stringify(token);
+      }
+    }
+    function tokenType(source) {
+      switch (source) {
+        case BOM:
+          return "byte-order-mark";
+        case DOCUMENT:
+          return "doc-mode";
+        case FLOW_END:
+          return "flow-error-end";
+        case SCALAR:
+          return "scalar";
+        case "---":
+          return "doc-start";
+        case "...":
+          return "doc-end";
+        case "":
+        case "\n":
+        case "\r\n":
+          return "newline";
+        case "-":
+          return "seq-item-ind";
+        case "?":
+          return "explicit-key-ind";
+        case ":":
+          return "map-value-ind";
+        case "{":
+          return "flow-map-start";
+        case "}":
+          return "flow-map-end";
+        case "[":
+          return "flow-seq-start";
+        case "]":
+          return "flow-seq-end";
+        case ",":
+          return "comma";
+      }
+      switch (source[0]) {
+        case " ":
+        case "	":
+          return "space";
+        case "#":
+          return "comment";
+        case "%":
+          return "directive-line";
+        case "*":
+          return "alias";
+        case "&":
+          return "anchor";
+        case "!":
+          return "tag";
+        case "'":
+          return "single-quoted-scalar";
+        case '"':
+          return "double-quoted-scalar";
+        case "|":
+        case ">":
+          return "block-scalar-header";
+      }
+      return null;
+    }
+    exports.createScalarToken = cstScalar.createScalarToken;
+    exports.resolveAsScalar = cstScalar.resolveAsScalar;
+    exports.setScalarValue = cstScalar.setScalarValue;
+    exports.stringify = cstStringify.stringify;
+    exports.visit = cstVisit.visit;
+    exports.BOM = BOM;
+    exports.DOCUMENT = DOCUMENT;
+    exports.FLOW_END = FLOW_END;
+    exports.SCALAR = SCALAR;
+    exports.isCollection = isCollection;
+    exports.isScalar = isScalar;
+    exports.prettyToken = prettyToken;
+    exports.tokenType = tokenType;
+  }
+});
+
+// node_modules/yaml/dist/parse/lexer.js
+var require_lexer = __commonJS({
+  "node_modules/yaml/dist/parse/lexer.js"(exports) {
+    "use strict";
+    var cst = require_cst();
+    function isEmpty(ch) {
+      switch (ch) {
+        case void 0:
+        case " ":
+        case "\n":
+        case "\r":
+        case "	":
+          return true;
+        default:
+          return false;
+      }
+    }
+    var hexDigits = new Set("0123456789ABCDEFabcdef");
+    var tagChars = new Set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-#;/?:@&=+$_.!~*'()");
+    var flowIndicatorChars = new Set(",[]{}");
+    var invalidAnchorChars = new Set(" ,[]{}\n\r	");
+    var isNotAnchorChar = (ch) => !ch || invalidAnchorChars.has(ch);
+    var Lexer = class {
+      constructor() {
+        this.atEnd = false;
+        this.blockScalarIndent = -1;
+        this.blockScalarKeep = false;
+        this.buffer = "";
+        this.flowKey = false;
+        this.flowLevel = 0;
+        this.indentNext = 0;
+        this.indentValue = 0;
+        this.lineEndPos = null;
+        this.next = null;
+        this.pos = 0;
+      }
+      /**
+       * Generate YAML tokens from the `source` string. If `incomplete`,
+       * a part of the last line may be left as a buffer for the next call.
+       *
+       * @returns A generator of lexical tokens
+       */
+      *lex(source, incomplete = false) {
+        if (source) {
+          if (typeof source !== "string")
+            throw TypeError("source is not a string");
+          this.buffer = this.buffer ? this.buffer + source : source;
+          this.lineEndPos = null;
+        }
+        this.atEnd = !incomplete;
+        let next = this.next ?? "stream";
+        while (next && (incomplete || this.hasChars(1)))
+          next = yield* this.parseNext(next);
+      }
+      atLineEnd() {
+        let i = this.pos;
+        let ch = this.buffer[i];
+        while (ch === " " || ch === "	")
+          ch = this.buffer[++i];
+        if (!ch || ch === "#" || ch === "\n")
+          return true;
+        if (ch === "\r")
+          return this.buffer[i + 1] === "\n";
+        return false;
+      }
+      charAt(n) {
+        return this.buffer[this.pos + n];
+      }
+      continueScalar(offset) {
+        let ch = this.buffer[offset];
+        if (this.indentNext > 0) {
+          let indent = 0;
+          while (ch === " ")
+            ch = this.buffer[++indent + offset];
+          if (ch === "\r") {
+            const next = this.buffer[indent + offset + 1];
+            if (next === "\n" || !next && !this.atEnd)
+              return offset + indent + 1;
+          }
+          return ch === "\n" || indent >= this.indentNext || !ch && !this.atEnd ? offset + indent : -1;
+        }
+        if (ch === "-" || ch === ".") {
+          const dt = this.buffer.substr(offset, 3);
+          if ((dt === "---" || dt === "...") && isEmpty(this.buffer[offset + 3]))
+            return -1;
+        }
+        return offset;
+      }
+      getLine() {
+        let end = this.lineEndPos;
+        if (typeof end !== "number" || end !== -1 && end < this.pos) {
+          end = this.buffer.indexOf("\n", this.pos);
+          this.lineEndPos = end;
+        }
+        if (end === -1)
+          return this.atEnd ? this.buffer.substring(this.pos) : null;
+        if (this.buffer[end - 1] === "\r")
+          end -= 1;
+        return this.buffer.substring(this.pos, end);
+      }
+      hasChars(n) {
+        return this.pos + n <= this.buffer.length;
+      }
+      setNext(state) {
+        this.buffer = this.buffer.substring(this.pos);
+        this.pos = 0;
+        this.lineEndPos = null;
+        this.next = state;
+        return null;
+      }
+      peek(n) {
+        return this.buffer.substr(this.pos, n);
+      }
+      *parseNext(next) {
+        switch (next) {
+          case "stream":
+            return yield* this.parseStream();
+          case "line-start":
+            return yield* this.parseLineStart();
+          case "block-start":
+            return yield* this.parseBlockStart();
+          case "doc":
+            return yield* this.parseDocument();
+          case "flow":
+            return yield* this.parseFlowCollection();
+          case "quoted-scalar":
+            return yield* this.parseQuotedScalar();
+          case "block-scalar":
+            return yield* this.parseBlockScalar();
+          case "plain-scalar":
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseStream() {
+        let line = this.getLine();
+        if (line === null)
+          return this.setNext("stream");
+        if (line[0] === cst.BOM) {
+          yield* this.pushCount(1);
+          line = line.substring(1);
+        }
+        if (line[0] === "%") {
+          let dirEnd = line.length;
+          let cs = line.indexOf("#");
+          while (cs !== -1) {
+            const ch = line[cs - 1];
+            if (ch === " " || ch === "	") {
+              dirEnd = cs - 1;
+              break;
+            } else {
+              cs = line.indexOf("#", cs + 1);
+            }
+          }
+          while (true) {
+            const ch = line[dirEnd - 1];
+            if (ch === " " || ch === "	")
+              dirEnd -= 1;
+            else
+              break;
+          }
+          const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
+          yield* this.pushCount(line.length - n);
+          this.pushNewline();
+          return "stream";
+        }
+        if (this.atLineEnd()) {
+          const sp = yield* this.pushSpaces(true);
+          yield* this.pushCount(line.length - sp);
+          yield* this.pushNewline();
+          return "stream";
+        }
+        yield cst.DOCUMENT;
+        return yield* this.parseLineStart();
+      }
+      *parseLineStart() {
+        const ch = this.charAt(0);
+        if (!ch && !this.atEnd)
+          return this.setNext("line-start");
+        if (ch === "-" || ch === ".") {
+          if (!this.atEnd && !this.hasChars(4))
+            return this.setNext("line-start");
+          const s = this.peek(3);
+          if ((s === "---" || s === "...") && isEmpty(this.charAt(3))) {
+            yield* this.pushCount(3);
+            this.indentValue = 0;
+            this.indentNext = 0;
+            return s === "---" ? "doc" : "stream";
+          }
+        }
+        this.indentValue = yield* this.pushSpaces(false);
+        if (this.indentNext > this.indentValue && !isEmpty(this.charAt(1)))
+          this.indentNext = this.indentValue;
+        return yield* this.parseBlockStart();
+      }
+      *parseBlockStart() {
+        const [ch0, ch1] = this.peek(2);
+        if (!ch1 && !this.atEnd)
+          return this.setNext("block-start");
+        if ((ch0 === "-" || ch0 === "?" || ch0 === ":") && isEmpty(ch1)) {
+          const n = (yield* this.pushCount(1)) + (yield* this.pushSpaces(true));
+          this.indentNext = this.indentValue + 1;
+          this.indentValue += n;
+          return "block-start";
+        }
+        return "doc";
+      }
+      *parseDocument() {
+        yield* this.pushSpaces(true);
+        const line = this.getLine();
+        if (line === null)
+          return this.setNext("doc");
+        let n = yield* this.pushIndicators();
+        switch (line[n]) {
+          case "#":
+            yield* this.pushCount(line.length - n);
+          // fallthrough
+          case void 0:
+            yield* this.pushNewline();
+            return yield* this.parseLineStart();
+          case "{":
+          case "[":
+            yield* this.pushCount(1);
+            this.flowKey = false;
+            this.flowLevel = 1;
+            return "flow";
+          case "}":
+          case "]":
+            yield* this.pushCount(1);
+            return "doc";
+          case "*":
+            yield* this.pushUntil(isNotAnchorChar);
+            return "doc";
+          case '"':
+          case "'":
+            return yield* this.parseQuotedScalar();
+          case "|":
+          case ">":
+            n += yield* this.parseBlockScalarHeader();
+            n += yield* this.pushSpaces(true);
+            yield* this.pushCount(line.length - n);
+            yield* this.pushNewline();
+            return yield* this.parseBlockScalar();
+          default:
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseFlowCollection() {
+        let nl, sp;
+        let indent = -1;
+        do {
+          nl = yield* this.pushNewline();
+          if (nl > 0) {
+            sp = yield* this.pushSpaces(false);
+            this.indentValue = indent = sp;
+          } else {
+            sp = 0;
+          }
+          sp += yield* this.pushSpaces(true);
+        } while (nl + sp > 0);
+        const line = this.getLine();
+        if (line === null)
+          return this.setNext("flow");
+        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+          if (!atFlowEndMarker) {
+            this.flowLevel = 0;
+            yield cst.FLOW_END;
+            return yield* this.parseLineStart();
+          }
+        }
+        let n = 0;
+        while (line[n] === ",") {
+          n += yield* this.pushCount(1);
+          n += yield* this.pushSpaces(true);
+          this.flowKey = false;
+        }
+        n += yield* this.pushIndicators();
+        switch (line[n]) {
+          case void 0:
+            return "flow";
+          case "#":
+            yield* this.pushCount(line.length - n);
+            return "flow";
+          case "{":
+          case "[":
+            yield* this.pushCount(1);
+            this.flowKey = false;
+            this.flowLevel += 1;
+            return "flow";
+          case "}":
+          case "]":
+            yield* this.pushCount(1);
+            this.flowKey = true;
+            this.flowLevel -= 1;
+            return this.flowLevel ? "flow" : "doc";
+          case "*":
+            yield* this.pushUntil(isNotAnchorChar);
+            return "flow";
+          case '"':
+          case "'":
+            this.flowKey = true;
+            return yield* this.parseQuotedScalar();
+          case ":": {
+            const next = this.charAt(1);
+            if (this.flowKey || isEmpty(next) || next === ",") {
+              this.flowKey = false;
+              yield* this.pushCount(1);
+              yield* this.pushSpaces(true);
+              return "flow";
+            }
+          }
+          // fallthrough
+          default:
+            this.flowKey = false;
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseQuotedScalar() {
+        const quote = this.charAt(0);
+        let end = this.buffer.indexOf(quote, this.pos + 1);
+        if (quote === "'") {
+          while (end !== -1 && this.buffer[end + 1] === "'")
+            end = this.buffer.indexOf("'", end + 2);
+        } else {
+          while (end !== -1) {
+            let n = 0;
+            while (this.buffer[end - 1 - n] === "\\")
+              n += 1;
+            if (n % 2 === 0)
+              break;
+            end = this.buffer.indexOf('"', end + 1);
+          }
+        }
+        const qb = this.buffer.substring(0, end);
+        let nl = qb.indexOf("\n", this.pos);
+        if (nl !== -1) {
+          while (nl !== -1) {
+            const cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = qb.indexOf("\n", cs);
+          }
+          if (nl !== -1) {
+            end = nl - (qb[nl - 1] === "\r" ? 2 : 1);
+          }
+        }
+        if (end === -1) {
+          if (!this.atEnd)
+            return this.setNext("quoted-scalar");
+          end = this.buffer.length;
+        }
+        yield* this.pushToIndex(end + 1, false);
+        return this.flowLevel ? "flow" : "doc";
+      }
+      *parseBlockScalarHeader() {
+        this.blockScalarIndent = -1;
+        this.blockScalarKeep = false;
+        let i = this.pos;
+        while (true) {
+          const ch = this.buffer[++i];
+          if (ch === "+")
+            this.blockScalarKeep = true;
+          else if (ch > "0" && ch <= "9")
+            this.blockScalarIndent = Number(ch) - 1;
+          else if (ch !== "-")
+            break;
+        }
+        return yield* this.pushUntil((ch) => isEmpty(ch) || ch === "#");
+      }
+      *parseBlockScalar() {
+        let nl = this.pos - 1;
+        let indent = 0;
+        let ch;
+        loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2) {
+          switch (ch) {
+            case " ":
+              indent += 1;
+              break;
+            case "\n":
+              nl = i2;
+              indent = 0;
+              break;
+            case "\r": {
+              const next = this.buffer[i2 + 1];
+              if (!next && !this.atEnd)
+                return this.setNext("block-scalar");
+              if (next === "\n")
+                break;
+            }
+            // fallthrough
+            default:
+              break loop;
+          }
+        }
+        if (!ch && !this.atEnd)
+          return this.setNext("block-scalar");
+        if (indent >= this.indentNext) {
+          if (this.blockScalarIndent === -1)
+            this.indentNext = indent;
+          else {
+            this.indentNext = this.blockScalarIndent + (this.indentNext === 0 ? 1 : this.indentNext);
+          }
+          do {
+            const cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = this.buffer.indexOf("\n", cs);
+          } while (nl !== -1);
+          if (nl === -1) {
+            if (!this.atEnd)
+              return this.setNext("block-scalar");
+            nl = this.buffer.length;
+          }
+        }
+        let i = nl + 1;
+        ch = this.buffer[i];
+        while (ch === " ")
+          ch = this.buffer[++i];
+        if (ch === "	") {
+          while (ch === "	" || ch === " " || ch === "\r" || ch === "\n")
+            ch = this.buffer[++i];
+          nl = i - 1;
+        } else if (!this.blockScalarKeep) {
+          do {
+            let i2 = nl - 1;
+            let ch2 = this.buffer[i2];
+            if (ch2 === "\r")
+              ch2 = this.buffer[--i2];
+            const lastChar = i2;
+            while (ch2 === " ")
+              ch2 = this.buffer[--i2];
+            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent > lastChar)
+              nl = i2;
+            else
+              break;
+          } while (true);
+        }
+        yield cst.SCALAR;
+        yield* this.pushToIndex(nl + 1, true);
+        return yield* this.parseLineStart();
+      }
+      *parsePlainScalar() {
+        const inFlow = this.flowLevel > 0;
+        let end = this.pos - 1;
+        let i = this.pos - 1;
+        let ch;
+        while (ch = this.buffer[++i]) {
+          if (ch === ":") {
+            const next = this.buffer[i + 1];
+            if (isEmpty(next) || inFlow && flowIndicatorChars.has(next))
+              break;
+            end = i;
+          } else if (isEmpty(ch)) {
+            let next = this.buffer[i + 1];
+            if (ch === "\r") {
+              if (next === "\n") {
+                i += 1;
+                ch = "\n";
+                next = this.buffer[i + 1];
+              } else
+                end = i;
+            }
+            if (next === "#" || inFlow && flowIndicatorChars.has(next))
+              break;
+            if (ch === "\n") {
+              const cs = this.continueScalar(i + 1);
+              if (cs === -1)
+                break;
+              i = Math.max(i, cs - 2);
+            }
+          } else {
+            if (inFlow && flowIndicatorChars.has(ch))
+              break;
+            end = i;
+          }
+        }
+        if (!ch && !this.atEnd)
+          return this.setNext("plain-scalar");
+        yield cst.SCALAR;
+        yield* this.pushToIndex(end + 1, true);
+        return inFlow ? "flow" : "doc";
+      }
+      *pushCount(n) {
+        if (n > 0) {
+          yield this.buffer.substr(this.pos, n);
+          this.pos += n;
+          return n;
+        }
+        return 0;
+      }
+      *pushToIndex(i, allowEmpty) {
+        const s = this.buffer.slice(this.pos, i);
+        if (s) {
+          yield s;
+          this.pos += s.length;
+          return s.length;
+        } else if (allowEmpty)
+          yield "";
+        return 0;
+      }
+      *pushIndicators() {
+        let n = 0;
+        loop: while (true) {
+          switch (this.charAt(0)) {
+            case "!":
+              n += yield* this.pushTag();
+              n += yield* this.pushSpaces(true);
+              continue loop;
+            case "&":
+              n += yield* this.pushUntil(isNotAnchorChar);
+              n += yield* this.pushSpaces(true);
+              continue loop;
+            case "-":
+            // this is an error
+            case "?":
+            // this is an error outside flow collections
+            case ":": {
+              const inFlow = this.flowLevel > 0;
+              const ch1 = this.charAt(1);
+              if (isEmpty(ch1) || inFlow && flowIndicatorChars.has(ch1)) {
+                if (!inFlow)
+                  this.indentNext = this.indentValue + 1;
+                else if (this.flowKey)
+                  this.flowKey = false;
+                n += yield* this.pushCount(1);
+                n += yield* this.pushSpaces(true);
+                continue loop;
+              }
+            }
+          }
+          break loop;
+        }
+        return n;
+      }
+      *pushTag() {
+        if (this.charAt(1) === "<") {
+          let i = this.pos + 2;
+          let ch = this.buffer[i];
+          while (!isEmpty(ch) && ch !== ">")
+            ch = this.buffer[++i];
+          return yield* this.pushToIndex(ch === ">" ? i + 1 : i, false);
+        } else {
+          let i = this.pos + 1;
+          let ch = this.buffer[i];
+          while (ch) {
+            if (tagChars.has(ch))
+              ch = this.buffer[++i];
+            else if (ch === "%" && hexDigits.has(this.buffer[i + 1]) && hexDigits.has(this.buffer[i + 2])) {
+              ch = this.buffer[i += 3];
+            } else
+              break;
+          }
+          return yield* this.pushToIndex(i, false);
+        }
+      }
+      *pushNewline() {
+        const ch = this.buffer[this.pos];
+        if (ch === "\n")
+          return yield* this.pushCount(1);
+        else if (ch === "\r" && this.charAt(1) === "\n")
+          return yield* this.pushCount(2);
+        else
+          return 0;
+      }
+      *pushSpaces(allowTabs) {
+        let i = this.pos - 1;
+        let ch;
+        do {
+          ch = this.buffer[++i];
+        } while (ch === " " || allowTabs && ch === "	");
+        const n = i - this.pos;
+        if (n > 0) {
+          yield this.buffer.substr(this.pos, n);
+          this.pos = i;
+        }
+        return n;
+      }
+      *pushUntil(test) {
+        let i = this.pos;
+        let ch = this.buffer[i];
+        while (!test(ch))
+          ch = this.buffer[++i];
+        return yield* this.pushToIndex(i, false);
+      }
+    };
+    exports.Lexer = Lexer;
+  }
+});
+
+// node_modules/yaml/dist/parse/line-counter.js
+var require_line_counter = __commonJS({
+  "node_modules/yaml/dist/parse/line-counter.js"(exports) {
+    "use strict";
+    var LineCounter = class {
+      constructor() {
+        this.lineStarts = [];
+        this.addNewLine = (offset) => this.lineStarts.push(offset);
+        this.linePos = (offset) => {
+          let low = 0;
+          let high = this.lineStarts.length;
+          while (low < high) {
+            const mid = low + high >> 1;
+            if (this.lineStarts[mid] < offset)
+              low = mid + 1;
+            else
+              high = mid;
+          }
+          if (this.lineStarts[low] === offset)
+            return { line: low + 1, col: 1 };
+          if (low === 0)
+            return { line: 0, col: offset };
+          const start = this.lineStarts[low - 1];
+          return { line: low, col: offset - start + 1 };
+        };
+      }
+    };
+    exports.LineCounter = LineCounter;
+  }
+});
+
+// node_modules/yaml/dist/parse/parser.js
+var require_parser = __commonJS({
+  "node_modules/yaml/dist/parse/parser.js"(exports) {
+    "use strict";
+    var node_process = __require("node:process");
+    var cst = require_cst();
+    var lexer = require_lexer();
+    function includesToken(list, type) {
+      for (let i = 0; i < list.length; ++i)
+        if (list[i].type === type)
+          return true;
+      return false;
+    }
+    function findNonEmptyIndex(list) {
+      for (let i = 0; i < list.length; ++i) {
+        switch (list[i].type) {
+          case "space":
+          case "comment":
+          case "newline":
+            break;
+          default:
+            return i;
+        }
+      }
+      return -1;
+    }
+    function isFlowToken(token) {
+      switch (token?.type) {
+        case "alias":
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "flow-collection":
+          return true;
+        default:
+          return false;
+      }
+    }
+    function getPrevProps(parent) {
+      switch (parent.type) {
+        case "document":
+          return parent.start;
+        case "block-map": {
+          const it = parent.items[parent.items.length - 1];
+          return it.sep ?? it.start;
+        }
+        case "block-seq":
+          return parent.items[parent.items.length - 1].start;
+        /* istanbul ignore next should not happen */
+        default:
+          return [];
+      }
+    }
+    function getFirstKeyStartProps(prev) {
+      if (prev.length === 0)
+        return [];
+      let i = prev.length;
+      loop: while (--i >= 0) {
+        switch (prev[i].type) {
+          case "doc-start":
+          case "explicit-key-ind":
+          case "map-value-ind":
+          case "seq-item-ind":
+          case "newline":
+            break loop;
+        }
+      }
+      while (prev[++i]?.type === "space") {
+      }
+      return prev.splice(i, prev.length);
+    }
+    function arrayPushArray(target, source) {
+      if (source.length < 1e5)
+        Array.prototype.push.apply(target, source);
+      else
+        for (let i = 0; i < source.length; ++i)
+          target.push(source[i]);
+    }
+    function fixFlowSeqItems(fc) {
+      if (fc.start.type === "flow-seq-start") {
+        for (const it of fc.items) {
+          if (it.sep && !it.value && !includesToken(it.start, "explicit-key-ind") && !includesToken(it.sep, "map-value-ind")) {
+            if (it.key)
+              it.value = it.key;
+            delete it.key;
+            if (isFlowToken(it.value)) {
+              if (it.value.end)
+                arrayPushArray(it.value.end, it.sep);
+              else
+                it.value.end = it.sep;
+            } else
+              arrayPushArray(it.start, it.sep);
+            delete it.sep;
+          }
+        }
+      }
+    }
+    var Parser = class {
+      /**
+       * @param onNewLine - If defined, called separately with the start position of
+       *   each new line (in `parse()`, including the start of input).
+       */
+      constructor(onNewLine) {
+        this.atNewLine = true;
+        this.atScalar = false;
+        this.indent = 0;
+        this.offset = 0;
+        this.onKeyLine = false;
+        this.stack = [];
+        this.source = "";
+        this.type = "";
+        this.lexer = new lexer.Lexer();
+        this.onNewLine = onNewLine;
+      }
+      /**
+       * Parse `source` as a YAML stream.
+       * If `incomplete`, a part of the last line may be left as a buffer for the next call.
+       *
+       * Errors are not thrown, but yielded as `{ type: 'error', message }` tokens.
+       *
+       * @returns A generator of tokens representing each directive, document, and other structure.
+       */
+      *parse(source, incomplete = false) {
+        if (this.onNewLine && this.offset === 0)
+          this.onNewLine(0);
+        for (const lexeme of this.lexer.lex(source, incomplete))
+          yield* this.next(lexeme);
+        if (!incomplete)
+          yield* this.end();
+      }
+      /**
+       * Advance the parser by the `source` of one lexical token.
+       */
+      *next(source) {
+        this.source = source;
+        if (node_process.env.LOG_TOKENS)
+          console.log("|", cst.prettyToken(source));
+        if (this.atScalar) {
+          this.atScalar = false;
+          yield* this.step();
+          this.offset += source.length;
+          return;
+        }
+        const type = cst.tokenType(source);
+        if (!type) {
+          const message = `Not a YAML token: ${source}`;
+          yield* this.pop({ type: "error", offset: this.offset, message, source });
+          this.offset += source.length;
+        } else if (type === "scalar") {
+          this.atNewLine = false;
+          this.atScalar = true;
+          this.type = "scalar";
+        } else {
+          this.type = type;
+          yield* this.step();
+          switch (type) {
+            case "newline":
+              this.atNewLine = true;
+              this.indent = 0;
+              if (this.onNewLine)
+                this.onNewLine(this.offset + source.length);
+              break;
+            case "space":
+              if (this.atNewLine && source[0] === " ")
+                this.indent += source.length;
+              break;
+            case "explicit-key-ind":
+            case "map-value-ind":
+            case "seq-item-ind":
+              if (this.atNewLine)
+                this.indent += source.length;
+              break;
+            case "doc-mode":
+            case "flow-error-end":
+              return;
+            default:
+              this.atNewLine = false;
+          }
+          this.offset += source.length;
+        }
+      }
+      /** Call at end of input to push out any remaining constructions */
+      *end() {
+        while (this.stack.length > 0)
+          yield* this.pop();
+      }
+      get sourceToken() {
+        const st = {
+          type: this.type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+        return st;
+      }
+      *step() {
+        const top = this.peek(1);
+        if (this.type === "doc-end" && top?.type !== "doc-end") {
+          while (this.stack.length > 0)
+            yield* this.pop();
+          this.stack.push({
+            type: "doc-end",
+            offset: this.offset,
+            source: this.source
+          });
+          return;
+        }
+        if (!top)
+          return yield* this.stream();
+        switch (top.type) {
+          case "document":
+            return yield* this.document(top);
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return yield* this.scalar(top);
+          case "block-scalar":
+            return yield* this.blockScalar(top);
+          case "block-map":
+            return yield* this.blockMap(top);
+          case "block-seq":
+            return yield* this.blockSequence(top);
+          case "flow-collection":
+            return yield* this.flowCollection(top);
+          case "doc-end":
+            return yield* this.documentEnd(top);
+        }
+        yield* this.pop();
+      }
+      peek(n) {
+        return this.stack[this.stack.length - n];
+      }
+      *pop(error2) {
+        const token = error2 ?? this.stack.pop();
+        if (!token) {
+          const message = "Tried to pop an empty stack";
+          yield { type: "error", offset: this.offset, source: "", message };
+        } else if (this.stack.length === 0) {
+          yield token;
+        } else {
+          const top = this.peek(1);
+          if (token.type === "block-scalar") {
+            token.indent = "indent" in top ? top.indent : 0;
+          } else if (token.type === "flow-collection" && top.type === "document") {
+            token.indent = 0;
+          }
+          if (token.type === "flow-collection")
+            fixFlowSeqItems(token);
+          switch (top.type) {
+            case "document":
+              top.value = token;
+              break;
+            case "block-scalar":
+              top.props.push(token);
+              break;
+            case "block-map": {
+              const it = top.items[top.items.length - 1];
+              if (it.value) {
+                top.items.push({ start: [], key: token, sep: [] });
+                this.onKeyLine = true;
+                return;
+              } else if (it.sep) {
+                it.value = token;
+              } else {
+                Object.assign(it, { key: token, sep: [] });
+                this.onKeyLine = !it.explicitKey;
+                return;
+              }
+              break;
+            }
+            case "block-seq": {
+              const it = top.items[top.items.length - 1];
+              if (it.value)
+                top.items.push({ start: [], value: token });
+              else
+                it.value = token;
+              break;
+            }
+            case "flow-collection": {
+              const it = top.items[top.items.length - 1];
+              if (!it || it.value)
+                top.items.push({ start: [], key: token, sep: [] });
+              else if (it.sep)
+                it.value = token;
+              else
+                Object.assign(it, { key: token, sep: [] });
+              return;
+            }
+            /* istanbul ignore next should not happen */
+            default:
+              yield* this.pop();
+              yield* this.pop(token);
+          }
+          if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token.type === "block-map" || token.type === "block-seq")) {
+            const last = token.items[token.items.length - 1];
+            if (last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token.indent))) {
+              if (top.type === "document")
+                top.end = last.start;
+              else
+                top.items.push({ start: last.start });
+              token.items.splice(-1, 1);
+            }
+          }
+        }
+      }
+      *stream() {
+        switch (this.type) {
+          case "directive-line":
+            yield { type: "directive", offset: this.offset, source: this.source };
+            return;
+          case "byte-order-mark":
+          case "space":
+          case "comment":
+          case "newline":
+            yield this.sourceToken;
+            return;
+          case "doc-mode":
+          case "doc-start": {
+            const doc = {
+              type: "document",
+              offset: this.offset,
+              start: []
+            };
+            if (this.type === "doc-start")
+              doc.start.push(this.sourceToken);
+            this.stack.push(doc);
+            return;
+          }
+        }
+        yield {
+          type: "error",
+          offset: this.offset,
+          message: `Unexpected ${this.type} token in YAML stream`,
+          source: this.source
+        };
+      }
+      *document(doc) {
+        if (doc.value)
+          return yield* this.lineEnd(doc);
+        switch (this.type) {
+          case "doc-start": {
+            if (findNonEmptyIndex(doc.start) !== -1) {
+              yield* this.pop();
+              yield* this.step();
+            } else
+              doc.start.push(this.sourceToken);
+            return;
+          }
+          case "anchor":
+          case "tag":
+          case "space":
+          case "comment":
+          case "newline":
+            doc.start.push(this.sourceToken);
+            return;
+        }
+        const bv = this.startBlockValue(doc);
+        if (bv)
+          this.stack.push(bv);
+        else {
+          yield {
+            type: "error",
+            offset: this.offset,
+            message: `Unexpected ${this.type} token in YAML document`,
+            source: this.source
+          };
+        }
+      }
+      *scalar(scalar) {
+        if (this.type === "map-value-ind") {
+          const prev = getPrevProps(this.peek(2));
+          const start = getFirstKeyStartProps(prev);
+          let sep;
+          if (scalar.end) {
+            sep = scalar.end;
+            sep.push(this.sourceToken);
+            delete scalar.end;
+          } else
+            sep = [this.sourceToken];
+          const map = {
+            type: "block-map",
+            offset: scalar.offset,
+            indent: scalar.indent,
+            items: [{ start, key: scalar, sep }]
+          };
+          this.onKeyLine = true;
+          this.stack[this.stack.length - 1] = map;
+        } else
+          yield* this.lineEnd(scalar);
+      }
+      *blockScalar(scalar) {
+        switch (this.type) {
+          case "space":
+          case "comment":
+          case "newline":
+            scalar.props.push(this.sourceToken);
+            return;
+          case "scalar":
+            scalar.source = this.source;
+            this.atNewLine = true;
+            this.indent = 0;
+            if (this.onNewLine) {
+              let nl = this.source.indexOf("\n") + 1;
+              while (nl !== 0) {
+                this.onNewLine(this.offset + nl);
+                nl = this.source.indexOf("\n", nl) + 1;
+              }
+            }
+            yield* this.pop();
+            break;
+          /* istanbul ignore next should not happen */
+          default:
+            yield* this.pop();
+            yield* this.step();
+        }
+      }
+      *blockMap(map) {
+        const it = map.items[map.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            this.onKeyLine = false;
+            if (it.value) {
+              const end = "end" in it.value ? it.value.end : void 0;
+              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
+              else
+                map.items.push({ start: [this.sourceToken] });
+            } else if (it.sep) {
+              it.sep.push(this.sourceToken);
+            } else {
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "space":
+          case "comment":
+            if (it.value) {
+              map.items.push({ start: [this.sourceToken] });
+            } else if (it.sep) {
+              it.sep.push(this.sourceToken);
+            } else {
+              if (this.atIndentedComment(it.start, map.indent)) {
+                const prev = map.items[map.items.length - 2];
+                const end = prev?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start);
+                  end.push(this.sourceToken);
+                  map.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+        }
+        if (this.indent >= map.indent) {
+          const atMapIndent = !this.onKeyLine && this.indent === map.indent;
+          const atNextItem = atMapIndent && (it.sep || it.explicitKey) && this.type !== "seq-item-ind";
+          let start = [];
+          if (atNextItem && it.sep && !it.value) {
+            const nl = [];
+            for (let i = 0; i < it.sep.length; ++i) {
+              const st = it.sep[i];
+              switch (st.type) {
+                case "newline":
+                  nl.push(i);
+                  break;
+                case "space":
+                  break;
+                case "comment":
+                  if (st.indent > map.indent)
+                    nl.length = 0;
+                  break;
+                default:
+                  nl.length = 0;
+              }
+            }
+            if (nl.length >= 2)
+              start = it.sep.splice(nl[1]);
+          }
+          switch (this.type) {
+            case "anchor":
+            case "tag":
+              if (atNextItem || it.value) {
+                start.push(this.sourceToken);
+                map.items.push({ start });
+                this.onKeyLine = true;
+              } else if (it.sep) {
+                it.sep.push(this.sourceToken);
+              } else {
+                it.start.push(this.sourceToken);
+              }
+              return;
+            case "explicit-key-ind":
+              if (!it.sep && !it.explicitKey) {
+                it.start.push(this.sourceToken);
+                it.explicitKey = true;
+              } else if (atNextItem || it.value) {
+                start.push(this.sourceToken);
+                map.items.push({ start, explicitKey: true });
+              } else {
+                this.stack.push({
+                  type: "block-map",
+                  offset: this.offset,
+                  indent: this.indent,
+                  items: [{ start: [this.sourceToken], explicitKey: true }]
+                });
+              }
+              this.onKeyLine = true;
+              return;
+            case "map-value-ind":
+              if (it.explicitKey) {
+                if (!it.sep) {
+                  if (includesToken(it.start, "newline")) {
+                    Object.assign(it, { key: null, sep: [this.sourceToken] });
+                  } else {
+                    const start2 = getFirstKeyStartProps(it.start);
+                    this.stack.push({
+                      type: "block-map",
+                      offset: this.offset,
+                      indent: this.indent,
+                      items: [{ start: start2, key: null, sep: [this.sourceToken] }]
+                    });
+                  }
+                } else if (it.value) {
+                  map.items.push({ start: [], key: null, sep: [this.sourceToken] });
+                } else if (includesToken(it.sep, "map-value-ind")) {
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start, key: null, sep: [this.sourceToken] }]
+                  });
+                } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
+                  const start2 = getFirstKeyStartProps(it.start);
+                  const key = it.key;
+                  const sep = it.sep;
+                  sep.push(this.sourceToken);
+                  delete it.key;
+                  delete it.sep;
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: start2, key, sep }]
+                  });
+                } else if (start.length > 0) {
+                  it.sep = it.sep.concat(start, this.sourceToken);
+                } else {
+                  it.sep.push(this.sourceToken);
+                }
+              } else {
+                if (!it.sep) {
+                  Object.assign(it, { key: null, sep: [this.sourceToken] });
+                } else if (it.value || atNextItem) {
+                  map.items.push({ start, key: null, sep: [this.sourceToken] });
+                } else if (includesToken(it.sep, "map-value-ind")) {
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: [], key: null, sep: [this.sourceToken] }]
+                  });
+                } else {
+                  it.sep.push(this.sourceToken);
+                }
+              }
+              this.onKeyLine = true;
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              const fs = this.flowScalar(this.type);
+              if (atNextItem || it.value) {
+                map.items.push({ start, key: fs, sep: [] });
+                this.onKeyLine = true;
+              } else if (it.sep) {
+                this.stack.push(fs);
+              } else {
+                Object.assign(it, { key: fs, sep: [] });
+                this.onKeyLine = true;
+              }
+              return;
+            }
+            default: {
+              const bv = this.startBlockValue(map);
+              if (bv) {
+                if (bv.type === "block-seq") {
+                  if (!it.explicitKey && it.sep && !includesToken(it.sep, "newline")) {
+                    yield* this.pop({
+                      type: "error",
+                      offset: this.offset,
+                      message: "Unexpected block-seq-ind on same line with key",
+                      source: this.source
+                    });
+                    return;
+                  }
+                } else if (atMapIndent) {
+                  map.items.push({ start });
+                }
+                this.stack.push(bv);
+                return;
+              }
+            }
+          }
+        }
+        yield* this.pop();
+        yield* this.step();
+      }
+      *blockSequence(seq) {
+        const it = seq.items[seq.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            if (it.value) {
+              const end = "end" in it.value ? it.value.end : void 0;
+              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
+              else
+                seq.items.push({ start: [this.sourceToken] });
+            } else
+              it.start.push(this.sourceToken);
+            return;
+          case "space":
+          case "comment":
+            if (it.value)
+              seq.items.push({ start: [this.sourceToken] });
+            else {
+              if (this.atIndentedComment(it.start, seq.indent)) {
+                const prev = seq.items[seq.items.length - 2];
+                const end = prev?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start);
+                  end.push(this.sourceToken);
+                  seq.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "anchor":
+          case "tag":
+            if (it.value || this.indent <= seq.indent)
+              break;
+            it.start.push(this.sourceToken);
+            return;
+          case "seq-item-ind":
+            if (this.indent !== seq.indent)
+              break;
+            if (it.value || includesToken(it.start, "seq-item-ind"))
+              seq.items.push({ start: [this.sourceToken] });
+            else
+              it.start.push(this.sourceToken);
+            return;
+        }
+        if (this.indent > seq.indent) {
+          const bv = this.startBlockValue(seq);
+          if (bv) {
+            this.stack.push(bv);
+            return;
+          }
+        }
+        yield* this.pop();
+        yield* this.step();
+      }
+      *flowCollection(fc) {
+        const it = fc.items[fc.items.length - 1];
+        if (this.type === "flow-error-end") {
+          let top;
+          do {
+            yield* this.pop();
+            top = this.peek(1);
+          } while (top?.type === "flow-collection");
+        } else if (fc.end.length === 0) {
+          switch (this.type) {
+            case "comma":
+            case "explicit-key-ind":
+              if (!it || it.sep)
+                fc.items.push({ start: [this.sourceToken] });
+              else
+                it.start.push(this.sourceToken);
+              return;
+            case "map-value-ind":
+              if (!it || it.value)
+                fc.items.push({ start: [], key: null, sep: [this.sourceToken] });
+              else if (it.sep)
+                it.sep.push(this.sourceToken);
+              else
+                Object.assign(it, { key: null, sep: [this.sourceToken] });
+              return;
+            case "space":
+            case "comment":
+            case "newline":
+            case "anchor":
+            case "tag":
+              if (!it || it.value)
+                fc.items.push({ start: [this.sourceToken] });
+              else if (it.sep)
+                it.sep.push(this.sourceToken);
+              else
+                it.start.push(this.sourceToken);
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              const fs = this.flowScalar(this.type);
+              if (!it || it.value)
+                fc.items.push({ start: [], key: fs, sep: [] });
+              else if (it.sep)
+                this.stack.push(fs);
+              else
+                Object.assign(it, { key: fs, sep: [] });
+              return;
+            }
+            case "flow-map-end":
+            case "flow-seq-end":
+              fc.end.push(this.sourceToken);
+              return;
+          }
+          const bv = this.startBlockValue(fc);
+          if (bv)
+            this.stack.push(bv);
+          else {
+            yield* this.pop();
+            yield* this.step();
+          }
+        } else {
+          const parent = this.peek(2);
+          if (parent.type === "block-map" && (this.type === "map-value-ind" && parent.indent === fc.indent || this.type === "newline" && !parent.items[parent.items.length - 1].sep)) {
+            yield* this.pop();
+            yield* this.step();
+          } else if (this.type === "map-value-ind" && parent.type !== "flow-collection") {
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            fixFlowSeqItems(fc);
+            const sep = fc.end.splice(1, fc.end.length);
+            sep.push(this.sourceToken);
+            const map = {
+              type: "block-map",
+              offset: fc.offset,
+              indent: fc.indent,
+              items: [{ start, key: fc, sep }]
+            };
+            this.onKeyLine = true;
+            this.stack[this.stack.length - 1] = map;
+          } else {
+            yield* this.lineEnd(fc);
+          }
+        }
+      }
+      flowScalar(type) {
+        if (this.onNewLine) {
+          let nl = this.source.indexOf("\n") + 1;
+          while (nl !== 0) {
+            this.onNewLine(this.offset + nl);
+            nl = this.source.indexOf("\n", nl) + 1;
+          }
+        }
+        return {
+          type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+      }
+      startBlockValue(parent) {
+        switch (this.type) {
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return this.flowScalar(this.type);
+          case "block-scalar-header":
+            return {
+              type: "block-scalar",
+              offset: this.offset,
+              indent: this.indent,
+              props: [this.sourceToken],
+              source: ""
+            };
+          case "flow-map-start":
+          case "flow-seq-start":
+            return {
+              type: "flow-collection",
+              offset: this.offset,
+              indent: this.indent,
+              start: this.sourceToken,
+              items: [],
+              end: []
+            };
+          case "seq-item-ind":
+            return {
+              type: "block-seq",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start: [this.sourceToken] }]
+            };
+          case "explicit-key-ind": {
+            this.onKeyLine = true;
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            start.push(this.sourceToken);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, explicitKey: true }]
+            };
+          }
+          case "map-value-ind": {
+            this.onKeyLine = true;
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, key: null, sep: [this.sourceToken] }]
+            };
+          }
+        }
+        return null;
+      }
+      atIndentedComment(start, indent) {
+        if (this.type !== "comment")
+          return false;
+        if (this.indent <= indent)
+          return false;
+        return start.every((st) => st.type === "newline" || st.type === "space");
+      }
+      *documentEnd(docEnd) {
+        if (this.type !== "doc-mode") {
+          if (docEnd.end)
+            docEnd.end.push(this.sourceToken);
+          else
+            docEnd.end = [this.sourceToken];
+          if (this.type === "newline")
+            yield* this.pop();
+        }
+      }
+      *lineEnd(token) {
+        switch (this.type) {
+          case "comma":
+          case "doc-start":
+          case "doc-end":
+          case "flow-seq-end":
+          case "flow-map-end":
+          case "map-value-ind":
+            yield* this.pop();
+            yield* this.step();
+            break;
+          case "newline":
+            this.onKeyLine = false;
+          // fallthrough
+          case "space":
+          case "comment":
+          default:
+            if (token.end)
+              token.end.push(this.sourceToken);
+            else
+              token.end = [this.sourceToken];
+            if (this.type === "newline")
+              yield* this.pop();
+        }
+      }
+    };
+    exports.Parser = Parser;
+  }
+});
+
+// node_modules/yaml/dist/public-api.js
+var require_public_api = __commonJS({
+  "node_modules/yaml/dist/public-api.js"(exports) {
+    "use strict";
+    var composer = require_composer();
+    var Document = require_Document();
+    var errors = require_errors2();
+    var log = require_log();
+    var identity = require_identity();
+    var lineCounter = require_line_counter();
+    var parser = require_parser();
+    function parseOptions(options) {
+      const prettyErrors = options.prettyErrors !== false;
+      const lineCounter$1 = options.lineCounter || prettyErrors && new lineCounter.LineCounter() || null;
+      return { lineCounter: lineCounter$1, prettyErrors };
+    }
+    function parseAllDocuments(source, options = {}) {
+      const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
+      const composer$1 = new composer.Composer(options);
+      const docs = Array.from(composer$1.compose(parser$1.parse(source)));
+      if (prettyErrors && lineCounter2)
+        for (const doc of docs) {
+          doc.errors.forEach(errors.prettifyError(source, lineCounter2));
+          doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+        }
+      if (docs.length > 0)
+        return docs;
+      return Object.assign([], { empty: true }, composer$1.streamInfo());
+    }
+    function parseDocument(source, options = {}) {
+      const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
+      const composer$1 = new composer.Composer(options);
+      let doc = null;
+      for (const _doc of composer$1.compose(parser$1.parse(source), true, source.length)) {
+        if (!doc)
+          doc = _doc;
+        else if (doc.options.logLevel !== "silent") {
+          doc.errors.push(new errors.YAMLParseError(_doc.range.slice(0, 2), "MULTIPLE_DOCS", "Source contains multiple documents; please use YAML.parseAllDocuments()"));
+          break;
+        }
+      }
+      if (prettyErrors && lineCounter2) {
+        doc.errors.forEach(errors.prettifyError(source, lineCounter2));
+        doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+      }
+      return doc;
+    }
+    function parse4(src, reviver, options) {
+      let _reviver = void 0;
+      if (typeof reviver === "function") {
+        _reviver = reviver;
+      } else if (options === void 0 && reviver && typeof reviver === "object") {
+        options = reviver;
+      }
+      const doc = parseDocument(src, options);
+      if (!doc)
+        return null;
+      doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
+      if (doc.errors.length > 0) {
+        if (doc.options.logLevel !== "silent")
+          throw doc.errors[0];
+        else
+          doc.errors = [];
+      }
+      return doc.toJS(Object.assign({ reviver: _reviver }, options));
+    }
+    function stringify2(value, replacer, options) {
+      let _replacer = null;
+      if (typeof replacer === "function" || Array.isArray(replacer)) {
+        _replacer = replacer;
+      } else if (options === void 0 && replacer) {
+        options = replacer;
+      }
+      if (typeof options === "string")
+        options = options.length;
+      if (typeof options === "number") {
+        const indent = Math.round(options);
+        options = indent < 1 ? void 0 : indent > 8 ? { indent: 8 } : { indent };
+      }
+      if (value === void 0) {
+        const { keepUndefined } = options ?? replacer ?? {};
+        if (!keepUndefined)
+          return void 0;
+      }
+      if (identity.isDocument(value) && !_replacer)
+        return value.toString(options);
+      return new Document.Document(value, _replacer, options).toString(options);
+    }
+    exports.parse = parse4;
+    exports.parseAllDocuments = parseAllDocuments;
+    exports.parseDocument = parseDocument;
+    exports.stringify = stringify2;
+  }
+});
+
+// node_modules/yaml/dist/index.js
+var require_dist2 = __commonJS({
+  "node_modules/yaml/dist/index.js"(exports) {
+    "use strict";
+    var composer = require_composer();
+    var Document = require_Document();
+    var Schema = require_Schema();
+    var errors = require_errors2();
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var cst = require_cst();
+    var lexer = require_lexer();
+    var lineCounter = require_line_counter();
+    var parser = require_parser();
+    var publicApi = require_public_api();
+    var visit = require_visit();
+    exports.Composer = composer.Composer;
+    exports.Document = Document.Document;
+    exports.Schema = Schema.Schema;
+    exports.YAMLError = errors.YAMLError;
+    exports.YAMLParseError = errors.YAMLParseError;
+    exports.YAMLWarning = errors.YAMLWarning;
+    exports.Alias = Alias.Alias;
+    exports.isAlias = identity.isAlias;
+    exports.isCollection = identity.isCollection;
+    exports.isDocument = identity.isDocument;
+    exports.isMap = identity.isMap;
+    exports.isNode = identity.isNode;
+    exports.isPair = identity.isPair;
+    exports.isScalar = identity.isScalar;
+    exports.isSeq = identity.isSeq;
+    exports.Pair = Pair.Pair;
+    exports.Scalar = Scalar.Scalar;
+    exports.YAMLMap = YAMLMap.YAMLMap;
+    exports.YAMLSeq = YAMLSeq.YAMLSeq;
+    exports.CST = cst;
+    exports.Lexer = lexer.Lexer;
+    exports.LineCounter = lineCounter.LineCounter;
+    exports.Parser = parser.Parser;
+    exports.parse = publicApi.parse;
+    exports.parseAllDocuments = publicApi.parseAllDocuments;
+    exports.parseDocument = publicApi.parseDocument;
+    exports.stringify = publicApi.stringify;
+    exports.visit = visit.visit;
+    exports.visitAsync = visit.visitAsync;
   }
 });
 
@@ -13766,8 +21100,8 @@ var Protocol = class {
                   if (queuedMessage.type === "response") {
                     resolver(message);
                   } else {
-                    const errorMessage = message;
-                    const error2 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
+                    const errorMessage2 = message;
+                    const error2 = new McpError(errorMessage2.error.code, errorMessage2.error.message, errorMessage2.error.data);
                     resolver(error2);
                   }
                 } else {
@@ -14213,7 +21547,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+        await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -14230,7 +21564,7 @@ var Protocol = class {
    */
   request(request2, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve5, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -14308,7 +21642,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve3(parseResult.data);
+            resolve5(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -14569,12 +21903,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve5, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve3, interval);
+      const timeoutId = setTimeout(resolve5, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -15067,23 +22401,23 @@ var Server = class extends Protocol {
       const wrappedHandler = async (request2, extra) => {
         const validatedRequest = safeParse2(CallToolRequestSchema, request2);
         if (!validatedRequest.success) {
-          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
-          throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call request: ${errorMessage}`);
+          const errorMessage2 = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call request: ${errorMessage2}`);
         }
         const { params } = validatedRequest.data;
         const result = await Promise.resolve(handler(request2, extra));
         if (params.task) {
           const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
           if (!taskValidationResult.success) {
-            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
-            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+            const errorMessage2 = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage2}`);
           }
           return taskValidationResult.data;
         }
         const validationResult = safeParse2(CallToolResultSchema, result);
         if (!validationResult.success) {
-          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
-          throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call result: ${errorMessage}`);
+          const errorMessage2 = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call result: ${errorMessage2}`);
         }
         return validationResult.data;
       };
@@ -15444,12 +22778,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve5) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve3();
+        resolve5();
       } else {
-        this._stdout.once("drain", resolve3);
+        this._stdout.once("drain", resolve5);
       }
     });
   }
@@ -15463,11 +22797,57 @@ import { pathToFileURL } from "node:url";
 import { join as join2 } from "node:path";
 
 // src/registry.ts
-import { randomInt } from "node:crypto";
-import { mkdir, open, readdir, readFile, rename, unlink } from "node:fs/promises";
+import { randomInt as randomInt2 } from "node:crypto";
+import { mkdir, readdir, readFile, unlink as unlink2 } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+// src/fs-utils.ts
+import { open, rename, unlink } from "node:fs/promises";
+import { randomInt } from "node:crypto";
+var RENAME_RETRY_LIMIT = 5;
+var RENAME_RETRY_DELAY_MS = 50;
+function isReplaceRetryableError(error2) {
+  const code = error2?.code;
+  return code === "EPERM" || code === "EACCES";
+}
+async function renameReplace(tmpPath, filePath) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(tmpPath, filePath);
+      return;
+    } catch (error2) {
+      if (attempt >= RENAME_RETRY_LIMIT || !isReplaceRetryableError(error2)) throw error2;
+      await new Promise((resolve5) => setTimeout(resolve5, RENAME_RETRY_DELAY_MS * (attempt + 1)));
+    }
+  }
+}
+async function writeFileAtomic(filePath, content, options = {}) {
+  const tmpPath = `${filePath}.tmp.${process.pid}.${randomInt(4294967296).toString(16)}`;
+  let renamed = false;
+  try {
+    const handle = await open(tmpPath, "w");
+    try {
+      await handle.writeFile(content);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await options.beforeRename?.();
+    await renameReplace(tmpPath, filePath);
+    renamed = true;
+  } finally {
+    if (!renamed) {
+      try {
+        await unlink(tmpPath);
+      } catch {
+      }
+    }
+  }
+}
+
+// src/registry.ts
 var VERSION = (() => {
   try {
     const require2 = createRequire(import.meta.url);
@@ -15505,7 +22885,7 @@ function ulid2(now = Date.now()) {
     ts = Math.floor(ts / 32);
   }
   let rand = "";
-  for (let i = 0; i < 16; i++) rand += CROCKFORD[randomInt(32)];
+  for (let i = 0; i < 16; i++) rand += CROCKFORD[randomInt2(32)];
   return time3 + rand;
 }
 function encode3(info) {
@@ -15545,41 +22925,6 @@ async function readInstanceFile(filePath) {
     return void 0;
   }
 }
-var RENAME_RETRY_LIMIT = 5;
-var RENAME_RETRY_DELAY_MS = 50;
-async function renameReplace(tmpPath, filePath) {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      await rename(tmpPath, filePath);
-      return;
-    } catch (err) {
-      const code = err.code;
-      if (attempt >= RENAME_RETRY_LIMIT || code !== "EPERM" && code !== "EACCES") throw err;
-      await new Promise((r) => setTimeout(r, RENAME_RETRY_DELAY_MS * (attempt + 1)));
-    }
-  }
-}
-async function writeFileAtomic(filePath, content) {
-  const tmpPath = `${filePath}.tmp.${process.pid}.${randomInt(4294967296).toString(16)}`;
-  let renamed = false;
-  try {
-    const fh = await open(tmpPath, "w");
-    try {
-      await fh.writeFile(content);
-    } finally {
-      await fh.close();
-    }
-    await renameReplace(tmpPath, filePath);
-    renamed = true;
-  } finally {
-    if (!renamed) {
-      try {
-        await unlink(tmpPath);
-      } catch {
-      }
-    }
-  }
-}
 async function sweepStale(instancesDir) {
   let names;
   try {
@@ -15594,7 +22939,7 @@ async function sweepStale(instancesDir) {
       const info = await readInstanceFile(filePath);
       if (info === void 0 || pidAlive(info.pid)) return;
       try {
-        await unlink(filePath);
+        await unlink2(filePath);
       } catch (err) {
         if (err.code !== "ENOENT") throw err;
       }
@@ -15617,7 +22962,7 @@ async function listLiveInternal(instancesDir) {
       if (info === void 0) return;
       if (!pidAlive(info.pid)) {
         try {
-          await unlink(filePath);
+          await unlink2(filePath);
         } catch (err) {
           if (err.code !== "ENOENT") throw err;
         }
@@ -15666,7 +23011,7 @@ function createRegistry(options = {}) {
           if (state.released) return;
           state.released = true;
           try {
-            await unlink(filePath);
+            await unlink2(filePath);
           } catch (err) {
             if (err.code !== "ENOENT") throw err;
           }
@@ -15812,13 +23157,13 @@ var DebateHub = class {
         return { kind: "now", payload: { status: "debate_complete", transcript: task.transcript } };
       }
       if (task.status === "closed") return { kind: "now", payload: { status: "closed" } };
-      const promise = new Promise((resolve3) => {
+      const promise = new Promise((resolve5) => {
         const waiter = {
           agentId,
-          resolve: resolve3,
+          resolve: resolve5,
           timer: setTimeout(() => {
             task.waiters.delete(waiter);
-            resolve3({ status: "timeout", retry: true });
+            resolve5({ status: "timeout", retry: true });
           }, this.waitCapMs)
         };
         task.waiters.add(waiter);
@@ -15903,16 +23248,16 @@ var DebateHub = class {
   async complete(taskId) {
     return this.enqueue(taskId, async () => {
       const task = this.getTask(taskId);
-      const { mkdir: mkdir3, writeFile: writeFile3 } = await import("node:fs/promises");
-      const { resolve: resolve3 } = await import("node:path");
-      const dir = resolve3(this.logsDir, taskId);
-      await mkdir3(dir, { recursive: true });
+      const { mkdir: mkdir4, writeFile: writeFile3 } = await import("node:fs/promises");
+      const { resolve: resolve5 } = await import("node:path");
+      const dir = resolve5(this.logsDir, taskId);
+      await mkdir4(dir, { recursive: true });
       const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
       await writeFile3(
-        resolve3(dir, "probe.json"),
+        resolve5(dir, "probe.json"),
         JSON.stringify({ task_id: taskId, created_at: task.createdAt, agents: task.probes }, null, 2)
       );
-      await writeFile3(resolve3(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
+      await writeFile3(resolve5(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
       const result = {
         task_id: taskId,
         status: task.status,
@@ -15926,7 +23271,7 @@ var DebateHub = class {
         result.reason = task.earlyClose.reason;
         result.signoffs = Object.fromEntries(task.signoffs);
       }
-      await writeFile3(resolve3(dir, "result.json"), JSON.stringify(result, null, 2));
+      await writeFile3(resolve5(dir, "result.json"), JSON.stringify(result, null, 2));
       if (this.board !== void 0) await this.board.archiveTask(taskId, dir);
       task.status = "closed";
       this.wakeAll(task, { status: "closed" });
@@ -16009,214 +23354,8744 @@ ${SIGNOFF_PROTOCOL}`;
 
 // src/bus.ts
 import { createServer, get } from "node:http";
-import { writeFile, readFile as readFile2, rm } from "node:fs/promises";
-import { join as join3, resolve } from "node:path";
+import { writeFile as writeFile2, readFile as readFile4, rm } from "node:fs/promises";
+import { join as join6, resolve as resolve4 } from "node:path";
 
-// src/frontend.ts
-var FRONTEND_HTML = `<!doctype html>
-<html lang="zh">
+// src/archive-index.ts
+import { constants } from "node:fs";
+import { lstat, open as open2, readdir as readdir2 } from "node:fs/promises";
+import { join as join3 } from "node:path";
+import { TextDecoder } from "node:util";
+var ARCHIVE_FILE_NAMES = [
+  "result.json",
+  "probe.json",
+  "events.jsonl",
+  "board.jsonl"
+];
+var nodeFileSystem = {
+  readdir: (path, options) => readdir2(path, options),
+  lstat,
+  open: open2
+};
+var MISSING_FILE = Object.freeze({ exists: false, size: null, mtime: null });
+var MAX_RESULT_BYTES = 1024 * 1024;
+var MAX_SUMMARY_TEXT_LENGTH = 1024;
+var UTF8 = new TextDecoder("utf-8", { fatal: true });
+function isValidTaskId(value) {
+  return typeof value === "string" && value.trim().length > 0 && value !== "." && !value.includes("..") && !value.includes("/") && !value.includes("\\") && !value.includes("\0");
+}
+function errorCode(error2) {
+  const code = error2?.code;
+  return typeof code === "string" && code.length > 0 ? code : "UNKNOWN";
+}
+function fileError(operation, file, code) {
+  return { operation, file, code, message: `${file}: ${code}` };
+}
+function missingFiles() {
+  return {
+    "result.json": MISSING_FILE,
+    "probe.json": MISSING_FILE,
+    "events.jsonl": MISSING_FILE,
+    "board.jsonl": MISSING_FILE
+  };
+}
+function regularFileInfo(stat2) {
+  return {
+    exists: true,
+    size: stat2.size,
+    mtime: stat2.mtime.toISOString()
+  };
+}
+function sameFile(a, b) {
+  if (a.ino !== 0 && b.ino !== 0) return a.dev === b.dev && a.ino === b.ino;
+  return a.dev === b.dev && a.size === b.size && a.mtimeMs === b.mtimeMs;
+}
+function safeText(value) {
+  return typeof value === "string" && value.length <= MAX_SUMMARY_TEXT_LENGTH ? value : void 0;
+}
+function safeCount(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : void 0;
+}
+function summarize(value) {
+  const status = safeText(value.status);
+  const roundsConfigured = safeCount(value.rounds_configured);
+  const roundsCompleted = safeCount(value.rounds_completed);
+  const turns = safeCount(value.turns);
+  const finishedAt = safeText(value.finished_at);
+  const early = typeof value.early === "boolean" ? value.early : void 0;
+  const reason = safeText(value.reason);
+  return {
+    ...status === void 0 ? {} : { status },
+    ...roundsConfigured === void 0 ? {} : { rounds_configured: roundsConfigured },
+    ...roundsCompleted === void 0 ? {} : { rounds_completed: roundsCompleted },
+    ...turns === void 0 ? {} : { turns },
+    ...finishedAt === void 0 ? {} : { finished_at: finishedAt },
+    ...early === void 0 ? {} : { early },
+    ...reason === void 0 ? {} : { reason }
+  };
+}
+async function readBounded(handle) {
+  const buffer = Buffer.allocUnsafe(MAX_RESULT_BYTES + 1);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  if (offset > MAX_RESULT_BYTES) {
+    const error2 = new Error("result too large");
+    error2.code = "RESULT_TOO_LARGE";
+    throw error2;
+  }
+  return buffer.subarray(0, offset);
+}
+var ArchiveIndex = class {
+  logsDir;
+  fs;
+  constructor(logsDir, fileSystem = nodeFileSystem) {
+    if (typeof logsDir !== "string" || logsDir.length === 0) {
+      throw new TypeError("logsDir must be a non-empty string");
+    }
+    this.logsDir = logsDir;
+    this.fs = fileSystem;
+  }
+  async list() {
+    let children;
+    try {
+      children = await this.fs.readdir(this.logsDir, { withFileTypes: true });
+    } catch (error2) {
+      if (errorCode(error2) === "ENOENT") return [];
+      throw error2;
+    }
+    const entries = await Promise.all(children.map(async (child) => {
+      if (!child.isDirectory() || child.isSymbolicLink() || !isValidTaskId(child.name)) return void 0;
+      return this.scanTask(child.name);
+    }));
+    return entries.filter((entry) => entry !== void 0).sort((a, b) => {
+      const aTime = a.updatedAt === null ? Number.NEGATIVE_INFINITY : Date.parse(a.updatedAt);
+      const bTime = b.updatedAt === null ? Number.NEGATIVE_INFINITY : Date.parse(b.updatedAt);
+      return bTime - aTime || a.taskId.localeCompare(b.taskId);
+    });
+  }
+  async scanTask(taskId) {
+    const taskDir = join3(this.logsDir, taskId);
+    try {
+      const taskStat = await this.fs.lstat(taskDir);
+      if (!taskStat.isDirectory() || taskStat.isSymbolicLink()) return void 0;
+    } catch (error2) {
+      return {
+        taskId,
+        files: missingFiles(),
+        updatedAt: null,
+        degraded: true,
+        errors: [{ operation: "directory", code: errorCode(error2), message: `task directory: ${errorCode(error2)}` }]
+      };
+    }
+    const errors = [];
+    const scans = await Promise.all(ARCHIVE_FILE_NAMES.map(async (file) => [file, await this.scanFile(taskDir, file)]));
+    const files = missingFiles();
+    let latest = Number.NEGATIVE_INFINITY;
+    for (const [file, scan] of scans) {
+      files[file] = scan.info;
+      if (scan.error !== void 0) errors.push(scan.error);
+      if (scan.info.exists && scan.stat !== void 0) latest = Math.max(latest, scan.stat.mtimeMs);
+    }
+    let summary;
+    const resultScan = scans.find(([file]) => file === "result.json")?.[1];
+    if (resultScan?.stat !== void 0 && resultScan.info.exists && resultScan.error === void 0) {
+      const parsed = await this.readResult(taskDir, resultScan.stat);
+      if (parsed.error !== void 0) errors.push(parsed.error);
+      else summary = parsed.summary;
+    }
+    return {
+      taskId,
+      files,
+      updatedAt: Number.isFinite(latest) ? new Date(latest).toISOString() : null,
+      ...summary === void 0 ? {} : { summary },
+      degraded: errors.length > 0,
+      errors
+    };
+  }
+  async scanFile(taskDir, file) {
+    const filePath = join3(taskDir, file);
+    let stat2;
+    try {
+      stat2 = await this.fs.lstat(filePath);
+    } catch (error2) {
+      const code = errorCode(error2);
+      if (code === "ENOENT") return { info: MISSING_FILE };
+      return { info: MISSING_FILE, error: fileError("stat", file, code) };
+    }
+    if (stat2.isSymbolicLink() || !stat2.isFile()) {
+      return { info: MISSING_FILE, error: fileError("stat", file, "UNSAFE_FILE_TYPE") };
+    }
+    const info = regularFileInfo(stat2);
+    let handle;
+    try {
+      const noFollow = constants.O_NOFOLLOW ?? 0;
+      handle = await this.fs.open(filePath, constants.O_RDONLY | noFollow);
+      const openedStat = await handle.stat();
+      if (!openedStat.isFile() || !sameFile(stat2, openedStat)) {
+        return { info, stat: stat2, error: fileError("read", file, "FILE_CHANGED") };
+      }
+      return { info, stat: stat2 };
+    } catch (error2) {
+      return { info, stat: stat2, error: fileError("read", file, errorCode(error2)) };
+    } finally {
+      await handle?.close().catch(() => void 0);
+    }
+  }
+  async readResult(taskDir, originalStat) {
+    const file = "result.json";
+    let handle;
+    try {
+      const noFollow = constants.O_NOFOLLOW ?? 0;
+      handle = await this.fs.open(join3(taskDir, file), constants.O_RDONLY | noFollow);
+      const openedStat = await handle.stat();
+      if (!openedStat.isFile() || !sameFile(originalStat, openedStat)) {
+        return { error: fileError("read", file, "FILE_CHANGED") };
+      }
+      const raw = await readBounded(handle);
+      const currentStat = await this.fs.lstat(join3(taskDir, file));
+      if (currentStat.isSymbolicLink() || !currentStat.isFile() || !sameFile(openedStat, currentStat)) {
+        return { error: fileError("read", file, "FILE_CHANGED") };
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(UTF8.decode(raw));
+      } catch {
+        return { error: fileError("parse", file, "INVALID_JSON") };
+      }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        return { error: fileError("parse", file, "RESULT_NOT_OBJECT") };
+      }
+      return { summary: summarize(parsed) };
+    } catch (error2) {
+      return { error: fileError("read", file, errorCode(error2)) };
+    } finally {
+      await handle?.close().catch(() => void 0);
+    }
+  }
+};
+
+// src/agent-config.ts
+import { createHash } from "node:crypto";
+import {
+  lstat as lstat2,
+  mkdir as mkdir2,
+  readdir as readdir3,
+  readFile as readFile2,
+  realpath,
+  unlink as unlink3
+} from "node:fs/promises";
+import { dirname, isAbsolute, join as join4, resolve } from "node:path";
+
+// node_modules/smol-toml/dist/date.js
+var DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[T ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[-+]\d{2}:\d{2})?$/i;
+var TomlDate = class _TomlDate extends Date {
+  #hasDate = false;
+  #hasTime = false;
+  #offset = null;
+  constructor(date3) {
+    let hasDate = true;
+    let hasTime = true;
+    let offset = "Z";
+    if (typeof date3 === "string") {
+      let match = date3.match(DATE_TIME_RE);
+      if (match) {
+        if (!match[1]) {
+          hasDate = false;
+          date3 = `0000-01-01T${date3}`;
+        }
+        hasTime = !!match[2];
+        hasTime && date3[10] === " " && (date3 = date3.replace(" ", "T"));
+        if (match[2] && +match[2] > 23) {
+          date3 = "";
+        } else {
+          offset = match[3] || null;
+          date3 = date3.toUpperCase();
+          if (!offset && hasTime)
+            date3 += "Z";
+        }
+      } else {
+        date3 = "";
+      }
+    }
+    super(date3);
+    if (!isNaN(this.getTime())) {
+      this.#hasDate = hasDate;
+      this.#hasTime = hasTime;
+      this.#offset = offset;
+    }
+  }
+  isDateTime() {
+    return this.#hasDate && this.#hasTime;
+  }
+  isLocal() {
+    return !this.#hasDate || !this.#hasTime || !this.#offset;
+  }
+  isDate() {
+    return this.#hasDate && !this.#hasTime;
+  }
+  isTime() {
+    return this.#hasTime && !this.#hasDate;
+  }
+  isValid() {
+    return this.#hasDate || this.#hasTime;
+  }
+  toISOString() {
+    let iso = super.toISOString();
+    if (this.isDate())
+      return iso.slice(0, 10);
+    if (this.isTime())
+      return iso.slice(11, 23);
+    if (this.#offset === null)
+      return iso.slice(0, -1);
+    if (this.#offset === "Z")
+      return iso;
+    let offset = +this.#offset.slice(1, 3) * 60 + +this.#offset.slice(4, 6);
+    offset = this.#offset[0] === "-" ? offset : -offset;
+    let offsetDate = new Date(this.getTime() - offset * 6e4);
+    return offsetDate.toISOString().slice(0, -1) + this.#offset;
+  }
+  static wrapAsOffsetDateTime(jsDate, offset = "Z") {
+    let date3 = new _TomlDate(jsDate);
+    date3.#offset = offset;
+    return date3;
+  }
+  static wrapAsLocalDateTime(jsDate) {
+    let date3 = new _TomlDate(jsDate);
+    date3.#offset = null;
+    return date3;
+  }
+  static wrapAsLocalDate(jsDate) {
+    let date3 = new _TomlDate(jsDate);
+    date3.#hasTime = false;
+    date3.#offset = null;
+    return date3;
+  }
+  static wrapAsLocalTime(jsDate) {
+    let date3 = new _TomlDate(jsDate);
+    date3.#hasDate = false;
+    date3.#offset = null;
+    return date3;
+  }
+};
+
+// node_modules/smol-toml/dist/error.js
+function getLineColFromPtr(string3, ptr) {
+  let lines = string3.slice(0, ptr).split(/\r\n|\n|\r/g);
+  return [lines.length, lines.pop().length + 1];
+}
+function makeCodeBlock(string3, line, column) {
+  let lines = string3.split(/\r\n|\n|\r/g);
+  let codeblock = "";
+  let numberLen = (Math.log10(line + 1) | 0) + 1;
+  for (let i = line - 1; i <= line + 1; i++) {
+    let l = lines[i - 1];
+    if (!l)
+      continue;
+    codeblock += i.toString().padEnd(numberLen, " ");
+    codeblock += ":  ";
+    codeblock += l;
+    codeblock += "\n";
+    if (i === line) {
+      codeblock += " ".repeat(numberLen + column + 2);
+      codeblock += "^\n";
+    }
+  }
+  return codeblock;
+}
+var TomlError = class extends Error {
+  line;
+  column;
+  codeblock;
+  constructor(message, options) {
+    const [line, column] = getLineColFromPtr(options.toml, options.ptr);
+    const codeblock = makeCodeBlock(options.toml, line, column);
+    super(`Invalid TOML document: ${message}
+
+${codeblock}`, options);
+    this.line = line;
+    this.column = column;
+    this.codeblock = codeblock;
+  }
+};
+
+// node_modules/smol-toml/dist/primitive.js
+var INT_REGEX = /^((0x[0-9a-fA-F](_?[0-9a-fA-F])*)|(([+-]|0[ob])?\d(_?\d)*))$/;
+var FLOAT_REGEX = /^[+-]?\d(_?\d)*(\.\d(_?\d)*)?([eE][+-]?\d(_?\d)*)?$/;
+var LEADING_ZERO = /^[+-]?0[0-9_]/;
+function parseString(str, ptr) {
+  let c = str[ptr++];
+  let first = c;
+  let isLiteral = c === "'";
+  let isMultiline = c === str[ptr] && c === str[ptr + 1];
+  if (isMultiline) {
+    if (str[ptr += 2] === "\n")
+      ptr++;
+    else if (str[ptr] === "\r" && str[ptr + 1] === "\n")
+      ptr += 2;
+  }
+  let parsed = "";
+  let sliceStart = ptr;
+  let state = 0;
+  for (let i = ptr; i < str.length; i++) {
+    c = str[i];
+    if (isMultiline && (c === "\n" || c === "\r" && str[i + 1] === "\n")) {
+      state = state && 3;
+    } else if (c < " " && c !== "	" || c === "\x7F") {
+      throw new TomlError("control characters are not allowed in strings", {
+        toml: str,
+        ptr: i
+      });
+    } else if ((!state || state === 3) && c === first && (!isMultiline || str[i + 1] === first && str[i + 2] === first)) {
+      if (isMultiline) {
+        if (str[i + 3] === first)
+          i++;
+        if (str[i + 3] === first)
+          i++;
+      }
+      return [
+        // If we're in a newline escape still, then there's nothing to add.
+        // Also try to avoid concat if there's nothing to add to parsed, or nothing has been added to parsed.
+        state ? parsed : parsed + str.slice(sliceStart, i),
+        i + (isMultiline ? 3 : 1)
+      ];
+    } else if (!state) {
+      if (!isLiteral && c === "\\") {
+        parsed += str.slice(sliceStart, sliceStart = i);
+        state = 1;
+      }
+    } else if (state === 1) {
+      if (c === "x" || c === "u" || c === "U") {
+        let value = 0;
+        let len = c === "x" ? 2 : c === "u" ? 4 : 8;
+        for (let j = 0; j < len; j++, i++) {
+          let hex = str.charCodeAt(i + 1);
+          let digit = (
+            /* 0-9 */
+            hex >= 48 && hex <= 57 ? hex - 48 : (
+              /* A-F */
+              hex >= 65 && hex <= 70 ? hex - 65 + 10 : (
+                /* a-f */
+                hex >= 97 && hex <= 102 ? hex - 97 + 10 : -1
+              )
+            )
+          );
+          if (digit < 0)
+            throw new TomlError("invalid non-hex character in unicode escape", { toml: str, ptr: i + 1 });
+          value = value << 4 | digit;
+        }
+        if (value < 0 || value > 1114111 || value >= 55296 && value <= 57343) {
+          throw new TomlError("invalid unicode escape", { toml: str, ptr: i });
+        }
+        parsed += String.fromCodePoint(value);
+        sliceStart = i + 1;
+        state = 0;
+      } else if (c === " " || c === "	") {
+        state = 2;
+      } else {
+        if (c === "b")
+          parsed += "\b";
+        else if (c === "t")
+          parsed += "	";
+        else if (c === "n")
+          parsed += "\n";
+        else if (c === "f")
+          parsed += "\f";
+        else if (c === "r")
+          parsed += "\r";
+        else if (c === "e")
+          parsed += "\x1B";
+        else if (c === '"')
+          parsed += '"';
+        else if (c === "\\")
+          parsed += "\\";
+        else
+          throw new TomlError("unrecognized escape sequence", { toml: str, ptr: i });
+        sliceStart = i + 1;
+        state = 0;
+      }
+    } else if (c !== " " && c !== "	") {
+      if (state === 2) {
+        throw new TomlError("invalid escape: only line-ending whitespace may be escaped", {
+          toml: str,
+          ptr: sliceStart
+        });
+      }
+      state = !isLiteral && c === "\\" ? 1 : 0;
+      sliceStart = i;
+    }
+  }
+  throw new TomlError("unfinished string", { toml: str, ptr });
+}
+function parseValue(value, toml, ptr, integersAsBigInt) {
+  if (value === "true")
+    return true;
+  if (value === "false")
+    return false;
+  if (value === "-inf")
+    return -Infinity;
+  if (value === "inf" || value === "+inf")
+    return Infinity;
+  if (value === "nan" || value === "+nan" || value === "-nan")
+    return NaN;
+  if (value === "-0")
+    return integersAsBigInt ? 0n : 0;
+  let isInt = INT_REGEX.test(value);
+  if (isInt || FLOAT_REGEX.test(value)) {
+    if (LEADING_ZERO.test(value)) {
+      throw new TomlError("leading zeroes are not allowed", {
+        toml,
+        ptr
+      });
+    }
+    value = value.replace(/_/g, "");
+    let numeric = +value;
+    if (isNaN(numeric)) {
+      throw new TomlError("invalid number", {
+        toml,
+        ptr
+      });
+    }
+    if (isInt) {
+      if ((isInt = !Number.isSafeInteger(numeric)) && !integersAsBigInt) {
+        throw new TomlError("integer value cannot be represented losslessly", {
+          toml,
+          ptr
+        });
+      }
+      if (isInt || integersAsBigInt === true)
+        numeric = BigInt(value);
+    }
+    return numeric;
+  }
+  const date3 = new TomlDate(value);
+  if (!date3.isValid()) {
+    throw new TomlError("invalid value", {
+      toml,
+      ptr
+    });
+  }
+  return date3;
+}
+
+// node_modules/smol-toml/dist/util.js
+function indexOfNewline(str, start = 0, end = str.length) {
+  let idx = str.indexOf("\n", start);
+  if (str[idx - 1] === "\r")
+    idx--;
+  return idx <= end ? idx : -1;
+}
+function skipComment(str, ptr) {
+  for (let i = ptr; i < str.length; i++) {
+    let c = str[i];
+    if (c === "\n")
+      return i;
+    if (c === "\r" && str[i + 1] === "\n")
+      return i + 1;
+    if (c < " " && c !== "	" || c === "\x7F") {
+      throw new TomlError("control characters are not allowed in comments", {
+        toml: str,
+        ptr
+      });
+    }
+  }
+  return str.length;
+}
+function skipVoid(str, ptr, banNewLines, banComments) {
+  let c;
+  while (1) {
+    while ((c = str[ptr]) === " " || c === "	" || !banNewLines && (c === "\n" || c === "\r" && str[ptr + 1] === "\n"))
+      ptr++;
+    if (banComments || c !== "#")
+      break;
+    ptr = skipComment(str, ptr);
+  }
+  return ptr;
+}
+function skipUntil(str, ptr, sep, end, banNewLines = false) {
+  if (!end) {
+    ptr = indexOfNewline(str, ptr);
+    return ptr < 0 ? str.length : ptr;
+  }
+  for (let i = ptr; i < str.length; i++) {
+    let c = str[i];
+    if (c === "#") {
+      i = indexOfNewline(str, i);
+      if (i < 0)
+        break;
+    } else if (c === sep) {
+      return i + 1;
+    } else if (c === end || banNewLines && (c === "\n" || c === "\r" && str[i + 1] === "\n")) {
+      return i;
+    }
+  }
+  throw new TomlError("cannot find end of structure", {
+    toml: str,
+    ptr
+  });
+}
+
+// node_modules/smol-toml/dist/extract.js
+function sliceAndTrimEndOf(str, startPtr, endPtr) {
+  let value = str.slice(startPtr, endPtr);
+  let commentIdx = value.indexOf("#");
+  if (commentIdx > -1) {
+    skipComment(str, commentIdx);
+    value = value.slice(0, commentIdx);
+  }
+  return [value.trimEnd(), commentIdx];
+}
+function extractValue(str, ptr, end, depth, integersAsBigInt) {
+  if (depth === 0) {
+    throw new TomlError("document contains excessively nested structures. aborting.", {
+      toml: str,
+      ptr
+    });
+  }
+  let c = str[ptr];
+  if (c === "[" || c === "{") {
+    let [value, endPtr2] = c === "[" ? parseArray(str, ptr, depth, integersAsBigInt) : parseInlineTable(str, ptr, depth, integersAsBigInt);
+    if (end) {
+      endPtr2 = skipVoid(str, endPtr2);
+      if (str[endPtr2] === ",")
+        endPtr2++;
+      else if (str[endPtr2] !== end) {
+        throw new TomlError("expected comma or end of structure", {
+          toml: str,
+          ptr: endPtr2
+        });
+      }
+    }
+    return [value, endPtr2];
+  }
+  if (c === '"' || c === "'") {
+    let [parsed, endPtr2] = parseString(str, ptr);
+    if (end) {
+      endPtr2 = skipVoid(str, endPtr2);
+      if (str[endPtr2] && str[endPtr2] !== "," && str[endPtr2] !== end && str[endPtr2] !== "\n" && str[endPtr2] !== "\r") {
+        throw new TomlError("unexpected character encountered", {
+          toml: str,
+          ptr: endPtr2
+        });
+      }
+      if (str[endPtr2] === ",")
+        endPtr2++;
+    }
+    return [parsed, endPtr2];
+  }
+  let endPtr = skipUntil(str, ptr, ",", end);
+  let slice = sliceAndTrimEndOf(str, ptr, endPtr - (str[endPtr - 1] === "," ? 1 : 0));
+  if (!slice[0]) {
+    throw new TomlError("incomplete key-value declaration: no value specified", {
+      toml: str,
+      ptr
+    });
+  }
+  if (end && slice[1] > -1) {
+    endPtr = skipVoid(str, ptr + slice[1]);
+    if (str[endPtr] === ",")
+      endPtr++;
+  }
+  return [
+    parseValue(slice[0], str, ptr, integersAsBigInt),
+    endPtr
+  ];
+}
+
+// node_modules/smol-toml/dist/struct.js
+var KEY_PART_RE = /^[a-zA-Z0-9-_]+[ \t]*$/;
+function parseKey(str, ptr, end = "=") {
+  let dot = ptr - 1;
+  let parsed = [];
+  let endPtr = str.indexOf(end, ptr);
+  if (endPtr < 0) {
+    throw new TomlError("incomplete key-value: cannot find end of key", {
+      toml: str,
+      ptr
+    });
+  }
+  do {
+    let c = str[ptr = ++dot];
+    if (c !== " " && c !== "	") {
+      if (c === '"' || c === "'") {
+        if (c === str[ptr + 1] && c === str[ptr + 2]) {
+          throw new TomlError("multiline strings are not allowed in keys", {
+            toml: str,
+            ptr
+          });
+        }
+        let [part, eos] = parseString(str, ptr);
+        dot = str.indexOf(".", eos);
+        let strEnd = str.slice(eos, dot < 0 || dot > endPtr ? endPtr : dot);
+        let newLine = indexOfNewline(strEnd);
+        if (newLine > -1) {
+          throw new TomlError("newlines are not allowed in keys", {
+            toml: str,
+            ptr: ptr + dot + newLine
+          });
+        }
+        if (strEnd.trimStart()) {
+          throw new TomlError("found extra tokens after the string part", {
+            toml: str,
+            ptr: eos
+          });
+        }
+        if (endPtr < eos) {
+          endPtr = str.indexOf(end, eos);
+          if (endPtr < 0) {
+            throw new TomlError("incomplete key-value: cannot find end of key", {
+              toml: str,
+              ptr
+            });
+          }
+        }
+        parsed.push(part);
+      } else {
+        dot = str.indexOf(".", ptr);
+        let part = str.slice(ptr, dot < 0 || dot > endPtr ? endPtr : dot);
+        if (!KEY_PART_RE.test(part)) {
+          throw new TomlError("only letter, numbers, dashes and underscores are allowed in keys", {
+            toml: str,
+            ptr
+          });
+        }
+        parsed.push(part.trimEnd());
+      }
+    }
+  } while (dot + 1 && dot < endPtr);
+  return [parsed, skipVoid(str, endPtr + 1, true, true)];
+}
+function parseInlineTable(str, ptr, depth, integersAsBigInt) {
+  let res = {};
+  let seen = /* @__PURE__ */ new Set();
+  let c;
+  ptr++;
+  while ((c = str[ptr++]) !== "}" && c) {
+    if (c === ",") {
+      throw new TomlError("expected value, found comma", {
+        toml: str,
+        ptr: ptr - 1
+      });
+    } else if (c === "#")
+      ptr = skipComment(str, ptr);
+    else if (c !== " " && c !== "	" && c !== "\n" && c !== "\r") {
+      let k;
+      let t = res;
+      let hasOwn = false;
+      let [key, keyEndPtr] = parseKey(str, ptr - 1);
+      for (let i = 0; i < key.length; i++) {
+        if (i)
+          t = hasOwn ? t[k] : t[k] = {};
+        k = key[i];
+        if ((hasOwn = Object.hasOwn(t, k)) && (typeof t[k] !== "object" || seen.has(t[k]))) {
+          throw new TomlError("trying to redefine an already defined value", {
+            toml: str,
+            ptr
+          });
+        }
+        if (!hasOwn && k === "__proto__") {
+          Object.defineProperty(t, k, { enumerable: true, configurable: true, writable: true });
+        }
+      }
+      if (hasOwn) {
+        throw new TomlError("trying to redefine an already defined value", {
+          toml: str,
+          ptr
+        });
+      }
+      let [value, valueEndPtr] = extractValue(str, keyEndPtr, "}", depth - 1, integersAsBigInt);
+      seen.add(value);
+      t[k] = value;
+      ptr = valueEndPtr;
+    }
+  }
+  if (!c) {
+    throw new TomlError("unfinished table encountered", {
+      toml: str,
+      ptr
+    });
+  }
+  return [res, ptr];
+}
+function parseArray(str, ptr, depth, integersAsBigInt) {
+  let res = [];
+  let c;
+  ptr++;
+  while ((c = str[ptr++]) !== "]" && c) {
+    if (c === ",") {
+      throw new TomlError("expected value, found comma", {
+        toml: str,
+        ptr: ptr - 1
+      });
+    } else if (c === "#")
+      ptr = skipComment(str, ptr);
+    else if (c !== " " && c !== "	" && c !== "\n" && c !== "\r") {
+      let e = extractValue(str, ptr - 1, "]", depth - 1, integersAsBigInt);
+      res.push(e[0]);
+      ptr = e[1];
+    }
+  }
+  if (!c) {
+    throw new TomlError("unfinished array encountered", {
+      toml: str,
+      ptr
+    });
+  }
+  return [res, ptr];
+}
+
+// node_modules/smol-toml/dist/parse.js
+function peekTable(key, table, meta2, type) {
+  let t = table;
+  let m = meta2;
+  let k;
+  let hasOwn = false;
+  let state;
+  for (let i = 0; i < key.length; i++) {
+    if (i) {
+      t = hasOwn ? t[k] : t[k] = {};
+      m = (state = m[k]).c;
+      if (type === 0 && (state.t === 1 || state.t === 2)) {
+        return null;
+      }
+      if (state.t === 2) {
+        let l = t.length - 1;
+        t = t[l];
+        m = m[l].c;
+      }
+    }
+    k = key[i];
+    if ((hasOwn = Object.hasOwn(t, k)) && m[k]?.t === 0 && m[k]?.d) {
+      return null;
+    }
+    if (!hasOwn) {
+      if (k === "__proto__") {
+        Object.defineProperty(t, k, { enumerable: true, configurable: true, writable: true });
+        Object.defineProperty(m, k, { enumerable: true, configurable: true, writable: true });
+      }
+      m[k] = {
+        t: i < key.length - 1 && type === 2 ? 3 : type,
+        d: false,
+        i: 0,
+        c: {}
+      };
+    }
+  }
+  state = m[k];
+  if (state.t !== type && !(type === 1 && state.t === 3)) {
+    return null;
+  }
+  if (type === 2) {
+    if (!state.d) {
+      state.d = true;
+      t[k] = [];
+    }
+    t[k].push(t = {});
+    state.c[state.i++] = state = { t: 1, d: false, i: 0, c: {} };
+  }
+  if (state.d) {
+    return null;
+  }
+  state.d = true;
+  if (type === 1) {
+    t = hasOwn ? t[k] : t[k] = {};
+  } else if (type === 0 && hasOwn) {
+    return null;
+  }
+  return [k, t, state.c];
+}
+function parse3(toml, { maxDepth = 1e3, integersAsBigInt } = {}) {
+  let res = {};
+  let meta2 = {};
+  let tbl = res;
+  let m = meta2;
+  for (let ptr = skipVoid(toml, 0); ptr < toml.length; ) {
+    if (toml[ptr] === "[") {
+      let isTableArray = toml[++ptr] === "[";
+      let k = parseKey(toml, ptr += +isTableArray, "]");
+      if (isTableArray) {
+        if (toml[k[1] - 1] !== "]") {
+          throw new TomlError("expected end of table declaration", {
+            toml,
+            ptr: k[1] - 1
+          });
+        }
+        k[1]++;
+      }
+      let p = peekTable(
+        k[0],
+        res,
+        meta2,
+        isTableArray ? 2 : 1
+        /* Type.EXPLICIT */
+      );
+      if (!p) {
+        throw new TomlError("trying to redefine an already defined table or value", {
+          toml,
+          ptr
+        });
+      }
+      m = p[2];
+      tbl = p[1];
+      ptr = k[1];
+    } else {
+      let k = parseKey(toml, ptr);
+      let p = peekTable(
+        k[0],
+        tbl,
+        m,
+        0
+        /* Type.DOTTED */
+      );
+      if (!p) {
+        throw new TomlError("trying to redefine an already defined table or value", {
+          toml,
+          ptr
+        });
+      }
+      let v = extractValue(toml, k[1], void 0, maxDepth, integersAsBigInt);
+      p[1][p[0]] = v[0];
+      ptr = v[1];
+    }
+    ptr = skipVoid(toml, ptr, true);
+    if (toml[ptr] && toml[ptr] !== "\n" && toml[ptr] !== "\r") {
+      throw new TomlError("each key-value declaration must be followed by an end-of-line", {
+        toml,
+        ptr
+      });
+    }
+    ptr = skipVoid(toml, ptr);
+  }
+  return res;
+}
+
+// src/agent-config.ts
+var import_yaml = __toESM(require_dist2(), 1);
+var AGENT_DIRECTORY_NAME = "agents";
+var KIMI_CONFIG_DIRECTORY_NAME = ".kimi-code";
+var LOCAL_TOML_FILE_NAME = "local.toml";
+var AGENT_CONFIG_MAX_AGENT_FILES = 128;
+var AGENT_CONFIG_MAX_FILE_BYTES = 48 * 1024;
+var AGENT_CONFIG_MAX_LOCAL_TOML_BYTES = 48 * 1024;
+var AGENT_CONFIG_MAX_NAME_LENGTH = 64;
+var KEBAB_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var AGENT_FILE_SUFFIX = ".md";
+var SECTION_NAMES = ["subagent", "subagent-slot"];
+var BINDING_FIELDS = ["model", "thinking_effort", "inherit"];
+var nodeFileSystem2 = {
+  readdir: (path, options) => readdir3(path, options),
+  lstat: lstat2,
+  realpath,
+  readFile: (path, encoding) => readFile2(path, encoding),
+  mkdir: (path, options) => mkdir2(path, options),
+  unlink: unlink3,
+  writeFileAtomic
+};
+var AgentConfigError = class extends Error {
+  status;
+  constructor(message, status = 400) {
+    super(message);
+    this.name = "AgentConfigError";
+    this.status = status;
+  }
+};
+var AgentConfigValidationError = class extends AgentConfigError {
+  constructor(message) {
+    super(message, 400);
+    this.name = "AgentConfigValidationError";
+  }
+};
+var AgentConfigNotFoundError = class extends AgentConfigError {
+  constructor(message) {
+    super(message, 404);
+    this.name = "AgentConfigNotFoundError";
+  }
+};
+var AgentConfigUnsafePathError = class extends AgentConfigError {
+  constructor(message = "project configuration contains an unsafe symbolic link") {
+    super(message, 403);
+    this.name = "AgentConfigUnsafePathError";
+  }
+};
+var AgentConfigConflictError = class extends AgentConfigError {
+  currentHash;
+  constructor(message, currentHash) {
+    super(message, 409);
+    this.name = "AgentConfigConflictError";
+    this.currentHash = currentHash;
+  }
+};
+var AgentConfigBusyError = class extends AgentConfigError {
+  constructor(message = "the configuration file is busy; close the editor or antivirus scan and retry") {
+    super(message, 409);
+    this.name = "AgentConfigBusyError";
+  }
+};
+var AgentConfigLayoutError = class extends AgentConfigError {
+  constructor(message) {
+    super(message, 400);
+    this.name = "AgentConfigLayoutError";
+  }
+};
+function errorCode2(error2) {
+  const code = error2?.code;
+  return typeof code === "string" ? code : void 0;
+}
+function isMissing(error2) {
+  return errorCode2(error2) === "ENOENT";
+}
+function isBusy(error2) {
+  const code = errorCode2(error2);
+  return code === "EPERM" || code === "EACCES" || code === "EBUSY" || code === "ENOTEMPTY";
+}
+function pathKey(value) {
+  const normalized = resolve(value).replaceAll("\\", "/");
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+function samePath(a, b) {
+  return pathKey(a) === pathKey(b);
+}
+function isInside(root, candidate) {
+  const rootKey = pathKey(root);
+  const candidateKey = pathKey(candidate);
+  if (rootKey === candidateKey) return true;
+  const prefix = rootKey.endsWith("/") || rootKey.endsWith("\\") ? rootKey : `${rootKey}/`;
+  return candidateKey.startsWith(prefix);
+}
+function contentHash(content) {
+  return createHash("sha256").update(content, "utf8").digest("hex");
+}
+function isKebabCaseName(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= AGENT_CONFIG_MAX_NAME_LENGTH && KEBAB_NAME.test(value);
+}
+function assertKebabName(value, field) {
+  if (!isKebabCaseName(value)) {
+    throw new AgentConfigValidationError(`${field} must be a kebab-case name`);
+  }
+  return value;
+}
+function assertWorkspaceCwd(workspaceCwd) {
+  if (typeof workspaceCwd !== "string" || !isAbsolute(workspaceCwd)) {
+    throw new AgentConfigValidationError("workspace cwd must be an absolute path resolved by the workspace registry");
+  }
+  return resolve(workspaceCwd);
+}
+function assertExpectedHash(expectedHash) {
+  if (expectedHash === null) return null;
+  if (typeof expectedHash !== "string" || !/^[0-9a-f]{64}$/.test(expectedHash)) {
+    throw new AgentConfigValidationError("expectedHash must be a SHA-256 hash or null");
+  }
+  return expectedHash;
+}
+function asRecord(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return void 0;
+  return value;
+}
+function scalarBinding(value, field) {
+  if (value === void 0) return void 0;
+  if (field === "inherit") return typeof value === "boolean" ? value : void 0;
+  return typeof value === "string" ? value : void 0;
+}
+function projectBinding(value) {
+  const record2 = asRecord(value);
+  if (record2 === void 0) return {};
+  const model = scalarBinding(record2.model, "model");
+  const thinking = scalarBinding(record2.thinking_effort, "thinking_effort");
+  const inherit = scalarBinding(record2.inherit, "inherit");
+  return {
+    ...typeof model === "string" ? { model } : {},
+    ...typeof thinking === "string" ? { thinking_effort: thinking } : {},
+    ...typeof inherit === "boolean" ? { inherit } : {}
+  };
+}
+function validateBindingPatch(value) {
+  const record2 = asRecord(value);
+  if (record2 === void 0) throw new AgentConfigValidationError("binding must be an object");
+  for (const key of Object.keys(record2)) {
+    if (!BINDING_FIELDS.includes(key)) {
+      throw new AgentConfigValidationError(`unsupported binding field: ${key}`);
+    }
+  }
+  const result = {};
+  for (const field of BINDING_FIELDS) {
+    const fieldValue = record2[field];
+    if (fieldValue === void 0) continue;
+    if (fieldValue === null) {
+      result[field] = null;
+    } else if (field === "inherit") {
+      if (typeof fieldValue !== "boolean") throw new AgentConfigValidationError("binding.inherit must be boolean or null");
+      result[field] = fieldValue;
+    } else {
+      if (typeof fieldValue !== "string" || fieldValue.trim().length === 0 || fieldValue.length > 1024) {
+        throw new AgentConfigValidationError(`binding.${field} must be a non-empty string or null`);
+      }
+      result[field] = fieldValue;
+    }
+  }
+  return result;
+}
+function lineRecords(raw) {
+  const result = [];
+  let offset = 0;
+  while (offset < raw.length) {
+    let end = offset;
+    while (end < raw.length && raw[end] !== "\r" && raw[end] !== "\n") end += 1;
+    let eol = "";
+    if (end < raw.length) {
+      if (raw[end] === "\r" && raw[end + 1] === "\n") {
+        eol = "\r\n";
+        end += 2;
+      } else {
+        eol = raw[end];
+        end += 1;
+      }
+    }
+    result.push({ text: raw.slice(offset, eol ? end - eol.length : end), eol });
+    offset = end;
+  }
+  return result;
+}
+function joinLineRecords(lines) {
+  return lines.map((line) => line.text + line.eol).join("");
+}
+function preferredNewline(raw) {
+  return raw.includes("\r\n") ? "\r\n" : raw.includes("\r") ? "\r" : "\n";
+}
+function lexTomlLine(line, state) {
+  const before = state;
+  let mode = state;
+  let code = "";
+  let i = 0;
+  while (i < line.length) {
+    if (mode === "multi-basic" || mode === "multi-literal") {
+      if (mode === "multi-basic" && line[i] === "\\") {
+        if (i + 1 < line.length) {
+          code += "  ";
+          i += 2;
+        } else {
+          code += " ";
+          i += 1;
+        }
+        continue;
+      }
+      const close = mode === "multi-basic" ? '"""' : "'''";
+      if (line.startsWith(close, i)) {
+        code += close;
+        i += 3;
+        mode = "none";
+      } else {
+        code += " ";
+        i += 1;
+      }
+      continue;
+    }
+    if (mode === "basic" || mode === "literal") {
+      const quote = mode === "basic" ? '"' : "'";
+      const character = line[i];
+      code += " ";
+      if (mode === "basic" && character === "\\") {
+        if (i + 1 < line.length) {
+          code += " ";
+          i += 2;
+        } else {
+          i += 1;
+        }
+        continue;
+      }
+      i += 1;
+      if (character === quote) mode = "none";
+      continue;
+    }
+    if (line[i] === "#") break;
+    if (line.startsWith('"""', i)) {
+      code += "   ";
+      i += 3;
+      mode = "multi-basic";
+    } else if (line.startsWith("'''", i)) {
+      code += "   ";
+      i += 3;
+      mode = "multi-literal";
+    } else if (line[i] === '"') {
+      code += " ";
+      i += 1;
+      mode = "basic";
+    } else if (line[i] === "'") {
+      code += " ";
+      i += 1;
+      mode = "literal";
+    } else {
+      code += line[i];
+      i += 1;
+    }
+  }
+  return { code, stateBefore: before, stateAfter: mode };
+}
+function standardHeader(code) {
+  const match = /^\s*\[([a-z-]+)\.([a-z0-9]+(?:-[a-z0-9]+)*)\]\s*$/.exec(code);
+  if (match === null) return void 0;
+  if (!SECTION_NAMES.includes(match[1])) return void 0;
+  if (!isKebabCaseName(match[2])) return void 0;
+  return { section: match[1], name: match[2] };
+}
+function anyTableHeader(code) {
+  const trimmed = code.trim();
+  return trimmed.startsWith("[") && trimmed.endsWith("]");
+}
+function scanTableBlocks(raw) {
+  const lines = lineRecords(raw);
+  const blocks = [];
+  const nonStandard = [];
+  let mode = "none";
+  let current;
+  for (let index = 0; index < lines.length; index += 1) {
+    const lexed = lexTomlLine(lines[index].text, mode);
+    const header = lexed.stateBefore === "none" && anyTableHeader(lexed.code) ? standardHeader(lexed.code) : void 0;
+    const isHeader = lexed.stateBefore === "none" && anyTableHeader(lexed.code);
+    if (isHeader) {
+      if (current !== void 0) current.end = index;
+      if (header !== void 0) {
+        current = { ...header, start: index, end: lines.length, standard: true };
+        blocks.push(current);
+      } else {
+        current = { section: null, name: void 0, start: index, end: lines.length, standard: false };
+        const trimmed = lexed.code.trim();
+        const target = /^\[+\s*(subagent|subagent-slot)\./.exec(trimmed);
+        if (target !== null) nonStandard.push({ section: target[1], reason: "non-standard table layout" });
+      }
+    }
+    mode = lexed.stateAfter;
+  }
+  if (current !== void 0) current.end = lines.length;
+  return { blocks, nonStandard };
+}
+function getOwn(record2, key) {
+  if (record2 === void 0) return void 0;
+  return Object.prototype.hasOwnProperty.call(record2, key) ? record2[key] : void 0;
+}
+function bindingRoot(parsed, section) {
+  const root = getOwn(parsed, section);
+  return asRecord(root);
+}
+function extractTomlBinding(parsedValue, section, name, diagnostics) {
+  const record2 = asRecord(parsedValue);
+  if (record2 === void 0) {
+    diagnostics.push({ section, name, reason: "binding value is not a table" });
+    return {};
+  }
+  for (const field of BINDING_FIELDS) {
+    if (getOwn(record2, field) === void 0) continue;
+    if (scalarBinding(record2[field], field) === void 0) {
+      diagnostics.push({ section, name, reason: `binding field ${field} is not a simple scalar` });
+    }
+  }
+  return projectBinding(record2);
+}
+function scanToml(raw, parsed) {
+  const tableScan = scanTableBlocks(raw);
+  const diagnostics = [...tableScan.nonStandard];
+  const types = [];
+  const slots = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const section of SECTION_NAMES) {
+    const root = bindingRoot(parsed, section);
+    if (root === void 0) {
+      if (getOwn(parsed, section) !== void 0) diagnostics.push({ section, reason: "section root is not a table" });
+      continue;
+    }
+    for (const [name, value] of Object.entries(root)) {
+      const validName = isKebabCaseName(name);
+      const matching = tableScan.blocks.filter((block) => block.standard && block.section === section && block.name === name);
+      const key = `${section}:${name}`;
+      if (!validName) {
+        diagnostics.push({ section, name, reason: "binding name is not kebab-case" });
+      }
+      if (matching.length !== 1) {
+        diagnostics.push({ section, name, reason: matching.length > 1 ? "duplicate standard tables" : "inline or dotted table layout" });
+      }
+      const row = {
+        section,
+        name,
+        binding: extractTomlBinding(value, section, name, diagnostics),
+        layout: matching.length === 1 && validName ? "standard" : "complex"
+      };
+      (section === "subagent" ? types : slots).push(row);
+      seen.add(key);
+    }
+  }
+  for (const block of tableScan.blocks) {
+    if (block.section === null || block.name === void 0) continue;
+    const key = `${block.section}:${block.name}`;
+    if (seen.has(key)) continue;
+    const root = bindingRoot(parsed, block.section);
+    const value = getOwn(root, block.name) ?? {};
+    const row = {
+      section: block.section,
+      name: block.name,
+      binding: extractTomlBinding(value, block.section, block.name, diagnostics),
+      layout: "standard"
+    };
+    (block.section === "subagent" ? types : slots).push(row);
+    seen.add(key);
+  }
+  types.sort((a, b) => a.name.localeCompare(b.name));
+  slots.sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    types,
+    slots,
+    diagnostics,
+    layout: diagnostics.length === 0 ? "standard" : "complex",
+    blocks: tableScan.blocks,
+    parsed
+  };
+}
+function parseTomlDocument(raw) {
+  try {
+    const parsed = parse3(raw);
+    const record2 = asRecord(parsed);
+    if (record2 === void 0) throw new Error("TOML root must be a table");
+    return record2;
+  } catch (error2) {
+    if (error2 instanceof AgentConfigError) throw error2;
+    throw new AgentConfigValidationError(`local.toml is invalid TOML: ${error2 instanceof Error ? error2.message : "parse failed"}`);
+  }
+}
+function tomlScalar(value) {
+  return typeof value === "boolean" ? value ? "true" : "false" : JSON.stringify(value);
+}
+function valueCommentParts(value) {
+  let mode = "none";
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (mode === "basic") {
+      if (character === "\\") {
+        index += 1;
+      } else if (character === '"') {
+        mode = "none";
+      }
+      continue;
+    }
+    if (mode === "literal") {
+      if (character === "'") mode = "none";
+      continue;
+    }
+    if (character === '"') {
+      mode = "basic";
+    } else if (character === "'") {
+      mode = "literal";
+    } else if (character === "#") {
+      const before = value.slice(0, index);
+      const trimmed2 = before.trimEnd();
+      return { value: trimmed2, suffix: before.slice(trimmed2.length) + value.slice(index) };
+    }
+  }
+  const trimmed = value.trimEnd();
+  return { value: trimmed, suffix: value.slice(trimmed.length) };
+}
+function patchSimpleAssignment(line, field, value) {
+  const match = /^(\s*)(model|thinking_effort|inherit)(\s*=\s*)(.*)$/.exec(line);
+  if (match === null || match[2] !== field) return line;
+  const oldValue = match[4];
+  if (/^\s*(?:"""|''')/.test(oldValue)) {
+    throw new AgentConfigLayoutError(`structured binding cannot edit multiline ${field}; use raw local.toml`);
+  }
+  const parts = valueCommentParts(oldValue);
+  if (value === null) return parts.suffix.trimStart();
+  return `${match[1]}${match[2]}${match[3]}${tomlScalar(value)}${parts.suffix}`;
+}
+function hasSimpleAssignment(line, field) {
+  return new RegExp(`^\\s*${field}\\s*=`).test(line);
+}
+function hasDottedAssignment(line) {
+  const code = lexTomlLine(line, "none").code;
+  return /^\s*[A-Za-z0-9_-]+\s*\./.test(code);
+}
+function appendBindingTable(raw, section, name, patch) {
+  const newline = preferredNewline(raw);
+  const lines = [];
+  for (const field of BINDING_FIELDS) {
+    const value = patch[field];
+    if (value === void 0 || value === null) continue;
+    lines.push(`${field} = ${tomlScalar(value)}`);
+  }
+  if (lines.length === 0) return raw;
+  const prefix = raw.length > 0 && !/[\r\n]$/.test(raw) ? newline : "";
+  return `${raw}${prefix}[${section}.${name}]${newline}${lines.join(newline)}${newline}`;
+}
+function checkCanDeleteBinding(section, name, parsed) {
+  const root = bindingRoot(parsed, section);
+  const value = getOwn(root, name);
+  if (value === void 0) return;
+  const record2 = asRecord(value);
+  if (record2 === void 0) {
+    throw new AgentConfigLayoutError(`binding ${section}.${name} is not a table; use raw local.toml`);
+  }
+  for (const key of Object.keys(record2)) {
+    if (!BINDING_FIELDS.includes(key)) {
+      throw new AgentConfigLayoutError(`binding ${section}.${name} contains unknown fields; use raw local.toml`);
+    }
+  }
+}
+function deleteBindingText(raw, section, name, scanned) {
+  checkCanDeleteBinding(section, name, scanned.parsed);
+  const targetBlocks = scanned.blocks.filter((block2) => block2.standard && block2.section === section && block2.name === name);
+  const parsedRoot = bindingRoot(scanned.parsed, section);
+  const parsedValue = getOwn(parsedRoot, name);
+  if (targetBlocks.length === 0) {
+    if (parsedValue !== void 0) {
+      throw new AgentConfigLayoutError(`binding ${section}.${name} uses inline or dotted TOML; use raw local.toml`);
+    }
+    return raw;
+  }
+  if (targetBlocks.length !== 1) {
+    throw new AgentConfigLayoutError(`binding ${section}.${name} has duplicate TOML tables; use raw local.toml`);
+  }
+  const block = targetBlocks[0];
+  const lines = lineRecords(raw);
+  lines.splice(block.start, block.end - block.start);
+  return joinLineRecords(lines);
+}
+function validateBindingChange(value) {
+  const record2 = asRecord(value);
+  if (record2 === void 0) throw new AgentConfigValidationError("change must be an object");
+  const section = record2.section;
+  if (section !== "subagent" && section !== "subagent-slot") {
+    throw new AgentConfigValidationError("section must be subagent or subagent-slot");
+  }
+  const name = assertKebabName(record2.name, "binding name");
+  let binding = null;
+  if (record2.binding !== null && record2.binding !== void 0) {
+    binding = validateBindingPatch(record2.binding);
+  }
+  return { section, name, binding };
+}
+function patchBindingText(raw, section, name, patch, scanned) {
+  const targetBlocks = scanned.blocks.filter((block2) => block2.standard && block2.section === section && block2.name === name);
+  const parsedRoot = bindingRoot(scanned.parsed, section);
+  const parsedValue = getOwn(parsedRoot, name);
+  if (targetBlocks.length === 0) {
+    if (parsedValue !== void 0) {
+      throw new AgentConfigLayoutError(`binding ${section}.${name} uses inline or dotted TOML; use raw local.toml`);
+    }
+    return appendBindingTable(raw, section, name, patch);
+  }
+  if (targetBlocks.length !== 1) {
+    throw new AgentConfigLayoutError(`binding ${section}.${name} has duplicate TOML tables; use raw local.toml`);
+  }
+  const block = targetBlocks[0];
+  const lines = lineRecords(raw);
+  const newline = preferredNewline(raw);
+  const found = /* @__PURE__ */ new Map();
+  let mode = "none";
+  for (let index = block.start + 1; index < block.end; index += 1) {
+    const lexed = lexTomlLine(lines[index].text, mode);
+    if (lexed.stateBefore === "none") {
+      for (const field of BINDING_FIELDS) {
+        if (hasSimpleAssignment(lexed.code, field)) {
+          if (found.has(field)) throw new AgentConfigLayoutError(`binding ${section}.${name} has duplicate ${field}; use raw local.toml`);
+          found.set(field, index);
+        } else if (hasDottedAssignment(lexed.code) && parsedValue !== void 0) {
+          throw new AgentConfigLayoutError(`binding ${section}.${name} uses dotted keys; use raw local.toml`);
+        }
+      }
+    }
+    mode = lexed.stateAfter;
+  }
+  for (const field of BINDING_FIELDS) {
+    const value = patch[field];
+    if (value === void 0) continue;
+    const index = found.get(field);
+    if (index === void 0) {
+      if (value === null) {
+        if (asRecord(parsedValue)?.[field] !== void 0) {
+          throw new AgentConfigLayoutError(`binding ${section}.${name} has a non-standard ${field}; use raw local.toml`);
+        }
+        continue;
+      }
+      const insertion = block.end;
+      const newLine = `${field} = ${tomlScalar(value)}`;
+      if (insertion === lines.length) {
+        if (lines.length > 0 && lines[lines.length - 1].eol === "") lines[lines.length - 1].eol = newline;
+        lines.push({ text: newLine, eol: newline });
+      } else {
+        if (lines[insertion - 1]?.eol === "") lines[insertion - 1].eol = newline;
+        lines.splice(insertion, 0, { text: newLine, eol: lines[insertion - 1]?.eol || newline });
+      }
+      const reparsed = scanTableBlocks(joinLineRecords(lines));
+      const refreshed = reparsed.blocks.find((candidate) => candidate.standard && candidate.section === section && candidate.name === name);
+      if (refreshed !== void 0) block.end = refreshed.end;
+      const insertedIndex = lines.findIndex((line, lineIndex) => lineIndex >= block.start + 1 && line.text === newLine && !found.has(field));
+      found.set(field, insertedIndex < 0 ? block.end - 1 : insertedIndex);
+    }
+    const currentIndex = found.get(field);
+    if (currentIndex !== void 0) lines[currentIndex].text = patchSimpleAssignment(lines[currentIndex].text, field, value);
+  }
+  return joinLineRecords(lines);
+}
+var WorkspaceAgentConfigService = class {
+  fs;
+  queues = /* @__PURE__ */ new Map();
+  constructor(fileSystem = nodeFileSystem2) {
+    this.fs = fileSystem;
+  }
+  /** Read the complete management summary. */
+  async inspect(workspaceCwd) {
+    const paths = await this.projectPaths(workspaceCwd);
+    const agents = await this.listAgentSummaries(paths);
+    const local = await this.readManagedFile(paths.localToml, AGENT_CONFIG_MAX_LOCAL_TOML_BYTES, paths.configDir);
+    let bindings = {
+      types: [],
+      slots: [],
+      diagnostics: [],
+      layout: "standard",
+      blocks: [],
+      parsed: {}
+    };
+    if (local.exists) {
+      try {
+        bindings = scanToml(local.content, parseTomlDocument(local.content));
+      } catch (error2) {
+        if (!(error2 instanceof AgentConfigValidationError)) throw error2;
+        bindings = {
+          ...bindings,
+          layout: "complex",
+          diagnostics: [{ section: LOCAL_TOML_FILE_NAME, reason: error2.message }]
+        };
+      }
+    }
+    return {
+      projectRoot: paths.projectRoot,
+      configDir: paths.configDir,
+      agentsDir: paths.agentsDir,
+      agents,
+      bindings: { types: bindings.types, slots: bindings.slots },
+      typeBindings: bindings.types,
+      slotBindings: bindings.slots,
+      layout: local.exists && bindings.diagnostics.length > 0 ? "complex" : bindings.layout,
+      layoutDiagnostics: bindings.diagnostics,
+      localToml: { exists: local.exists, hash: local.hash, size: local.size }
+    };
+  }
+  async readAgent(workspaceCwd, name) {
+    const agentName = assertKebabName(name, "agent name");
+    const paths = await this.projectPaths(workspaceCwd);
+    const fileName = `${agentName}${AGENT_FILE_SUFFIX}`;
+    const snapshot = await this.readManagedFile(join4(paths.agentsDir, fileName), AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+    if (!snapshot.exists) throw new AgentConfigNotFoundError("agent profile not found");
+    try {
+      const parsed = parseAgentDocument(agentName, fileName, snapshot.content);
+      return {
+        projectRoot: paths.projectRoot,
+        name: agentName,
+        fileName,
+        content: snapshot.content,
+        hash: snapshot.hash,
+        size: snapshot.size,
+        ...parsed
+      };
+    } catch (error2) {
+      return {
+        projectRoot: paths.projectRoot,
+        name: agentName,
+        fileName,
+        content: snapshot.content,
+        hash: snapshot.hash,
+        size: snapshot.size,
+        valid: false,
+        error: error2 instanceof Error ? error2.message : "invalid agent markdown"
+      };
+    }
+  }
+  async saveAgent(workspaceCwd, name, content, expectedHash) {
+    const agentName = assertKebabName(name, "agent name");
+    if (typeof content !== "string") throw new AgentConfigValidationError("agent content must be a string");
+    if (Buffer.byteLength(content, "utf8") > AGENT_CONFIG_MAX_FILE_BYTES) {
+      throw new AgentConfigValidationError(`agent content exceeds ${AGENT_CONFIG_MAX_FILE_BYTES} bytes`);
+    }
+    parseAgentDocument(agentName, `${agentName}${AGENT_FILE_SUFFIX}`, content);
+    const expected = assertExpectedHash(expectedHash);
+    const paths = await this.projectPaths(workspaceCwd);
+    const fileName = `${agentName}${AGENT_FILE_SUFFIX}`;
+    const filePath = join4(paths.agentsDir, fileName);
+    return this.withPathQueue(filePath, async () => {
+      const current = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+      assertHashPrecondition(expected, current.hash);
+      if (current.exists && current.content === content) {
+        return { projectRoot: paths.projectRoot, name: agentName, fileName, hash: current.hash, size: current.size, content };
+      }
+      await this.ensureDirectory(paths.configDir, paths.projectRoot);
+      await this.ensureDirectory(paths.agentsDir, paths.projectRoot);
+      await this.ensureTargetForWrite(filePath, paths.agentsDir, paths.projectRoot);
+      await this.atomicWriteWithCas(filePath, content, current.hash, AGENT_CONFIG_MAX_FILE_BYTES);
+      return { projectRoot: paths.projectRoot, name: agentName, fileName, hash: contentHash(content), size: Buffer.byteLength(content, "utf8"), content };
+    });
+  }
+  async deleteAgent(workspaceCwd, name, expectedHash) {
+    const agentName = assertKebabName(name, "agent name");
+    const expected = assertExpectedHash(expectedHash);
+    const paths = await this.projectPaths(workspaceCwd);
+    const filePath = join4(paths.agentsDir, `${agentName}${AGENT_FILE_SUFFIX}`);
+    return this.withPathQueue(filePath, async () => {
+      const current = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+      assertHashPrecondition(expected, current.hash);
+      if (!current.exists) return { projectRoot: paths.projectRoot, name: agentName, deleted: false, currentHash: null };
+      await this.ensureTargetForWrite(filePath, paths.agentsDir, paths.projectRoot);
+      const justBefore = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+      assertSameHash(current.hash, justBefore.hash);
+      try {
+        await this.fs.unlink(filePath);
+      } catch (error2) {
+        throw mapFileMutationError(error2);
+      }
+      return { projectRoot: paths.projectRoot, name: agentName, deleted: true, currentHash: null };
+    });
+  }
+  async readLocalToml(workspaceCwd) {
+    const paths = await this.projectPaths(workspaceCwd);
+    const snapshot = await this.readManagedFile(paths.localToml, AGENT_CONFIG_MAX_LOCAL_TOML_BYTES, paths.configDir);
+    return {
+      projectRoot: paths.projectRoot,
+      exists: snapshot.exists,
+      hash: snapshot.hash,
+      size: snapshot.size,
+      content: snapshot.content
+    };
+  }
+  async saveLocalToml(workspaceCwd, content, expectedHash) {
+    if (typeof content !== "string") throw new AgentConfigValidationError("local.toml content must be a string");
+    if (Buffer.byteLength(content, "utf8") > AGENT_CONFIG_MAX_LOCAL_TOML_BYTES) {
+      throw new AgentConfigValidationError(`local.toml exceeds ${AGENT_CONFIG_MAX_LOCAL_TOML_BYTES} bytes`);
+    }
+    parseTomlDocument(content);
+    const expected = assertExpectedHash(expectedHash);
+    const paths = await this.projectPaths(workspaceCwd);
+    return this.withPathQueue(paths.localToml, async () => {
+      const current = await this.readManagedFile(paths.localToml, AGENT_CONFIG_MAX_LOCAL_TOML_BYTES, paths.configDir);
+      assertHashPrecondition(expected, current.hash);
+      if (current.exists && current.content === content) {
+        return { projectRoot: paths.projectRoot, hash: current.hash, size: current.size, content };
+      }
+      await this.ensureDirectory(paths.configDir, paths.projectRoot);
+      await this.ensureTargetForWrite(paths.localToml, paths.configDir, paths.projectRoot);
+      await this.atomicWriteWithCas(paths.localToml, content, current.hash, AGENT_CONFIG_MAX_LOCAL_TOML_BYTES);
+      return { projectRoot: paths.projectRoot, hash: contentHash(content), size: Buffer.byteLength(content, "utf8"), content };
+    });
+  }
+  async saveBindings(workspaceCwd, changes, expectedHash) {
+    if (!Array.isArray(changes)) throw new AgentConfigValidationError("changes must be an array");
+    const validatedChanges = changes.map(validateBindingChange);
+    const expected = assertExpectedHash(expectedHash);
+    const paths = await this.projectPaths(workspaceCwd);
+    return this.withPathQueue(paths.localToml, async () => {
+      const current = await this.readManagedFile(paths.localToml, AGENT_CONFIG_MAX_LOCAL_TOML_BYTES, paths.configDir);
+      assertHashPrecondition(expected, current.hash);
+      let nextContent = current.content;
+      for (const change of validatedChanges) {
+        const parsed = parseTomlDocument(nextContent);
+        const scanned = scanToml(nextContent, parsed);
+        if (change.binding === null) {
+          nextContent = deleteBindingText(nextContent, change.section, change.name, scanned);
+        } else {
+          nextContent = patchBindingText(nextContent, change.section, change.name, change.binding, scanned);
+        }
+      }
+      if (Buffer.byteLength(nextContent, "utf8") > AGENT_CONFIG_MAX_LOCAL_TOML_BYTES) {
+        throw new AgentConfigValidationError(`local.toml exceeds ${AGENT_CONFIG_MAX_LOCAL_TOML_BYTES} bytes`);
+      }
+      parseTomlDocument(nextContent);
+      await this.ensureDirectory(paths.configDir, paths.projectRoot);
+      await this.ensureTargetForWrite(paths.localToml, paths.configDir, paths.projectRoot);
+      if (nextContent !== current.content) {
+        await this.atomicWriteWithCas(paths.localToml, nextContent, current.hash, AGENT_CONFIG_MAX_LOCAL_TOML_BYTES);
+      }
+      const finalHash = contentHash(nextContent);
+      return {
+        projectRoot: paths.projectRoot,
+        hash: finalHash,
+        size: Buffer.byteLength(nextContent, "utf8"),
+        content: nextContent
+      };
+    });
+  }
+  async saveBinding(workspaceCwd, section, name, binding, expectedHash) {
+    const res = await this.saveBindings(workspaceCwd, [{ section, name, binding }], expectedHash);
+    const parsedNext = parseTomlDocument(res.content);
+    const scanned = scanToml(res.content, parsedNext);
+    const row = (section === "subagent" ? scanned.types : scanned.slots).find((item) => item.name === name);
+    return {
+      projectRoot: res.projectRoot,
+      section,
+      name,
+      binding: row?.binding ?? projectBinding(getOwn(bindingRoot(parsedNext, section), name)),
+      hash: res.hash,
+      content: res.content
+    };
+  }
+  async listAgentSummaries(paths) {
+    const exists = await this.ensureDirectory(paths.agentsDir, paths.configDir, true);
+    if (!exists) return [];
+    let entries;
+    try {
+      entries = await this.fs.readdir(paths.agentsDir, { withFileTypes: true });
+    } catch (error2) {
+      throw mapReadError(error2, "agent directory could not be read");
+    }
+    const files = entries.filter((entry) => entry.name.endsWith(AGENT_FILE_SUFFIX));
+    if (files.length > AGENT_CONFIG_MAX_AGENT_FILES) {
+      throw new AgentConfigValidationError(`agent directory exceeds ${AGENT_CONFIG_MAX_AGENT_FILES} files`);
+    }
+    const result = [];
+    for (const entry of files) {
+      const name = entry.name.slice(0, -AGENT_FILE_SUFFIX.length);
+      if (!isKebabCaseName(name)) {
+        throw new AgentConfigValidationError(`agent filename ${entry.name} is not kebab-case`);
+      }
+      const filePath = join4(paths.agentsDir, entry.name);
+      const snapshot = await this.readManagedFile(filePath, AGENT_CONFIG_MAX_FILE_BYTES, paths.agentsDir);
+      if (!snapshot.exists) continue;
+      try {
+        const parsed = parseAgentDocument(name, entry.name, snapshot.content);
+        result.push({
+          name,
+          fileName: entry.name,
+          hash: snapshot.hash,
+          size: snapshot.size,
+          valid: true,
+          ...parsed.description === void 0 ? {} : { description: parsed.description },
+          ...parsed.slot === void 0 ? {} : { slot: parsed.slot }
+        });
+      } catch (error2) {
+        result.push({
+          name,
+          fileName: entry.name,
+          hash: snapshot.hash,
+          size: snapshot.size,
+          valid: false,
+          error: error2 instanceof Error ? error2.message : "invalid agent markdown"
+        });
+      }
+    }
+    result.sort((a, b) => a.name.localeCompare(b.name));
+    return result;
+  }
+  async projectPaths(workspaceCwd) {
+    const cwd = assertWorkspaceCwd(workspaceCwd);
+    let canonicalCwd;
+    try {
+      const stat2 = await this.fs.lstat(cwd);
+      if (stat2.isSymbolicLink() || !stat2.isDirectory()) throw new AgentConfigUnsafePathError("workspace root is not a real directory");
+      canonicalCwd = await this.fs.realpath(cwd);
+    } catch (error2) {
+      if (error2 instanceof AgentConfigError) throw error2;
+      throw mapReadError(error2, "workspace root could not be inspected");
+    }
+    const projectRoot = await this.findProjectRoot(canonicalCwd);
+    const configDir = join4(projectRoot, KIMI_CONFIG_DIRECTORY_NAME);
+    return {
+      projectRoot,
+      configDir,
+      agentsDir: join4(configDir, AGENT_DIRECTORY_NAME),
+      localToml: join4(configDir, LOCAL_TOML_FILE_NAME)
+    };
+  }
+  async findProjectRoot(cwd) {
+    let current = cwd;
+    while (true) {
+      const gitPath = join4(current, ".git");
+      try {
+        const stat2 = await this.fs.lstat(gitPath);
+        if (stat2.isSymbolicLink()) throw new AgentConfigUnsafePathError(".git is a symbolic link");
+        if (stat2.isDirectory() || stat2.isFile()) return current;
+      } catch (error2) {
+        if (!isMissing(error2)) throw mapReadError(error2, "project root could not be inspected");
+      }
+      const parent = dirname(current);
+      if (samePath(parent, current)) return cwd;
+      current = parent;
+    }
+  }
+  /**
+   * Check an existing path without following a symbolic link. Missing fixed
+   * config directories are allowed because a first save may create them.
+   */
+  async existingPath(path, expected, allowMissing, root) {
+    let stat2;
+    try {
+      stat2 = await this.fs.lstat(path);
+    } catch (error2) {
+      if (isMissing(error2) && allowMissing) return false;
+      throw mapReadError(error2, "project configuration path could not be inspected");
+    }
+    if (stat2.isSymbolicLink()) throw new AgentConfigUnsafePathError();
+    if (expected === "file" && !stat2.isFile()) throw new AgentConfigUnsafePathError("configuration target is not a regular file");
+    if (expected === "directory" && !stat2.isDirectory()) throw new AgentConfigUnsafePathError("configuration parent is not a directory");
+    let physical;
+    try {
+      physical = await this.fs.realpath(path);
+    } catch (error2) {
+      throw mapReadError(error2, "project configuration path could not be resolved");
+    }
+    if (!isInside(root, physical)) throw new AgentConfigUnsafePathError();
+    return true;
+  }
+  async ensureDirectory(path, root, allowMissing = false) {
+    const exists = await this.existingPath(path, "directory", true, root);
+    if (exists || allowMissing) return exists;
+    try {
+      await this.fs.mkdir(path, { recursive: true });
+    } catch (error2) {
+      throw mapFileMutationError(error2);
+    }
+    await this.existingPath(path, "directory", false, root);
+    return true;
+  }
+  async ensureTargetForWrite(path, parent, root) {
+    await this.ensureDirectory(parent, root);
+    await this.existingPath(path, "file", true, root);
+  }
+  async readManagedFile(path, maxBytes, parent) {
+    let parentStat;
+    let parentPhysical;
+    try {
+      parentStat = await this.fs.lstat(parent);
+    } catch (error2) {
+      if (!isMissing(error2)) throw mapReadError(error2, "configuration parent could not be inspected");
+    }
+    if (parentStat !== void 0) {
+      if (parentStat.isSymbolicLink() || !parentStat.isDirectory()) throw new AgentConfigUnsafePathError();
+      try {
+        parentPhysical = await this.fs.realpath(parent);
+      } catch (error2) {
+        throw mapReadError(error2, "configuration parent could not be resolved");
+      }
+    }
+    let stat2;
+    try {
+      stat2 = await this.fs.lstat(path);
+    } catch (error2) {
+      if (isMissing(error2)) return { exists: false, content: "", hash: null, size: 0 };
+      throw mapReadError(error2, "configuration file could not be inspected");
+    }
+    if (stat2.isSymbolicLink() || !stat2.isFile()) throw new AgentConfigUnsafePathError();
+    if (stat2.size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
+    let content;
+    try {
+      content = await this.fs.readFile(path, "utf8");
+    } catch (error2) {
+      throw mapReadError(error2, "configuration file could not be read");
+    }
+    const size = Buffer.byteLength(content, "utf8");
+    if (size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
+    try {
+      const current = await this.fs.lstat(path);
+      if (current.isSymbolicLink() || !current.isFile()) throw new AgentConfigUnsafePathError();
+      const physical = await this.fs.realpath(path);
+      if (parentPhysical !== void 0 && !isInside(parentPhysical, physical)) throw new AgentConfigUnsafePathError();
+    } catch (error2) {
+      if (error2 instanceof AgentConfigError) throw error2;
+      throw mapReadError(error2, "configuration file changed while reading");
+    }
+    return { exists: true, content, hash: contentHash(content), size };
+  }
+  async atomicWriteWithCas(path, content, expectedCurrentHash, maxBytes) {
+    const atomic = this.fs.writeFileAtomic ?? writeFileAtomic;
+    const options = {
+      beforeRename: async () => {
+        const latest = await this.readManagedFile(path, maxBytes, dirname(path));
+        assertSameHash(expectedCurrentHash, latest.hash);
+      }
+    };
+    try {
+      await atomic(path, content, options);
+    } catch (error2) {
+      if (error2 instanceof AgentConfigError) throw error2;
+      throw mapFileMutationError(error2);
+    }
+  }
+  withPathQueue(path, operation) {
+    const previous = this.queues.get(path) ?? Promise.resolve();
+    const next = previous.then(operation, operation);
+    const marker = next.then(() => void 0, () => void 0);
+    this.queues.set(path, marker);
+    return next.finally(() => {
+      if (this.queues.get(path) === marker) this.queues.delete(path);
+    });
+  }
+};
+function assertHashPrecondition(expected, current) {
+  if (expected !== current) {
+    throw new AgentConfigConflictError("configuration changed; reload the latest file before saving", current);
+  }
+}
+function assertSameHash(expected, current) {
+  if (expected !== current) {
+    throw new AgentConfigConflictError("configuration changed during save; reload the latest file before saving", current);
+  }
+}
+function mapReadError(error2, fallback) {
+  if (error2 instanceof AgentConfigError) return error2;
+  if (isBusy(error2)) return new AgentConfigBusyError();
+  const code = errorCode2(error2);
+  if (code === "ENOENT") return new AgentConfigNotFoundError(fallback);
+  return new AgentConfigError(fallback, 400);
+}
+function mapFileMutationError(error2) {
+  if (error2 instanceof AgentConfigError) return error2;
+  if (isBusy(error2)) return new AgentConfigBusyError();
+  return new AgentConfigError("configuration file could not be written", 400);
+}
+function parseAgentDocument(name, fileName, content) {
+  const lines = lineRecords(content);
+  if (lines.length === 0 || !/^\s*---\s*$/.test(lines[0].text)) {
+    throw new AgentConfigValidationError(`${fileName} must start with YAML frontmatter`);
+  }
+  let closing = -1;
+  for (let index = 1; index < lines.length; index += 1) {
+    if (/^\s*---\s*$/.test(lines[index].text)) {
+      closing = index;
+      break;
+    }
+  }
+  if (closing < 0) throw new AgentConfigValidationError(`${fileName} has unterminated YAML frontmatter`);
+  const frontmatterEnd = lines.slice(0, closing).map((line) => line.text + line.eol).join("").replace(/^\s*---\s*(?:\r\n|\n|\r)/, "");
+  let frontmatterValue;
+  try {
+    frontmatterValue = (0, import_yaml.parse)(frontmatterEnd);
+  } catch (error2) {
+    throw new AgentConfigValidationError(`${fileName} has invalid YAML frontmatter: ${error2 instanceof Error ? error2.message : "parse failed"}`);
+  }
+  const frontmatter = asRecord(frontmatterValue);
+  if (frontmatter === void 0) throw new AgentConfigValidationError(`${fileName} frontmatter must be a YAML object`);
+  if (frontmatter.name !== name) throw new AgentConfigValidationError(`${fileName} frontmatter name must be ${name}`);
+  const prompt = lines.slice(closing + 1).map((line) => line.text + line.eol).join("").trim();
+  if (!prompt) throw new AgentConfigValidationError(`${fileName} prompt must not be empty`);
+  if (frontmatter.slot !== void 0) assertKebabName(frontmatter.slot, `${fileName} slot`);
+  const description = typeof frontmatter.description === "string" ? frontmatter.description : void 0;
+  const slot = typeof frontmatter.slot === "string" ? frontmatter.slot : void 0;
+  return {
+    valid: true,
+    frontmatter,
+    prompt,
+    ...description === void 0 ? {} : { description },
+    ...slot === void 0 ? {} : { slot }
+  };
+}
+
+// src/web/tokens.ts
+var THEMES = [
+  { name: "glass", label: "Glass" },
+  { name: "liquid", label: "Liquid Glass" },
+  { name: "editorial", label: "Editorial" }
+];
+var THEME_STORAGE_KEY = "moamcp-theme";
+var THEME_BOOTSTRAP = `<script>
+(function () {
+  try {
+    var t = localStorage.getItem('${THEME_STORAGE_KEY}');
+    if (t && ${JSON.stringify(THEMES.map((x) => x.name))}.indexOf(t) !== -1) {
+      document.documentElement.dataset.theme = t;
+    }
+  } catch (e) {}
+})();
+</script>`;
+var TOKENS_CSS = `
+:root {
+  /* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+     THEME-VARYING tokens \u2014 "glass" theme (default).
+     A future theme overrides any of these in a :root[data-theme='x'] block.
+     \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+
+  /* Background & page */
+  --bg: #07090f;
+  --bg-aurora-1: rgba(52, 211, 153, 0.08);
+  --bg-aurora-2: rgba(96, 165, 250, 0.08);
+  --bg-aurora-3: rgba(167, 139, 250, 0.06);
+
+  /* Aurora background layer (geometry/opacity \u2014 themes can restyle or hide) */
+  --aurora-opacity: 1;            /* master switch: 0 hides the whole layer */
+  --aurora-1-top: -160px;
+  --aurora-1-left: 50%;
+  --aurora-1-w: 880px;
+  --aurora-1-h: 360px;
+  --aurora-1-x: -50%;             /* translateX offset (centering) */
+  --aurora-1-opacity: 0.9;
+  --aurora-2-top: -140px;
+  --aurora-2-right: 5%;
+  --aurora-2-w: 620px;
+  --aurora-2-h: 320px;
+  --aurora-2-opacity: 0.8;
+
+  /* Surfaces & glassiness */
+  --surface: rgba(148, 163, 184, 0.05);
+  --surface-strong: rgba(148, 163, 184, 0.09);
+  --solid: #0d1017;
+  --solid-2: #141824;
+  --surface-chrome: rgba(13, 16, 23, 0.85);   /* sticky workspace bar */
+  --surface-drawer: rgba(20, 24, 35, 0.85);   /* right-side drawer */
+  --border: rgba(148, 163, 184, 0.14);
+  --border-strong: rgba(148, 163, 184, 0.24);
+  --surface-blur: blur(20px);                 /* chrome blur; flat theme: none */
+  --surface-blur-lg: blur(24px);              /* drawer blur; flat theme: none */
+
+  /* Typography Colors */
+  --text: #e6ebf4;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
+  --link-soft: #7cc7ff;
+
+  /* Accent & Status Colors */
+  --accent-green: #34d399;
+  --accent-blue: #60a5fa;
+  --accent-purple: #a78bfa;
+  --accent-amber: #fbbf24;
+  --accent-red: #f87171;
+
+  --ok: var(--accent-green);
+  --warn: var(--accent-amber);
+  --err: var(--accent-red);
+  --live: var(--accent-green);
+  --done: var(--accent-blue);
+
+  /* Aurora Gradient (Used strictly for brand text, primary CTA, active states, focus ring) */
+  --aurora: linear-gradient(100deg, #34d399, #60a5fa 50%, #a78bfa);
+  --aurora-dim: linear-gradient(100deg, rgba(52, 211, 153, 0.14), rgba(96, 165, 250, 0.14) 50%, rgba(167, 139, 250, 0.14));
+
+  /* Status tints (soft backgrounds / borders per status color) */
+  --tint-green: rgba(52, 211, 153, 0.12);
+  --tint-green-soft: rgba(52, 211, 153, 0.1);
+  --tint-green-border: rgba(52, 211, 153, 0.35);
+  --tint-green-border-soft: rgba(52, 211, 153, 0.3);
+  --tint-green-border-strong: rgba(52, 211, 153, 0.4);
+  --tint-blue: rgba(96, 165, 250, 0.12);
+  --tint-blue-border: rgba(96, 165, 250, 0.35);
+  --tint-amber: rgba(251, 191, 36, 0.12);
+  --tint-amber-border: rgba(251, 191, 36, 0.3);
+  --tint-red: rgba(248, 113, 113, 0.12);
+  --tint-red-border: rgba(248, 113, 113, 0.35);
+  --tint-purple: rgba(167, 139, 250, 0.12);
+  --tint-purple-border: rgba(167, 139, 250, 0.35);
+  --hover-tint: rgba(255, 255, 255, 0.05);
+  --hover-tint-subtle: rgba(255, 255, 255, 0.03);
+
+  /* Accent glow shadows & focus rings */
+  --glow-green: 0 0 12px rgba(52, 211, 153, 0.3);
+  --glow-green-soft: 0 0 12px rgba(52, 211, 153, 0.2);
+  --glow-green-active: 0 0 16px rgba(52, 211, 153, 0.25);
+  --glow-green-brand: 0 0 12px rgba(52, 211, 153, 0.4);
+  --glow-green-cta: 0 0 14px rgba(52, 211, 153, 0.28);
+  --glow-green-verdict: 0 0 24px rgba(52, 211, 153, 0.12);
+  --glow-green-btn: 0 0 10px rgba(52, 211, 153, 0.25);
+  --glow-blue: 0 0 12px rgba(96, 165, 250, 0.3);
+  --glow-ring: 0 0 0 0 rgba(52, 211, 153, 0.35);   /* live dot pulse */
+  --glow-ring-end: 0 0 0 5px rgba(52, 211, 153, 0);
+  --focus-ring: 0 0 0 3px rgba(52, 211, 153, 0.14);
+  --flash-outline: rgba(96, 165, 250, 0.5);
+
+  /* Shadows */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+
+  /* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+     THEME-INVARIANT tokens \u2014 shared across all themes.
+     \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+
+  /* Font Stacks */
+  --font-ui: -apple-system, "Segoe UI", "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+
+  /* Spacing Scale (4px base) */
+  --sp1: 4px;
+  --sp2: 8px;
+  --sp3: 12px;
+  --sp4: 16px;
+  --sp5: 20px;
+  --sp6: 24px;
+  --sp8: 32px;
+  --sp12: 48px;
+
+  /* Radii Scale */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* Motion */
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Z-index Scale */
+  --z-sticky: 10;
+  --z-drawer: 40;
+  --z-scrim: 45;
+  --z-modal: 50;
+}
+
+/* \u2500\u2500 Theme: Liquid Glass (colorful) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   High-saturation cyan/magenta/purple/orange blobs drifting behind
+   translucent blur(24px) saturate(1.8) surfaces, refraction edges
+   (bright top / dim bottom), specular highlights, flowing gradient accents. */
+:root[data-theme='liquid'] {
+  /* Background & page */
+  --bg: #05050d;
+  --bg-aurora-1: rgba(0, 240, 255, 0.22);    /* cyan */
+  --bg-aurora-2: rgba(255, 0, 160, 0.20);    /* magenta */
+  --bg-aurora-3: rgba(176, 66, 255, 0.18);   /* purple */
+  --bg-aurora-4: rgba(255, 130, 0, 0.16);    /* orange */
+
+  --aurora-1-top: -140px;
+  --aurora-1-left: 10%;
+  --aurora-1-w: 750px;
+  --aurora-1-h: 550px;
+  --aurora-1-x: 0%;
+  --aurora-1-opacity: 0.85;
+  --aurora-2-top: 80px;
+  --aurora-2-right: -100px;
+  --aurora-2-w: 700px;
+  --aurora-2-h: 600px;
+  --aurora-2-opacity: 0.8;
+
+  /* Surfaces & glassiness */
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --solid: #0b0e17;
+  --solid-2: #121624;
+  --surface-chrome: rgba(10, 14, 26, 0.5);
+  --surface-drawer: rgba(12, 16, 30, 0.6);
+  --surface-blur: blur(24px) saturate(1.8);
+  --surface-blur-lg: blur(32px) saturate(2);
+
+  /* Refraction borders & specular highlight (theme-local tokens) */
+  --border: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.3);
+  --border-top-color: rgba(255, 255, 255, 0.42);
+  --border-bottom-color: rgba(255, 255, 255, 0.08);
+  --border-side-color: rgba(255, 255, 255, 0.18);
+  --glass-specular: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.03) 30%, transparent 60%);
+  --glass-specular-hover: linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 40%, transparent 70%);
+
+  /* Accent & status */
+  --accent-cyan: #00f0ff;
+  --accent-magenta: #ff00a0;
+  --accent-green: #00f59b;
+  --accent-blue: #3b9eff;
+  --accent-purple: #b042ff;
+  --accent-amber: #ffb700;
+  --accent-red: #ff4d6d;
+
+  /* Typography */
+  --text: #f0f4fc;
+  --text-dim: #9daec8;
+  --text-faint: #6c7f9d;
+  --link-soft: #66c2ff;
+
+  /* Flowing gradient (cyan -> purple -> magenta) */
+  --aurora: linear-gradient(135deg, #00f0ff 0%, #b042ff 50%, #ff00a0 100%);
+  --aurora-dim: linear-gradient(135deg, rgba(0, 240, 255, 0.2) 0%, rgba(176, 66, 255, 0.2) 50%, rgba(255, 0, 160, 0.2) 100%);
+
+  /* Status tints */
+  --tint-green: rgba(0, 245, 155, 0.16);
+  --tint-green-soft: rgba(0, 245, 155, 0.1);
+  --tint-green-border: rgba(0, 245, 155, 0.45);
+  --tint-green-border-soft: rgba(0, 245, 155, 0.35);
+  --tint-green-border-strong: rgba(0, 245, 155, 0.6);
+  --tint-blue: rgba(59, 158, 255, 0.16);
+  --tint-blue-border: rgba(59, 158, 255, 0.45);
+  --tint-amber: rgba(255, 183, 0, 0.16);
+  --tint-amber-border: rgba(255, 183, 0, 0.4);
+  --tint-red: rgba(255, 77, 109, 0.16);
+  --tint-red-border: rgba(255, 77, 109, 0.45);
+  --tint-purple: rgba(176, 66, 255, 0.16);
+  --tint-purple-border: rgba(176, 66, 255, 0.45);
+  --hover-tint: rgba(255, 255, 255, 0.07);
+  --hover-tint-subtle: rgba(255, 255, 255, 0.04);
+
+  /* Glows & focus */
+  --glow-green: 0 0 16px rgba(0, 245, 155, 0.45);
+  --glow-green-soft: 0 0 14px rgba(0, 245, 155, 0.25);
+  --glow-green-active: 0 0 20px rgba(0, 245, 155, 0.35);
+  --glow-green-brand: 0 0 16px rgba(0, 240, 255, 0.6), 0 0 28px rgba(255, 0, 160, 0.35);
+  --glow-green-cta: 0 0 18px rgba(0, 240, 255, 0.4), 0 0 30px rgba(255, 0, 160, 0.3);
+  --glow-green-verdict: 0 0 24px rgba(0, 245, 155, 0.2);
+  --glow-green-btn: 0 0 12px rgba(0, 245, 155, 0.35);
+  --glow-blue: 0 0 16px rgba(59, 158, 255, 0.45);
+  --glow-ring: 0 0 0 0 rgba(0, 240, 255, 0.45);
+  --glow-ring-end: 0 0 0 6px rgba(0, 240, 255, 0);
+  --focus-ring: 0 0 0 3px rgba(0, 240, 255, 0.25);
+  --flash-outline: rgba(0, 240, 255, 0.5);
+
+  /* Shadows */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Background blobs: two extra fixed color spots (purple/orange) + drifting pseudos.
+   Mouse parallax: --mx/--my (viewport-normalized -1..1, set by initLiquidParallax)
+   move the whole layer with inertia; the drift animations live on the pseudos
+   and compose naturally with the container transform. */
+:root[data-theme='liquid'] .aurora-bg {
+  /* Bleed 64px past every viewport edge so the parallax translate
+     (\xB136px/\xB124px) never exposes the page background at the border. */
+  top: -64px;
+  left: -64px;
+  right: -64px;
+  bottom: -64px;
+  background:
+    radial-gradient(circle at 75% 25%, var(--bg-aurora-3) 0%, transparent 45%),
+    radial-gradient(circle at 25% 75%, var(--bg-aurora-4) 0%, transparent 45%);
+  transform: translate3d(calc(var(--mx, 0) * 36px), calc(var(--my, 0) * 24px), 0);
+  transition: transform 600ms var(--ease-out);
+  animation: liquidHueShift 24s linear infinite;
+}
+/* Two-layer blobs: core color + a contrasting outer halo (cyan core +
+   magenta halo, magenta core + purple halo). Blur stays 40px. */
+:root[data-theme='liquid'] .aurora-bg::before {
+  background:
+    radial-gradient(circle at 45% 40%, var(--bg-aurora-1) 0%, transparent 50%),
+    radial-gradient(circle at 70% 65%, rgba(255, 0, 160, 0.16) 0%, transparent 55%);
+  filter: blur(40px);
+  will-change: transform;
+  animation: liquidBlobDrift1 26s ease-in-out infinite alternate;
+}
+:root[data-theme='liquid'] .aurora-bg::after {
+  background:
+    radial-gradient(circle at 55% 45%, var(--bg-aurora-2) 0%, transparent 50%),
+    radial-gradient(circle at 30% 75%, rgba(176, 66, 255, 0.18) 0%, transparent 55%);
+  filter: blur(40px);
+  will-change: transform;
+  animation: liquidBlobDrift2 30s ease-in-out infinite alternate;
+}
+/* Slow full-spectrum hue rotation over the whole aurora layer (filter only). */
+@keyframes liquidHueShift {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+/* Transform-only motion: zero layout/paint recalculation */
+@keyframes liquidBlobDrift1 {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(120px, 75px, 0) rotate(180deg) scale(1.3); }
+  100% { transform: translate3d(-75px, 150px, 0) rotate(360deg) scale(0.85); }
+}
+@keyframes liquidBlobDrift2 {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(-135px, -90px, 0) rotate(-180deg) scale(1.3); }
+  100% { transform: translate3d(90px, -60px, 0) rotate(-360deg) scale(0.85); }
+}
+
+/* Liquid cards: translucent + blurred, refraction edges, specular highlight.
+   Entrance: one-shot fade/rise (fill backwards = pre-delay state only, so the
+   finished animation never pins transform over the :hover translateY(-1px)). */
+:root[data-theme='liquid'] .card {
+  position: relative;
+  overflow: hidden; /* clips the ::before specular layer to border-radius */
+  background: var(--surface);
+  backdrop-filter: var(--surface-blur);
+  -webkit-backdrop-filter: var(--surface-blur);
+  border-top: 1px solid var(--border-top-color);
+  border-bottom: 1px solid var(--border-bottom-color);
+  border-left: 1px solid var(--border-side-color);
+  border-right: 1px solid var(--border-side-color);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+  animation: liquidCardIn 460ms var(--ease-out) backwards;
+}
+:root[data-theme='liquid'] .card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: var(--glass-specular);
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+/* Cursor-following radial highlight (--cx/--cy in card pixels, set by
+   initLiquidParallax; 50% fallback until the first mousemove). */
+:root[data-theme='liquid'] .card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(320px circle at var(--cx, 50%) var(--cy, 50%), rgba(255, 255, 255, 0.14), transparent 65%);
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+:root[data-theme='liquid'] .card:hover::after {
+  opacity: 1;
+}
+:root[data-theme='liquid'] .card:hover {
+  border-top-color: rgba(255, 255, 255, 0.65);
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 14px 44px 0 rgba(0, 0, 0, 0.58), inset 0 1px 0 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+:root[data-theme='liquid'] .card:hover::before {
+  opacity: 1;
+  background: var(--glass-specular-hover);
+}
+/* Staggered entrance: cards 1-6 walk in at 60ms intervals. nth-of-type counts
+   div siblings, so delays land on the first six .card divs of each page. */
+:root[data-theme='liquid'] .card:nth-of-type(1) { animation-delay: 0ms; }
+:root[data-theme='liquid'] .card:nth-of-type(2) { animation-delay: 60ms; }
+:root[data-theme='liquid'] .card:nth-of-type(3) { animation-delay: 120ms; }
+:root[data-theme='liquid'] .card:nth-of-type(4) { animation-delay: 180ms; }
+:root[data-theme='liquid'] .card:nth-of-type(5) { animation-delay: 240ms; }
+:root[data-theme='liquid'] .card:nth-of-type(6) { animation-delay: 300ms; }
+@keyframes liquidCardIn {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: none; }
+}
+/* Steps card hosts ::after tooltips below the steps \u2014 must not be clipped. */
+:root[data-theme='liquid'] #progressCard {
+  overflow: visible;
+}
+:root[data-theme='liquid'] #progressCard::before {
+  content: none;
+}
+:root[data-theme='liquid'] #progressCard::after {
+  content: none;
+}
+
+/* Drawer & chrome: stronger blur, refraction top edge */
+:root[data-theme='liquid'] .drawer {
+  border-top: 1px solid var(--border-top-color);
+  border-bottom: 1px solid var(--border-bottom-color);
+}
+:root[data-theme='liquid'] .top-nav,
+:root[data-theme='liquid'] .locale-picker,
+:root[data-theme='liquid'] .theme-picker {
+  backdrop-filter: var(--surface-blur);
+  -webkit-backdrop-filter: var(--surface-blur);
+  border-top-color: var(--border-top-color);
+}
+:root[data-theme='liquid'] #stageDetail {
+  backdrop-filter: var(--surface-blur);
+  -webkit-backdrop-filter: var(--surface-blur);
+}
+
+/* HARD RULE: long-scroll regions stay opaque & blur-free (already solid via
+   tokens; re-asserted here so no future liquid tweak re-blurs them). */
+:root[data-theme='liquid'] .omkc-list,
+:root[data-theme='liquid'] .tool-log,
+:root[data-theme='liquid'] .findings-text,
+:root[data-theme='liquid'] .details dd.code {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Flowing gradient on brand, section markers, primary CTA, active steps */
+:root[data-theme='liquid'] .brand-mark {
+  background-size: 200% 200%;
+  box-shadow: var(--glow-green-brand);
+  animation: liquidGradientFlow 6s ease infinite alternate;
+}
+:root[data-theme='liquid'] .brand-title {
+  background-size: 200% 200%;
+  animation: liquidGradientFlow 6s ease infinite alternate;
+}
+/* Flowing conic border ring: @property-registered --liquid-angle is what makes
+   the conic actually rotate; without @property the browser silently drops the
+   interpolation and keeps a static gradient ring (var() fallback covers the
+   initial 0deg). Ring = masked ::before so the interior fill is untouched. */
+@property --liquid-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes liquidAngleSpin {
+  to { --liquid-angle: 360deg; }
+}
+:root[data-theme='liquid'] .primary,
+:root[data-theme='liquid'] button.primary {
+  position: relative;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.28) 0%, rgba(176, 66, 255, 0.28) 50%, rgba(255, 0, 160, 0.28) 100%);
+  background-size: 200% 200%;
+  border: 1px solid transparent;
+  color: #fff;
+  box-shadow: var(--glow-green-cta);
+}
+:root[data-theme='liquid'] .primary::before,
+:root[data-theme='liquid'] button.primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--liquid-angle, 0deg), rgba(0, 240, 255, 0.95), rgba(176, 66, 255, 0.95), rgba(255, 0, 160, 0.95), rgba(0, 240, 255, 0.95));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: liquidAngleSpin 4s linear infinite;
+}
+:root[data-theme='liquid'] .primary:hover,
+:root[data-theme='liquid'] button.primary:hover {
+  background-position: 100% 0;
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 22px rgba(0, 240, 255, 0.5), 0 0 36px rgba(255, 0, 160, 0.38);
+  transform: translateY(-1px);
+}
+:root[data-theme='liquid'] .step.active {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.18) 0%, rgba(176, 66, 255, 0.18) 50%, rgba(255, 0, 160, 0.18) 100%);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
+}
+:root[data-theme='liquid'] .step.active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--liquid-angle, 0deg), rgba(0, 240, 255, 0.95), rgba(176, 66, 255, 0.95), rgba(255, 0, 160, 0.95), rgba(0, 240, 255, 0.95));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: liquidAngleSpin 4s linear infinite;
+}
+:root[data-theme='liquid'] .step.active .dot {
+  background: var(--aurora);
+  animation: liquidDotPulse 1.5s ease-in-out infinite;
+}
+@keyframes liquidGradientFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+@keyframes liquidDotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 240, 255, 0); }
+}
+/* (reduced-motion: the global media block at the bottom already disables
+   all animations, no theme-specific safeguard needed.) */
+
+/* \u2500\u2500 Theme: Editorial (light, ink on paper) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   Warm paper background, opaque cream/white surfaces, 1px hairline ink
+   borders, a single edit-red accent, quiet serif typography. The aurora
+   layer is switched off entirely (--aurora-opacity: 0), every glow is
+   dropped and shadows become hard offset rules \u2014 no blur, no animation. */
+:root[data-theme='editorial'] {
+  /* Background & page */
+  --bg: #f7f4ee;
+  --bg-aurora-1: rgba(181, 52, 42, 0.05);
+  --bg-aurora-2: rgba(199, 152, 95, 0.05);
+  --bg-aurora-3: rgba(28, 26, 23, 0.04);
+
+  /* Aurora background layer: hidden entirely \u2014 quiet paper, no glow */
+  --aurora-opacity: 0;
+
+  /* Surfaces & glassiness: opaque paper, blur off */
+  --surface: #fbf9f4;
+  --surface-strong: #efece3;
+  --solid: #ffffff;
+  --solid-2: #f3f0e8;
+  --surface-chrome: rgba(252, 250, 245, 0.96);
+  --surface-drawer: rgba(255, 255, 255, 0.98);
+  --border: rgba(28, 26, 23, 0.75);
+  --border-strong: rgba(28, 26, 23, 0.9);
+  --surface-blur: none;
+  --surface-blur-lg: none;
+
+  /* Typography colors (ink) */
+  --text: #1c1a17;
+  --text-dim: #57534a;
+  --text-faint: #7c766b;
+  --link-soft: #8c2f26;
+
+  /* Accent & status: desaturated + darkened to sit on light paper */
+  --accent-green: #4a7c59;
+  --accent-blue: #3d6b8f;
+  --accent-purple: #6d5a9e;
+  --accent-amber: #9a6514;
+  --accent-red: #b5342a;
+
+  /* Aurora gradient: ink \u2192 edit red (brand mark, primary CTA, active states) */
+  --aurora: linear-gradient(100deg, #1c1a17 0%, #b5342a 100%);
+  --aurora-dim: linear-gradient(100deg, rgba(28, 26, 23, 0.07) 0%, rgba(181, 52, 42, 0.09) 100%);
+
+  /* Status tints: pale washes of the darkened status colors */
+  --tint-green: rgba(74, 124, 89, 0.1);
+  --tint-green-soft: rgba(74, 124, 89, 0.07);
+  --tint-green-border: rgba(74, 124, 89, 0.4);
+  --tint-green-border-soft: rgba(74, 124, 89, 0.32);
+  --tint-green-border-strong: rgba(74, 124, 89, 0.5);
+  --tint-blue: rgba(61, 107, 143, 0.1);
+  --tint-blue-border: rgba(61, 107, 143, 0.4);
+  --tint-amber: rgba(154, 101, 20, 0.1);
+  --tint-amber-border: rgba(154, 101, 20, 0.38);
+  --tint-red: rgba(181, 52, 42, 0.09);
+  --tint-red-border: rgba(181, 52, 42, 0.4);
+  --tint-purple: rgba(109, 90, 158, 0.1);
+  --tint-purple-border: rgba(109, 90, 158, 0.4);
+  --hover-tint: rgba(28, 26, 23, 0.05);
+  --hover-tint-subtle: rgba(28, 26, 23, 0.03);
+
+  /* Glows: none on paper; focus ring is a faint edit-red ring */
+  --glow-green: none;
+  --glow-green-soft: none;
+  --glow-green-active: none;
+  --glow-green-brand: none;
+  --glow-green-cta: none;
+  --glow-green-verdict: none;
+  --glow-green-btn: none;
+  --glow-blue: none;
+  --glow-ring: 0 0 0 0 rgba(181, 52, 42, 0.2);
+  --glow-ring-end: 0 0 0 5px rgba(181, 52, 42, 0);
+  --focus-ring: 0 0 0 3px rgba(181, 52, 42, 0.16);
+  --flash-outline: rgba(181, 52, 42, 0.35);
+
+  /* Shadows: hard offset, no blur */
+  --shadow-1: 1px 1px 0 rgba(28, 26, 23, 0.08);
+  --shadow-2: 2px 3px 0 rgba(28, 26, 23, 0.08);
+
+  color-scheme: light;
+
+  /* Explicit overrides of THEME-INVARIANT tokens (allowed per the header
+     docs): serif typography + tighter radii. --font-mono stays untouched. */
+  --font-ui: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+}
+
+/* Editorial component refinements \u2014 all scoped to the theme and written
+   with strictly higher specificity than the shared component rules. */
+/* Active nav / picker pills take the single edit-red accent. */
+:root[data-theme='editorial'] .top-nav .active,
+:root[data-theme='editorial'] .locale-pill.active,
+:root[data-theme='editorial'] .theme-pill.active {
+  color: var(--accent-red);
+}
+/* Links, CTA and focused fields hover into edit red; focus outlines red. */
+:root[data-theme='editorial'] a:hover {
+  color: var(--accent-red);
+}
+:root[data-theme='editorial'] .primary {
+  border-color: rgba(28, 26, 23, 0.85);
+}
+:root[data-theme='editorial'] .primary:hover {
+  border-color: var(--accent-red);
+}
+:root[data-theme='editorial'] input:focus,
+:root[data-theme='editorial'] select:focus,
+:root[data-theme='editorial'] textarea:focus {
+  border-color: var(--accent-red);
+}
+:root[data-theme='editorial'] button:focus-visible,
+:root[data-theme='editorial'] input:focus-visible,
+:root[data-theme='editorial'] select:focus-visible,
+:root[data-theme='editorial'] textarea:focus-visible {
+  outline-color: var(--accent-red);
+}
+:root[data-theme='editorial'] .step:focus-visible {
+  outline-color: var(--accent-red);
+}
+/* Active debate step: edit red instead of status green (done stays green). */
+:root[data-theme='editorial'] .step.active {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  background: var(--tint-red);
+}
+:root[data-theme='editorial'] .step.active .dot {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+}
+/* Typography: tighter tracking on brand/headings; section markers become
+   thin edit-red rules. */
+:root[data-theme='editorial'] .brand-title {
+  letter-spacing: 0.03em;
+}
+:root[data-theme='editorial'] header h1,
+:root[data-theme='editorial'] h2 {
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+:root[data-theme='editorial'] .sec-title {
+  letter-spacing: 0.14em;
+}
+:root[data-theme='editorial'] .sec-title::before {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent-red);
+}
+
+/* \u2500\u2500 Future themes: append :root[data-theme='<name>'] override blocks here. \u2500\u2500
+   Plus one entry in THEMES above. Nothing else changes. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Background Aurora Layer (Fixed, Non-scrolling) */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  opacity: var(--aurora-opacity);
+}
+.aurora-bg::before {
+  content: '';
+  position: absolute;
+  top: var(--aurora-1-top);
+  left: var(--aurora-1-left);
+  transform: translateX(var(--aurora-1-x));
+  width: var(--aurora-1-w);
+  height: var(--aurora-1-h);
+  background: radial-gradient(circle, var(--bg-aurora-1) 0%, transparent 70%);
+  opacity: var(--aurora-1-opacity);
+}
+.aurora-bg::after {
+  content: '';
+  position: absolute;
+  top: var(--aurora-2-top);
+  right: var(--aurora-2-right);
+  width: var(--aurora-2-w);
+  height: var(--aurora-2-h);
+  background: radial-gradient(circle, var(--bg-aurora-2) 0%, transparent 70%);
+  opacity: var(--aurora-2-opacity);
+}
+
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+a:hover {
+  color: var(--accent-green);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+`;
+
+// src/web/components.ts
+var SELECT_CHEVRON = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round'/></svg>")`;
+var COMPONENTS_CSS = `
+/* Layout Container */
+.wrap, .shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 56px;
+  position: relative;
+  z-index: 1;
+}
+.shell {
+  max-width: 1220px;
+}
+
+/* Chrome Header (Sticky with Backdrop Blur) */
+header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp3);
+  margin-bottom: var(--sp5);
+  flex-wrap: wrap;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp2);
+}
+.brand-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--aurora);
+  box-shadow: var(--glow-green-brand);
+}
+.brand-title {
+  background: var(--aurora);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+}
+header h1 {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+header .control-link {
+  padding: 4px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  color: var(--accent-blue);
+  font-size: 12px;
+  background: var(--surface);
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+header .control-link:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+header .task {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+#conn {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Top Nav (Control Plane) */
+.top-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp1);
+  margin-left: auto;
+  padding: 4px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+}
+.top-nav a, .top-nav span {
+  padding: 5px 13px;
+  border-radius: var(--r-pill);
+  color: var(--text-dim);
+  font-size: 13px;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.top-nav a:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.top-nav .active {
+  color: var(--accent-green);
+  background: var(--aurora-dim);
+}
+.top-nav .muted {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+/* Header pickers: compact pill groups shared by every page. */
+.theme-picker, .locale-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+}
+.theme-pill, .locale-pill {
+  padding: 4px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.locale-pill { padding-inline: 7px; }
+.locale-separator { color: var(--text-faint); font-size: 11px; }
+.theme-pill:hover, .locale-pill:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.theme-pill.active, .locale-pill.active {
+  color: var(--accent-green);
+  background: var(--aurora-dim);
+}
+
+/* Glass Cards (Long Scrolling Containers: NO backdrop-filter blur!) */
+.card {
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp4) var(--sp5);
+  margin-bottom: var(--sp3);
+  box-shadow: var(--shadow-2);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+.sec-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: var(--sp3);
+}
+.sec-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--aurora);
+}
+.sec-title .aux {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 12px;
+}
+.hint {
+  color: var(--text-faint);
+}
+
+/* Badges */
+.badge {
+  margin-left: auto;
+  padding: 3px 12px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.badge.live, .badge.initialized, .badge.debating {
+  background: var(--tint-green);
+  color: var(--accent-green);
+  border-color: var(--tint-green-border);
+  box-shadow: var(--glow-green-soft);
+}
+.badge.done {
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+  border-color: var(--tint-blue-border);
+}
+.badge.closed {
+  background: var(--tint-red);
+  color: var(--accent-red);
+  border-color: var(--tint-red-border);
+}
+
+/* Progress Pills Section */
+#progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.step {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 5px 14px 5px 10px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 500;
+  background: var(--surface-strong);
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out), background var(--dur-med) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.step:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.step:focus-visible {
+  outline: 2px solid var(--accent-green);
+  outline-offset: 2px;
+}
+.step .dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+  color: var(--bg);
+  font-size: 9px;
+  line-height: 1;
+  transition: background var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out);
+}
+.step.active {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: var(--tint-green);
+  box-shadow: var(--glow-green-active);
+}
+.step.active .dot {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+.step.done {
+  background: var(--tint-green);
+  border-color: var(--tint-green-border);
+  color: var(--accent-green);
+}
+.step.done .dot {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+.step.done .dot::before {
+  content: '\u2713';
+  font-weight: 700;
+}
+@keyframes dotPulse {
+  0%, 100% { box-shadow: var(--glow-ring); }
+  50% { box-shadow: var(--glow-ring-end); }
+}
+.link {
+  flex: 1 1 auto;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border);
+  min-width: 6px;
+  transition: background var(--dur-med) var(--ease-out);
+}
+.link.done {
+  background: var(--accent-green);
+}
+
+.step::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-3px);
+  background: var(--solid-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  white-space: nowrap;
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  z-index: 20;
+}
+.step:hover::after, .step:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#progress .step:first-child::after { left: 0; transform: translateY(-3px); }
+#progress .step:first-child:hover::after, #progress .step:first-child:focus-visible::after { transform: translateY(0); }
+#progress .step:last-child::after { left: auto; right: 0; transform: translateY(-3px); }
+#progress .step:last-child:hover::after, #progress .step:last-child:focus-visible::after { transform: translateY(0); }
+
+.step[aria-expanded="true"] {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  box-shadow: var(--glow-blue);
+}
+
+#stageDetail {
+  margin-top: var(--sp3);
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--solid-2);
+  border: 1px solid var(--border-strong);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  animation: detailIn 180ms var(--ease-out);
+}
+#stageDetail .sd-name {
+  color: var(--accent-blue);
+  font-weight: 600;
+  white-space: nowrap;
+}
+#stageDetail .sd-state {
+  padding: 1px 9px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+#stageDetail .sd-state.done {
+  background: var(--tint-green);
+  color: var(--accent-green);
+}
+#stageDetail .sd-state.active {
+  background: var(--tint-green);
+  color: var(--accent-green);
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+#stageDetail .sd-state.pending {
+  background: var(--surface-strong);
+  color: var(--text-dim);
+}
+#stageDetail .sd-text {
+  flex: 1 1 100%;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+@keyframes detailIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.card.flash {
+  outline: 2px solid transparent;
+  animation: cardFlash 1.6s var(--ease-out);
+}
+@keyframes cardFlash {
+  0% { outline-color: var(--accent-blue); }
+  60% { outline-color: var(--flash-outline); }
+  100% { outline-color: transparent; }
+}
+
+/* Form Controls & Buttons */
+button, input, select, textarea {
+  background: var(--solid-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--border-strong);
+}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent-green);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* Selects: drop native chrome, draw our own chevron so every theme's
+   border/background tokens show through. The chevron is a fixed slate-400
+   (reads well on all current themes); the opened option list is OS-rendered
+   and only follows each theme's color-scheme, not the full palette. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  cursor: pointer;
+  background-image: ${SELECT_CHEVRON};
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+select option {
+  background: var(--solid);
+  color: var(--text);
+}
+
+.btn, .primary, .secondary, .danger {
+  padding: 8px 14px;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.primary {
+  background: var(--aurora-dim);
+  border: 1px solid var(--tint-green-border-strong);
+  color: var(--text);
+}
+.primary:hover {
+  border-color: var(--accent-green);
+  box-shadow: var(--glow-green-cta);
+  transform: translateY(-1px);
+}
+.secondary {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.secondary:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.danger {
+  background: var(--tint-red);
+  border: 1px solid var(--tint-red-border);
+  color: var(--accent-red);
+}
+.danger:hover {
+  border-color: var(--accent-red);
+}
+
+/* Notice / Alerts */
+.notice {
+  margin: var(--sp2) 0;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  border: 1px solid var(--tint-amber-border);
+}
+.notice.error {
+  background: var(--tint-red);
+  color: var(--accent-red);
+  border-color: var(--tint-red-border);
+}
+
+/* Drawer (Sticky / Fixed overlay WITH Backdrop Blur allowed) */
+.drawer {
+  position: fixed;
+  top: 84px;
+  right: 22px;
+  bottom: 22px;
+  z-index: var(--z-drawer);
+  width: min(460px, calc(100vw - 44px));
+  overflow-y: auto;
+  padding: 18px;
+  background: var(--surface-drawer);
+  backdrop-filter: var(--surface-blur-lg);
+  -webkit-backdrop-filter: var(--surface-blur-lg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  animation: drawerIn 220ms var(--ease-out);
+}
+@keyframes drawerIn {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 720px) {
+  .drawer {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-height: 75vh;
+  }
+}
+
+/* Themed Custom Select (EnhanceSelect)
+   Wraps a native <select> (kept in the DOM, visually hidden, still the single
+   source of truth) with a themed trigger button + role="listbox" popover.
+   Every surface is token-driven, so glass / liquid / editorial all work.
+   The native select itself is only ever read/written; the popover is plain
+   divs rendered exclusively via createElement/textContent. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.cs-root {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+.field .cs-root {
+  width: 100%;
+}
+.cs-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 32px 8px 10px; /* right padding clears the chevron */
+  background-image: ${SELECT_CHEVRON};
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-btn:focus {
+  border-color: var(--accent-green);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+.cs-root.disabled .cs-btn {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cs-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: max-content;
+  z-index: var(--z-modal);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  animation: csPopIn var(--dur-fast) var(--ease-out);
+}
+.cs-pop[hidden] {
+  display: none;
+}
+@keyframes csPopIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.cs-option {
+  position: relative;
+  padding: 7px 10px 7px 14px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cs-option:hover, .cs-option.active {
+  background: var(--hover-tint);
+}
+.cs-option.selected {
+  background: var(--tint-green);
+}
+.cs-option.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent-green);
+}
+.cs-option-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+/* Liquid theme: the popover becomes a glass float (blur + refraction edge),
+   matching the .card treatment \u2014 token-driven, nothing hardcoded. */
+:root[data-theme='liquid'] .cs-pop {
+  background: var(--surface);
+  backdrop-filter: var(--surface-blur);
+  -webkit-backdrop-filter: var(--surface-blur);
+  border-top-color: var(--border-top-color);
+  border-bottom-color: var(--border-bottom-color);
+}
+/* Editorial theme: focus follows the page's edit-red convention. */
+:root[data-theme='editorial'] .cs-btn:focus {
+  border-color: var(--accent-red);
+}
+`;
+
+// src/web/lib.ts
+var LIB_JS = `
+(function(window) {
+  'use strict';
+
+  var THEME_OPTIONS = ${JSON.stringify(THEMES)};
+  var THEME_KEY = ${JSON.stringify(THEME_STORAGE_KEY)};
+
+  function themeValid(name) {
+    for (var i = 0; i < THEME_OPTIONS.length; i++) {
+      if (THEME_OPTIONS[i].name === name) return true;
+    }
+    return false;
+  }
+
+  function themeCurrent() {
+    try {
+      var d = document.documentElement;
+      return (d.dataset && d.dataset.theme) || '';
+    } catch (e) { return ''; }
+  }
+
+  function themeApply(name, persist) {
+    if (!themeValid(name)) return;
+    try { document.documentElement.dataset.theme = name; } catch (e) {}
+    if (persist !== false) {
+      try { localStorage.setItem(THEME_KEY, name); } catch (e) {}
+    }
+    var container = document.getElementById('themePicker');
+    if (!container) return;
+    for (var i = 0; i < container.children.length; i++) {
+      var btn = container.children[i];
+      btn.className = 'theme-pill' + (btn.getAttribute('data-theme') === name ? ' active' : '');
+    }
+  }
+
+  function syncThemePickerLabels() {
+    try {
+      var container = document.getElementById('themePicker');
+      if (!container) return;
+      var tr = window.__moaI18n && window.__moaI18n.t;
+      for (var i = 0; i < container.children.length; i++) {
+        var btn = container.children[i];
+        var label = btn.textContent || '';
+        btn.setAttribute('aria-label', tr ? tr('theme.option', { name: label }) : 'Theme: ' + label);
+      }
+    } catch (e) {}
+  }
+
+  /** Render the header theme picker from THEME_OPTIONS and sync it to the applied theme. */
+  function initThemePicker() {
+    try {
+      var container = document.getElementById('themePicker');
+      if (!container || !THEME_OPTIONS.length) return;
+      for (var i = 0; i < THEME_OPTIONS.length; i++) {
+        (function (opt) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'theme-pill';
+          btn.setAttribute('data-theme', opt.name);
+          btn.textContent = opt.label;
+          btn.addEventListener('click', function () { themeApply(opt.name); });
+          container.appendChild(btn);
+        })(THEME_OPTIONS[i]);
+      }
+      syncThemePickerLabels();
+      if (window.addEventListener) window.addEventListener('moamcp:localechange', syncThemePickerLabels);
+      themeApply(themeCurrent() || THEME_OPTIONS[0].name, false);
+    } catch (e) {}
+  }
+
+  /**
+   * Liquid theme only: mouse parallax for the aurora layer + cursor-following
+   * card highlight origin. The listener stays attached forever; the handler
+   * no-ops outside the liquid theme, so theme switches need no rebinding.
+   * Writes viewport-normalized -1..1 into <html> --mx/--my, and card-local
+   * pixels into the hovered .card's --cx/--cy. rAF-throttled; harmless no-op
+   * in headless sandboxes (no requestAnimationFrame / documentElement).
+   */
+  function initLiquidParallax() {
+    try {
+      var raf = window.requestAnimationFrame;
+      var docEl = document.documentElement;
+      if (typeof raf !== 'function' || !docEl || !docEl.style) return;
+      var pending = false;
+      function onMove(e) {
+        if (pending) return;
+        pending = true;
+        raf(function () {
+          pending = false;
+          try {
+            if (!docEl.dataset || docEl.dataset.theme !== 'liquid') return;
+            var vw = window.innerWidth || 1;
+            var vh = window.innerHeight || 1;
+            docEl.style.setProperty('--mx', ((e.clientX / vw) * 2 - 1).toFixed(3));
+            docEl.style.setProperty('--my', ((e.clientY / vh) * 2 - 1).toFixed(3));
+            var target = e.target;
+            var card = target && typeof target.closest === 'function' ? target.closest('.card') : null;
+            if (card && card.style) {
+              var r = card.getBoundingClientRect();
+              if (r && (r.width || r.height)) {
+                card.style.setProperty('--cx', (e.clientX - r.left).toFixed(1) + 'px');
+                card.style.setProperty('--cy', (e.clientY - r.top).toFixed(1) + 'px');
+              }
+            }
+          } catch (_) {}
+        });
+      }
+      window.addEventListener('mousemove', onMove, { passive: true });
+    } catch (e) {}
+  }
+
+  function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
+  function fmtClock(iso) {
+    if (!iso) return '\u2013';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+
+  function fmtTokens(n) {
+    n = Number(n);
+    if (!isFinite(n)) return '\u2013';
+    return n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'k' : String(n);
+  }
+
+  function fmtBytes(bytes) {
+    bytes = Number(bytes);
+    if (!isFinite(bytes) || bytes < 0) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function valueText(value) {
+    if (value === undefined || value === null) return '\u2014';
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
+  }
+
+  function api(url, options) {
+    return fetch(url, options).then(function(res) {
+      return res.text().then(function(raw) {
+        var data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch (_) { data = { error: raw || 'invalid server response' }; }
+        if (!res.ok) throw new Error(data && data.error ? data.error : 'HTTP ' + res.status);
+        return data;
+      });
+    });
+  }
+
+  function connectSSE(url, onEvent, onState) {
+    var sse = null;
+    var fails = 0;
+    var delay = 800;
+    var stopped = false;
+
+    function connect() {
+      if (stopped) return;
+      sse = new EventSource(url);
+      if (onState) onState('connecting', '\u25CF sse');
+
+      sse.onopen = function() {
+        fails = 0;
+        delay = 800;
+        if (onState) onState('open', '\u25CF sse');
+      };
+
+      sse.onmessage = function(ev) {
+        fails = 0;
+        if (onEvent) {
+          try { onEvent(JSON.parse(ev.data)); } catch (_) {}
+        }
+      };
+
+      sse.onerror = function() {
+        if (sse) { sse.close(); sse = null; }
+        if (stopped) return;
+        fails++;
+        // E1 rule: 1-2 transient errors retry quickly; 3+ enter exponential backoff capped at 15s
+        var nextDelay = fails < 3 ? 800 : Math.min(15000, delay * 2);
+        delay = nextDelay;
+        var tr = window.__moaI18n && window.__moaI18n.t;
+        var stateMsg = fails < 3
+          ? (tr ? tr('debate.transient', { count: fails }) : '\u25CB \u77AC\u65AD ' + fails + '/3')
+          : (tr ? tr('debate.backoff', { seconds: Math.round(nextDelay / 100) / 10 }) : '\u25CB \u91CD\u8FDE\u9000\u907F ' + Math.round(nextDelay / 100) / 10 + 's');
+        if (onState) onState('error', stateMsg);
+        setTimeout(connect, nextDelay);
+      };
+    }
+
+    connect();
+
+    return {
+      close: function() {
+        stopped = true;
+        if (sse) { sse.close(); sse = null; }
+      }
+    };
+  }
+
+  /* \u2500\u2500 Themed custom <select> (EnhanceSelect) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+     Wraps a native <select> with a themed button + role="listbox" popover.
+     The native select stays in the DOM (visually hidden, still readable by
+     assistive tech) and remains the single source of truth: every option
+     add/remove, .value / .disabled write and 'change' dispatch on it keeps
+     working exactly as before. A MutationObserver (option list, disabled,
+     selectedness) plus a light polling backstop mirror native state into
+     the custom UI; picking an option writes select.value back and dispatches
+     a bubbling 'change'. Idempotent (data-cs-enhanced marker) and no-op safe
+     in fake-DOM sandboxes (initLiquidParallax-style guarding). */
+  var CS_POLL_MS = 300;
+  var CS_TYPEAHEAD_MS = 800;
+  var csPopCounter = 0;
+
+  function EnhanceSelect(select) {
+    try {
+      if (!select || !select.parentNode || select.multiple) return null;
+      if (select.getAttribute && select.getAttribute('data-cs-enhanced')) return select;
+
+      var doc = document;
+      var root = doc.createElement('div');
+      root.className = 'cs-root';
+      root.setAttribute('data-cs', '1');
+      var btn = doc.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cs-btn';
+      btn.setAttribute('aria-haspopup', 'listbox');
+      btn.setAttribute('aria-expanded', 'false');
+      var popId = (select.id ? select.id + '-pop' : 'cs-pop-' + (++csPopCounter));
+      var pop = doc.createElement('div');
+      pop.className = 'cs-pop';
+      pop.id = popId;
+      pop.setAttribute('role', 'listbox');
+      pop.hidden = true;
+      btn.setAttribute('aria-controls', popId);
+
+      /* Share the select's accessible name: its <label>, else aria-label. */
+      var label = '';
+      if (select.id) {
+        var labelEl = null;
+        try { labelEl = doc.querySelector('label[for="' + select.id + '"]'); } catch (e) { labelEl = null; }
+        if (labelEl) {
+          var labelId = labelEl.id || (select.id + '-lbl');
+          if (!labelEl.id) labelEl.id = labelId;
+          label = labelEl.textContent || '';
+          btn.setAttribute('aria-labelledby', labelId);
+        }
+      }
+      if (!label) {
+        label = select.getAttribute('aria-label') || select.getAttribute('label') || '';
+        if (label) btn.setAttribute('aria-label', label);
+      }
+      if (label) pop.setAttribute('aria-label', label);
+
+      select.parentNode.insertBefore(root, select);
+      select.className = (select.className ? select.className + ' ' : '') + 'cs-native visually-hidden';
+      select.tabIndex = -1; /* the button is the tab stop; label clicks redirect below */
+      root.appendChild(select);
+      root.appendChild(btn);
+      root.appendChild(pop);
+      select.setAttribute('data-cs-enhanced', '1');
+
+      /* Copy a px min-width (e.g. #workspace's 280px) so the wrapper keeps the
+         native select's footprint in flex bars; .field .cs-root{width:100%}
+         covers the toolbar fields. */
+      if (typeof getComputedStyle === 'function') {
+        try {
+          var css = getComputedStyle(select);
+          if (css && css.minWidth && /px$/.test(css.minWidth)) root.style.minWidth = css.minWidth;
+        } catch (e) {}
+      }
+
+      var activeIndex = -1;
+      var lastValue = select.value;
+      var lastDisabled = !!select.disabled;
+      var typeBuffer = '';
+      var typeLastTs = 0;
+      var typeTimer = null;
+      var observer = null;
+      var pollTimer = null;
+      var destroyed = false;
+
+      function optCount() {
+        var opts = select.options;
+        return opts ? opts.length : 0;
+      }
+      function optAt(index) {
+        var opts = select.options;
+        return opts ? opts[index] : null;
+      }
+      function findIndexByValue(value) {
+        for (var i = 0; i < optCount(); i++) {
+          var opt = optAt(i);
+          if (opt && opt.value === value) return i;
+        }
+        return -1;
+      }
+      function firstEnabledIndex() {
+        for (var i = 0; i < optCount(); i++) {
+          var opt = optAt(i);
+          if (opt && !opt.disabled) return i;
+        }
+        return -1;
+      }
+      function lastEnabledIndex() {
+        for (var i = optCount() - 1; i >= 0; i--) {
+          var opt = optAt(i);
+          if (opt && !opt.disabled) return i;
+        }
+        return -1;
+      }
+      function selectedText() {
+        var n = optCount();
+        if (!n) return '';
+        var idx = select.selectedIndex;
+        var opt = (idx >= 0 && idx < n) ? optAt(idx) : null;
+        if (!opt) {
+          for (var i = 0; i < n; i++) {
+            if (optAt(i).value === select.value) { opt = optAt(i); break; }
+          }
+        }
+        return opt ? (opt.textContent || opt.text || '') : '';
+      }
+      function scrollItemIntoView(item) {
+        try { if (item && item.scrollIntoView) item.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+      }
+      function syncDisplay() {
+        lastValue = select.value;
+        lastDisabled = !!select.disabled;
+        btn.textContent = selectedText();
+        btn.disabled = lastDisabled;
+        if (lastDisabled) closePop(false);
+        root.className = 'cs-root' + (lastDisabled ? ' disabled' : '');
+        var items = pop.children;
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].getAttribute('data-value') === lastValue) items[i].setAttribute('aria-selected', 'true');
+          else items[i].setAttribute('aria-selected', 'false');
+        }
+      }
+      function rebuildOptions() {
+        pop.textContent = '';
+        var n = optCount();
+        for (var i = 0; i < n; i++) {
+          (function (option, index) {
+            var item = doc.createElement('div');
+            item.className = 'cs-option' + (option.disabled ? ' cs-option-disabled' : '');
+            item.id = popId + '-o' + index;
+            item.setAttribute('role', 'option');
+            item.setAttribute('aria-selected', 'false');
+            if (option.disabled) item.setAttribute('aria-disabled', 'true');
+            item.textContent = option.textContent || option.text || '';
+            item.setAttribute('data-value', option.value);
+            item.addEventListener('mousemove', function () {
+              if (!option.disabled) setActive(index);
+            });
+            item.addEventListener('click', function () {
+              if (!option.disabled) commitValue(option.value, true);
+            });
+            pop.appendChild(item);
+          })(optAt(i), i);
+        }
+        activeIndex = findIndexByValue(select.value);
+        syncDisplay();
+        if (pop.hidden === false) applyActive();
+      }
+      function applyActive() {
+        var items = pop.children;
+        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+        if (activeIndex >= 0 && activeIndex < items.length) {
+          items[activeIndex].classList.add('active');
+          pop.setAttribute('aria-activedescendant', items[activeIndex].id);
+          scrollItemIntoView(items[activeIndex]);
+        }
+      }
+      function setActive(index) {
+        var n = optCount();
+        if (index < 0) index = 0;
+        if (index > n - 1) index = n - 1;
+        if (index !== activeIndex) { activeIndex = index; applyActive(); }
+      }
+      function moveActive(delta) {
+        var n = optCount();
+        if (!n) return;
+        var i = activeIndex >= 0 ? activeIndex : (delta > 0 ? -1 : n);
+        for (var step = 0; step < n; step++) {
+          i = (i + delta + n) % n;
+          var opt = optAt(i);
+          if (opt && !opt.disabled) { activeIndex = i; applyActive(); return; }
+        }
+      }
+      function openPop() {
+        if (lastDisabled || !optCount() || pop.hidden === false) return;
+        rebuildOptions();
+        var rect = null;
+        try { rect = btn.getBoundingClientRect(); } catch (e) { rect = null; }
+        pop.style.top = 'calc(100% + 4px)';
+        pop.style.bottom = 'auto';
+        pop.hidden = false;
+        if (rect && typeof window !== 'undefined' && window.innerHeight) {
+          var popH = 0;
+          try { popH = pop.offsetHeight || 0; } catch (e) {}
+          if (rect.bottom + 4 + popH > window.innerHeight) {
+            pop.style.top = 'auto';
+            pop.style.bottom = 'calc(100% + 4px)';
+          }
+        }
+        btn.setAttribute('aria-expanded', 'true');
+        applyActive();
+      }
+      function closePop(restoreFocus) {
+        if (pop.hidden === false) {
+          pop.hidden = true;
+          if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
+        }
+        btn.setAttribute('aria-expanded', 'false');
+        pop.removeAttribute('aria-activedescendant');
+        if (restoreFocus && btn.focus) { try { btn.focus(); } catch (e) {} }
+      }
+      function commitValue(value, dispatch) {
+        if (select.value !== value) {
+          select.value = value;
+          activeIndex = findIndexByValue(value);
+        }
+        syncDisplay();
+        if (dispatch) {
+          var ev = null;
+          try { ev = new Event('change', { bubbles: true }); } catch (e) {
+            try { ev = doc.createEvent('Event'); ev.initEvent('change', true, false); } catch (e2) { ev = null; }
+          }
+          if (ev && select.dispatchEvent) select.dispatchEvent(ev);
+        }
+        closePop(false);
+      }
+      function typeaheadSearch(needle, start) {
+        var n = optCount();
+        if (!n) return -1;
+        needle = needle.toLowerCase();
+        for (var step = 0; step < n; step++) {
+          var i = (start + step) % n;
+          var opt = optAt(i);
+          if (!opt || opt.disabled) continue;
+          var t = (opt.textContent || opt.text || '').toLowerCase();
+          if (t.indexOf(needle) === 0) return i;
+        }
+        return -1;
+      }
+      function typeaheadMove(ch) {
+        var now = Date.now();
+        if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
+        if (now - typeLastTs > CS_TYPEAHEAD_MS) typeBuffer = '';
+        typeLastTs = now;
+        typeBuffer += ch;
+        var start = activeIndex >= 0 ? activeIndex + 1 : 0;
+        var hit = typeaheadSearch(typeBuffer, start);
+        if (hit < 0) hit = typeaheadSearch(typeBuffer, 0);
+        if (hit >= 0) { activeIndex = hit; applyActive(); }
+        typeTimer = setTimeout(function () { typeBuffer = ''; typeTimer = null; }, CS_TYPEAHEAD_MS);
+      }
+      function typeaheadCommit(ch) {
+        var hit = typeaheadSearch(ch, 0);
+        if (hit >= 0) {
+          var opt = optAt(hit);
+          if (opt) commitValue(opt.value, true);
+        }
+      }
+
+      btn.addEventListener('click', function () {
+        if (pop.hidden === false) closePop(false); else openPop();
+      });
+      btn.addEventListener('keydown', function (e) {
+        var key = e.key;
+        if (!key) return;
+        if (pop.hidden === false) {
+          if (key === 'Escape') { e.preventDefault(); closePop(true); }
+          else if (key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+          else if (key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+          else if (key === 'Home') { e.preventDefault(); activeIndex = 0; applyActive(); }
+          else if (key === 'End') { e.preventDefault(); activeIndex = optCount() - 1; applyActive(); }
+          else if (key === 'Enter' || key === ' ') {
+            e.preventDefault();
+            var idx = activeIndex;
+            var opt = (idx >= 0 && idx < optCount()) ? optAt(idx) : null;
+            if (!opt || opt.disabled) opt = optAt(firstEnabledIndex());
+            if (opt) commitValue(opt.value, true);
+          }
+          else if (key === 'Tab') { closePop(false); }
+          else if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); typeaheadMove(key); }
+        } else {
+          if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Enter' || key === ' ') {
+            e.preventDefault();
+            openPop();
+            if (key === 'ArrowDown') { activeIndex = firstEnabledIndex(); applyActive(); }
+            else if (key === 'ArrowUp') { activeIndex = lastEnabledIndex(); applyActive(); }
+          }
+          else if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { typeaheadCommit(key); }
+        }
+      });
+      /* Native 'change' (dispatched by page code) re-syncs the custom UI. */
+      select.addEventListener('change', syncDisplay);
+      /* Label clicks land on the hidden select \u2014 hand focus to the button. */
+      select.addEventListener('focus', function () {
+        if (!lastDisabled && btn.focus) { try { btn.focus(); } catch (e) {} }
+      });
+
+      if (typeof MutationObserver === 'function') {
+        observer = new MutationObserver(function (mutations) {
+          if (destroyed) return;
+          var structural = false;
+          for (var i = 0; i < mutations.length; i++) {
+            if (mutations[i].type === 'childList') { structural = true; break; }
+          }
+          if (structural) rebuildOptions(); else syncDisplay();
+        });
+        observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'selected'] });
+      }
+      /* Value reflection onto option[selected] is not universally observable,
+         so a light poll backstops .value / .disabled writes. */
+      if (typeof setInterval === 'function') {
+        pollTimer = setInterval(function () {
+          if (destroyed) return;
+          var v = select.value;
+          var d = !!select.disabled;
+          if (v !== lastValue || d !== lastDisabled) {
+            lastValue = v;
+            lastDisabled = d;
+            syncDisplay();
+          }
+        }, CS_POLL_MS);
+      }
+
+      /* Close on outside mousedown (capture, so it beats inner handlers) and
+         on window scroll/resize; both removed on destroy. */
+      function onDocMousedown(e) {
+        if (pop.hidden === false) {
+          var t = e.target;
+          if (t === root || (t && t.nodeType === 1 && root.contains(t))) return;
+          closePop(false);
+        }
+      }
+      if (doc.addEventListener) doc.addEventListener('mousedown', onDocMousedown, true);
+      function onViewportChange() { closePop(false); }
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('scroll', onViewportChange, { passive: true });
+        window.addEventListener('resize', onViewportChange, { passive: true });
+      }
+
+      function destroy() {
+        destroyed = true;
+        if (observer) { try { observer.disconnect(); } catch (e) {} observer = null; }
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
+        if (doc.removeEventListener) doc.removeEventListener('mousedown', onDocMousedown, true);
+        if (typeof window !== 'undefined' && window.removeEventListener) {
+          window.removeEventListener('scroll', onViewportChange);
+          window.removeEventListener('resize', onViewportChange);
+        }
+      }
+      root.destroy = destroy;
+
+      rebuildOptions();
+      return root;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** Enhance every native <select> on the page. Idempotent; harmless no-op
+   *  in fake-DOM sandboxes (initLiquidParallax-style guarding). */
+  function initCustomSelects() {
+    try {
+      var selects = document.querySelectorAll('select');
+      if (!selects) return;
+      for (var i = 0; i < selects.length; i++) {
+        try { EnhanceSelect(selects[i]); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  window.__moaLib = {
+    pad2: pad2,
+    fmtClock: fmtClock,
+    fmtTokens: fmtTokens,
+    fmtBytes: fmtBytes,
+    valueText: valueText,
+    api: api,
+    connectSSE: connectSSE,
+    initThemePicker: initThemePicker,
+    initLiquidParallax: initLiquidParallax,
+    EnhanceSelect: EnhanceSelect,
+    initCustomSelects: initCustomSelects
+  };
+
+  initThemePicker();
+  initLiquidParallax();
+  initCustomSelects();
+})(typeof window !== 'undefined' ? window : this);
+`;
+
+// src/web/i18n.ts
+var LOCALE_STORAGE_KEY = "moamcp-locale";
+var I18N_DICTIONARIES = {
+  en: {
+    "app.brand": "MOA Workspace",
+    "app.nav": "Main navigation",
+    "app.debate": "MOA Debate",
+    "app.memory": "Workspace Memory",
+    "app.runs": "MoA Runs",
+    "app.system": "System Health",
+    "locale.group": "Language",
+    "locale.zh": "\u4E2D\u6587",
+    "locale.en": "EN",
+    "theme.group": "Theme",
+    "theme.option": "Theme: {name}",
+    "debate.title": "MOA Debate",
+    "debate.context": "Current debate context",
+    "debate.noTask": "(no task_id)",
+    "debate.activeTasks": "Active tasks",
+    "debate.loading": "Loading\u2026",
+    "debate.noActiveTasks": "No active tasks.",
+    "debate.tasksError": "Failed to load /tasks.",
+    "debate.pickTask": "Pick a task",
+    "debate.progress": "Stage Progress",
+    "debate.waitInit": "Waiting for task initialization\u2026",
+    "debate.stage.consensus": "Consensus",
+    "debate.stage.reference": "Reference",
+    "debate.stage.debate": "Debate",
+    "debate.stage.aggregate": "Aggregate",
+    "debate.stage.verdict": "Verdict",
+    "debate.stage.consensusTip": "Consensus \u2014 prepare file consensus \xB7 Select for details",
+    "debate.stage.referenceTip": "Reference \u2014 reference pool \xB7 Select for details",
+    "debate.stage.debateTip": "Debate \u2014 debaters take turns \xB7 Select for details",
+    "debate.stage.aggregateTip": "Aggregate \u2014 synthesize the verdict \xB7 Select for details",
+    "debate.stage.verdictTip": "Verdict \u2014 VERDICT output \xB7 Select for details",
+    "debate.currentStage": "Current: {stage}",
+    "debate.allComplete": "Complete \u2014 VERDICT is available",
+    "debate.modeConfig": "Mode / Configuration",
+    "debate.waitTaskEvent": "Waiting for task_initialized\u2026",
+    "debate.round": "Round",
+    "debate.speaker": "Speaker",
+    "debate.turns": "Turns",
+    "debate.debaters": "Debaters",
+    "debate.agentStatus": "Agent Status",
+    "debate.transcript": "Debate Transcript",
+    "debate.noTurns": "No turns yet. Waiting for the debate to start\u2026",
+    "debate.fullTranscript": "Load Full Transcript",
+    "debate.toolLog": "Tool Call Log",
+    "debate.waitTools": "Waiting for tool calls\u2026",
+    "debate.scanning": "Scanning\u2026",
+    "debate.agentCount": "{count} agents",
+    "debate.toolCount": "{count} entries",
+    "debate.state.done": "Done",
+    "debate.state.active": "In progress",
+    "debate.state.pending": "Not started",
+    "debate.enteredAt": "Entered at {time}",
+    "debate.pending.0": "Waiting for the page connection (starts on load)",
+    "debate.pending.1": "Waiting for moa_init to initialize the task (task_initialized)",
+    "debate.pending.2": "Waiting for moa_start_debate to inject references and start (debate_started)",
+    "debate.pending.3": "Waiting for the final debater to submit (debate_complete)",
+    "debate.pending.4": "Waiting for moa_complete to write the three-layer archive (task_closed)",
+    "debate.notStarted": "This stage has not started \u2014 {reason}",
+    "debate.consensusDone": "Task initialized; consensus preparation is complete",
+    "debate.consensusActive": "Connected; waiting for moa_init to initialize the task",
+    "debate.referenceSummary": "reference_results summary: {value}",
+    "debate.referenceMissing": "The snapshot has no reference_results (moa_start_debate injects it directly into debater context).",
+    "debate.roundDetail": "Round {round}/{rounds} \xB7 Current speaker {speaker} \xB7 {turns} turns submitted",
+    "debate.aggregateDone": "Archive written; verdict is available",
+    "debate.aggregateActive": "Aggregating \u2014 waiting for moa_complete to write the archive",
+    "debate.verdictLoading": "Archive written; loading VERDICT details\u2026",
+    "debate.speaking": "speaking",
+    "debate.waiting": "waiting",
+    "debate.turnCount": "{count} turn",
+    "debate.turnCountPlural": "{count} turns",
+    "debate.signoff": "\u270D Sign-off",
+    "debate.closed": "closed",
+    "debate.initialized": "initialized",
+    "debate.debating": "debating",
+    "debate.debateComplete": "debate complete",
+    "debate.earlyClose": "Closed early (unanimous sign-off)",
+    "debate.archiveWritten": "Archive written \xB7 {archive}",
+    "debate.finishedAt": "finished at",
+    "debate.archive": "archive",
+    "debate.signers": "signers",
+    "debate.roundsLabel": "Rounds",
+    "debate.turnsLabel": "Turns",
+    "debate.archivedAfterComplete": "transcript archived on moa_complete.",
+    "debate.signoffReset": "Sign-offs reset ({agent} objected) \u2014 the debate continues on its original round plan",
+    "debate.waitingBadge": "waiting",
+    "debate.connecting": "connecting",
+    "debate.connectedNoEventsBefore": "Connected, but task ",
+    "debate.connectedNoEventsAfter": " has no events yet. The debate may not have started, or the Bus may have restarted (its event log is in memory). ",
+    "debate.backToTasks": "Back to task list",
+    "debate.transient": "\u25CB interruption {count}/3",
+    "debate.backoff": "\u25CB reconnecting in {seconds}s",
+    "debate.error": "\u2717 error",
+    "control.title": "Workspace Control Plane",
+    "memory.workspaceLabel": "Workspace \xB7 Memory & Agent config",
+    "memory.workspaceAria": "Select workspace",
+    "memory.tabs": "Workspace Memory",
+    "memory.tips": "Project Tips",
+    "memory.board": "Shared Board \xB7 Raw",
+    "common.status": "Status",
+    "common.allStatuses": "All statuses",
+    "common.module": "Module",
+    "common.tag": "Tag",
+    "common.limit": "Limit",
+    "memory.includeArchived": "Include archived",
+    "tips.new": "+ New Tip",
+    "tips.edit": "Edit Tip",
+    "tips.title": "Title *",
+    "tips.summary": "Summary *",
+    "tips.context": "Context",
+    "tips.nextAction": "Next action",
+    "tips.tags": "Tags \xB7 comma or newline separated",
+    "tips.sourceRefs": "Source refs \xB7 comma or newline separated",
+    "tips.relatedTipIds": "Related Tip IDs \xB7 comma or newline separated",
+    "tips.relatedProjects": "Related projects \xB7 comma or newline separated",
+    "tips.sourceSessionId": "Source session ID",
+    "tips.authorCreate": "Author \xB7 create only",
+    "tips.documentRefs": "Document refs \xB7 safe JSON array",
+    "tips.save": "Save Tip",
+    "common.cancel": "Cancel",
+    "common.details": "Details",
+    "common.archive": "Archive",
+    "common.edit": "Edit",
+    "common.delete": "Delete",
+    "common.refresh": "Refresh",
+    "common.closeDetails": "Close details",
+    "tips.empty": "No Tips match the current filters.",
+    "tips.noWorkspace": "No workspace is available. Run /moamcp:tips in a project first.",
+    "tips.createWorkspace": "Run /moamcp:tips in a project first to create a workspace sidecar.",
+    "tips.boardLink": "View tips/{id} on Board",
+    "tips.archiveConfirm": "Archive this Tip? It will be hidden from the default list.",
+    "tips.required": "Title and summary are required.",
+    "tips.documentJson": "documentRefs must be valid JSON.",
+    "tips.documentArray": "documentRefs must be a JSON array.",
+    "board.scope": "Scope",
+    "board.keySearch": "Key namespace / key",
+    "board.sort": "Sort",
+    "board.updatedDesc": "Recently updated",
+    "board.updatedAsc": "Oldest updated",
+    "board.keyAsc": "key A\u2013Z",
+    "board.keyDesc": "key Z\u2013A",
+    "board.new": "+ New Entry",
+    "board.results": "{count} results",
+    "board.result": "{count} result",
+    "board.select": "Select a Board entry to view its full value.",
+    "board.empty": "No Board entries match the key/tag filters.",
+    "board.newTitle": "New Board Entry",
+    "board.editTitle": "Edit Board Entry",
+    "board.closeForm": "Close Board form",
+    "board.value": "Markdown value",
+    "board.valueSize": "UTF-8 value size",
+    "board.author": "Author",
+    "board.external": "Updated externally: your draft is preserved. Saving will confirm again and use the version stamp from when the form opened.",
+    "board.reload": "Reload current version",
+    "board.save": "Save Entry",
+    "board.formClosed": "Board form is not open.",
+    "board.keyRequired": "Key is required.",
+    "board.tooLarge": "Value exceeds 32768 UTF-8 bytes.",
+    "board.workspaceRequired": "Workspace scope requires a registered workspace.",
+    "board.externalConfirm": "This Board entry changed externally. Try saving with the expectedTs from when it was opened?",
+    "board.saved": "Board entry saved.",
+    "board.missing": "does not exist (it may have been deleted)",
+    "board.conflict": "CAS conflict. currentTs: {current}. Your draft is preserved.",
+    "board.currentMissing": "The current version does not exist and may have been deleted; your draft is preserved.",
+    "board.reloaded": "Reloaded currentTs: {current}",
+    "board.copyKey": "Copy key",
+    "board.copyValue": "Copy value",
+    "board.backToTip": "Back to typed Tip",
+    "board.deleteConfirm": "Delete \u201C{key}\u201D? It will disappear from this view, but append-only history retains a tombstone.",
+    "board.deleted": "Board entry deleted; append-only history retains a tombstone.",
+    "board.deleteConflict": "Delete CAS conflict. currentTs: {current}. Refresh and try again.",
+    "board.scopeNotice": "Workspace scope requires a registered workspace; global scope remains available.",
+    "common.copied": "{label} copied.",
+    "common.copyFailed": "Clipboard access failed. Please copy manually.",
+    "runs.intro": "The run model is an in-memory event projection of the owner Bus. After a Bus restart, use Archives as the source of truth.",
+    "runs.tabs": "MoA Runs",
+    "runs.live": "Live & Recent",
+    "runs.archives": "Archives",
+    "runs.query": "Query",
+    "runs.queryPlaceholder": "task id, agent, binding slot",
+    "runs.empty": "No live or recent runs.",
+    "runs.roundConfigured": "round / configured",
+    "runs.turn": "turn",
+    "runs.speaker": "speaker",
+    "runs.turnsSignoffs": "turns / signoffs",
+    "runs.lastEvent": "last event",
+    "runs.updated": "updated",
+    "runs.earlyReason": "early reason",
+    "runs.copyTask": "Copy task id",
+    "runs.openLive": "Open live card",
+    "runs.detailsError": "Run details: ",
+    "runs.openError": "Open live card: ",
+    "archives.copy": "Copy {file}",
+    "archives.download": "Download {file}",
+    "archives.fileError": "Archive file: ",
+    "archives.updated": "updated",
+    "archives.summary": "result summary",
+    "archives.errors": "Errors ({count})",
+    "archives.notPresent": "not present",
+    "archives.view": "View",
+    "archives.empty": "No archives found.",
+    "archives.degraded": "degraded",
+    "archives.available": "available",
+    "system.copyUrl": "Copy Control Plane URL",
+    "system.openDebate": "Open MOA Debate",
+    "system.intro": "Bus listener entries do not represent every Kimi Session or MCP process. This page is read-only and provides no dangerous mutations.",
+    "system.unavailable": "System Health unavailable: ",
+    "system.value": "value",
+    "memory.agents": "Agents & Profiles",
+    "agent.title": "Agents & Profiles",
+    "agent.intro": "Manage project-local Agent Markdown and local.toml bindings. Changes are written atomically to disk; the running Session adopts them only after /reload.",
+    "agent.refresh": "Refresh Agents",
+    "agent.new": "+ New Agent",
+    "agent.summary": "Agent profiles",
+    "agent.select": "Select an Agent to load its Markdown.",
+    "agent.noAgents": "No Agent Markdown files found.",
+    "agent.name": "Name *",
+    "agent.markdown": "Agent Markdown",
+    "agent.description": "Description",
+    "agent.slot": "Slot",
+    "agent.file": "File",
+    "agent.hash": "SHA-256",
+    "agent.size": "Size",
+    "agent.valid": "valid",
+    "agent.invalid": "invalid",
+    "agent.template": "Use template",
+    "agent.save": "Save Agent",
+    "agent.delete": "Delete Agent",
+    "agent.deleteConfirm": "Delete Agent \u201C{name}\u201D? The project file will be removed.",
+    "agent.saved": "Agent file saved to disk.",
+    "agent.deleted": "Agent file deleted from disk.",
+    "agent.reloadLatest": "Load latest version",
+    "agent.bindings": "Per-type bindings",
+    "agent.slots": "Named slots",
+    "agent.bindingName": "Name",
+    "agent.model": "Model",
+    "agent.thinking": "Thinking effort",
+    "agent.inherit": "Inherit",
+    "agent.unset": "unset",
+    "agent.addBinding": "Add binding",
+    "agent.saveBindings": "Save bindings",
+    "agent.noBindings": "No bindings in local.toml.",
+    "agent.rawTitle": "Raw local.toml",
+    "agent.rawHint": "Complex TOML layouts are not rewritten by the structured editor. Use this validated raw editor instead.",
+    "agent.loadRaw": "Load local.toml",
+    "agent.rawEditor": "local.toml source",
+    "agent.saveRaw": "Save local.toml",
+    "agent.layout": "TOML layout",
+    "agent.layoutStandard": "standard",
+    "agent.layoutComplex": "complex \u2014 use raw editor",
+    "agent.reloadBanner": "Saved to disk. The current Session has not adopted this change yet; after the running turn finishes, run /reload. Multiple Sessions must each run /reload.",
+    "agent.copyReload": "Copy /reload",
+    "agent.conflict": "Configuration changed externally. Your draft is preserved; load the latest version before saving again.",
+    "agent.reloaded": "Latest configuration loaded. Your previous draft was replaced.",
+    "agent.error": "Agent configuration: "
+  },
+  "zh-CN": {
+    "app.brand": "MOA \u5DE5\u4F5C\u533A",
+    "app.nav": "\u4E3B\u5BFC\u822A",
+    "app.debate": "MOA \u8FA9\u8BBA",
+    "app.memory": "\u5DE5\u4F5C\u533A\u8BB0\u5FC6",
+    "app.runs": "MoA \u8FD0\u884C",
+    "app.system": "\u7CFB\u7EDF\u5065\u5EB7",
+    "locale.group": "\u8BED\u8A00",
+    "locale.zh": "\u4E2D\u6587",
+    "locale.en": "EN",
+    "theme.group": "\u4E3B\u9898",
+    "theme.option": "\u4E3B\u9898\uFF1A{name}",
+    "debate.title": "MOA \u8FA9\u8BBA",
+    "debate.context": "\u5F53\u524D\u8FA9\u8BBA\u4E0A\u4E0B\u6587",
+    "debate.noTask": "\uFF08\u65E0 task_id\uFF09",
+    "debate.activeTasks": "\u6D3B\u8DC3\u4EFB\u52A1",
+    "debate.loading": "\u52A0\u8F7D\u4E2D\u2026",
+    "debate.noActiveTasks": "\u6682\u65E0\u6D3B\u8DC3\u4EFB\u52A1\u3002",
+    "debate.tasksError": "\u65E0\u6CD5\u52A0\u8F7D /tasks\u3002",
+    "debate.pickTask": "\u9009\u62E9\u4EFB\u52A1",
+    "debate.progress": "\u9636\u6BB5\u8FDB\u5EA6",
+    "debate.waitInit": "\u7B49\u5F85\u4EFB\u52A1\u521D\u59CB\u5316\u2026",
+    "debate.stage.consensus": "\u5171\u8BC6",
+    "debate.stage.reference": "\u53C2\u8003",
+    "debate.stage.debate": "\u8FA9\u8BBA",
+    "debate.stage.aggregate": "\u805A\u5408",
+    "debate.stage.verdict": "\u7ED3\u8BBA",
+    "debate.stage.consensusTip": "\u5171\u8BC6 \u2014 \u6587\u4EF6\u5171\u8BC6\u51C6\u5907 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5",
+    "debate.stage.referenceTip": "\u53C2\u8003 \u2014 \u53C2\u8003\u6C60 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5",
+    "debate.stage.debateTip": "\u8FA9\u8BBA \u2014 \u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5",
+    "debate.stage.aggregateTip": "\u805A\u5408 \u2014 \u6C47\u603B\u88C1\u51B3 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5",
+    "debate.stage.verdictTip": "\u7ED3\u8BBA \u2014 VERDICT \u8F93\u51FA \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5",
+    "debate.currentStage": "\u5F53\u524D\uFF1A{stage}",
+    "debate.allComplete": "\u5168\u90E8\u5B8C\u6210 \u2014 \u88C1\u51B3\u7ED3\u679C\u5DF2\u5C31\u7EEA",
+    "debate.modeConfig": "\u6A21\u5F0F / \u914D\u7F6E",
+    "debate.waitTaskEvent": "\u7B49\u5F85 task_initialized\u2026",
+    "debate.round": "\u8F6E\u6B21",
+    "debate.speaker": "\u53D1\u8A00\u4EBA",
+    "debate.turns": "\u53D1\u8A00\u6570",
+    "debate.debaters": "\u8FA9\u624B",
+    "debate.agentStatus": "Agent \u72B6\u6001",
+    "debate.transcript": "\u8FA9\u8BBA\u8BB0\u5F55",
+    "debate.noTurns": "\u5C1A\u65E0\u53D1\u8A00\uFF0C\u7B49\u5F85\u8FA9\u8BBA\u5F00\u59CB\u2026",
+    "debate.fullTranscript": "\u52A0\u8F7D\u5B8C\u6574\u8FA9\u8BBA\u8BB0\u5F55",
+    "debate.toolLog": "\u5DE5\u5177\u8C03\u7528\u65E5\u5FD7",
+    "debate.waitTools": "\u7B49\u5F85\u5DE5\u5177\u8C03\u7528\u2026",
+    "debate.scanning": "\u626B\u63CF\u4E2D\u2026",
+    "debate.agentCount": "{count} \u4E2A agent",
+    "debate.toolCount": "{count} \u6761",
+    "debate.state.done": "\u5B8C\u6210",
+    "debate.state.active": "\u8FDB\u884C\u4E2D",
+    "debate.state.pending": "\u672A\u5F00\u59CB",
+    "debate.enteredAt": "\u4E8E {time} \u8FDB\u5165",
+    "debate.pending.0": "\u7B49\u5F85\u9875\u9762\u8FDE\u63A5\u5EFA\u7ACB\uFF08\u52A0\u8F7D\u540E\u81EA\u52A8\u8FDE\u63A5\uFF09",
+    "debate.pending.1": "\u7B49\u5F85 moa_init \u5B8C\u6210\u4EFB\u52A1\u521D\u59CB\u5316\uFF08task_initialized\uFF09",
+    "debate.pending.2": "\u7B49\u5F85 moa_start_debate \u6CE8\u5165\u53C2\u8003\u6C60\u5E76\u542F\u52A8\u8FA9\u8BBA\uFF08debate_started\uFF09",
+    "debate.pending.3": "\u7B49\u5F85\u6240\u6709\u8FA9\u624B\u5B8C\u6210\u53D1\u8A00\uFF08debate_complete\uFF09",
+    "debate.pending.4": "\u7B49\u5F85 moa_complete \u5199\u5165\u4E09\u5C42\u5F52\u6863\uFF08task_closed\uFF09",
+    "debate.notStarted": "\u8BE5\u9636\u6BB5\u5C1A\u672A\u5F00\u59CB \u2014 {reason}",
+    "debate.consensusDone": "\u4EFB\u52A1\u5DF2\u521D\u59CB\u5316\uFF0C\u5171\u8BC6\u51C6\u5907\u5B8C\u6210",
+    "debate.consensusActive": "\u5DF2\u8FDE\u63A5\uFF0C\u7B49\u5F85 moa_init \u521D\u59CB\u5316\u4EFB\u52A1",
+    "debate.referenceSummary": "reference_results \u6458\u8981\uFF1A{value}",
+    "debate.referenceMissing": "\u5FEB\u7167\u672A\u643A\u5E26 reference_results\uFF08moa_start_debate \u4F1A\u76F4\u63A5\u6CE8\u5165\u8FA9\u624B\u4E0A\u4E0B\u6587\uFF09\u3002",
+    "debate.roundDetail": "\u8F6E\u6B21 {round}/{rounds} \xB7 \u5F53\u524D\u53D1\u8A00\u4EBA {speaker} \xB7 \u5DF2\u63D0\u4EA4 {turns} \u6B21\u53D1\u8A00",
+    "debate.aggregateDone": "\u5F52\u6863\u5DF2\u5199\u5165\uFF0C\u88C1\u51B3\u5DF2\u8F93\u51FA",
+    "debate.aggregateActive": "\u6C47\u603B\u4E2D \u2014 \u7B49\u5F85 moa_complete \u5199\u5165\u5F52\u6863",
+    "debate.verdictLoading": "\u5F52\u6863\u5DF2\u5199\u5165\uFF0CVERDICT \u8BE6\u60C5\u52A0\u8F7D\u4E2D\u2026",
+    "debate.speaking": "\u53D1\u8A00\u4E2D",
+    "debate.waiting": "\u7B49\u5F85\u4E2D",
+    "debate.turnCount": "{count} \u6B21\u53D1\u8A00",
+    "debate.turnCountPlural": "{count} \u6B21\u53D1\u8A00",
+    "debate.signoff": "\u270D \u7B7E\u5B57",
+    "debate.closed": "\u5DF2\u5173\u95ED",
+    "debate.initialized": "\u5DF2\u521D\u59CB\u5316",
+    "debate.debating": "\u8FA9\u8BBA\u4E2D",
+    "debate.debateComplete": "\u8FA9\u8BBA\u5B8C\u6210",
+    "debate.earlyClose": "\u63D0\u524D\u7ED3\u675F\uFF08\u5168\u4F53\u4E00\u81F4\u7B7E\u5B57\uFF09",
+    "debate.archiveWritten": "\u5F52\u6863\u5DF2\u5199\u5165 \xB7 {archive}",
+    "debate.finishedAt": "\u5B8C\u6210\u65F6\u95F4",
+    "debate.archive": "\u5F52\u6863",
+    "debate.signers": "\u7B7E\u5B57\u4EBA",
+    "debate.roundsLabel": "\u8F6E\u6B21",
+    "debate.turnsLabel": "\u53D1\u8A00\u6570",
+    "debate.archivedAfterComplete": "\u8FA9\u8BBA\u8BB0\u5F55\u5C06\u5728 moa_complete \u540E\u5F52\u6863\u3002",
+    "debate.signoffReset": "\u7B7E\u5B57\u91CD\u7F6E\uFF08{agent} \u63D0\u51FA\u5F02\u8BAE\uFF09\u2014 \u8FA9\u8BBA\u6309\u539F\u5B9A\u8F6E\u6B21\u7EE7\u7EED",
+    "debate.waitingBadge": "\u7B49\u5F85\u4E2D",
+    "debate.connecting": "\u8FDE\u63A5\u4E2D\u2026",
+    "debate.connectedNoEventsBefore": "\u5DF2\u8FDE\u63A5\uFF0C\u4F46\u4EFB\u52A1 ",
+    "debate.connectedNoEventsAfter": " \u8FD8\u6CA1\u6709\u4EFB\u4F55\u4E8B\u4EF6\u3002\u8FA9\u8BBA\u53EF\u80FD\u5C1A\u672A\u5F00\u59CB\uFF0C\u6216 Bus \u8FDB\u7A0B\u91CD\u542F\u8FC7\uFF08\u4E8B\u4EF6\u65E5\u5FD7\u5728\u5185\u5B58\u4E2D\uFF09\u3002",
+    "debate.backToTasks": "\u8FD4\u56DE\u4EFB\u52A1\u5217\u8868",
+    "debate.transient": "\u25CB \u4E34\u65F6\u4E2D\u65AD {count}/3",
+    "debate.backoff": "\u25CB {seconds} \u79D2\u540E\u91CD\u8FDE",
+    "debate.error": "\u2717 \u9519\u8BEF",
+    "control.title": "\u5DE5\u4F5C\u533A\u63A7\u5236\u53F0",
+    "memory.workspaceLabel": "\u5DE5\u4F5C\u533A \xB7 \u8BB0\u5FC6\u4E0E Agent \u914D\u7F6E",
+    "memory.workspaceAria": "\u9009\u62E9\u5DE5\u4F5C\u533A",
+    "memory.tabs": "\u5DE5\u4F5C\u533A\u8BB0\u5FC6",
+    "memory.tips": "\u9879\u76EE Tips",
+    "memory.board": "\u5171\u4EAB\u9ED1\u677F \xB7 \u539F\u59CB\u6570\u636E",
+    "common.status": "\u72B6\u6001",
+    "common.allStatuses": "\u5168\u90E8\u72B6\u6001",
+    "common.module": "\u6A21\u5757",
+    "common.tag": "\u6807\u7B7E",
+    "common.limit": "\u6570\u91CF\u4E0A\u9650",
+    "memory.includeArchived": "\u5305\u542B\u5DF2\u5F52\u6863",
+    "tips.new": "+ \u65B0\u5EFA Tip",
+    "tips.edit": "\u7F16\u8F91 Tip",
+    "tips.title": "\u6807\u9898 *",
+    "tips.summary": "\u6458\u8981 *",
+    "tips.context": "\u4E0A\u4E0B\u6587",
+    "tips.nextAction": "\u4E0B\u4E00\u6B65\u64CD\u4F5C",
+    "tips.tags": "\u6807\u7B7E \xB7 \u7528\u9017\u53F7\u6216\u6362\u884C\u5206\u9694",
+    "tips.sourceRefs": "\u6765\u6E90\u5F15\u7528 \xB7 \u7528\u9017\u53F7\u6216\u6362\u884C\u5206\u9694",
+    "tips.relatedTipIds": "\u76F8\u5173 Tip ID \xB7 \u7528\u9017\u53F7\u6216\u6362\u884C\u5206\u9694",
+    "tips.relatedProjects": "\u76F8\u5173\u9879\u76EE \xB7 \u7528\u9017\u53F7\u6216\u6362\u884C\u5206\u9694",
+    "tips.sourceSessionId": "\u6765\u6E90 Session ID",
+    "tips.authorCreate": "\u4F5C\u8005 \xB7 \u4EC5\u521B\u5EFA\u65F6",
+    "tips.documentRefs": "\u6587\u6863\u5F15\u7528 \xB7 \u5B89\u5168 JSON \u6570\u7EC4",
+    "tips.save": "\u4FDD\u5B58 Tip",
+    "common.cancel": "\u53D6\u6D88",
+    "common.details": "\u8BE6\u60C5",
+    "common.archive": "\u5F52\u6863",
+    "common.edit": "\u7F16\u8F91",
+    "common.delete": "\u5220\u9664",
+    "common.refresh": "\u5237\u65B0",
+    "common.closeDetails": "\u5173\u95ED\u8BE6\u60C5",
+    "tips.empty": "\u6CA1\u6709\u7B26\u5408\u7B5B\u9009\u6761\u4EF6\u7684 Tip\u3002",
+    "tips.noWorkspace": "\u6682\u65E0\u5DE5\u4F5C\u533A\u3002\u8BF7\u5148\u5728\u9879\u76EE\u91CC\u8FD0\u884C /moamcp:tips\u3002",
+    "tips.createWorkspace": "\u8BF7\u5148\u5728\u9879\u76EE\u91CC\u8FD0\u884C /moamcp:tips \u521B\u5EFA\u5DE5\u4F5C\u533A sidecar\u3002",
+    "tips.boardLink": "\u5728\u9ED1\u677F\u4E2D\u67E5\u770B tips/{id}",
+    "tips.archiveConfirm": "\u786E\u8BA4\u5F52\u6863\u6B64 Tip\uFF1F\u5F52\u6863\u540E\u9ED8\u8BA4\u5217\u8868\u5C06\u4E0D\u518D\u663E\u793A\u3002",
+    "tips.required": "\u6807\u9898\u548C\u6458\u8981\u4E0D\u80FD\u4E3A\u7A7A\u3002",
+    "tips.documentJson": "documentRefs \u5FC5\u987B\u662F\u6709\u6548 JSON\u3002",
+    "tips.documentArray": "documentRefs \u5FC5\u987B\u662F JSON \u6570\u7EC4\u3002",
+    "board.scope": "\u4F5C\u7528\u57DF",
+    "board.keySearch": "Key \u547D\u540D\u7A7A\u95F4 / key",
+    "board.sort": "\u6392\u5E8F",
+    "board.updatedDesc": "\u6700\u8FD1\u66F4\u65B0",
+    "board.updatedAsc": "\u6700\u65E9\u66F4\u65B0",
+    "board.keyAsc": "key A\u2013Z",
+    "board.keyDesc": "key Z\u2013A",
+    "board.new": "+ \u65B0\u5EFA\u6761\u76EE",
+    "board.results": "{count} \u6761\u7ED3\u679C",
+    "board.result": "{count} \u6761\u7ED3\u679C",
+    "board.select": "\u9009\u62E9\u4E00\u6761\u9ED1\u677F\u6761\u76EE\u67E5\u770B\u5B8C\u6574\u5185\u5BB9 (value)\u3002",
+    "board.empty": "\u6CA1\u6709\u7B26\u5408 key/tag \u6761\u4EF6\u7684\u9ED1\u677F\u6761\u76EE\u3002",
+    "board.newTitle": "\u65B0\u5EFA\u9ED1\u677F\u6761\u76EE",
+    "board.editTitle": "\u7F16\u8F91\u9ED1\u677F\u6761\u76EE",
+    "board.closeForm": "\u5173\u95ED\u9ED1\u677F\u8868\u5355",
+    "board.value": "Markdown value",
+    "board.valueSize": "UTF-8 value \u5927\u5C0F",
+    "board.author": "\u4F5C\u8005",
+    "board.external": "\u5916\u90E8\u5DF2\u66F4\u65B0\uFF1A\u4F60\u7684\u672C\u5730\u8349\u7A3F\u5DF2\u4FDD\u7559\u3002\u4FDD\u5B58\u65F6\u5C06\u518D\u6B21\u786E\u8BA4\uFF0C\u5E76\u4F7F\u7528\u6253\u5F00\u8868\u5355\u65F6\u7684\u7248\u672C\u6233\u3002",
+    "board.reload": "\u91CD\u65B0\u8F7D\u5165\u5F53\u524D\u7248\u672C",
+    "board.save": "\u4FDD\u5B58\u6761\u76EE",
+    "board.formClosed": "\u9ED1\u677F\u8868\u5355\u672A\u6253\u5F00\u3002",
+    "board.keyRequired": "key \u4E0D\u80FD\u4E3A\u7A7A\u3002",
+    "board.tooLarge": "\u5185\u5BB9\u8D85\u51FA 32768 \u5B57\u8282 (UTF-8) \u9650\u5236\u3002",
+    "board.workspaceRequired": "\u5DE5\u4F5C\u533A\u4F5C\u7528\u57DF\u9700\u8981\u5148\u9009\u62E9\u5DF2\u6CE8\u518C\u7684\u5DE5\u4F5C\u533A\u3002",
+    "board.externalConfirm": "\u6B64\u9ED1\u677F\u6761\u76EE\u5DF2\u88AB\u5916\u90E8\u4FEE\u6539\u3002\u786E\u8BA4\u4ECD\u4F7F\u7528\u6253\u5F00\u8868\u5355\u65F6\u7684 expectedTs \u5C1D\u8BD5\u4FDD\u5B58\u5417\uFF1F",
+    "board.saved": "\u9ED1\u677F\u6761\u76EE\u5DF2\u4FDD\u5B58\u3002",
+    "board.missing": "\u4E0D\u5B58\u5728\uFF08\u53EF\u80FD\u5DF2\u5220\u9664\uFF09",
+    "board.conflict": "CAS \u7248\u672C\u51B2\u7A81\u3002\u5F53\u524D\u7248\u672C\u65F6\u95F4\u6233 currentTs: {current}\u3002\u8349\u7A3F\u5DF2\u4FDD\u7559\u3002",
+    "board.currentMissing": "\u5F53\u524D\u7248\u672C\u4E0D\u5B58\u5728\uFF0C\u53EF\u80FD\u5DF2\u5220\u9664\uFF1B\u8349\u7A3F\u7EE7\u7EED\u4FDD\u7559\u3002",
+    "board.reloaded": "\u5DF2\u91CD\u65B0\u8F7D\u5165 currentTs: {current}",
+    "board.copyKey": "\u590D\u5236 key",
+    "board.copyValue": "\u590D\u5236 value",
+    "board.backToTip": "\u8FD4\u56DE\u7ED3\u6784\u5316 Tip",
+    "board.deleteConfirm": "\u786E\u8BA4\u5220\u9664\u201C{key}\u201D\uFF1F\u5B83\u4F1A\u4ECE\u5F53\u524D\u89C6\u56FE\u6D88\u5931\uFF0C\u4F46 append-only \u5386\u53F2\u4F1A\u4FDD\u7559\u5893\u7891\u3002",
+    "board.deleted": "\u9ED1\u677F\u6761\u76EE\u5DF2\u5220\u9664\uFF1Bappend-only \u5386\u53F2\u5DF2\u4FDD\u7559\u5893\u7891\u3002",
+    "board.deleteConflict": "\u5220\u9664 CAS \u51B2\u7A81\u3002currentTs: {current}\u3002\u8BF7\u5237\u65B0\u540E\u91CD\u8BD5\u3002",
+    "board.scopeNotice": "\u5DE5\u4F5C\u533A\u4F5C\u7528\u57DF\u9700\u8981\u5148\u6CE8\u518C\u5DE5\u4F5C\u533A\uFF1B\u4F60\u4ECD\u53EF\u5207\u6362\u81F3\u5168\u5C40\u4F5C\u7528\u57DF\u3002",
+    "common.copied": "\u5DF2\u590D\u5236{label}\u3002",
+    "common.copyFailed": "\u65E0\u6CD5\u8BBF\u95EE\u526A\u8D34\u677F\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u3002",
+    "runs.intro": "\u8FD0\u884C\u6A21\u578B\u662F owner Bus \u7684\u5185\u5B58\u4E8B\u4EF6\u6295\u5F71\uFF1BBus \u91CD\u542F\u540E\u8BF7\u4EE5\u5F52\u6863\u4E3A\u51C6\u3002",
+    "runs.tabs": "MoA \u8FD0\u884C",
+    "runs.live": "\u5B9E\u65F6\u4E0E\u8FD1\u671F",
+    "runs.archives": "\u5F52\u6863",
+    "runs.query": "\u641C\u7D22",
+    "runs.queryPlaceholder": "task id\u3001agent\u3001binding slot",
+    "runs.empty": "\u6682\u65E0\u5B9E\u65F6\u6216\u8FD1\u671F\u8FD0\u884C\u3002",
+    "runs.roundConfigured": "\u5F53\u524D\u8F6E\u6B21 / \u914D\u7F6E\u8F6E\u6B21",
+    "runs.turn": "\u5F53\u524D\u53D1\u8A00 (turn)",
+    "runs.speaker": "\u53D1\u8A00\u4EBA",
+    "runs.turnsSignoffs": "\u53D1\u8A00\u6570 / \u7B7E\u5B57\u6570",
+    "runs.lastEvent": "\u6700\u8FD1\u4E8B\u4EF6",
+    "runs.updated": "\u66F4\u65B0\u65F6\u95F4",
+    "runs.earlyReason": "\u63D0\u524D\u7ED3\u675F\u539F\u56E0",
+    "runs.copyTask": "\u590D\u5236 task id",
+    "runs.openLive": "\u6253\u5F00\u5B9E\u65F6\u5361\u7247",
+    "runs.detailsError": "\u83B7\u53D6\u8FD0\u884C\u8BE6\u60C5\u5931\u8D25\uFF1A",
+    "runs.openError": "\u65E0\u6CD5\u6253\u5F00\u5B9E\u65F6\u5361\u7247\uFF1A",
+    "archives.copy": "\u590D\u5236 {file}",
+    "archives.download": "\u4E0B\u8F7D {file}",
+    "archives.fileError": "\u52A0\u8F7D\u5F52\u6863\u6587\u4EF6\u5931\u8D25\uFF1A",
+    "archives.updated": "\u66F4\u65B0\u65F6\u95F4",
+    "archives.summary": "\u7ED3\u679C\u6458\u8981",
+    "archives.errors": "\u9519\u8BEF\uFF08{count}\uFF09",
+    "archives.notPresent": "\u4E0D\u5B58\u5728",
+    "archives.view": "\u67E5\u770B",
+    "archives.empty": "\u672A\u627E\u5230\u5F52\u6863\u3002",
+    "archives.degraded": "\u9000\u5316",
+    "archives.available": "\u53EF\u7528",
+    "system.copyUrl": "\u590D\u5236\u63A7\u5236\u53F0 URL",
+    "system.openDebate": "\u6253\u5F00 MOA \u8FA9\u8BBA",
+    "system.intro": "Bus listener \u6761\u76EE\u4E0D\u7B49\u4E8E\u5168\u90E8 Kimi Session / MCP \u8FDB\u7A0B\u3002\u6B64\u9875\u9762\u53EA\u8BFB\uFF0C\u4E0D\u63D0\u4F9B\u5371\u9669\u64CD\u4F5C\u3002",
+    "system.unavailable": "\u7CFB\u7EDF\u5065\u5EB7\u4FE1\u606F\u6682\u4E0D\u53EF\u7528\uFF1A",
+    "system.value": "\u503C",
+    "memory.agents": "Agent \u4E0E Profile",
+    "agent.title": "Agent \u4E0E Profile",
+    "agent.intro": "\u7BA1\u7406\u9879\u76EE\u5185\u7684 Agent Markdown \u4E0E local.toml binding\u3002\u4FEE\u6539\u4F1A\u539F\u5B50\u5199\u5165\u78C1\u76D8\uFF1B\u8FD0\u884C\u4E2D\u7684 Session \u53EA\u6709\u5728\u6267\u884C /reload \u540E\u624D\u4F1A\u91C7\u7528\u3002",
+    "agent.refresh": "\u5237\u65B0 Agent",
+    "agent.new": "+ \u65B0\u5EFA Agent",
+    "agent.summary": "Agent Profile",
+    "agent.select": "\u9009\u62E9\u4E00\u4E2A Agent \u4EE5\u52A0\u8F7D Markdown \u6B63\u6587\u3002",
+    "agent.noAgents": "\u6CA1\u6709\u627E\u5230 Agent Markdown \u6587\u4EF6\u3002",
+    "agent.name": "\u540D\u79F0 *",
+    "agent.markdown": "Agent Markdown",
+    "agent.description": "\u63CF\u8FF0",
+    "agent.slot": "Slot",
+    "agent.file": "\u6587\u4EF6",
+    "agent.hash": "SHA-256",
+    "agent.size": "\u5927\u5C0F",
+    "agent.valid": "\u6709\u6548",
+    "agent.invalid": "\u65E0\u6548",
+    "agent.template": "\u4F7F\u7528\u6A21\u677F",
+    "agent.save": "\u4FDD\u5B58 Agent",
+    "agent.delete": "\u5220\u9664 Agent",
+    "agent.deleteConfirm": "\u786E\u8BA4\u5220\u9664 Agent \u201C{name}\u201D\uFF1F\u9879\u76EE\u6587\u4EF6\u5C06\u88AB\u79FB\u9664\u3002",
+    "agent.saved": "Agent \u6587\u4EF6\u5DF2\u4FDD\u5B58\u5230\u78C1\u76D8\u3002",
+    "agent.deleted": "Agent \u6587\u4EF6\u5DF2\u4ECE\u78C1\u76D8\u5220\u9664\u3002",
+    "agent.reloadLatest": "\u52A0\u8F7D\u6700\u65B0\u7248\u672C",
+    "agent.bindings": "\u6309\u7C7B\u578B binding",
+    "agent.slots": "\u547D\u540D slot",
+    "agent.bindingName": "\u540D\u79F0",
+    "agent.model": "\u6A21\u578B",
+    "agent.thinking": "\u601D\u8003\u5F3A\u5EA6",
+    "agent.inherit": "\u7EE7\u627F",
+    "agent.unset": "\u672A\u8BBE\u7F6E",
+    "agent.addBinding": "\u6DFB\u52A0 binding",
+    "agent.saveBindings": "\u4FDD\u5B58 binding",
+    "agent.noBindings": "local.toml \u4E2D\u6CA1\u6709 binding\u3002",
+    "agent.rawTitle": "\u539F\u6587 local.toml",
+    "agent.rawHint": "\u590D\u6742 TOML \u5E03\u5C40\u4E0D\u4F1A\u7531\u7ED3\u6784\u5316\u7F16\u8F91\u5668\u91CD\u6392\uFF0C\u8BF7\u6539\u7528\u8FD9\u4E2A\u7ECF\u8FC7\u6821\u9A8C\u7684\u539F\u6587\u7F16\u8F91\u5668\u3002",
+    "agent.loadRaw": "\u52A0\u8F7D local.toml",
+    "agent.rawEditor": "local.toml \u539F\u6587",
+    "agent.saveRaw": "\u4FDD\u5B58 local.toml",
+    "agent.layout": "TOML \u5E03\u5C40",
+    "agent.layoutStandard": "\u6807\u51C6",
+    "agent.layoutComplex": "\u590D\u6742 \u2014 \u8BF7\u4F7F\u7528\u539F\u6587\u7F16\u8F91\u5668",
+    "agent.reloadBanner": "\u5DF2\u4FDD\u5B58\u5230\u78C1\u76D8\u3002\u5F53\u524D Session \u5C1A\u672A\u91C7\u7528\u6B64\u4FEE\u6539\uFF1B\u8FD0\u884C\u4E2D\u7684 turn \u5B8C\u6210\u540E\u518D\u6267\u884C /reload\u3002\u591A\u4E2A Session \u9700\u8981\u5206\u522B\u6267\u884C /reload\u3002",
+    "agent.copyReload": "\u590D\u5236 /reload",
+    "agent.conflict": "\u914D\u7F6E\u5DF2\u88AB\u5916\u90E8\u4FEE\u6539\u3002\u4F60\u7684\u8349\u7A3F\u5DF2\u4FDD\u7559\uFF1B\u52A0\u8F7D\u6700\u65B0\u7248\u672C\u540E\u518D\u4FDD\u5B58\u3002",
+    "agent.reloaded": "\u5DF2\u52A0\u8F7D\u6700\u65B0\u914D\u7F6E\uFF0C\u4E4B\u524D\u7684\u8349\u7A3F\u5DF2\u66FF\u6362\u3002",
+    "agent.error": "Agent \u914D\u7F6E\uFF1A"
+  }
+};
+var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
+var I18N_BOOTSTRAP = `<script>
+(function () {
+  try {
+    var saved = null;
+    try { saved = localStorage.getItem('${LOCALE_STORAGE_KEY}'); } catch (_) {}
+    var langs = (typeof navigator !== 'undefined' && navigator.languages && navigator.languages.length) ? navigator.languages : [(typeof navigator !== 'undefined' && navigator.language) || ''];
+    var fallback = langs.some(function (value) { return /^zh(?:-|$)/i.test(String(value)); }) ? 'zh-CN' : 'en';
+    document.documentElement.lang = saved === 'zh-CN' || saved === 'en' ? saved : fallback;
+  } catch (e) { try { document.documentElement.lang = 'en'; } catch (_) {} }
+})();
+</script>`;
+var I18N_JS = `
+(function(window) {
+  'use strict';
+  var DICTS = ${SERIALIZED_DICTIONARIES};
+  var KEY = ${JSON.stringify(LOCALE_STORAGE_KEY)};
+  var VALID = ['zh-CN', 'en'];
+  function valid(value) { return VALID.indexOf(value) !== -1; }
+  function browserLocale() {
+    try {
+      var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+      for (var i = 0; i < langs.length; i++) if (/^zh(?:-|$)/i.test(String(langs[i]))) return 'zh-CN';
+    } catch (_) {}
+    return 'en';
+  }
+  function initialLocale() {
+    try { var saved = localStorage.getItem(KEY); if (valid(saved)) return saved; } catch (_) {}
+    return browserLocale();
+  }
+  var locale = initialLocale();
+  function t(key, values) {
+    var text = (DICTS[locale] && DICTS[locale][key]) || DICTS.en[key] || key;
+    if (values) text = text.replace(/\\{([^}]+)\\}/g, function(match, name) { return values[name] === undefined ? match : String(values[name]); });
+    return text;
+  }
+  function applyStatic() {
+    try {
+      document.documentElement.lang = locale;
+      var nodes = document.querySelectorAll('[data-i18n]');
+      for (var i = 0; i < nodes.length; i++) nodes[i].textContent = t(nodes[i].getAttribute('data-i18n'));
+      var attrs = [['data-i18n-aria', 'aria-label'], ['data-i18n-placeholder', 'placeholder'], ['data-i18n-title', 'title'], ['data-i18n-tip', 'data-tip']];
+      for (var a = 0; a < attrs.length; a++) {
+        var bound = document.querySelectorAll('[' + attrs[a][0] + ']');
+        for (var j = 0; j < bound.length; j++) bound[j].setAttribute(attrs[a][1], t(bound[j].getAttribute(attrs[a][0])));
+      }
+      var picker = document.getElementById('localePicker');
+      if (picker) picker.setAttribute('aria-label', t('locale.group'));
+      var buttons = picker ? picker.children : [];
+      for (var k = 0; k < buttons.length; k++) {
+        var buttonLocale = buttons[k].getAttribute('data-locale');
+        if (!valid(buttonLocale)) continue;
+        var active = buttonLocale === locale;
+        buttons[k].className = 'locale-pill' + (active ? ' active' : '');
+        buttons[k].setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+    } catch (_) {}
+  }
+  function setLocale(next, persist) {
+    if (!valid(next)) next = browserLocale();
+    locale = next;
+    if (persist !== false) { try { localStorage.setItem(KEY, locale); } catch (_) {} }
+    applyStatic();
+    try {
+      var event;
+      if (typeof CustomEvent === 'function') event = new CustomEvent('moamcp:localechange', { detail: { locale: locale } });
+      else { event = document.createEvent('Event'); event.initEvent('moamcp:localechange', false, false); event.detail = { locale: locale }; }
+      window.dispatchEvent(event);
+    } catch (_) {}
+    return locale;
+  }
+  function initPicker() {
+    try {
+      var picker = document.getElementById('localePicker');
+      if (picker) for (var i = 0; i < picker.children.length; i++) if (valid(picker.children[i].getAttribute('data-locale'))) picker.children[i].addEventListener('click', function() { setLocale(this.getAttribute('data-locale')); });
+    } catch (_) {}
+    applyStatic();
+  }
+  window.__moaI18n = { t: t, getLocale: function() { return locale; }, setLocale: setLocale, applyStatic: applyStatic, storageKey: KEY };
+  initPicker();
+})(typeof window !== 'undefined' ? window : this);
+`;
+
+// src/web/app-header.ts
+var NAV_ITEMS = [
+  { id: "debateNav", section: "debate", label: "MOA Debate", i18n: "app.debate", href: "/" },
+  { id: "memoryNav", section: "memory", label: "Workspace Memory", i18n: "app.memory", href: "/control-plane?section=memory" },
+  { id: "runsNav", section: "runs", label: "MoA Runs", i18n: "app.runs", href: "/control-plane?section=runs" },
+  { id: "systemNav", section: "system", label: "System Health", i18n: "app.system", href: "/control-plane?section=system" }
+];
+function renderAppHeader(active) {
+  const nav = NAV_ITEMS.map((item) => {
+    const current = item.section === active;
+    return `<a id="${item.id}"${current ? ' class="active" aria-current="page"' : ""} data-i18n="${item.i18n}" href="${item.href}">${item.label}</a>`;
+  }).join("\n      ");
+  return `<header class="app-header">
+    <div class="brand"><span class="brand-mark"></span><span class="brand-title" data-i18n="app.brand">MOA Workspace</span></div>
+    <nav class="top-nav" aria-label="Main navigation" data-i18n-aria="app.nav">
+      ${nav}
+    </nav>
+    <span class="locale-picker" id="localePicker" role="group" aria-label="Language" data-i18n-aria="locale.group">
+      <button class="locale-pill" type="button" data-locale="zh-CN" data-i18n="locale.zh" aria-pressed="false">\u4E2D\u6587</button>
+      <span class="locale-separator" aria-hidden="true">/</span>
+      <button class="locale-pill" type="button" data-locale="en" data-i18n="locale.en" aria-pressed="false">EN</button>
+    </span>
+    <span class="theme-picker" id="themePicker" role="group" aria-label="Theme" data-i18n-aria="theme.group"></span>
+  </header>`;
+}
+
+// src/web/control-plane-page.ts
+var CONTROL_PLANE_HTML = `<!doctype html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>moamcp \xB7 debate card</title>
+<title data-i18n="control.title">Workspace Control Plane</title>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; margin: 0; }
-  body { background: #0e1014; background-image: radial-gradient(820px 300px at 50% -140px, #18261e66, transparent 70%); color: #d7dae0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
-  .wrap { max-width: 880px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  header h1 { font-size: 17px; font-weight: 600; }
-  header .task { color: #8b919c; font-family: ui-monospace, monospace; font-size: 13px; }
-  .badge { margin-left: auto; padding: 2px 10px; border-radius: 999px; font-size: 12px; background: #262b36; color: #9aa3b2; }
-  .badge.live { background: #14342a; color: #4ade80; }
-  .badge.done { background: #1c2a44; color: #60a5fa; }
-  .badge.closed { background: #3a2323; color: #f87171; }
-  .card { background: #161a21; border: 1px solid #232936; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
-  .sec-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #5b6270; margin-bottom: 10px; }
-  .sec-title .aux { margin-left: auto; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; }
-  .hint { color: #5b6270; }
-  /* stage progress bar \u2014 all five steps always visible, each with an
-     explicit three-state dot: pending = hollow grey, active = pulsing
-     green, done = filled green with \u2713. Connectors shrink, steps never
-     wrap, so the row self-fits inside the card down to narrow widths. */
-  #progress { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
-  .step { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 12px 4px 9px; border-radius: 999px; font-size: 12px; background: #1d222c; border: 1px solid #2a3140; color: #8b919c; white-space: nowrap; cursor: pointer; transition: color .25s, border-color .25s, background .25s, box-shadow .25s, transform .15s; }
-  .step:hover { transform: translateY(-1px); border-color: #39415a; }
-  .step:focus-visible { outline: 1px solid #4ade8066; outline-offset: 2px; }
-  .step .dot { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #39404f; background: transparent; color: #0e1014; font-size: 9px; line-height: 1; transition: background .25s, border-color .25s; }
-  .step.active { border-color: #4ade80; color: #4ade80; box-shadow: 0 0 10px #4ade8026; }
-  .step.active .dot { background: #4ade80; border-color: #4ade80; animation: dotPulse 1.5s ease-in-out infinite; }
-  .step.done { background: #14342a; border-color: #1f4d3a; color: #4ade80; }
-  .step.done .dot { background: #4ade80; border-color: #4ade80; }
-  .step.done .dot::before { content: '\u2713'; font-weight: 700; }
-  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 0 0 #4ade8059; } 50% { box-shadow: 0 0 0 5px #4ade8000; } }
-  .link { flex: 1 1 auto; height: 2px; background: #2a3140; min-width: 6px; transition: background .25s; }
-  .link.done { background: #1f4d3a; }
-  /* per-stage meaning tooltip (hover / keyboard focus); edge steps align
-     their tooltip inward so it never spills out of the card */
-  .step::after { content: attr(data-tip); position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-3px); background: #1d222c; border: 1px solid #2a3140; border-radius: 6px; padding: 4px 9px; font-size: 11px; line-height: 1.4; color: #b7bec9; white-space: nowrap; box-shadow: 0 6px 18px #00000059; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 20; }
-  .step:hover::after, .step:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #progress .step:first-child::after { left: 0; transform: translateY(-3px); }
-  #progress .step:first-child:hover::after, #progress .step:first-child:focus-visible::after { transform: translateY(0); }
-  #progress .step:last-child::after { left: auto; right: 0; transform: translateY(-3px); }
-  #progress .step:last-child:hover::after, #progress .step:last-child:focus-visible::after { transform: translateY(0); }
-  @media (max-width: 600px) {
-    .step { padding: 3px 8px 3px 6px; font-size: 11px; gap: 5px; }
-    .step .dot { width: 12px; height: 12px; font-size: 8px; }
-    .link { min-width: 4px; }
-  }
-  /* clicked pill: blue ring marks which stage's detail row is open */
-  .step[aria-expanded="true"] { border-color: #60a5fa; box-shadow: 0 0 10px #60a5fa33; }
-  /* stage detail row: expands under the progress bar on pill click */
-  #stageDetail { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: #1d222c; border: 1px solid #2a3140; font-size: 12px; line-height: 1.6; color: #b7bec9; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; animation: detailIn .18s ease-out; }
-  #stageDetail .sd-name { color: #7cc7ff; font-weight: 600; white-space: nowrap; }
-  #stageDetail .sd-state { padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 18px; white-space: nowrap; }
-  #stageDetail .sd-state.done { background: #14342a; color: #4ade80; }
-  #stageDetail .sd-state.active { background: #14342a; color: #4ade80; animation: dotPulse 1.5s ease-in-out infinite; }
-  #stageDetail .sd-state.pending { background: #262b36; color: #8b919c; }
-  #stageDetail .sd-text { flex: 1 1 100%; word-break: break-word; white-space: pre-wrap; }
-  @keyframes detailIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-  /* click a pill \u2192 its target card gets a ~1.6s outline flash on landing */
-  .card.flash { outline: 2px solid transparent; animation: cardFlash 1.6s ease-out; }
-  @keyframes cardFlash { 0% { outline-color: #60a5fa; } 60% { outline-color: #60a5fa80; } 100% { outline-color: transparent; } }
-  /* preset / config panel (moa_init snapshot) */
-  #configBody { display: flex; flex-wrap: wrap; gap: 6px 18px; color: #9aa3b2; font-size: 13px; }
-  #configBody b { color: #e6e9ee; font-weight: 600; }
-  /* round / speaker / turns meta (lives inside the config card, design \xA75.1) */
-  #meta { display: flex; gap: 18px; color: #9aa3b2; font-size: 13px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #232936; }
-  #meta b { color: #e6e9ee; font-weight: 600; }
-  /* debater roster chips */
-  #agents { display: flex; flex-wrap: wrap; gap: 8px; }
-  .agent { padding: 5px 12px; border-radius: 8px; background: #1d222c; border: 1px solid #2a3140; font-family: ui-monospace, monospace; font-size: 13px; transition: border-color .25s, color .25s, box-shadow .25s; }
-  .agent .sub { color: #5b6270; margin-left: 6px; font-size: 12px; }
-  .agent.speaking { border-color: #4ade80; color: #4ade80; box-shadow: 0 0 8px #4ade8033; }
-  .agent.speaking .sub { color: #4ade80; }
-  #empty { color: #5b6270; padding: 4px 0; }
-  /* omkc-status agent wall (optional section) */
-  .omkc-scan { padding: 1px 8px; border-radius: 999px; background: #3a2f1c; color: #fbbf24; font-size: 11px; letter-spacing: 0; text-transform: none; }
-  .omkc-list { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, monospace; font-size: 12px; }
-  .omkc-row { display: grid; grid-template-columns: minmax(110px, 1.1fr) minmax(130px, 1.4fr) 86px 100px minmax(120px, 1.5fr); gap: 10px; align-items: center; padding: 3px 8px; border-radius: 6px; transition: opacity .3s, background .15s; }
-  .omkc-row:hover { background: #1d222c; }
-  .omkc-row.stale { opacity: .4; }
-  .omkc-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .omkc-row .omkc-id { color: #7cc7ff; }
-  .omkc-st { justify-self: start; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 18px; }
-  .omkc-st.on { background: #14342a; color: #4ade80; }
-  .omkc-st.off { background: #262b36; color: #8b919c; }
-  .omkc-tok { color: #9aa3b2; }
-  .omkc-tool { color: #9aa3b2; }
-  .omkc-tool.err { color: #f87171; }
-  /* tool call log (optional section, same omkc-status source) */
-  .tool-log { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, monospace; font-size: 12px; }
-  .tool-row { display: flex; gap: 10px; padding: 2px 8px; border-radius: 6px; }
-  .tool-row:hover { background: #1d222c; }
-  .tool-ts { color: #5b6270; }
-  .tool-agent { color: #7cc7ff; min-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tool-name { color: #d7dae0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tool-err { color: #f87171; white-space: nowrap; }
-  .tool-empty { color: #5b6270; padding: 4px 8px; }
-  /* transcript */
-  .round-sep { display: flex; align-items: center; gap: 10px; color: #5b6270; font-size: 12px; margin: 16px 0 4px; }
-  .round-sep:first-child { margin-top: 0; }
-  .round-sep::before, .round-sep::after { content: ''; flex: 1; height: 1px; background: #232936; }
-  .turn { border-left: 3px solid #2a3140; padding: 8px 12px; margin: 10px 0; }
-  .turn.signoff { border-left-color: #4ade80; background: #14342a33; }
-  .turn .head { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #8b919c; margin-bottom: 4px; }
-  .turn .who { color: #7cc7ff; font-family: ui-monospace, monospace; }
-  .turn .text { white-space: pre-wrap; word-break: break-word; }
-  .signoff-badge { padding: 0 7px; border-radius: 999px; background: #14342a; color: #4ade80; font-size: 11px; border: 1px solid #1f4d3a; white-space: nowrap; }
-  .transcript-empty { color: #5b6270; font-size: 13px; }
-  .early-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #1c2a44; color: #60a5fa; font-size: 12px; margin-right: 8px; }
-  /* verdict */
-  #verdict { border-color: #2f4a3b; background: #12211a; }
-  #verdict h2 { font-size: 14px; color: #4ade80; margin-bottom: 8px; letter-spacing: .08em; }
-  #verdict .row { font-size: 13px; color: #b9c6b9; margin-bottom: 4px; }
-  #verdict .row b { color: #e6e9ee; font-weight: 600; }
-  #verdictFindings { margin: 8px 0; border-top: 1px dashed #2f4a3b; padding-top: 8px; }
-  .findings-head { font-size: 12px; color: #4ade80; font-family: ui-monospace, monospace; margin-bottom: 4px; }
-  .findings-text { white-space: pre-wrap; word-break: break-word; font-size: 13px; color: #c7d2c7; max-height: 240px; overflow-y: auto; }
-  #fullBtn { margin-top: 8px; padding: 4px 14px; border-radius: 6px; border: 1px solid #2f4a3b; background: transparent; color: #4ade80; font-size: 12px; cursor: pointer; transition: background .15s; }
-  #fullBtn:hover { background: #14342a; }
-  #conn { font-size: 12px; color: #5b6270; }
-  /* task picker (shown when the card is opened without ?task_id) */
-  #picker h2 { font-size: 14px; color: #e6e9ee; margin-bottom: 8px; }
-  .task-item { display: block; width: 100%; text-align: left; padding: 8px 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #2a3140; background: #1d222c; color: #7cc7ff; font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; transition: border-color .15s, color .15s; }
-  .task-item:hover { border-color: #4ade80; color: #4ade80; }
+${TOKENS_CSS}
+${COMPONENTS_CSS}
+
+/* Control Plane Specific Styles */
+.workspace-bar {
+  position: sticky;
+  top: 14px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px 15px;
+  /* Solid chrome avoids Windows Chromium edge artifacts above long board lists. */
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.workspace-bar label {
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+}
+#workspace {
+  min-width: 280px;
+  padding: 8px 32px 8px 10px; /* right padding clears the custom chevron */
+}
+#workspaceHint {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 4px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  width: fit-content;
+}
+.tab {
+  padding: 7px 15px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-dim);
+  border-radius: var(--r-sm);
+  font-weight: 500;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab.active {
+  background: var(--tint-green);
+  border-color: var(--tint-green-border);
+  color: var(--accent-green);
+}
+
+.view[hidden], .drawer[hidden], #tipForm[hidden], .board-modal[hidden], #boardConflictReload[hidden] {
+  display: none;
+}
+
+.toolbar, .board-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 130px;
+  flex: 1 1 130px;
+}
+.field.wide {
+  flex-basis: 220px;
+}
+.field label {
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 8px 9px;
+}
+.field textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 8px 0;
+  color: var(--text-dim);
+}
+.check input {
+  accent-color: var(--accent-green);
+}
+
+.tip-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  max-width: 880px;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tip-card {
+  padding: 14px 16px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.tip-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.tip-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.tip-title {
+  flex: 1;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.tip-title:hover {
+  color: var(--accent-blue);
+}
+.status {
+  flex: 0 0 auto;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+.status.st-captured { background: var(--surface-strong); color: var(--text-dim); }
+.status.st-exploring { background: var(--tint-blue); color: var(--accent-blue); border-color: var(--tint-blue-border); }
+.status.st-planned { background: var(--tint-amber); color: var(--accent-amber); border-color: var(--tint-amber-border); }
+.status.st-implemented { background: var(--tint-green); color: var(--accent-green); border-color: var(--tint-green-border); }
+.status.st-deferred { background: var(--tint-purple); color: var(--accent-purple); border-color: var(--tint-purple-border); }
+.status.st-discarded { background: var(--tint-red); color: var(--accent-red); border-color: var(--tint-red-border); }
+.status.st-archived { background: var(--hover-tint-subtle); color: var(--text-faint); }
+
+.tip-summary {
+  margin: 8px 0;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tip-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 12px;
+  align-items: center;
+}
+.tag {
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.tip-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+.tip-actions button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.drawer-head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.drawer h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.close {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 6px;
+  padding: 0 4px;
+}
+.close:hover {
+  color: var(--text);
+}
+.details {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 14px 0;
+}
+.details dt {
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+.details dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+.details dd.code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--solid-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 9px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.form-card {
+  grid-column: 1 / -1;
+  padding: 16px;
+  background: var(--solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.form-card h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+.form-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 14px;
+}
+.form-error {
+  color: var(--accent-red);
+  min-height: 1.5em;
+  margin-top: 8px;
+}
+/* This page combines a fixed drawer with long board scrolling. A solid drawer
+   avoids the Windows Chromium black-edge artifact caused by a blurred layer. */
+.drawer {
+  background: var(--solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.board-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 5vh 18px;
+  background: rgba(0, 0, 0, 0.48);
+}
+.board-form-card {
+  width: min(760px, 100%);
+  max-height: none;
+}
+.board-form-card textarea {
+  min-height: 260px;
+}
+.board-form-head, .board-toolbar-status, .byte-line, .board-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.board-form-head h2 {
+  flex: 1;
+}
+.board-toolbar-status {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.byte-line {
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.byte-line.over-limit, .external-warning {
+  color: var(--accent-red);
+}
+.external-warning {
+  padding: 9px 11px;
+  margin-top: 10px;
+  background: var(--tint-red);
+  border: 1px solid var(--tint-red-border);
+  border-radius: var(--r-sm);
+}
+.board-detail-actions {
+  margin: 12px 0 4px;
+}
+.board-detail-actions button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+#boardFormKey[readonly] {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.agent-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.7fr) minmax(0, 1.5fr);
+  gap: 14px;
+  align-items: start;
+}
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.agent-row {
+  display: block;
+  width: 100%;
+  padding: 11px 13px;
+  text-align: left;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+}
+.agent-row:hover, .agent-row.selected { border-color: var(--accent-green); box-shadow: var(--glow-green-soft); }
+.agent-row-head, .agent-editor-head, .agent-banner, .agent-binding-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.agent-row-head strong, .agent-editor-head h2 { flex: 1; overflow-wrap: anywhere; }
+.agent-row-meta, .agent-hash, .agent-layout-note { color: var(--text-faint); font-size: 12px; overflow-wrap: anywhere; }
+.agent-row-error { margin-top: 5px; color: var(--accent-red); font-size: 12px; overflow-wrap: anywhere; }
+.agent-editor {
+  min-width: 0;
+  padding: 16px;
+  background: var(--solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.agent-editor-head h2 { margin: 0; font-size: 16px; }
+.agent-editor textarea { min-height: 360px; font-family: var(--font-mono); font-size: 12px; line-height: 1.55; }
+.agent-banner {
+  justify-content: space-between;
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: var(--tint-green);
+  border: 1px solid var(--tint-green-border);
+  border-radius: var(--r-sm);
+  color: var(--accent-green);
+}
+.agent-banner span { flex: 1 1 360px; }
+.agent-binding-section, .agent-raw-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.agent-binding-head h3, .agent-raw-section summary { margin: 0; font-size: 14px; }
+.agent-binding-head h3 { flex: 1; }
+.agent-binding-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.agent-binding-row { display: grid; grid-template-columns: minmax(110px, 0.8fr) minmax(120px, 1fr) minmax(120px, 1fr) 110px auto; gap: 7px; align-items: end; }
+.agent-binding-row .field { min-width: 0; }
+.agent-binding-row .field label { font-size: 10px; }
+.agent-binding-row .remove-binding { padding: 7px 9px; font-size: 12px; }
+.agent-raw-section summary { cursor: pointer; color: var(--text); }
+.agent-raw-section textarea { min-height: 270px; margin-top: 10px; }
+.agent-raw-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+.agent-details { margin: 10px 0 0; }
+
+.board-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.board-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 120px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.board-row:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.board-row.selected {
+  border-color: var(--accent-green);
+  box-shadow: var(--glow-green-soft);
+}
+.board-key {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.board-small {
+  color: var(--text-faint);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-detail {
+  position: sticky;
+  top: 86px;
+  min-height: 180px;
+  padding: 16px;
+  background: var(--solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.board-detail h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+}
+.board-value {
+  max-height: 520px;
+  overflow: auto;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: var(--solid-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.empty {
+  padding: 20px;
+  color: var(--text-faint);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  text-align: center;
+}
+.section[hidden], .subview[hidden], .workspace-bar[hidden], .section-tabs[hidden] { display: none; }
+.section-intro { margin: 0 0 14px; color: var(--text-dim); }
+.result-count { margin-left: auto; color: var(--text-faint); font-size: 12px; }
+.management-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }
+.management-card {
+  min-width: 0;
+  padding: 16px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+.management-head, .management-actions, .file-grid, .health-grid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.management-head h2 { flex: 1; margin: 0; font-size: 15px; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.management-actions { margin-top: 12px; }
+.management-actions button, .management-actions a, .file-grid button, .file-grid a { padding: 5px 10px; font-size: 12px; }
+.run-roster { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.run-agent { padding: 3px 8px; border-radius: var(--r-pill); background: var(--surface-strong); border: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; }
+.meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin-top: 10px; }
+.meta-item { min-width: 0; color: var(--text-dim); overflow-wrap: anywhere; }
+.meta-label { color: var(--text-faint); font-size: 11px; display: block; }
+.run-detail, .archive-detail {
+  max-height: 420px;
+  overflow: auto;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--solid-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.file-grid { margin-top: 12px; align-items: stretch; }
+.file-item { flex: 1 1 180px; padding: 9px; background: var(--solid-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.file-item strong { display: block; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.file-meta { color: var(--text-faint); font-size: 11px; overflow-wrap: anywhere; }
+.health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: stretch; }
+.health-card { margin: 0; }
+.health-card h2 { margin: 0 0 8px; font-size: 14px; }
+.health-card dl { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 5px 10px; }
+.health-card dt { color: var(--text-faint); }
+.health-card dd { margin: 0; overflow-wrap: anywhere; }
+.degraded { color: var(--accent-amber); }
+
+@media (max-width: 800px) {
+  .tip-layout, .board-layout, .agent-layout { grid-template-columns: 1fr; }
+  .board-detail { position: static; }
+  .agent-binding-row { grid-template-columns: 1fr 1fr; }
+  .agent-binding-row .remove-binding { justify-self: start; }
+  .management-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .shell { padding: 14px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .full { grid-column: auto; }
+  .board-row { grid-template-columns: minmax(0, 1fr) 72px; }
+  .board-row .board-small:last-child { display: none; }
+}
 </style>
+${THEME_BOOTSTRAP}
+${I18N_BOOTSTRAP}
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>MOA Debate</h1>
+<div class="aurora-bg"></div>
+<div class="shell">
+  ${renderAppHeader("memory")}
+
+  <div id="notice" class="notice" hidden></div>
+  <main id="memorySection" class="section">
+  <div id="workspaceBar" class="workspace-bar">
+    <label for="workspace" data-i18n="memory.workspaceLabel">Workspace \xB7 Memory only</label>
+    <select id="workspace" aria-label="Select workspace" data-i18n-aria="memory.workspaceAria"></select>
+    <span id="workspaceHint"></span>
+  </div>
+
+  <div class="tabs section-tabs" role="tablist" aria-label="Workspace Memory" data-i18n-aria="memory.tabs">
+    <button id="tipsTab" class="tab active" role="tab" type="button" data-i18n="memory.tips">Project Tips</button>
+    <button id="boardTab" class="tab" role="tab" type="button" data-i18n="memory.board">Shared Board \xB7 Raw</button>
+    <button id="agentsTab" class="tab" role="tab" type="button" data-i18n="memory.agents">Agents &amp; Profiles</button>
+  </div>
+
+  <section id="tipsView" class="view" role="tabpanel">
+    <div class="toolbar">
+      <div class="field"><label for="statusFilter" data-i18n="common.status">Status</label><select id="statusFilter"><option value="" data-i18n="common.allStatuses">All statuses</option><option value="captured">captured</option><option value="exploring">exploring</option><option value="planned">planned</option><option value="implemented">implemented</option><option value="deferred">deferred</option><option value="discarded">discarded</option><option value="archived">archived</option></select></div>
+      <div class="field"><label for="moduleFilter" data-i18n="common.module">Module</label><input id="moduleFilter" type="text" placeholder="module" data-i18n-placeholder="common.module"></div>
+      <div class="field"><label for="tagFilter" data-i18n="common.tag">Tag</label><input id="tagFilter" type="text" placeholder="tag" data-i18n-placeholder="common.tag"></div>
+      <label class="check"><input id="archivedFilter" type="checkbox"> <span data-i18n="memory.includeArchived">Include archived</span></label>
+      <div class="field"><label for="tipLimit" data-i18n="common.limit">Limit</label><input id="tipLimit" type="number" min="1" max="1000" value="100"></div>
+      <button id="newTip" class="primary" type="button" data-i18n="tips.new">+ New Tip</button>
+    </div>
+    <div class="tip-layout">
+      <div id="tipList" class="list"></div>
+      <aside id="tipDrawer" class="drawer" hidden></aside>
+      <form id="tipForm" class="form-card" hidden>
+        <h2 id="formTitle">New Tip</h2>
+        <div class="form-grid">
+          <div class="field"><label for="tipTitle" data-i18n="tips.title">Title *</label><input id="tipTitle" required type="text"></div>
+          <div class="field"><label for="tipStatus" data-i18n="common.status">Status</label><select id="tipStatus"><option value="captured">captured</option><option value="exploring">exploring</option><option value="planned">planned</option><option value="implemented">implemented</option><option value="deferred">deferred</option><option value="discarded">discarded</option><option value="archived">archived</option></select></div>
+          <div class="field full"><label for="tipSummary" data-i18n="tips.summary">Summary *</label><textarea id="tipSummary" required></textarea></div>
+          <div class="field full"><label for="tipContext" data-i18n="tips.context">Context</label><textarea id="tipContext"></textarea></div>
+          <div class="field"><label for="tipModule" data-i18n="common.module">Module</label><input id="tipModule" type="text"></div>
+          <div class="field"><label for="tipNextAction" data-i18n="tips.nextAction">Next action</label><input id="tipNextAction" type="text"></div>
+          <div class="field"><label for="tipTags" data-i18n="tips.tags">Tags \xB7 comma or newline separated</label><textarea id="tipTags"></textarea></div>
+          <div class="field"><label for="tipSourceRefs" data-i18n="tips.sourceRefs">Source refs \xB7 comma or newline separated</label><textarea id="tipSourceRefs"></textarea></div>
+          <div class="field"><label for="tipRelatedTipIds" data-i18n="tips.relatedTipIds">Related Tip IDs \xB7 comma or newline separated</label><textarea id="tipRelatedTipIds"></textarea></div>
+          <div class="field"><label for="tipRelatedProjects" data-i18n="tips.relatedProjects">Related projects \xB7 comma or newline separated</label><textarea id="tipRelatedProjects"></textarea></div>
+          <div class="field"><label for="tipSourceSessionId" data-i18n="tips.sourceSessionId">Source session ID</label><input id="tipSourceSessionId" type="text"></div>
+          <div class="field"><label for="tipAuthor" data-i18n="tips.authorCreate">Author \xB7 create only</label><input id="tipAuthor" type="text"></div>
+          <div class="field full"><label for="tipDocumentRefs" data-i18n="tips.documentRefs">Document refs \xB7 safe JSON array</label><textarea id="tipDocumentRefs" placeholder='[{"path":"docs/example.md","section":"Overview"}]'></textarea></div>
+        </div>
+        <div id="formError" class="form-error" role="alert"></div>
+        <div class="form-actions"><button class="primary" type="submit" data-i18n="tips.save">Save Tip</button><button id="cancelForm" class="secondary" type="button" data-i18n="common.cancel">Cancel</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section id="boardView" class="view" role="tabpanel" hidden>
+    <div class="board-toolbar">
+      <div class="field"><label for="boardScope" data-i18n="board.scope">Scope</label><select id="boardScope"><option value="workspace">workspace</option><option value="global">global</option></select></div>
+      <div class="field wide"><label for="boardKey" data-i18n="board.keySearch">Key namespace / key</label><input id="boardKey" type="search" placeholder="key namespace / key" data-i18n-placeholder="board.keySearch"></div>
+      <div class="field"><label for="boardTag" data-i18n="common.tag">Tag</label><input id="boardTag" type="search" placeholder="tag" data-i18n-placeholder="common.tag"></div>
+      <div class="field"><label for="boardSort" data-i18n="board.sort">Sort</label><select id="boardSort"><option value="updated-desc" data-i18n="board.updatedDesc">Recently updated</option><option value="updated-asc" data-i18n="board.updatedAsc">Oldest updated</option><option value="key-asc" data-i18n="board.keyAsc">key A\u2013Z</option><option value="key-desc" data-i18n="board.keyDesc">key Z\u2013A</option></select></div>
+      <div class="field"><label for="boardLimit" data-i18n="common.limit">Limit</label><input id="boardLimit" type="number" min="1" max="1000" value="100"></div>
+      <button id="refreshBoard" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
+      <button id="newBoardEntry" class="primary" type="button" data-i18n="board.new">+ New Entry</button>
+      <span id="boardResultCount" class="board-toolbar-status" role="status">0 results</span>
+    </div>
+    <div class="board-layout">
+      <div id="boardList" class="board-list"></div>
+      <aside id="boardDetail" class="board-detail"><div class="empty" data-i18n="board.select">Select a Board entry to view its full value.</div></aside>
+    </div>
+  </section>
+
+  <section id="agentsView" class="view" role="tabpanel" hidden>
+    <div class="toolbar">
+      <span class="section-intro" data-i18n="agent.summary">Agent profiles</span>
+      <button id="refreshAgents" class="secondary" type="button" data-i18n="agent.refresh">Refresh Agents</button>
+      <button id="newAgent" class="primary" type="button" data-i18n="agent.new">+ New Agent</button>
+      <span id="agentResultCount" class="result-count" role="status">0</span>
+    </div>
+    <p class="section-intro" data-i18n="agent.intro">Manage project-local Agent Markdown and local.toml bindings. Changes are written atomically to disk; the running Session adopts them only after /reload.</p>
+    <div id="agentReloadBanner" class="agent-banner" role="status" hidden>
+      <span id="agentReloadText" data-i18n="agent.reloadBanner">Saved to disk. The current Session has not adopted this change yet; after the running turn finishes, run /reload. Multiple Sessions must each run /reload.</span>
+      <button id="copyAgentReload" class="secondary" type="button" data-i18n="agent.copyReload">Copy /reload</button>
+    </div>
+    <div class="agent-layout">
+      <aside class="management-card">
+        <div class="agent-binding-head"><h2 data-i18n="agent.summary">Agent profiles</h2></div>
+        <div id="agentList" class="agent-list"></div>
+      </aside>
+      <section id="agentEditor" class="agent-editor">
+        <div id="agentEditorEmpty" class="empty" data-i18n="agent.select">Select an Agent to load its Markdown.</div>
+        <form id="agentForm" hidden>
+          <div class="agent-editor-head"><h2 id="agentEditorTitle">Agent</h2></div>
+          <div class="form-grid">
+            <div class="field"><label for="agentName" data-i18n="agent.name">Name *</label><input id="agentName" required type="text" autocomplete="off"></div>
+            <div class="field"><label data-i18n="agent.markdown">Agent Markdown</label><span id="agentFileName" class="agent-hash"></span></div>
+            <div class="field full"><label for="agentMarkdown" data-i18n="agent.markdown">Agent Markdown</label><textarea id="agentMarkdown" required spellcheck="false"></textarea></div>
+          </div>
+          <div id="agentMeta" class="details agent-details"></div>
+          <div id="agentFormError" class="form-error" role="alert"></div>
+          <button id="agentLoadLatest" class="secondary" type="button" hidden data-i18n="agent.reloadLatest">Load latest version</button>
+          <div class="form-actions"><button id="saveAgent" class="primary" type="submit" data-i18n="agent.save">Save Agent</button><button id="deleteAgent" class="danger" type="button" data-i18n="agent.delete">Delete Agent</button><button id="useAgentTemplate" class="secondary" type="button" data-i18n="agent.template">Use template</button></div>
+        </form>
+        <div id="agentConfigPanel" hidden>
+          <section class="agent-binding-section">
+            <div class="agent-binding-head"><h3 data-i18n="agent.bindings">Per-type bindings</h3><button id="addTypeBinding" class="secondary" type="button" data-i18n="agent.addBinding">Add binding</button></div>
+            <div id="typeBindingsList" class="agent-binding-list"></div>
+          </section>
+          <section class="agent-binding-section">
+            <div class="agent-binding-head"><h3 data-i18n="agent.slots">Named slots</h3><button id="addSlotBinding" class="secondary" type="button" data-i18n="agent.addBinding">Add binding</button></div>
+            <div id="slotBindingsList" class="agent-binding-list"></div>
+          </section>
+          <div class="form-actions"><button id="saveAgentBindings" class="primary" type="button" data-i18n="agent.saveBindings">Save bindings</button><span id="agentBindingHash" class="agent-hash"></span></div>
+          <details id="agentRawDetails" class="agent-raw-section">
+            <summary data-i18n="agent.rawTitle">Raw local.toml</summary>
+            <p class="section-intro" data-i18n="agent.rawHint">Complex TOML layouts are not rewritten by the structured editor. Use this validated raw editor instead.</p>
+            <div class="agent-raw-actions"><button id="loadAgentRaw" class="secondary" type="button" data-i18n="agent.loadRaw">Load local.toml</button><button id="saveAgentRaw" class="primary" type="button" data-i18n="agent.saveRaw">Save local.toml</button><span id="agentLayoutNote" class="agent-layout-note"></span></div>
+            <div class="field"><label for="agentRawToml" data-i18n="agent.rawEditor">local.toml source</label><textarea id="agentRawToml" spellcheck="false"></textarea></div>
+            <div id="agentRawError" class="form-error" role="alert"></div>
+          </details>
+        </div>
+      </section>
+    </div>
+  </section>
+  </main>
+
+  <main id="runsSection" class="section" hidden>
+    <p class="section-intro" data-i18n="runs.intro">The run model is an in-memory event projection of the owner Bus. After a Bus restart, use Archives as the source of truth.</p>
+    <div class="tabs section-tabs" role="tablist" aria-label="MoA Runs" data-i18n-aria="runs.tabs">
+      <button id="liveRunsTab" class="tab active" role="tab" type="button" data-i18n="runs.live">Live &amp; Recent</button>
+      <button id="archivesTab" class="tab" role="tab" type="button" data-i18n="runs.archives">Archives</button>
+    </div>
+    <section id="liveRunsView" class="subview" role="tabpanel">
+      <div class="toolbar">
+        <div class="field"><label for="runStatusFilter" data-i18n="common.status">Status</label><select id="runStatusFilter"><option value="" data-i18n="common.allStatuses">All statuses</option><option value="initialized">initialized</option><option value="debating">debating</option><option value="complete">complete</option><option value="closed">closed</option></select></div>
+        <div class="field wide"><label for="runQuery" data-i18n="runs.query">Query</label><input id="runQuery" type="search" placeholder="task id, agent, binding slot" data-i18n-placeholder="runs.queryPlaceholder"></div>
+        <button id="refreshRuns" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
+        <span id="runResultCount" class="result-count" role="status">0 results</span>
+      </div>
+      <div id="runList" class="management-list"></div>
+    </section>
+    <section id="archivesView" class="subview" role="tabpanel" hidden>
+      <div class="toolbar"><button id="refreshArchives" class="secondary" type="button" data-i18n="common.refresh">Refresh</button><span id="archiveResultCount" class="result-count" role="status">0 results</span></div>
+      <div id="archiveList" class="management-list"></div>
+    </section>
+  </main>
+
+  <main id="systemSection" class="section" hidden>
+    <div class="toolbar">
+      <button id="refreshSystem" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
+      <button id="copyControlPlaneUrl" class="secondary" type="button" data-i18n="system.copyUrl">Copy Control Plane URL</button>
+      <a class="secondary" href="/" data-i18n="system.openDebate">Open MOA Debate</a>
+    </div>
+    <p class="section-intro" data-i18n="system.intro">Bus listener entries do not represent every Kimi Session or MCP process. This page is read-only and provides no dangerous mutations.</p>
+    <div id="systemHealth" class="health-grid"></div>
+  </main>
+</div>
+<div id="boardModal" class="board-modal" role="dialog" aria-modal="true" aria-labelledby="boardFormTitle" hidden>
+  <form id="boardForm" class="form-card board-form-card">
+    <div class="board-form-head"><h2 id="boardFormTitle">New Board Entry</h2><button id="closeBoardForm" class="close" type="button" aria-label="Close Board form" data-i18n-aria="board.closeForm">\xD7</button></div>
+    <div class="form-grid">
+      <div class="field"><label for="boardFormScope" data-i18n="board.scope">Scope *</label><select id="boardFormScope"><option value="workspace">workspace</option><option value="global">global</option></select></div>
+      <div class="field"><label for="boardFormKey">key *</label><input id="boardFormKey" required type="text" autocomplete="off"></div>
+      <div class="field full"><label for="boardFormValue" data-i18n="board.value">Markdown value</label><textarea id="boardFormValue"></textarea><div id="boardByteLine" class="byte-line"><span data-i18n="board.valueSize">UTF-8 value size</span><span id="boardValueBytes">0 / 32768 bytes</span></div></div>
+      <div class="field"><label for="boardFormTags" data-i18n="tips.tags">Tags \xB7 comma or newline separated</label><textarea id="boardFormTags"></textarea></div>
+      <div class="field"><label for="boardFormAuthor" data-i18n="board.author">Author</label><input id="boardFormAuthor" type="text"></div>
+    </div>
+    <div id="boardExternalWarning" class="external-warning" role="status" hidden data-i18n="board.external">Updated externally: your draft is preserved. Saving will confirm again and use the version stamp from when the form opened.</div>
+    <div id="boardFormError" class="form-error" role="alert"></div>
+    <button id="boardConflictReload" class="secondary" type="button" hidden data-i18n="board.reload">Reload current version</button>
+    <div class="form-actions"><button id="saveBoardEntry" class="primary" type="submit" data-i18n="board.save">Save Entry</button><button id="cancelBoardForm" class="secondary" type="button" data-i18n="common.cancel">Cancel</button></div>
+  </form>
+</div>
+<script>
+${I18N_JS}
+${LIB_JS}
+(function () {
+  'use strict';
+  var tr = window.__moaI18n ? window.__moaI18n.t : function (key) { return key; };
+  var STATUS_NAMES = ['captured', 'exploring', 'planned', 'implemented', 'deferred', 'discarded', 'archived'];
+  var workspaceSelect = document.getElementById('workspace');
+  var workspaceHint = document.getElementById('workspaceHint');
+  var notice = document.getElementById('notice');
+  var tipList = document.getElementById('tipList');
+  var tipDrawer = document.getElementById('tipDrawer');
+  var tipForm = document.getElementById('tipForm');
+  var formError = document.getElementById('formError');
+  var currentWorkspace = '';
+  var workspaces = [];
+  var selectedTip = null;
+  var editingId = '';
+  var BOARD_VALUE_MAX_BYTES = 32768;
+  var boardEntries = [];
+  var selectedBoardKey = '';
+  var boardEditing = null;
+  var boardEventSource = null;
+  var boardPollTimer = null;
+  var boardRefreshTimer = null;
+  var boardSearchTimer = null;
+  var activeView = 'tips';
+  var activeSection = 'memory';
+  var activeRunsView = 'live';
+  var runsPollTimer = null;
+  var systemPollTimer = null;
+  var runSearchTimer = null;
+  var ARCHIVE_FILES = ['result.json', 'probe.json', 'events.jsonl', 'board.jsonl'];
+  var boardModal = document.getElementById('boardModal');
+  var boardForm = document.getElementById('boardForm');
+  var boardFormError = document.getElementById('boardFormError');
+  var boardSaveButton = document.getElementById('saveBoardEntry');
+  var agentList = document.getElementById('agentList');
+  var agentForm = document.getElementById('agentForm');
+  var agentEditorEmpty = document.getElementById('agentEditorEmpty');
+  var agentConfigPanel = document.getElementById('agentConfigPanel');
+  var agentReloadBanner = document.getElementById('agentReloadBanner');
+  var agentSnapshot = null;
+  var selectedAgentName = '';
+  var selectedAgent = null;
+  var agentIsNew = false;
+  var agentLocalHash = null;
+  var agentRawLoaded = false;
+  var deletedBindings = [];
+
+  function setNotice(message, isError) {
+    notice.hidden = !message;
+    notice.textContent = message || '';
+    notice.className = 'notice' + (isError ? ' error' : '');
+  }
+  function setFormError(message) { formError.textContent = message || ''; }
+  function valueText(value) {
+    if (value === undefined || value === null) return '\u2014';
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
+  }
+  function api(url, options) {
+    return fetch(url, options).then(function (response) {
+      return response.text().then(function (raw) {
+        var data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch (_) { data = { error: raw || 'invalid server response' }; }
+        if (!response.ok) {
+          var error = new Error(data && data.error ? data.error : 'HTTP ' + response.status);
+          error.status = response.status;
+          error.data = data;
+          error.currentTs = data && data.currentTs;
+          error.currentHash = data && data.currentHash;
+          throw error;
+        }
+        return data;
+      });
+    });
+  }
+  function fetchText(url) {
+    return fetch(url).then(function (response) {
+      return response.text().then(function (raw) {
+        if (!response.ok) throw new Error(raw || 'HTTP ' + response.status);
+        return raw;
+      });
+    });
+  }
+  function utf8Bytes(value) {
+    if (typeof TextEncoder === 'function') return new TextEncoder().encode(value).length;
+    var bytes = 0;
+    for (var i = 0; i < value.length; i++) {
+      var code = value.charCodeAt(i);
+      if (code < 128) bytes += 1;
+      else if (code < 2048) bytes += 2;
+      else if (code >= 0xD800 && code <= 0xDBFF && i + 1 < value.length && value.charCodeAt(i + 1) >= 0xDC00 && value.charCodeAt(i + 1) <= 0xDFFF) { bytes += 4; i += 1; }
+      else bytes += 3;
+    }
+    return bytes;
+  }
+  function splitArray(id) {
+    return document.getElementById(id).value.split(/[\\n,]+/).map(function (item) { return item.trim(); }).filter(Boolean);
+  }
+  function optionalText(id) {
+    var value = document.getElementById(id).value.trim();
+    return value ? value : null;
+  }
+  function parseDocumentRefs() {
+    var raw = document.getElementById('tipDocumentRefs').value.trim();
+    if (!raw) return null;
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (_) { throw new Error(tr('tips.documentJson')); }
+    if (!Array.isArray(parsed)) throw new Error(tr('tips.documentArray'));
+    return parsed;
+  }
+  function replaceLocationParam(name, value) {
+    var next = new URL(location.href);
+    if (value) next.searchParams.set(name, value); else next.searchParams.delete(name);
+    history.replaceState(null, '', next.pathname + (next.search ? next.search : ''));
+  }
+  function updateLocation(id) { replaceLocationParam('workspace', id); }
+  function updateSectionLocation(section) { replaceLocationParam('section', section); }
+  function closeBoardSubscription() {
+    if (boardEventSource) { boardEventSource.close(); boardEventSource = null; }
+    if (boardPollTimer) { clearInterval(boardPollTimer); boardPollTimer = null; }
+    if (boardRefreshTimer) { clearTimeout(boardRefreshTimer); boardRefreshTimer = null; }
+  }
+  function refreshActiveView() {
+    if (!currentWorkspace && activeView !== 'board') return Promise.resolve();
+    if (activeView === 'board') return loadBoard();
+    if (activeView === 'agents') return loadAgentSummary();
+    return loadTips();
+  }
+  function getBoardChannel() {
+    if (activeSection !== 'memory' || activeView !== 'board') return '';
+    var scopeEl = document.getElementById('boardScope');
+    var scope = scopeEl ? scopeEl.value : 'workspace';
+    if (scope === 'global') {
+      return '@board/global';
+    }
+    return currentWorkspace ? '@board/workspace:' + currentWorkspace : '';
+  }
+  function connectBoardSubscription() {
+    closeBoardSubscription();
+    var channel = getBoardChannel();
+    if (!channel) return;
+    if (typeof EventSource !== 'undefined') {
+      boardEventSource = new EventSource('/subscribe?task_id=' + encodeURIComponent(channel));
+      boardEventSource.onmessage = function (event) {
+        var payload = null;
+        try { payload = JSON.parse(event.data); } catch (_) {}
+        if (payload && payload.type === 'board_updated') handleBoardEvent(payload);
+        if (boardRefreshTimer) clearTimeout(boardRefreshTimer);
+        boardRefreshTimer = setTimeout(function () {
+          boardRefreshTimer = null;
+          refreshActiveView().catch(function () {});
+        }, 300);
+      };
+      boardEventSource.onerror = function () {};
+    }
+    boardPollTimer = setInterval(function () { refreshActiveView().catch(function () {}); }, 15000);
+  }
+  function renderWorkspaceOptions() {
+    workspaceSelect.textContent = '';
+    workspaces.forEach(function (item) {
+      var option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.id + ' \xB7 ' + item.cwd;
+      workspaceSelect.appendChild(option);
+    });
+  }
+  function applyWorkspace(id) {
+    if (!id || currentWorkspace === id) return;
+    currentWorkspace = id;
+    workspaceSelect.value = id;
+    var info = workspaces.filter(function (item) { return item.id === id; })[0];
+    workspaceHint.textContent = info ? info.cwd : '';
+    updateLocation(id);
+    closeBoardSubscription();
+    connectBoardSubscription();
+    if (activeView === 'agents') { clearAgentEditor(); agentSnapshot = null; agentLocalHash = null; }
+    loadTips().catch(function (error) { setNotice(error.message, true); });
+    if (activeView === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
+    if (activeView === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
+  }
+  function showNoWorkspace() {
+    currentWorkspace = '';
+    workspaceSelect.disabled = true;
+    workspaceHint.textContent = '';
+    closeBoardSubscription();
+    tipList.textContent = '';
+    var empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = tr('tips.noWorkspace');
+    tipList.appendChild(empty);
+    document.getElementById('boardList').textContent = '';
+    agentSnapshot = null; agentLocalHash = null; clearAgentEditor(); agentList.textContent = '';
+    setNotice(tr('tips.createWorkspace'), false);
+  }
+  function loadWorkspaces() {
+    return api('/api/workspaces').then(function (data) {
+      workspaces = data && Array.isArray(data.workspaces) ? data.workspaces : [];
+      renderWorkspaceOptions();
+      if (!workspaces.length) { showNoWorkspace(); return; }
+      workspaceSelect.disabled = false;
+      var requested = new URLSearchParams(location.search).get('workspace');
+      var found = requested && workspaces.some(function (item) { return item.id === requested; }) ? requested : workspaces[0].id;
+      applyWorkspace(found);
+    });
+  }
+  function tipQuery() {
+    var query = new URLSearchParams();
+    query.set('workspace', currentWorkspace);
+    var status = document.getElementById('statusFilter').value;
+    var moduleName = document.getElementById('moduleFilter').value.trim();
+    var tag = document.getElementById('tagFilter').value.trim();
+    var limit = document.getElementById('tipLimit').value;
+    if (status) query.set('status', status);
+    if (moduleName) query.set('module', moduleName);
+    if (tag) query.set('tag', tag);
+    if (document.getElementById('archivedFilter').checked) query.set('includeArchived', 'true');
+    if (limit) query.set('limit', limit);
+    return query.toString();
+  }
+  function renderTipCard(tip) {
+    var article = document.createElement('article');
+    article.className = 'tip-card';
+    var head = document.createElement('div');
+    head.className = 'tip-head';
+    var title = document.createElement('button');
+    title.className = 'tip-title';
+    title.type = 'button';
+    title.textContent = tip.title || tip.id;
+    title.addEventListener('click', function () { showTip(tip.id); });
+    var status = document.createElement('span');
+    status.className = 'status st-' + (tip.status || 'captured');
+    status.textContent = tip.status || '\u2014';
+    head.appendChild(title);
+    head.appendChild(status);
+    article.appendChild(head);
+    var summary = document.createElement('div');
+    summary.className = 'tip-summary';
+    summary.textContent = tip.summary || '';
+    article.appendChild(summary);
+    var meta = document.createElement('div');
+    meta.className = 'tip-meta';
+    if (tip.module) { var module = document.createElement('span'); module.textContent = tip.module; meta.appendChild(module); }
+    (tip.tags || []).forEach(function (tag) { var chip = document.createElement('span'); chip.className = 'tag'; chip.textContent = '#' + tag; meta.appendChild(chip); });
+    var updated = document.createElement('span');
+    updated.textContent = tip.updatedAt || '';
+    meta.appendChild(updated);
+    article.appendChild(meta);
+    var actions = document.createElement('div');
+    actions.className = 'tip-actions';
+    var details = document.createElement('button');
+    details.className = 'secondary'; details.type = 'button'; details.textContent = tr('common.details');
+    details.addEventListener('click', function () { showTip(tip.id); });
+    actions.appendChild(details);
+    if (tip.status !== 'archived') {
+      var archive = document.createElement('button');
+      archive.className = 'danger'; archive.type = 'button'; archive.textContent = tr('common.archive');
+      archive.addEventListener('click', function () { archiveTip(tip.id); });
+      actions.appendChild(archive);
+    }
+    article.appendChild(actions);
+    return article;
+  }
+  function renderTipList(tips) {
+    tipList.textContent = '';
+    if (!tips.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('tips.empty'); tipList.appendChild(empty); return; }
+    tips.forEach(function (tip) { tipList.appendChild(renderTipCard(tip)); });
+  }
+  function loadTips() {
+    if (!currentWorkspace) return Promise.resolve();
+    return api('/api/tips?' + tipQuery()).then(function (data) {
+      renderTipList(data && Array.isArray(data.tips) ? data.tips : []);
+    });
+  }
+  function addDetailRow(box, label, value, code) {
+    var dt = document.createElement('dt'); dt.textContent = label;
+    var dd = document.createElement('dd'); if (code) dd.className = 'code'; dd.textContent = valueText(value);
+    box.appendChild(dt); box.appendChild(dd);
+  }
+  function renderDrawer(tip) {
+    tipDrawer.textContent = '';
+    var head = document.createElement('div'); head.className = 'drawer-head';
+    var title = document.createElement('h2'); title.textContent = tip.title || tip.id;
+    var close = document.createElement('button'); close.className = 'close'; close.type = 'button'; close.textContent = '\xD7'; close.setAttribute('aria-label', tr('common.closeDetails'));
+    close.addEventListener('click', function () { tipDrawer.hidden = true; });
+    head.appendChild(title); head.appendChild(close); tipDrawer.appendChild(head);
+    var details = document.createElement('dl'); details.className = 'details';
+    ['id', 'status', 'summary', 'context', 'module', 'tags', 'nextAction', 'documentRefs', 'sourceRefs', 'relatedTipIds', 'relatedProjects', 'sourceSessionId', 'author', 'createdAt', 'updatedAt'].forEach(function (field) {
+      if (tip[field] !== undefined) addDetailRow(details, field, tip[field], field === 'documentRefs' || field === 'context');
+    });
+    tipDrawer.appendChild(details);
+    var actions = document.createElement('div'); actions.className = 'tip-actions';
+    var edit = document.createElement('button'); edit.className = 'primary'; edit.type = 'button'; edit.textContent = tr('common.edit'); edit.addEventListener('click', function () { openTipForm(tip); }); actions.appendChild(edit);
+    var raw = document.createElement('button'); raw.className = 'secondary'; raw.type = 'button'; raw.textContent = tr('tips.boardLink', { id: tip.id }); raw.addEventListener('click', function () { openTipBoardEntry(tip.id); }); actions.appendChild(raw);
+    if (tip.status !== 'archived') { var archive = document.createElement('button'); archive.className = 'danger'; archive.type = 'button'; archive.textContent = tr('common.archive'); archive.addEventListener('click', function () { archiveTip(tip.id); }); actions.appendChild(archive); }
+    tipDrawer.appendChild(actions);
+    tipDrawer.hidden = false;
+  }
+  function showTip(id) {
+    if (!currentWorkspace) return Promise.resolve();
+    return api('/api/tips/' + encodeURIComponent(id) + '?workspace=' + encodeURIComponent(currentWorkspace)).then(function (tip) {
+      selectedTip = tip; renderDrawer(tip);
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function setField(id, value) { document.getElementById(id).value = value == null ? '' : String(value); }
+  function openTipForm(tip) {
+    editingId = tip ? tip.id : '';
+    document.getElementById('formTitle').textContent = tr(editingId ? 'tips.edit' : 'tips.new').replace(/^\\+\\s*/, '');
+    setField('tipTitle', tip && tip.title); setField('tipSummary', tip && tip.summary); setField('tipStatus', (tip && tip.status) || 'captured');
+    setField('tipContext', tip && tip.context); setField('tipModule', tip && tip.module); setField('tipNextAction', tip && tip.nextAction);
+    setField('tipTags', tip && tip.tags ? tip.tags.join('\\n') : ''); setField('tipSourceRefs', tip && tip.sourceRefs ? tip.sourceRefs.join('\\n') : '');
+    setField('tipRelatedTipIds', tip && tip.relatedTipIds ? tip.relatedTipIds.join('\\n') : ''); setField('tipRelatedProjects', tip && tip.relatedProjects ? tip.relatedProjects.join('\\n') : '');
+    setField('tipSourceSessionId', tip && tip.sourceSessionId); setField('tipAuthor', tip && tip.author);
+    setField('tipDocumentRefs', tip && tip.documentRefs ? JSON.stringify(tip.documentRefs, null, 2) : '');
+    setFormError(''); tipForm.hidden = false; tipForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function closeTipForm() { editingId = ''; tipForm.hidden = true; setFormError(''); }
+  function buildTipPayload() {
+    var refs = parseDocumentRefs();
+    var payload = { workspace: currentWorkspace, title: document.getElementById('tipTitle').value.trim(), summary: document.getElementById('tipSummary').value.trim(), status: document.getElementById('tipStatus').value };
+    if (!payload.title || !payload.summary) throw new Error(tr('tips.required'));
+    if (editingId) {
+      payload.context = optionalText('tipContext'); payload.module = optionalText('tipModule'); payload.nextAction = optionalText('tipNextAction');
+      payload.tags = splitArray('tipTags').length ? splitArray('tipTags') : null;
+      payload.sourceRefs = splitArray('tipSourceRefs').length ? splitArray('tipSourceRefs') : null;
+      payload.relatedTipIds = splitArray('tipRelatedTipIds').length ? splitArray('tipRelatedTipIds') : null;
+      payload.relatedProjects = splitArray('tipRelatedProjects').length ? splitArray('tipRelatedProjects') : null;
+      payload.sourceSessionId = optionalText('tipSourceSessionId'); payload.documentRefs = refs;
+    } else {
+      var context = optionalText('tipContext'); var moduleName = optionalText('tipModule'); var nextAction = optionalText('tipNextAction');
+      if (context) payload.context = context; if (moduleName) payload.module = moduleName; if (nextAction) payload.nextAction = nextAction;
+      var tags = splitArray('tipTags'); var sourceRefs = splitArray('tipSourceRefs'); var relatedTipIds = splitArray('tipRelatedTipIds'); var relatedProjects = splitArray('tipRelatedProjects');
+      if (tags.length) payload.tags = tags; if (sourceRefs.length) payload.sourceRefs = sourceRefs; if (relatedTipIds.length) payload.relatedTipIds = relatedTipIds; if (relatedProjects.length) payload.relatedProjects = relatedProjects;
+      var sourceSessionId = optionalText('tipSourceSessionId'); var author = optionalText('tipAuthor');
+      if (sourceSessionId) payload.sourceSessionId = sourceSessionId; if (author) payload.author = author; if (refs !== null) payload.documentRefs = refs;
+    }
+    return payload;
+  }
+  tipForm.addEventListener('submit', function (event) {
+    event.preventDefault(); setFormError('');
+    var payload;
+    try { payload = buildTipPayload(); } catch (error) { setFormError(error.message); return; }
+    var method = editingId ? 'PATCH' : 'POST';
+    var url = editingId ? '/api/tips/' + encodeURIComponent(editingId) : '/api/tips';
+    api(url, { method: method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }).then(function (tip) {
+      selectedTip = tip; closeTipForm(); renderDrawer(tip); return loadTips();
+    }).catch(function (error) { setFormError(error.message); });
+  });
+  function archiveTip(id) {
+    if (!currentWorkspace || !window.confirm(tr('tips.archiveConfirm'))) return;
+    api('/api/tips/' + encodeURIComponent(id) + '/archive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace }) }).then(function (tip) {
+      selectedTip = tip; renderDrawer(tip); return loadTips();
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function boardQuery() {
+    var query = new URLSearchParams();
+    var scope = document.getElementById('boardScope').value;
+    query.set('scope', scope);
+    if (scope === 'workspace' && currentWorkspace) query.set('workspace', currentWorkspace);
+    var key = document.getElementById('boardKey').value.trim();
+    var tag = document.getElementById('boardTag').value.trim();
+    var limit = document.getElementById('boardLimit').value;
+    if (key) query.set('key', key);
+    if (tag) query.set('tag', tag);
+    if (limit) query.set('limit', limit);
+    return query.toString();
+  }
+  function boardRequestBody(scope, workspace, key) {
+    var payload = { scope: scope, key: key };
+    if (scope === 'workspace') payload.workspace = workspace;
+    return payload;
+  }
+  function sortBoardEntries(entries) {
+    var mode = document.getElementById('boardSort').value;
+    return entries.slice().sort(function (a, b) {
+      if (mode === 'key-asc') return String(a.key).localeCompare(String(b.key));
+      if (mode === 'key-desc') return String(b.key).localeCompare(String(a.key));
+      var compared = String(a.ts).localeCompare(String(b.ts));
+      return mode === 'updated-asc' ? compared : -compared;
+    });
+  }
+  function copyBoardText(text, label) {
+    var value = String(text == null ? '' : text);
+    var copied = null;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') copied = navigator.clipboard.writeText(value);
+    else {
+      copied = new Promise(function (resolve, reject) {
+        var area = document.createElement('textarea');
+        area.value = value;
+        area.setAttribute('readonly', 'readonly');
+        area.style.position = 'fixed'; area.style.opacity = '0';
+        document.body.appendChild(area); area.select();
+        try { if (!document.execCommand('copy')) throw new Error('copy unavailable'); resolve(); } catch (error) { reject(error); }
+        document.body.removeChild(area);
+      });
+    }
+    copied.then(function () { setNotice(tr('common.copied', { label: label }), false); }).catch(function () { setNotice(tr('common.copyFailed'), true); });
+  }
+  function openTipBoardEntry(id) {
+    tipDrawer.hidden = true;
+    document.getElementById('boardScope').value = 'workspace';
+    document.getElementById('boardKey').value = 'tips/' + id;
+    document.getElementById('boardTag').value = '';
+    selectedBoardKey = 'tips/' + id;
+    switchView('board');
+  }
+  function openTypedTipFromBoard(key) {
+    if (key.indexOf('tips/') !== 0 || key.length <= 'tips/'.length) return;
+    var id = key.slice('tips/'.length);
+    switchView('tips');
+    showTip(id);
+  }
+  function makeBoardAction(label, className, handler) {
+    var button = document.createElement('button');
+    button.type = 'button'; button.className = className; button.textContent = label;
+    button.addEventListener('click', handler);
+    return button;
+  }
+  function renderBoardDetail(entry) {
+    var box = document.getElementById('boardDetail'); box.textContent = '';
+    var heading = document.createElement('h2'); heading.textContent = entry ? entry.key : tr('memory.board'); box.appendChild(heading);
+    if (!entry) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('board.select'); box.appendChild(empty); return; }
+    var meta = document.createElement('div'); meta.className = 'tip-meta'; meta.textContent = valueText(entry.author) + ' \xB7 ' + valueText(entry.ts) + ' \xB7 ' + (entry.bytes == null ? utf8Bytes(entry.value || '') : entry.bytes) + ' B'; box.appendChild(meta);
+    var tags = document.createElement('div'); tags.className = 'tip-meta'; tags.textContent = (entry.tags || []).map(function (tag) { return '#' + tag; }).join(' '); box.appendChild(tags);
+    var actions = document.createElement('div'); actions.className = 'board-detail-actions';
+    actions.appendChild(makeBoardAction(tr('common.edit'), 'primary', function () { openBoardForm(entry); }));
+    actions.appendChild(makeBoardAction(tr('board.copyKey'), 'secondary', function () { copyBoardText(entry.key, 'key'); }));
+    actions.appendChild(makeBoardAction(tr('board.copyValue'), 'secondary', function () { copyBoardText(entry.value, 'value'); }));
+    if (entry.key.indexOf('tips/') === 0 && entry.key.length > 'tips/'.length) actions.appendChild(makeBoardAction(tr('board.backToTip'), 'secondary', function () { openTypedTipFromBoard(entry.key); }));
+    actions.appendChild(makeBoardAction(tr('common.delete'), 'danger', function () { deleteBoardEntry(entry); }));
+    box.appendChild(actions);
+    var value = document.createElement('pre'); value.className = 'board-value'; value.textContent = entry.value || ''; box.appendChild(value);
+  }
+  function renderBoardList(entries) {
+    boardEntries = sortBoardEntries(entries || []);
+    document.getElementById('boardResultCount').textContent = tr(boardEntries.length === 1 ? 'board.result' : 'board.results', { count: boardEntries.length });
+    var list = document.getElementById('boardList'); list.textContent = '';
+    if (!boardEntries.length) { selectedBoardKey = ''; var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('board.empty'); list.appendChild(empty); renderBoardDetail(null); return; }
+    var selectedIndex = boardEntries.findIndex(function (entry) { return entry.key === selectedBoardKey; });
+    if (selectedIndex < 0) selectedIndex = 0;
+    selectedBoardKey = boardEntries[selectedIndex].key;
+    boardEntries.forEach(function (entry, index) {
+      var row = document.createElement('button'); row.type = 'button'; row.className = 'board-row' + (index === selectedIndex ? ' selected' : '');
+      var key = document.createElement('span'); key.className = 'board-key'; key.textContent = entry.key;
+      var author = document.createElement('span'); author.className = 'board-small'; author.textContent = entry.author || 'anonymous';
+      var ts = document.createElement('span'); ts.className = 'board-small'; ts.textContent = entry.ts + ' \xB7 ' + entry.bytes + ' B';
+      row.appendChild(key); row.appendChild(author); row.appendChild(ts);
+      row.addEventListener('click', function () {
+        selectedBoardKey = entry.key;
+        var children = list.children;
+        for (var i = 0; i < children.length; i++) children[i].classList.remove('selected');
+        row.classList.add('selected');
+        renderBoardDetail(entry);
+      });
+      list.appendChild(row);
+    });
+    renderBoardDetail(boardEntries[selectedIndex]);
+  }
+  function loadBoard() {
+    var scope = document.getElementById('boardScope').value;
+    if (scope === 'workspace' && !currentWorkspace) {
+      renderBoardList([]);
+      setNotice(tr('board.scopeNotice'), false);
+      return Promise.resolve();
+    }
+    return api('/api/board?' + boardQuery()).then(function (data) { renderBoardList(data && Array.isArray(data.entries) ? data.entries : []); });
+  }
+  function setAgentFormError(message) { document.getElementById('agentFormError').textContent = message || ''; }
+  function setAgentRawError(message) { document.getElementById('agentRawError').textContent = message || ''; }
+  function showAgentReloadBanner() { agentReloadBanner.hidden = false; }
+  function hideAgentLatest() { document.getElementById('agentLoadLatest').hidden = true; }
+  function agentRequest(path) { return path + '?workspace=' + encodeURIComponent(currentWorkspace); }
+  function renderAgentMeta(agent) {
+    var box = document.getElementById('agentMeta'); box.textContent = '';
+    if (!agent) return;
+    addDetailRow(box, tr('agent.file'), agent.fileName);
+    addDetailRow(box, tr('agent.description'), agent.description || '\u2014');
+    addDetailRow(box, tr('agent.slot'), agent.slot || '\u2014');
+    addDetailRow(box, tr('agent.hash'), agent.hash);
+    addDetailRow(box, tr('agent.size'), valueText(agent.size) + ' B');
+    addDetailRow(box, tr('agent.valid'), agent.valid ? tr('agent.valid') : tr('agent.invalid'));
+  }
+  function renderAgentList(agents) {
+    agentList.textContent = '';
+    var rows = Array.isArray(agents) ? agents : [];
+    document.getElementById('agentResultCount').textContent = String(rows.length);
+    if (!rows.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('agent.noAgents'); agentList.appendChild(empty); return; }
+    rows.forEach(function (agent) {
+      var row = document.createElement('button'); row.type = 'button'; row.className = 'agent-row' + (agent.name === selectedAgentName && !agentIsNew ? ' selected' : '');
+      var head = document.createElement('div'); head.className = 'agent-row-head';
+      var name = document.createElement('strong'); name.textContent = agent.name; head.appendChild(name);
+      var state = document.createElement('span'); state.className = agent.valid ? 'status st-implemented' : 'status st-discarded'; state.textContent = agent.valid ? tr('agent.valid') : tr('agent.invalid'); head.appendChild(state);
+      row.appendChild(head);
+      var meta = document.createElement('div'); meta.className = 'agent-row-meta'; meta.textContent = (agent.description || agent.fileName) + ' \xB7 ' + valueText(agent.size) + ' B'; row.appendChild(meta);
+      if (agent.error) { var error = document.createElement('div'); error.className = 'agent-row-error'; error.textContent = agent.error; row.appendChild(error); }
+      row.addEventListener('click', function () { loadAgentDetail(agent.name).catch(function (error) { setNotice(tr('agent.error') + error.message, true); }); });
+      agentList.appendChild(row);
+    });
+  }
+  function renderAgentLayoutNote() {
+    var note = document.getElementById('agentLayoutNote');
+    if (!agentSnapshot) { note.textContent = ''; return; }
+    note.textContent = tr('agent.layout') + ': ' + (agentSnapshot.layout === 'standard' ? tr('agent.layoutStandard') : tr('agent.layoutComplex'));
+  }
+  function appendBindingOption(select, value, label) {
+    var option = document.createElement('option'); option.value = value; option.textContent = label; select.appendChild(option);
+  }
+  function appendAgentBindingRow(container, section, rowData) {
+    var binding = rowData && rowData.binding ? rowData.binding : {};
+    var row = document.createElement('div'); row.className = 'agent-binding-row'; row.dataset.section = section;
+    if (rowData && rowData.name) row.dataset.originalName = rowData.name;
+    function textField(labelKey, field, value, readOnly) {
+      var wrapper = document.createElement('div'); wrapper.className = 'field';
+      var label = document.createElement('label'); label.textContent = tr(labelKey); wrapper.appendChild(label);
+      var input = document.createElement('input'); input.type = 'text'; input.value = value == null ? '' : String(value); input.dataset.bindingField = field;
+      if (readOnly) input.readOnly = true;
+      wrapper.appendChild(input); row.appendChild(wrapper);
+    }
+    textField('agent.bindingName', 'name', rowData ? rowData.name : '', !!(rowData && rowData.name));
+    textField('agent.model', 'model', binding.model);
+    textField('agent.thinking', 'thinking_effort', binding.thinking_effort);
+    var inheritWrapper = document.createElement('div'); inheritWrapper.className = 'field';
+    var inheritLabel = document.createElement('label'); inheritLabel.textContent = tr('agent.inherit'); inheritWrapper.appendChild(inheritLabel);
+    var inherit = document.createElement('select'); inherit.dataset.bindingField = 'inherit';
+    appendBindingOption(inherit, 'unset', tr('agent.unset')); appendBindingOption(inherit, 'true', 'true'); appendBindingOption(inherit, 'false', 'false');
+    inherit.value = binding.inherit === true ? 'true' : binding.inherit === false ? 'false' : 'unset'; inheritWrapper.appendChild(inherit); row.appendChild(inheritWrapper);
+    var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger remove-binding'; remove.textContent = tr('common.delete');
+    remove.addEventListener('click', function () {
+      if (row.dataset.originalName) {
+        deletedBindings.push({ section: section, name: row.dataset.originalName, binding: null });
+      }
+      row.remove();
+    });
+    row.appendChild(remove);
+    container.appendChild(row);
+  }
+  function renderAgentBindingList(id, section, rows) {
+    var container = document.getElementById(id); container.textContent = '';
+    var list = Array.isArray(rows) ? rows : [];
+    if (!list.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('agent.noBindings'); container.appendChild(empty); return; }
+    list.forEach(function (row) { appendAgentBindingRow(container, section, row); });
+  }
+  function updateBindingRowTranslations() {
+    document.getElementById('agentBindingHash').textContent = tr('agent.hash') + ': ' + (agentLocalHash || '\u2014');
+    renderAgentLayoutNote();
+    var rows = document.querySelectorAll('.agent-binding-row');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var fields = row.querySelectorAll('.field');
+      for (var j = 0; j < fields.length; j++) {
+        var wrapper = fields[j];
+        var input = wrapper.querySelector('input, select');
+        var label = wrapper.querySelector('label');
+        if (!input || !label) continue;
+        var fieldName = input.dataset.bindingField;
+        if (fieldName === 'name') label.textContent = tr('agent.bindingName');
+        else if (fieldName === 'model') label.textContent = tr('agent.model');
+        else if (fieldName === 'thinking_effort') label.textContent = tr('agent.thinking');
+        else if (fieldName === 'inherit') {
+          label.textContent = tr('agent.inherit');
+          var unsetOption = input.querySelector('option[value="unset"]');
+          if (unsetOption) unsetOption.textContent = tr('agent.unset');
+        }
+      }
+      var removeBtn = row.querySelector('.remove-binding');
+      if (removeBtn) removeBtn.textContent = tr('common.delete');
+    }
+    ['typeBindingsList', 'slotBindingsList'].forEach(function (id) {
+      var emptyEl = document.getElementById(id).querySelector('.empty');
+      if (emptyEl) emptyEl.textContent = tr('agent.noBindings');
+    });
+  }
+  function renderAgentBindings() {
+    deletedBindings = [];
+    var bindings = agentSnapshot && agentSnapshot.bindings ? agentSnapshot.bindings : {};
+    renderAgentBindingList('typeBindingsList', 'subagent', bindings.types || (agentSnapshot && agentSnapshot.typeBindings) || []);
+    renderAgentBindingList('slotBindingsList', 'subagent-slot', bindings.slots || (agentSnapshot && agentSnapshot.slotBindings) || []);
+    document.getElementById('agentBindingHash').textContent = tr('agent.hash') + ': ' + (agentLocalHash || '\u2014');
+    renderAgentLayoutNote();
+  }
+  function clearAgentEditor() {
+    selectedAgentName = ''; selectedAgent = null; agentIsNew = false; agentRawLoaded = false;
+    agentEditorEmpty.hidden = false; agentForm.hidden = true; agentConfigPanel.hidden = !currentWorkspace;
+    document.getElementById('agentMeta').textContent = ''; document.getElementById('agentFormError').textContent = '';
+    document.getElementById('agentRawError').textContent = ''; hideAgentLatest();
+  }
+  function showAgentEditor(agent, isNew) {
+    agentIsNew = isNew; agentEditorEmpty.hidden = true; agentForm.hidden = false; agentConfigPanel.hidden = !currentWorkspace;
+    document.getElementById('agentEditorTitle').textContent = isNew ? tr('agent.new') : agent.name;
+    var name = document.getElementById('agentName'); name.value = isNew ? '' : agent.name; name.readOnly = !isNew;
+    document.getElementById('agentFileName').textContent = isNew ? '' : agent.fileName;
+    document.getElementById('agentMarkdown').value = isNew ? '' : agent.content;
+    document.getElementById('deleteAgent').disabled = isNew;
+    document.getElementById('agentFormError').textContent = (!isNew && agent && !agent.valid && agent.error) ? agent.error : ''; setAgentRawError(''); hideAgentLatest();
+    renderAgentMeta(agent);
+  }
+  function loadAgentDetail(name) {
+    if (!currentWorkspace) return Promise.resolve();
+    return api(agentRequest('/api/agent-config/agents/' + encodeURIComponent(name))).then(function (data) {
+      selectedAgentName = name; selectedAgent = data.agent; agentIsNew = false; agentRawLoaded = false;
+      showAgentEditor(selectedAgent, false); renderAgentList(agentSnapshot && agentSnapshot.agents);
+    });
+  }
+  function loadAgentSummary(refreshDetail) {
+    if (!currentWorkspace) { clearAgentEditor(); return Promise.resolve(); }
+    var previousName = selectedAgentName;
+    var previousNew = agentIsNew;
+    return api(agentRequest('/api/agent-config')).then(function (data) {
+      agentSnapshot = data; agentLocalHash = data.localToml ? data.localToml.hash : null;
+      renderAgentList(data.agents); renderAgentBindings();
+      if (refreshDetail !== false && previousName && !previousNew) return loadAgentDetail(previousName);
+      if (!previousName && !previousNew) clearAgentEditor();
+      if (selectedAgent && !agentIsNew) renderAgentMeta(selectedAgent);
+      return undefined;
+    });
+  }
+  function openNewAgent() {
+    selectedAgentName = ''; selectedAgent = null; agentIsNew = true; showAgentEditor(null, true);
+    document.getElementById('useAgentTemplate').click();
+  }
+  function useAgentTemplate() {
+    var newline = String.fromCharCode(10);
+    var name = document.getElementById('agentName').value.trim() || 'new-agent';
+    document.getElementById('agentName').value = name;
+    document.getElementById('agentMarkdown').value = '---' + newline + 'name: ' + name + newline + 'description: ' + newline + '---' + newline + newline + 'Describe this Agent\\'s role and constraints here.' + newline;
+  }
+  function showAgentConflict(error, target) {
+    var message = tr('agent.conflict') + (error.currentHash ? ' ' + tr('agent.hash') + ': ' + error.currentHash : '');
+    if (target === 'raw') setAgentRawError(message); else setAgentFormError(message);
+    document.getElementById('agentLoadLatest').hidden = false;
+  }
+  function saveAgent(event) {
+    event.preventDefault(); setAgentFormError('');
+    var name = document.getElementById('agentName').value.trim();
+    var content = document.getElementById('agentMarkdown').value;
+    if (!name || !content) { setAgentFormError(tr('agent.error') + 'name and Markdown are required'); return; }
+    var expectedHash = agentIsNew ? null : (selectedAgent && selectedAgent.hash);
+    api('/api/agent-config/agents/' + encodeURIComponent(name), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace, content: content, expectedHash: expectedHash || null }) }).then(function () {
+      selectedAgentName = name; agentIsNew = false; showAgentReloadBanner(); return loadAgentSummary();
+    }).catch(function (error) { if (error.status === 409) showAgentConflict(error, 'agent'); else setAgentFormError(tr('agent.error') + error.message); });
+  }
+  function reloadAgentLatest() {
+    var rawWasLoaded = agentRawLoaded;
+    hideAgentLatest(); setAgentFormError(''); setAgentRawError('');
+    loadAgentSummary().then(function () { if (rawWasLoaded) return loadAgentRaw(); return undefined; }).then(function () { setAgentFormError(tr('agent.reloaded')); }).catch(function (error) { setAgentFormError(tr('agent.error') + error.message); });
+  }
+  function deleteAgent() {
+    if (agentIsNew || !selectedAgent) return;
+    if (!window.confirm(tr('agent.deleteConfirm', { name: selectedAgent.name }))) return;
+    api('/api/agent-config/agents/' + encodeURIComponent(selectedAgent.name), { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace, expectedHash: selectedAgent.hash }) }).then(function () {
+      clearAgentEditor(); showAgentReloadBanner(); return loadAgentSummary();
+    }).catch(function (error) { if (error.status === 409) showAgentConflict(error, 'agent'); else setAgentFormError(tr('agent.error') + error.message); });
+  }
+  function collectAgentBindings(section) {
+    var id = section === 'subagent' ? 'typeBindingsList' : 'slotBindingsList';
+    var nodes = document.getElementById(id).querySelectorAll('.agent-binding-row');
+    var rows = []; var names = new Set();
+    for (var index = 0; index < nodes.length; index += 1) {
+      var node = nodes[index]; var nameInput = node.querySelector('[data-binding-field="name"]'); var name = nameInput.value.trim();
+      if (!name) throw new Error(tr('agent.error') + tr('agent.bindingName'));
+      if (names.has(name)) throw new Error(tr('agent.error') + 'duplicate ' + name);
+      names.add(name);
+      var modelInput = node.querySelector('[data-binding-field="model"]'); var thinkingInput = node.querySelector('[data-binding-field="thinking_effort"]'); var inheritInput = node.querySelector('[data-binding-field="inherit"]');
+      var binding = { model: modelInput.value.trim() || null, thinking_effort: thinkingInput.value.trim() || null, inherit: inheritInput.value === 'unset' ? null : inheritInput.value === 'true' };
+      rows.push({ section: section, name: name, binding: binding });
+    }
+    return rows;
+  }
+  function saveAgentBindings() {
+    if (!currentWorkspace) return;
+    setAgentFormError(''); setAgentRawError('');
+    var activeRows;
+    try { activeRows = collectAgentBindings('subagent').concat(collectAgentBindings('subagent-slot')); } catch (error) { setAgentFormError(error.message); return; }
+    var activeSet = new Set();
+    activeRows.forEach(function (r) { activeSet.add(r.section + ':' + r.name); });
+    var changes = deletedBindings.filter(function (d) { return !activeSet.has(d.section + ':' + d.name); }).concat(activeRows);
+    if (!changes.length) { setAgentFormError(tr('agent.noBindings')); return; }
+    api('/api/agent-config/bindings', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: currentWorkspace, changes: changes, expectedHash: agentLocalHash })
+    }).then(function (data) {
+      agentLocalHash = data.hash || (data.bindings && data.bindings.hash);
+      if (agentSnapshot && agentSnapshot.localToml) agentSnapshot.localToml.hash = agentLocalHash;
+      deletedBindings = [];
+      return loadAgentSummary(false);
+    }).then(function () {
+      showAgentReloadBanner();
+    }).catch(function (error) {
+      if (error.status === 409) showAgentConflict(error, 'agent');
+      else setAgentFormError(tr('agent.error') + error.message);
+    });
+  }
+  function loadAgentRaw() {
+    if (!currentWorkspace) return Promise.resolve();
+    return api(agentRequest('/api/agent-config/local-toml')).then(function (data) {
+      var local = data.localToml; document.getElementById('agentRawToml').value = local.content || ''; agentLocalHash = local.hash; agentRawLoaded = true;
+      if (agentSnapshot && agentSnapshot.localToml) { agentSnapshot.localToml.hash = local.hash; agentSnapshot.localToml.size = local.size; }
+      renderAgentLayoutNote(); document.getElementById('agentBindingHash').textContent = tr('agent.hash') + ': ' + (agentLocalHash || '\u2014'); setAgentRawError('');
+    });
+  }
+  function saveAgentRaw() {
+    if (!currentWorkspace) return;
+    setAgentRawError('');
+    var content = document.getElementById('agentRawToml').value;
+    api('/api/agent-config/local-toml', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace: currentWorkspace, content: content, expectedHash: agentLocalHash }) }).then(function (data) {
+      agentLocalHash = data.localToml.hash; agentRawLoaded = true; showAgentReloadBanner(); return loadAgentSummary(false);
+    }).catch(function (error) { if (error.status === 409) showAgentConflict(error, 'raw'); else setAgentRawError(tr('agent.error') + error.message); });
+  }
+  function setBoardFormError(message) { boardFormError.textContent = message || ''; }
+  function updateBoardValueBytes() {
+    var bytes = utf8Bytes(document.getElementById('boardFormValue').value);
+    document.getElementById('boardValueBytes').textContent = bytes + ' / ' + BOARD_VALUE_MAX_BYTES + ' bytes';
+    document.getElementById('boardByteLine').className = 'byte-line' + (bytes > BOARD_VALUE_MAX_BYTES ? ' over-limit' : '');
+    boardSaveButton.disabled = bytes > BOARD_VALUE_MAX_BYTES;
+    return bytes;
+  }
+  function openBoardForm(entry) {
+    var editing = !!entry;
+    var scope = document.getElementById('boardScope').value;
+    boardEditing = { mode: editing ? 'edit' : 'new', scope: scope, workspace: currentWorkspace, key: editing ? entry.key : '', expectedTs: editing ? entry.ts : null, external: false };
+    document.getElementById('boardFormTitle').textContent = tr(editing ? 'board.editTitle' : 'board.newTitle');
+    var scopeField = document.getElementById('boardFormScope'); scopeField.value = scope; scopeField.disabled = editing;
+    var keyField = document.getElementById('boardFormKey'); keyField.value = editing ? entry.key : ''; keyField.readOnly = editing;
+    document.getElementById('boardFormValue').value = editing ? (entry.value || '') : '';
+    document.getElementById('boardFormTags').value = editing && entry.tags ? entry.tags.join('\\n') : '';
+    document.getElementById('boardFormAuthor').value = editing ? (entry.author || '') : '';
+    document.getElementById('boardExternalWarning').hidden = true;
+    document.getElementById('boardConflictReload').hidden = true;
+    setBoardFormError(''); updateBoardValueBytes(); boardModal.hidden = false;
+    setTimeout(function () { (editing ? document.getElementById('boardFormValue') : keyField).focus(); }, 0);
+  }
+  function closeBoardForm() {
+    boardEditing = null; boardModal.hidden = true; setBoardFormError('');
+    document.getElementById('boardConflictReload').hidden = true;
+  }
+  function handleBoardEvent(event) {
+    if (!boardEditing || boardEditing.mode !== 'edit') return;
+    if (event.scope === boardEditing.scope && event.key === boardEditing.key && event.ts !== boardEditing.expectedTs) {
+      boardEditing.external = true;
+      document.getElementById('boardExternalWarning').hidden = false;
+    }
+  }
+  function buildBoardPayload() {
+    if (!boardEditing) throw new Error(tr('board.formClosed'));
+    var scope = document.getElementById('boardFormScope').value;
+    var key = document.getElementById('boardFormKey').value.trim();
+    var value = document.getElementById('boardFormValue').value;
+    if (!key) throw new Error(tr('board.keyRequired'));
+    if (utf8Bytes(value) > BOARD_VALUE_MAX_BYTES) throw new Error(tr('board.tooLarge'));
+    if (scope === 'workspace' && !boardEditing.workspace) throw new Error(tr('board.workspaceRequired'));
+    var payload = boardRequestBody(scope, boardEditing.workspace, key);
+    payload.value = value;
+    payload.tags = splitArray('boardFormTags');
+    var author = document.getElementById('boardFormAuthor').value.trim();
+    if (author) payload.author = author;
+    payload.expectedTs = boardEditing.mode === 'new' ? null : boardEditing.expectedTs;
+    return payload;
+  }
+  function saveBoardEntry(event) {
+    event.preventDefault(); setBoardFormError('');
+    if (!boardEditing) return;
+    if (updateBoardValueBytes() > BOARD_VALUE_MAX_BYTES) { setBoardFormError(tr('board.tooLarge')); return; }
+    if (boardEditing.external && !window.confirm(tr('board.externalConfirm'))) return;
+    var payload;
+    try { payload = buildBoardPayload(); } catch (error) { setBoardFormError(error.message); return; }
+    boardSaveButton.disabled = true;
+    api('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }).then(function (data) {
+      var entry = data.entry;
+      selectedBoardKey = entry.key;
+      document.getElementById('boardScope').value = payload.scope;
+      document.getElementById('boardKey').value = entry.key;
+      document.getElementById('boardTag').value = '';
+      closeBoardForm(); connectBoardSubscription(); setNotice(tr('board.saved'), false);
+      return loadBoard();
+    }).catch(function (error) {
+      boardSaveButton.disabled = false;
+      if (error.status === 409) {
+        var current = error.currentTs ? error.currentTs : tr('board.missing');
+        setBoardFormError(tr('board.conflict', { current: current }));
+        document.getElementById('boardConflictReload').hidden = false;
+      } else setBoardFormError(error.message);
+    });
+  }
+  function reloadBoardConflict() {
+    if (!boardEditing) return;
+    var query = new URLSearchParams(); query.set('scope', boardEditing.scope); query.set('key', boardEditing.key); query.set('limit', '1000');
+    if (boardEditing.scope === 'workspace') query.set('workspace', boardEditing.workspace);
+    api('/api/board?' + query.toString()).then(function (data) {
+      var rows = data && Array.isArray(data.entries) ? data.entries : [];
+      var current = rows.filter(function (entry) { return entry.key === boardEditing.key; })[0];
+      if (!current) { setBoardFormError(tr('board.currentMissing')); return; }
+      boardEditing.expectedTs = current.ts; boardEditing.external = false;
+      document.getElementById('boardFormValue').value = current.value || '';
+      document.getElementById('boardFormTags').value = (current.tags || []).join('\\n');
+      document.getElementById('boardFormAuthor').value = current.author || '';
+      document.getElementById('boardExternalWarning').hidden = true;
+      document.getElementById('boardConflictReload').hidden = true;
+      setBoardFormError(tr('board.reloaded', { current: current.ts })); updateBoardValueBytes();
+    }).catch(function (error) { setBoardFormError(error.message); });
+  }
+  function deleteBoardEntry(entry) {
+    var scope = document.getElementById('boardScope').value;
+    if (!window.confirm(tr('board.deleteConfirm', { key: entry.key }))) return;
+    var payload = boardRequestBody(scope, currentWorkspace, entry.key); payload.expectedTs = entry.ts;
+    api('/api/board', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }).then(function () {
+      selectedBoardKey = ''; setNotice(tr('board.deleted'), false); return loadBoard();
+    }).catch(function (error) {
+      if (error.status === 409) setNotice(tr('board.deleteConflict', { current: error.currentTs || tr('board.missing') }), true);
+      else setNotice(error.message, true);
+    });
+  }
+  function appendMeta(grid, label, value) {
+    var item = document.createElement('div'); item.className = 'meta-item';
+    var key = document.createElement('span'); key.className = 'meta-label'; key.textContent = label;
+    var text = document.createElement('span'); text.textContent = valueText(value);
+    item.appendChild(key); item.appendChild(text); grid.appendChild(item);
+  }
+  function makeButton(label, className, handler) {
+    var button = document.createElement('button'); button.type = 'button'; button.className = className; button.textContent = label; button.addEventListener('click', handler); return button;
+  }
+  function renderRunCard(task) {
+    var card = document.createElement('article'); card.className = 'management-card';
+    var head = document.createElement('div'); head.className = 'management-head';
+    var title = document.createElement('h2'); title.textContent = task.taskId || 'unknown task';
+    var status = document.createElement('span'); status.className = 'status'; status.textContent = task.status || 'unknown';
+    head.appendChild(title); head.appendChild(status); card.appendChild(head);
+    var roster = document.createElement('div'); roster.className = 'run-roster';
+    var specs = Array.isArray(task.agentSpecs) ? task.agentSpecs : [];
+    if (!specs.length && Array.isArray(task.agents)) specs = task.agents.map(function (id) { return { id: id }; });
+    specs.forEach(function (agent) { var chip = document.createElement('span'); chip.className = 'run-agent'; chip.textContent = valueText(agent.id) + (agent.binding_slot ? ' \xB7 ' + agent.binding_slot : ''); roster.appendChild(chip); });
+    card.appendChild(roster);
+    var grid = document.createElement('div'); grid.className = 'meta-grid';
+    appendMeta(grid, tr('runs.roundConfigured'), valueText(task.round) + ' / ' + valueText(task.roundsConfigured));
+    appendMeta(grid, tr('runs.turn'), task.turn); appendMeta(grid, tr('runs.speaker'), task.currentSpeaker);
+    appendMeta(grid, tr('runs.turnsSignoffs'), valueText(task.turnCount) + ' / ' + valueText(task.signoffCount));
+    appendMeta(grid, tr('runs.lastEvent'), task.lastEvent); appendMeta(grid, tr('runs.updated'), task.updatedAt);
+    if (task.early !== undefined || task.reason) appendMeta(grid, tr('runs.earlyReason'), (task.early ? 'early \xB7 ' : '') + valueText(task.reason));
+    card.appendChild(grid);
+    var actions = document.createElement('div'); actions.className = 'management-actions';
+    actions.appendChild(makeButton(tr('common.details'), 'secondary', function () { showRunDetails(card, task.taskId); }));
+    actions.appendChild(makeButton(tr('runs.copyTask'), 'secondary', function () { copyBoardText(task.taskId, 'task id'); }));
+    actions.appendChild(makeButton(tr('runs.openLive'), 'primary', function () { openLiveCard(task.taskId); }));
+    card.appendChild(actions); return card;
+  }
+  function showRunDetails(card, taskId) {
+    api('/api/tasks/' + encodeURIComponent(taskId)).then(function (data) {
+      var detail = card.querySelector('.run-detail');
+      if (!detail) { detail = document.createElement('pre'); detail.className = 'run-detail'; card.appendChild(detail); }
+      detail.textContent = JSON.stringify(data && data.task ? data.task : data, null, 2);
+    }).catch(function (error) { setNotice(tr('runs.detailsError') + error.message, true); });
+  }
+  function safeCardUrl(value) {
+    try {
+      var url = new URL(value, location.href);
+      var loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+      return url.protocol === 'http:' && loopback && url.port === location.port ? url.href : '';
+    } catch (_) { return ''; }
+  }
+  function openLiveCard(taskId) {
+    api('/api/tasks/' + encodeURIComponent(taskId)).then(function (data) {
+      var target = safeCardUrl(data && data.cardUrl);
+      if (!target) throw new Error('invalid cardUrl');
+      window.open(target, '_blank', 'noopener');
+    }).catch(function (error) { setNotice(tr('runs.openError') + error.message, true); });
+  }
+  function loadRuns() {
+    var query = new URLSearchParams();
+    var status = document.getElementById('runStatusFilter').value;
+    var text = document.getElementById('runQuery').value.trim();
+    if (status) query.set('status', status); if (text) query.set('query', text);
+    return api('/api/tasks?' + query.toString()).then(function (data) {
+      var tasks = data && Array.isArray(data.tasks) ? data.tasks : [];
+      document.getElementById('runResultCount').textContent = tr(tasks.length === 1 ? 'board.result' : 'board.results', { count: tasks.length });
+      var list = document.getElementById('runList'); list.textContent = '';
+      if (!tasks.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('runs.empty'); list.appendChild(empty); return; }
+      tasks.forEach(function (task) { list.appendChild(renderRunCard(task)); });
+    });
+  }
+  function archiveUrl(taskId, file) {
+    if (ARCHIVE_FILES.indexOf(file) < 0) return '';
+    var query = new URLSearchParams(); query.set('task_id', taskId); query.set('file', file); return '/archive?' + query.toString();
+  }
+  function showArchiveFile(card, taskId, file) {
+    var url = archiveUrl(taskId, file); if (!url) return;
+    fetchText(url).then(function (raw) {
+      var detail = card.querySelector('.archive-detail');
+      if (!detail) { detail = document.createElement('pre'); detail.className = 'archive-detail'; card.appendChild(detail); }
+      var shown = raw;
+      if (file.slice(-5) === '.json') { try { shown = JSON.stringify(JSON.parse(raw), null, 2); } catch (_) {} }
+      detail.textContent = shown;
+      var oldActions = card.querySelector('.archive-detail-actions'); if (oldActions) oldActions.remove();
+      var actions = document.createElement('div'); actions.className = 'management-actions archive-detail-actions';
+      actions.appendChild(makeButton(tr('archives.copy', { file: file }), 'secondary', function () { copyBoardText(shown, file); }));
+      var download = document.createElement('a'); download.className = 'secondary'; download.textContent = tr('archives.download', { file: file }); download.href = url; download.download = taskId + '-' + file; actions.appendChild(download);
+      card.appendChild(actions);
+    }).catch(function (error) { setNotice(tr('archives.fileError') + error.message, true); });
+  }
+  function renderArchiveCard(entry) {
+    var card = document.createElement('article'); card.className = 'management-card';
+    var head = document.createElement('div'); head.className = 'management-head';
+    var title = document.createElement('h2'); title.textContent = entry.taskId || 'unknown task'; head.appendChild(title);
+    var state = document.createElement('span'); state.className = entry.degraded ? 'degraded' : 'status'; state.textContent = tr(entry.degraded ? 'archives.degraded' : 'archives.available'); head.appendChild(state); card.appendChild(head);
+    var grid = document.createElement('div'); grid.className = 'meta-grid'; appendMeta(grid, tr('archives.updated'), entry.updatedAt); appendMeta(grid, tr('archives.summary'), entry.summary || '\u2014'); card.appendChild(grid);
+    if (entry.degraded || (Array.isArray(entry.errors) && entry.errors.length)) {
+      var errors = document.createElement('details'); var summary = document.createElement('summary'); summary.textContent = tr('archives.errors', { count: (entry.errors || []).length }); errors.appendChild(summary);
+      var errorText = document.createElement('pre'); errorText.className = 'archive-detail'; errorText.textContent = JSON.stringify(entry.errors || [], null, 2); errors.appendChild(errorText); card.appendChild(errors);
+    }
+    var files = document.createElement('div'); files.className = 'file-grid';
+    ARCHIVE_FILES.forEach(function (file) {
+      var info = entry.files && entry.files[file];
+      var item = document.createElement('div'); item.className = 'file-item';
+      var name = document.createElement('strong'); name.textContent = file; item.appendChild(name);
+      var meta = document.createElement('div'); meta.className = 'file-meta'; meta.textContent = info && info.exists ? valueText(info.size) + ' B \xB7 ' + valueText(info.mtime) : tr('archives.notPresent'); item.appendChild(meta);
+      if (info && info.exists) item.appendChild(makeButton(tr('archives.view'), 'secondary', function () { showArchiveFile(card, entry.taskId, file); }));
+      files.appendChild(item);
+    });
+    card.appendChild(files); return card;
+  }
+  function loadArchives() {
+    return api('/api/archives').then(function (data) {
+      var archives = data && Array.isArray(data.archives) ? data.archives : [];
+      document.getElementById('archiveResultCount').textContent = tr(archives.length === 1 ? 'board.result' : 'board.results', { count: archives.length });
+      var list = document.getElementById('archiveList'); list.textContent = '';
+      if (!archives.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('archives.empty'); list.appendChild(empty); return; }
+      archives.forEach(function (entry) { list.appendChild(renderArchiveCard(entry)); });
+    });
+  }
+  function renderHealthCard(container, title, value) {
+    var card = document.createElement('article'); card.className = 'card health-card';
+    var heading = document.createElement('h2'); heading.textContent = title; card.appendChild(heading);
+    var dl = document.createElement('dl');
+    if (value && typeof value === 'object' && !Array.isArray(value)) Object.keys(value).forEach(function (key) { var dt = document.createElement('dt'); dt.textContent = key; var dd = document.createElement('dd'); dd.textContent = valueText(value[key]); dl.appendChild(dt); dl.appendChild(dd); });
+    else { var dt = document.createElement('dt'); dt.textContent = tr('system.value'); var dd = document.createElement('dd'); dd.textContent = valueText(value); dl.appendChild(dt); dl.appendChild(dd); }
+    card.appendChild(dl); container.appendChild(card);
+  }
+  function loadSystem() {
+    return api('/api/system').then(function (data) {
+      var box = document.getElementById('systemHealth'); box.textContent = '';
+      ['process', 'bus', 'runs', 'sse', 'archives', 'reuseWatch'].forEach(function (key) { renderHealthCard(box, key, data ? data[key] : undefined); });
+      renderHealthCard(box, 'registry listenerEntries', data && data.registry ? data.registry.listenerEntries : undefined);
+    }).catch(function (error) {
+      var box = document.getElementById('systemHealth'); box.textContent = '';
+      var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('system.unavailable') + error.message; box.appendChild(empty);
+    });
+  }
+  function closeSectionResources() {
+    closeBoardSubscription();
+    if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
+    if (systemPollTimer) { clearInterval(systemPollTimer); systemPollTimer = null; }
+    if (runSearchTimer) { clearTimeout(runSearchTimer); runSearchTimer = null; }
+  }
+  function switchRunsView(view) {
+    activeRunsView = view;
+    document.getElementById('liveRunsView').hidden = view !== 'live'; document.getElementById('archivesView').hidden = view !== 'archives';
+    document.getElementById('liveRunsTab').className = 'tab' + (view === 'live' ? ' active' : ''); document.getElementById('archivesTab').className = 'tab' + (view === 'archives' ? ' active' : '');
+    if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
+    if (activeSection !== 'runs') return;
+    if (view === 'live') { loadRuns().catch(function (error) { setNotice(error.message, true); }); runsPollTimer = setInterval(function () { loadRuns().catch(function () {}); }, 5000); }
+    else loadArchives().catch(function (error) { setNotice(error.message, true); });
+  }
+  function switchSection(section) {
+    if (['memory', 'runs', 'system'].indexOf(section) < 0) section = 'memory';
+    closeSectionResources(); activeSection = section; updateSectionLocation(section); setNotice('', false); tipDrawer.hidden = true;
+    ['memory', 'runs', 'system'].forEach(function (name) {
+      var current = name === section;
+      var nav = document.getElementById(name + 'Nav');
+      document.getElementById(name + 'Section').hidden = !current;
+      nav.className = current ? 'active' : '';
+      if (current) nav.setAttribute('aria-current', 'page'); else nav.removeAttribute('aria-current');
+    });
+    if (section === 'memory') { switchView(activeView); }
+    else if (section === 'runs') switchRunsView(activeRunsView);
+    else { loadSystem(); systemPollTimer = setInterval(function () { loadSystem(); }, 10000); }
+  }
+  function switchView(view) {
+    if (['tips', 'board', 'agents'].indexOf(view) < 0) view = 'tips';
+    activeView = view;
+    document.getElementById('tipsView').hidden = view !== 'tips'; document.getElementById('boardView').hidden = view !== 'board'; document.getElementById('agentsView').hidden = view !== 'agents';
+    document.getElementById('tipsTab').className = 'tab' + (view === 'tips' ? ' active' : ''); document.getElementById('boardTab').className = 'tab' + (view === 'board' ? ' active' : ''); document.getElementById('agentsTab').className = 'tab' + (view === 'agents' ? ' active' : '');
+    connectBoardSubscription();
+    if (view === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
+    else if (view === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
+    else loadTips().catch(function (error) { setNotice(error.message, true); });
+  }
+  workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
+  document.getElementById('newTip').addEventListener('click', function () { openTipForm(null); });
+  document.getElementById('cancelForm').addEventListener('click', closeTipForm);
+  document.getElementById('tipsTab').addEventListener('click', function () { switchView('tips'); });
+  document.getElementById('boardTab').addEventListener('click', function () { switchView('board'); });
+  document.getElementById('agentsTab').addEventListener('click', function () { switchView('agents'); });
+  document.getElementById('refreshAgents').addEventListener('click', function () { loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); }); });
+  document.getElementById('newAgent').addEventListener('click', openNewAgent);
+  agentForm.addEventListener('submit', saveAgent);
+  document.getElementById('deleteAgent').addEventListener('click', deleteAgent);
+  document.getElementById('useAgentTemplate').addEventListener('click', useAgentTemplate);
+  document.getElementById('agentLoadLatest').addEventListener('click', reloadAgentLatest);
+  document.getElementById('addTypeBinding').addEventListener('click', function () { var list = document.getElementById('typeBindingsList'); list.querySelector('.empty') && (list.textContent = ''); appendAgentBindingRow(list, 'subagent', null); });
+  document.getElementById('addSlotBinding').addEventListener('click', function () { var list = document.getElementById('slotBindingsList'); list.querySelector('.empty') && (list.textContent = ''); appendAgentBindingRow(list, 'subagent-slot', null); });
+  document.getElementById('saveAgentBindings').addEventListener('click', saveAgentBindings);
+  document.getElementById('loadAgentRaw').addEventListener('click', function () { loadAgentRaw().catch(function (error) { setAgentRawError(tr('agent.error') + error.message); }); });
+  document.getElementById('saveAgentRaw').addEventListener('click', saveAgentRaw);
+  document.getElementById('copyAgentReload').addEventListener('click', function () { copyBoardText('/reload', '/reload'); });
+  document.getElementById('refreshBoard').addEventListener('click', function () { loadBoard().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('newBoardEntry').addEventListener('click', function () { openBoardForm(null); });
+  document.getElementById('closeBoardForm').addEventListener('click', closeBoardForm);
+  document.getElementById('cancelBoardForm').addEventListener('click', closeBoardForm);
+  document.getElementById('boardConflictReload').addEventListener('click', reloadBoardConflict);
+  document.getElementById('boardFormValue').addEventListener('input', updateBoardValueBytes);
+  boardForm.addEventListener('submit', saveBoardEntry);
+  boardModal.addEventListener('click', function (event) { if (event.target === boardModal) closeBoardForm(); });
+  document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !boardModal.hidden) closeBoardForm(); });
+  ['statusFilter', 'archivedFilter'].forEach(function (id) { document.getElementById(id).addEventListener('change', function () { loadTips().catch(function (error) { setNotice(error.message, true); }); }); });
+  ['moduleFilter', 'tagFilter', 'tipLimit'].forEach(function (id) { document.getElementById(id).addEventListener('change', function () { loadTips().catch(function (error) { setNotice(error.message, true); }); }); });
+  document.getElementById('boardScope').addEventListener('change', function () { selectedBoardKey = ''; connectBoardSubscription(); loadBoard().catch(function (error) { setNotice(error.message, true); }); });
+  ['boardKey', 'boardTag'].forEach(function (id) { document.getElementById(id).addEventListener('input', function () {
+    if (boardSearchTimer) clearTimeout(boardSearchTimer);
+    boardSearchTimer = setTimeout(function () { boardSearchTimer = null; loadBoard().catch(function (error) { setNotice(error.message, true); }); }, 250);
+  }); });
+  document.getElementById('boardLimit').addEventListener('change', function () { loadBoard().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('boardSort').addEventListener('change', function () { renderBoardList(boardEntries); });
+  ['memory', 'runs', 'system'].forEach(function (section) {
+    document.getElementById(section + 'Nav').addEventListener('click', function (event) {
+      event.preventDefault();
+      switchSection(section);
+    });
+  });
+  document.getElementById('liveRunsTab').addEventListener('click', function () { switchRunsView('live'); });
+  document.getElementById('archivesTab').addEventListener('click', function () { switchRunsView('archives'); });
+  document.getElementById('refreshRuns').addEventListener('click', function () { loadRuns().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('runStatusFilter').addEventListener('change', function () { loadRuns().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('runQuery').addEventListener('input', function () {
+    if (runSearchTimer) clearTimeout(runSearchTimer);
+    runSearchTimer = setTimeout(function () { runSearchTimer = null; if (activeSection === 'runs' && activeRunsView === 'live') loadRuns().catch(function (error) { setNotice(error.message, true); }); }, 250);
+  });
+  document.getElementById('refreshArchives').addEventListener('click', function () { loadArchives().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('refreshSystem').addEventListener('click', loadSystem);
+  document.getElementById('copyControlPlaneUrl').addEventListener('click', function () { copyBoardText(location.href, 'Control Plane URL'); });
+  window.addEventListener('moamcp:localechange', function () {
+    tr = window.__moaI18n.t;
+    if (!workspaces.length) showNoWorkspace();
+    if (selectedTip && !tipDrawer.hidden) renderDrawer(selectedTip);
+    if (!tipForm.hidden) document.getElementById('formTitle').textContent = tr(editingId ? 'tips.edit' : 'tips.new').replace(/^\\+\\s*/, '');
+    if (boardEditing) document.getElementById('boardFormTitle').textContent = tr(boardEditing.mode === 'edit' ? 'board.editTitle' : 'board.newTitle');
+    if (activeSection === 'memory') {
+      if (activeView === 'board') renderBoardList(boardEntries);
+      else if (activeView === 'agents') { renderAgentList(agentSnapshot && agentSnapshot.agents); if (agentSnapshot) updateBindingRowTranslations(); if (selectedAgent && !agentIsNew) renderAgentMeta(selectedAgent); }
+      else loadTips().catch(function () {});
+    } else if (activeSection === 'runs') {
+      if (activeRunsView === 'live') loadRuns().catch(function () {}); else loadArchives().catch(function () {});
+    } else loadSystem();
+  });
+  window.addEventListener('beforeunload', closeSectionResources);
+  var requestedSection = new URLSearchParams(location.search).get('section');
+  switchSection(requestedSection);
+  loadWorkspaces().catch(function (error) { setNotice(error.message, true); });
+})();
+</script>
+</body>
+</html>
+`;
+
+// src/tips.ts
+import { randomUUID } from "node:crypto";
+import { isAbsolute as isAbsolute3 } from "node:path";
+
+// src/board.ts
+import { createHash as createHash2 } from "node:crypto";
+import { appendFile, mkdir as mkdir3, readFile as readFile3, readdir as readdir4, stat, writeFile } from "node:fs/promises";
+import { isAbsolute as isAbsolute2, join as join5, resolve as resolve2 } from "node:path";
+var BOARD_VALUE_MAX_BYTES = 32 * 1024;
+var DEFAULT_READ_LIMIT = 100;
+var MAX_READ_LIMIT = 1e3;
+var KEY_MAX_BYTES = 512;
+var DEFAULT_BOARD_POLL_INTERVAL_MS = 250;
+function normalizeWorkspacePath(workspace) {
+  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute2(workspace)) {
+    throw new Error("workspace must be an absolute path");
+  }
+  return resolve2(workspace);
+}
+function workspaceIdForPath(workspace) {
+  return createHash2("sha1").update(normalizeWorkspacePath(workspace)).digest("hex").slice(0, 16);
+}
+function validateKey(key) {
+  if (typeof key !== "string" || key.length === 0) throw new Error("key must be a non-empty string");
+  if (Buffer.byteLength(key, "utf8") > KEY_MAX_BYTES) throw new Error(`key exceeds ${KEY_MAX_BYTES} bytes`);
+  return key;
+}
+function validateValue(value) {
+  if (typeof value !== "string") throw new Error("value must be a string (markdown)");
+  const bytes = Buffer.byteLength(value, "utf8");
+  if (bytes > BOARD_VALUE_MAX_BYTES) {
+    throw new Error(`value too large: ${bytes} bytes > ${BOARD_VALUE_MAX_BYTES} (put large content in files, reference them from the board)`);
+  }
+  return value;
+}
+function normalizeTags(tags) {
+  if (tags === void 0 || tags === null) return [];
+  if (!Array.isArray(tags)) throw new Error("tags must be a string array");
+  return tags.map((tag) => {
+    if (typeof tag !== "string" || tag.length === 0) throw new Error("tags must be non-empty strings");
+    return tag;
+  });
+}
+function normalizeAuthor(author) {
+  if (author === void 0 || author === null || author === "") return "anonymous";
+  if (typeof author !== "string") throw new Error("author must be a string");
+  return author;
+}
+function isRecord(value) {
+  return (value.op === "write" || value.op === "delete") && typeof value.key === "string" && typeof value.author === "string" && typeof value.ts === "string" && (value.tags === void 0 || Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")) && (value.op === "delete" || typeof value.value === "string");
+}
+function cloneEntry(entry) {
+  return { ...entry, tags: [...entry.tags] };
+}
+function cloneEntries(entries) {
+  return new Map([...entries].map(([key, entry]) => [key, cloneEntry(entry)]));
+}
+function sameEntry(a, b) {
+  if (a === void 0 || b === void 0) return a === b;
+  return a.key === b.key && a.value === b.value && a.author === b.author && a.ts === b.ts && a.tags.length === b.tags.length && a.tags.every((tag, index) => tag === b.tags[index]);
+}
+function compareTimestamps(a, b) {
+  const ae = Date.parse(a);
+  const be = Date.parse(b);
+  if (Number.isFinite(ae) && Number.isFinite(be)) return ae - be;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function validPollInterval(value) {
+  return value !== void 0 && Number.isFinite(value) && value > 0 ? value : DEFAULT_BOARD_POLL_INTERVAL_MS;
+}
+function matchKeyNamespace(entryKey, searchKey) {
+  if (entryKey === searchKey) return true;
+  const prefix = searchKey.endsWith("/") ? searchKey : searchKey + "/";
+  if (entryKey.startsWith(prefix)) return true;
+  const baseKey = searchKey.endsWith("/") ? searchKey.slice(0, -1) : searchKey;
+  if (entryKey === baseKey) return true;
+  return false;
+}
+var BoardStore = class {
+  scopes = /* @__PURE__ */ new Map();
+  queues = /* @__PURE__ */ new Map();
+  homeDir;
+  workspaceCwd;
+  waitCapMs;
+  pollIntervalMs;
+  emitFn;
+  closed = false;
+  /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
+  lastEpoch = 0;
+  constructor(opts = {}) {
+    this.homeDir = opts.homeDir;
+    this.workspaceCwd = resolve2(opts.workspaceCwd ?? process.cwd());
+    this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
+    this.pollIntervalMs = validPollInterval(opts.pollIntervalMs ?? opts.workspacePollIntervalMs);
+    this.emitFn = opts.emit;
+  }
+  // ---- tools ----
+  async write(key, value, tags, author, scopeInput, workspace) {
+    this.assertOpen();
+    const k = validateKey(key);
+    const v = validateValue(value);
+    const normalizedTags = normalizeTags(tags);
+    const normalizedAuthor = normalizeAuthor(author);
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const ts = this.nextTs();
+      const record2 = {
+        op: "write",
+        scope: scope.key,
+        key: k,
+        value: v,
+        author: normalizedAuthor,
+        ts,
+        ...normalizedTags.length > 0 ? { tags: normalizedTags } : {}
+      };
+      this.applyRecord(state, record2);
+      await this.persist(state, record2);
+      const entry = state.entries.get(k);
+      if (entry !== void 0 && entry.ts === ts) this.wakeWaiters(state, entry);
+      this.emit(scope, { type: "board_updated", op: "write", scope: scope.label, key: k, author: normalizedAuthor, ts });
+      return { ok: true, ts };
+    });
+  }
+  /**
+   * Folded read: with `key`, the live entry for that key (0/1 rows); with
+   * `tag`, live entries carrying that tag; with neither, every key's latest
+   * value. Newest first, capped by `limit` (default 100, max 1000).
+   */
+  async read(key, tag, scopeInput, limit, workspace) {
+    this.assertOpen();
+    if (workspace === void 0 && typeof limit === "string" && isAbsolute2(limit)) {
+      workspace = limit;
+      limit = void 0;
+    }
+    if (key !== void 0 && key !== null) validateKey(key);
+    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    const cap = normalizeLimit(limit);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      let entries = [...state.entries.values()];
+      if (typeof key === "string") entries = entries.filter((entry) => entry.key === key);
+      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
+      entries.sort((a, b) => compareTimestamps(b.ts, a.ts));
+      return entries.slice(0, cap).map(cloneEntry);
+    });
+  }
+  /**
+   * Namespace search for Raw Board: matches exact `key` as well as any descendant
+   * under `key/` (handling trailing slashes naturally), but does not match `xyz`
+   * when searching for `x`. Filtering happens before limit, capped by `limit`.
+   */
+  async readNamespace(keyPrefix, tag, scopeInput, limit, workspace) {
+    this.assertOpen();
+    if (workspace === void 0 && typeof limit === "string" && isAbsolute2(limit)) {
+      workspace = limit;
+      limit = void 0;
+    }
+    if (keyPrefix !== void 0 && keyPrefix !== null) validateKey(keyPrefix);
+    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    const cap = normalizeLimit(limit);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      let entries = [...state.entries.values()];
+      if (typeof keyPrefix === "string" && keyPrefix.length > 0) {
+        entries = entries.filter((entry) => matchKeyNamespace(entry.key, keyPrefix));
+      }
+      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
+      entries.sort((a, b) => compareTimestamps(b.ts, a.ts));
+      return entries.slice(0, cap).map(cloneEntry);
+    });
+  }
+  /** Lightweight browse: one row per live key, values replaced by their byte size. */
+  async list(scopeInput, workspace) {
+    this.assertOpen();
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      return [...state.entries.values()].sort((a, b) => compareTimestamps(b.ts, a.ts)).map((entry) => ({
+        key: entry.key,
+        author: entry.author,
+        ts: entry.ts,
+        tags: [...entry.tags],
+        bytes: Buffer.byteLength(entry.value, "utf8")
+      }));
+    });
+  }
+  /**
+   * Long-poll until `key` has a value — or, with `since` (ISO timestamp),
+   * until the entry is strictly newer than it ("wait for the next update").
+   * Resolves `{status:'ready', entry}` on wake, `{status:'timeout', retry:true}`
+   * at the cap (`timeoutMs` overrides, clamped to the cap), `{status:'closed'}`
+   * when a task scope is archived out from under the waiter. Deletes do not
+   * wake: waiters asked for a value, not a change.
+   */
+  async wait(key, scopeInput, timeoutMs, since, workspace) {
+    this.assertOpen();
+    if (workspace === void 0 && typeof since === "string" && isAbsolute2(since)) {
+      workspace = since;
+      since = void 0;
+    }
+    const k = validateKey(key);
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    let sinceEpoch;
+    if (since !== void 0 && since !== null) {
+      if (typeof since !== "string" || Number.isNaN(Date.parse(since))) {
+        throw new Error(`invalid since timestamp: ${String(since)} (expected ISO 8601)`);
+      }
+      sinceEpoch = Date.parse(since);
+    }
+    let effectiveTimeout = this.waitCapMs;
+    if (timeoutMs !== void 0 && timeoutMs !== null) {
+      if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new Error("timeoutMs must be a positive number");
+      }
+      effectiveTimeout = Math.min(timeoutMs, this.waitCapMs);
+    }
+    const outcome = await this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const current = state.entries.get(k);
+      if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
+        return { kind: "now", payload: { status: "ready", entry: cloneEntry(current) } };
+      }
+      const promise = new Promise((resolve5) => {
+        const waiter = {
+          key: k,
+          sinceEpoch,
+          resolve: resolve5,
+          timer: setTimeout(() => {
+            state.waiters.delete(waiter);
+            this.stopPollIfIdle(state);
+            resolve5({ status: "timeout", retry: true });
+          }, effectiveTimeout)
+        };
+        state.waiters.add(waiter);
+        this.ensurePollTimer(scope, state);
+      });
+      return { kind: "suspended", promise };
+    });
+    return outcome.kind === "now" ? outcome.payload : outcome.promise;
+  }
+  async mutate(first, second, third, fourth) {
+    this.assertOpen();
+    const scopeMode = typeof second === "function";
+    const key = scopeMode ? void 0 : validateKey(first);
+    const scopeInput = scopeMode ? first : second;
+    const mutator = scopeMode ? second : third;
+    if (typeof mutator !== "function") throw new Error("mutate requires a function mutator");
+    const workspace = scopeMode ? third : fourth;
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const before = cloneEntries(state.entries);
+      const beforeVersions = new Map(state.versions);
+      const commitTs = this.nextTs();
+      let result;
+      try {
+        if (scopeMode) {
+          result = await mutator(state.entries, commitTs);
+          if (isMutationCommit(result)) {
+            for (const change of result.writes) {
+              const changedKey = validateKey(change.key);
+              const changedValue = validateValue(change.value);
+              const changedTags = normalizeTags(change.tags);
+              const changedAuthor = normalizeAuthor(change.author);
+              state.entries.set(changedKey, {
+                key: changedKey,
+                value: changedValue,
+                author: changedAuthor,
+                ts: commitTs,
+                tags: changedTags
+              });
+            }
+            result = result.result;
+          }
+        } else {
+          const current = key === void 0 ? void 0 : state.entries.get(key);
+          const returned = await mutator(
+            current === void 0 ? void 0 : cloneEntry(current),
+            commitTs
+          );
+          if (returned === void 0) {
+            result = returned;
+          } else if (returned === null) {
+            if (key !== void 0) state.entries.delete(key);
+            result = returned;
+          } else {
+            const candidate = typeof returned === "string" ? { ...current ?? { key, author: "anonymous", tags: [] }, value: returned } : typeof returned === "object" && returned !== null && "value" in returned ? { ...current ?? { key, author: "anonymous", tags: [] }, ...returned } : current;
+            if (candidate === void 0 || key === void 0) throw new Error("key mutator must return a value or BoardEntry");
+            const candidateKey = validateKey(candidate.key);
+            if (candidateKey !== key) throw new Error(`mutate key mismatch: expected ${key}, got ${candidateKey}`);
+            state.entries.set(key, {
+              key,
+              value: validateValue(candidate.value),
+              author: normalizeAuthor(candidate.author),
+              ts: commitTs,
+              tags: normalizeTags(candidate.tags)
+            });
+            result = returned;
+          }
+        }
+        const records = this.recordsForDiff(scope, state, before, commitTs);
+        for (const record2 of records) {
+          await this.persist(state, record2);
+          this.applyRecord(state, record2);
+          const entry = state.entries.get(record2.key);
+          if (record2.op === "write" && entry !== void 0 && entry.ts === record2.ts) this.wakeWaiters(state, entry);
+          this.emit(scope, {
+            type: "board_updated",
+            op: record2.op,
+            scope: scope.label,
+            key: record2.key,
+            author: record2.author,
+            ts: record2.ts
+          });
+        }
+        return result;
+      } catch (err) {
+        state.entries.clear();
+        for (const [entryKey, entry] of before) state.entries.set(entryKey, entry);
+        state.versions.clear();
+        for (const [versionKey, version2] of beforeVersions) state.versions.set(versionKey, version2);
+        throw err;
+      }
+    });
+  }
+  /** Tombstone delete: the key vanishes from read/list; the JSONL keeps the record. */
+  async delete(key, author, scopeInput, workspace) {
+    this.assertOpen();
+    const k = validateKey(key);
+    const normalizedAuthor = normalizeAuthor(author);
+    const scope = this.parseScope(scopeInput, workspace);
+    const state = this.scopeState(scope);
+    return this.enqueue(scope.key, async () => {
+      await this.fold(state);
+      const ts = this.nextTs();
+      const record2 = { op: "delete", scope: scope.key, key: k, author: normalizedAuthor, ts };
+      this.applyRecord(state, record2);
+      await this.persist(state, record2);
+      this.emit(scope, { type: "board_updated", op: "delete", scope: scope.label, key: k, author: normalizedAuthor, ts });
+      return { ok: true, ts };
+    });
+  }
+  // ---- workspace registry ----
+  /** Register an absolute project path and return stable sidecar metadata. */
+  async registerWorkspace(workspace) {
+    this.assertOpen();
+    const cwd = workspace === void 0 || workspace === null ? this.workspaceCwd : normalizeWorkspacePath(workspace);
+    const id = workspaceIdForPath(cwd);
+    const file = join5(this.boardsDir(), `ws-${id}.meta.json`);
+    const existing = await this.readWorkspaceInfo(file, id, cwd);
+    if (existing !== void 0) return existing;
+    const info = { id, cwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+    await this.writeWorkspaceSidecar(info);
+    return this.withWorkspaceUpdatedAt(info);
+  }
+  /** Scan valid workspace sidecars; malformed or hash/cwd-mismatched files are ignored. */
+  async listWorkspaces() {
+    this.assertOpen();
+    let names;
+    try {
+      names = await readdir4(this.boardsDir());
+    } catch (err) {
+      if (err.code === "ENOENT") return [];
+      throw err;
+    }
+    const workspaces = [];
+    for (const name of names) {
+      if (!/^ws-[0-9a-f]{16}\.meta\.json$/.test(name)) continue;
+      const id = name.slice("ws-".length, -".meta.json".length);
+      const info = await this.readWorkspaceInfo(join5(this.boardsDir(), name), id);
+      if (info !== void 0) workspaces.push(info);
+    }
+    workspaces.sort((a, b) => a.id.localeCompare(b.id));
+    return workspaces;
+  }
+  /** Alias that makes the scan operation explicit to callers. */
+  async scanWorkspaces() {
+    return this.listWorkspaces();
+  }
+  /** Resolve a sidecar id to its normalized project path, or undefined when absent. */
+  async resolveWorkspace(id) {
+    this.assertOpen();
+    const normalizedId = normalizeWorkspaceId(id);
+    if (normalizedId === void 0) return void 0;
+    const match = (await this.listWorkspaces()).find((workspace) => workspace.id === normalizedId);
+    return match?.cwd;
+  }
+  /** Explicit alias for callers that distinguish id resolution from path registration. */
+  async resolveWorkspaceId(id) {
+    return this.resolveWorkspace(id);
+  }
+  // ---- task lifecycle ----
+  /**
+   * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
+   * archive layer), wake any remaining waiters with `{status:'closed'}`, and
+   * drop the in-memory scope. Called by `DebateHub.complete`. Idempotent for
+   * tasks that never used the board (writes an empty file).
+   */
+  async archiveTask(taskId, dir) {
+    const key = `task:${taskId}`;
+    const state = this.scopes.get(key);
+    const records = state?.history ?? [];
+    await mkdir3(dir, { recursive: true });
+    const body = records.length > 0 ? records.map((record2) => JSON.stringify(record2)).join("\n") + "\n" : "";
+    await writeFile(resolve2(dir, "board.jsonl"), body);
+    if (state !== void 0) {
+      for (const waiter of [...state.waiters]) {
+        state.waiters.delete(waiter);
+        clearTimeout(waiter.timer);
+        waiter.resolve({ status: "closed" });
+      }
+      this.scopes.delete(key);
+      this.queues.delete(key);
+    }
+  }
+  // ---- internals ----
+  parseScope(input, workspaceInput) {
+    if (input === void 0 || input === null) input = "workspace";
+    if (typeof input !== "string") throw new Error("scope must be a string");
+    const raw = input.trim();
+    if (raw === "workspace") {
+      const cwd = workspaceInput === void 0 || workspaceInput === null ? this.workspaceCwd : normalizeWorkspacePath(workspaceInput);
+      const id = workspaceIdForPath(cwd);
+      return { kind: "workspace", key: `workspace:${id}`, label: "workspace", id, cwd };
+    }
+    if (raw === "global") return { kind: "global", key: "global", label: "global" };
+    if (raw.startsWith("task:")) {
+      const taskId = raw.slice("task:".length);
+      if (taskId.length === 0) throw new Error("invalid scope: task:<task_id> requires a non-empty task_id");
+      return { kind: "task", key: raw, label: raw, taskId };
+    }
+    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
+  }
+  boardsDir() {
+    return join5(this.homeDir ?? moamcpHome(), "boards");
+  }
+  scopeState(scope) {
+    let state = this.scopes.get(scope.key);
+    if (state !== void 0) return state;
+    state = { entries: /* @__PURE__ */ new Map(), versions: /* @__PURE__ */ new Map(), loaded: false, waiters: /* @__PURE__ */ new Set() };
+    if (scope.kind === "task") {
+      state.history = [];
+    } else if (scope.kind === "global") {
+      state.file = join5(this.boardsDir(), "global.jsonl");
+    } else {
+      const id = scope.id ?? scope.key.slice("workspace:".length);
+      state.file = join5(this.boardsDir(), `ws-${id}.jsonl`);
+      state.metaFile = join5(this.boardsDir(), `ws-${id}.meta.json`);
+      state.metaCwd = scope.cwd ?? this.workspaceCwd;
+    }
+    this.scopes.set(scope.key, state);
+    return state;
+  }
+  /**
+   * Fold a task log once; for persistent logs, check the real file size on
+   * every operation and rebuild whenever it changes, is created, or shrinks.
+   */
+  async fold(state) {
+    if (state.file === void 0) {
+      state.loaded = true;
+      return;
+    }
+    if (state.metaFile !== void 0) await this.ensureWorkspaceSidecar(state);
+    const snapshot = await this.readPersistentSnapshot(state);
+    if (!snapshot.changed) return;
+    const previous = state.loaded ? cloneEntries(state.entries) : void 0;
+    state.entries.clear();
+    state.versions.clear();
+    state.loaded = true;
+    state.fileExists = snapshot.exists;
+    state.fileBytes = snapshot.bytes;
+    for (const line of snapshot.raw.split(/\r?\n/)) {
+      if (line.trim() === "") continue;
+      let record2;
+      try {
+        record2 = JSON.parse(line);
+      } catch {
+        console.warn(`[moamcp] board: skipping unparseable line in ${state.file}`);
+        continue;
+      }
+      if (!isRecord(record2)) {
+        console.warn(`[moamcp] board: skipping malformed record in ${state.file}`);
+        continue;
+      }
+      this.applyRecord(state, record2);
+    }
+    if (previous !== void 0) this.wakeRefreshedWaiters(state, previous);
+  }
+  /** Read a stable-enough snapshot while never claiming unread bytes were read. */
+  async readPersistentSnapshot(state) {
+    const file = state.file;
+    let currentSize;
+    try {
+      currentSize = (await stat(file)).size;
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+    const exists = currentSize !== void 0;
+    if (state.loaded && state.fileExists === exists && (!exists || state.fileBytes === currentSize)) {
+      return { changed: false, exists, bytes: state.fileBytes ?? 0, raw: "" };
+    }
+    if (!exists) return { changed: true, exists: false, bytes: 0, raw: "" };
+    let lastRaw = "";
+    let lastBytes = 0;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      try {
+        lastRaw = await readFile3(file, "utf8");
+      } catch (err) {
+        if (err.code === "ENOENT") {
+          return { changed: true, exists: false, bytes: 0, raw: "" };
+        }
+        throw err;
+      }
+      lastBytes = Buffer.byteLength(lastRaw, "utf8");
+      let afterSize;
+      try {
+        afterSize = (await stat(file)).size;
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+      if (afterSize === lastBytes) return { changed: true, exists: true, bytes: lastBytes, raw: lastRaw };
+    }
+    return { changed: true, exists: true, bytes: lastBytes, raw: lastRaw };
+  }
+  async readWorkspaceInfo(file, id, expectedCwd) {
+    try {
+      const parsed = JSON.parse(await readFile3(file, "utf8"));
+      if (parsed.id !== id) return void 0;
+      const cwd = parseWorkspaceCwd(parsed.cwd);
+      if (workspaceIdForPath(cwd) !== id || expectedCwd !== void 0 && cwd !== expectedCwd) return void 0;
+      if (typeof parsed.created_at !== "string" || Number.isNaN(Date.parse(parsed.created_at))) return void 0;
+      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at });
+    } catch {
+      return void 0;
+    }
+  }
+  async withWorkspaceUpdatedAt(info) {
+    const updatedAt = await this.workspaceUpdatedAt(info.id);
+    return updatedAt === void 0 ? info : { ...info, updatedAt };
+  }
+  async workspaceUpdatedAt(id) {
+    try {
+      return (await stat(join5(this.boardsDir(), `ws-${id}.jsonl`))).mtime.toISOString();
+    } catch (err) {
+      if (err.code === "ENOENT") return void 0;
+      throw err;
+    }
+  }
+  async writeWorkspaceSidecar(info) {
+    await mkdir3(this.boardsDir(), { recursive: true });
+    const file = join5(this.boardsDir(), `ws-${info.id}.meta.json`);
+    await writeFile(
+      file,
+      JSON.stringify({ id: info.id, cwd: info.cwd, created_at: info.createdAt }, null, 2)
+    );
+  }
+  /** Ensure an explicitly used workspace is registered, including an empty board. */
+  async ensureWorkspaceSidecar(state) {
+    if (state.metaFile === void 0 || state.metaCwd === void 0 || state.metaWritten) return;
+    const id = state.metaFile.match(/ws-([0-9a-f]{16})\.meta\.json$/)?.[1];
+    if (id === void 0) return;
+    const existing = await this.readWorkspaceInfo(state.metaFile, id, state.metaCwd);
+    if (existing !== void 0) {
+      state.metaWritten = true;
+      return;
+    }
+    await this.writeWorkspaceSidecar({ id, cwd: state.metaCwd, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+    state.metaWritten = true;
+  }
+  /** Apply a record only when its timestamp wins the folded LWW view. */
+  applyRecord(state, record2) {
+    const recordEpoch = Date.parse(record2.ts);
+    if (Number.isFinite(recordEpoch) && recordEpoch > this.lastEpoch) this.lastEpoch = recordEpoch;
+    const previous = state.versions.get(record2.key);
+    if (previous !== void 0 && compareTimestamps(record2.ts, previous) < 0) return false;
+    state.versions.set(record2.key, record2.ts);
+    if (record2.op === "write") {
+      state.entries.set(record2.key, {
+        key: record2.key,
+        value: record2.value,
+        author: record2.author,
+        ts: record2.ts,
+        tags: [...record2.tags ?? []]
+      });
+    } else {
+      state.entries.delete(record2.key);
+    }
+    return true;
+  }
+  /** Turn a callback's Map changes into append-only records at one commit ts. */
+  recordsForDiff(scope, state, before, commitTs) {
+    const keys = /* @__PURE__ */ new Set([...before.keys(), ...state.entries.keys()]);
+    const records = [];
+    for (const key of keys) {
+      const previous = before.get(key);
+      const current = state.entries.get(key);
+      if (sameEntry(previous, current)) continue;
+      if (current === void 0) {
+        records.push({
+          op: "delete",
+          scope: scope.key,
+          key,
+          author: previous?.author ?? "anonymous",
+          ts: commitTs
+        });
+        continue;
+      }
+      const entryKey = validateKey(current.key);
+      if (entryKey !== key) throw new Error(`mutate map key mismatch: expected ${key}, got ${entryKey}`);
+      const value = validateValue(current.value);
+      const author = normalizeAuthor(current.author);
+      const tags = normalizeTags(current.tags);
+      state.entries.set(key, { key, value, author, ts: commitTs, tags });
+      records.push({
+        op: "write",
+        scope: scope.key,
+        key,
+        value,
+        author,
+        ts: commitTs,
+        ...tags.length > 0 ? { tags } : {}
+      });
+    }
+    return records;
+  }
+  /** Append a record to the scope's JSONL (persistent scopes only) + task history. */
+  async persist(state, record2) {
+    if (state.history !== void 0) state.history.push(record2);
+    if (state.file === void 0) return;
+    await mkdir3(this.boardsDir(), { recursive: true });
+    if (state.metaFile !== void 0 && !state.metaWritten) {
+      await this.ensureWorkspaceSidecar(state).catch(() => {
+      });
+    }
+    await appendFile(state.file, JSON.stringify(record2) + "\n");
+  }
+  wakeWaiters(state, entry) {
+    const epoch = Date.parse(entry.ts);
+    for (const waiter of [...state.waiters]) {
+      if (waiter.key !== entry.key) continue;
+      if (waiter.sinceEpoch !== void 0 && epoch <= waiter.sinceEpoch) continue;
+      state.waiters.delete(waiter);
+      clearTimeout(waiter.timer);
+      waiter.resolve({ status: "ready", entry: cloneEntry(entry) });
+    }
+    this.stopPollIfIdle(state);
+  }
+  /** Refresh wake-up path: external writes wake waiters but never emit events. */
+  wakeRefreshedWaiters(state, previous) {
+    for (const [key, entry] of state.entries) {
+      const old = previous.get(key);
+      if (old === void 0 || old.ts !== entry.ts) this.wakeWaiters(state, entry);
+    }
+  }
+  /** Exactly one unref'd poll timer per persistent scope while it has waiters. */
+  ensurePollTimer(scope, state) {
+    if (state.file === void 0 || state.pollTimer !== void 0 || state.waiters.size === 0) return;
+    const timer = setInterval(() => void this.pollPersistent(scope, state), this.pollIntervalMs);
+    timer.unref();
+    state.pollTimer = timer;
+  }
+  stopPollIfIdle(state) {
+    if (state.waiters.size > 0 || state.pollTimer === void 0) return;
+    clearInterval(state.pollTimer);
+    state.pollTimer = void 0;
+  }
+  async pollPersistent(scope, state) {
+    if (state.waiters.size === 0) {
+      this.stopPollIfIdle(state);
+      return;
+    }
+    await this.enqueue(scope.key, async () => {
+      if (state.waiters.size === 0) {
+        this.stopPollIfIdle(state);
+        return;
+      }
+      await this.fold(state);
+      this.stopPollIfIdle(state);
+    }).catch(() => {
+    });
+  }
+  /** Close waiters and unref'd pollers; normal task archival remains separate. */
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    for (const state of this.scopes.values()) {
+      if (state.pollTimer !== void 0) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = void 0;
+      }
+      for (const waiter of [...state.waiters]) {
+        state.waiters.delete(waiter);
+        clearTimeout(waiter.timer);
+        waiter.resolve({ status: "closed" });
+      }
+    }
+  }
+  async dispose() {
+    await this.close();
+  }
+  assertOpen() {
+    if (this.closed) throw new Error("BoardStore is closed");
+  }
+  /** Strictly increasing ISO timestamp: same-millisecond writes still order (wait's `since` depends on it). */
+  nextTs() {
+    const now = Date.now();
+    this.lastEpoch = now > this.lastEpoch ? now : this.lastEpoch + 1;
+    return new Date(this.lastEpoch).toISOString();
+  }
+  emit(scope, event) {
+    this.emitFn?.(scope, event);
+  }
+  /** Serialize all mutations for one scope through a promise chain (mirrors DebateHub.enqueue). */
+  enqueue(scopeKey, fn) {
+    const prev = this.queues.get(scopeKey) ?? Promise.resolve();
+    const next = prev.then(fn, fn);
+    this.queues.set(
+      scopeKey,
+      next.catch(() => {
+      })
+    );
+    return next;
+  }
+};
+function parseWorkspaceCwd(value) {
+  if (typeof value !== "string" || value.length === 0 || !isAbsolute2(value)) throw new Error("invalid workspace sidecar cwd");
+  return resolve2(value);
+}
+function normalizeWorkspaceId(value) {
+  if (typeof value !== "string") return void 0;
+  const id = value.startsWith("ws-") ? value.slice("ws-".length) : value.startsWith("workspace:") ? value.slice("workspace:".length) : value;
+  return /^[0-9a-f]{16}$/.test(id) ? id : void 0;
+}
+function isMutationCommit(value) {
+  return typeof value === "object" && value !== null && "result" in value && Array.isArray(value.writes);
+}
+function normalizeLimit(limit) {
+  if (limit === void 0 || limit === null) return DEFAULT_READ_LIMIT;
+  if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1) {
+    throw new Error("limit must be a positive number");
+  }
+  return Math.min(Math.floor(limit), MAX_READ_LIMIT);
+}
+
+// src/tips.ts
+var PROJECT_TIP_STATUSES = [
+  "captured",
+  "exploring",
+  "planned",
+  "implemented",
+  "deferred",
+  "discarded",
+  "archived"
+];
+var TipNotFoundError = class extends Error {
+  code = "TIP_NOT_FOUND";
+  constructor(id) {
+    super(`tip not found: ${id}`);
+    this.name = "TipNotFoundError";
+  }
+};
+var TipCorruptError = class extends Error {
+  code = "TIP_CORRUPT";
+  constructor(id, message) {
+    super(`corrupt tip ${id}: ${message}`);
+    this.name = "TipCorruptError";
+  }
+};
+var TipValidationError = class extends Error {
+  code = "TIP_INVALID";
+  constructor(message) {
+    super(message);
+    this.name = "TipValidationError";
+  }
+};
+var CONTEXT_MAX_BYTES = 8 * 1024;
+var TIP_LIST_DEFAULT_LIMIT = 100;
+var TIP_LIST_MAX_LIMIT = 1e3;
+var TIP_PREFIX = "tips/";
+var TIP_TAG = "tip";
+function assertWorkspace(workspace) {
+  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute3(workspace)) {
+    throw new TipValidationError("workspace must be an absolute path");
+  }
+  return normalizeWorkspacePath(workspace);
+}
+function tipKey(id) {
+  return `${TIP_PREFIX}${id}`;
+}
+function requireString(value, field, nonEmpty = true) {
+  if (typeof value !== "string" || nonEmpty && value.length === 0) {
+    throw new TipValidationError(`${field} must be a${nonEmpty ? " non-empty" : ""} string`);
+  }
+  return value;
+}
+function optionalString(value, field) {
+  if (value === void 0) return void 0;
+  return requireString(value, field);
+}
+function normalizeActor(value) {
+  if (value === void 0 || value === null || value === "") return "anonymous";
+  return requireString(value, "actor");
+}
+function validateStatus(value, field = "status") {
+  if (typeof value !== "string" || !PROJECT_TIP_STATUSES.includes(value)) {
+    throw new TipValidationError(`${field} must be one of: ${PROJECT_TIP_STATUSES.join(", ")}`);
+  }
+  return value;
+}
+function validateStringArray(value, field) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
+    throw new TipValidationError(`${field} must be an array of non-empty strings`);
+  }
+  const result = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const item of value) {
+    if (seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+function validateDocumentRefs(value) {
+  if (!Array.isArray(value)) throw new TipValidationError("documentRefs must be an array");
+  const result = [];
+  const seen = /* @__PURE__ */ new Set();
+  value.forEach((raw, index) => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new TipValidationError(`documentRefs[${index}] must be an object`);
+    }
+    const ref = raw;
+    const out = { path: requireString(ref.path, `documentRefs[${index}].path`) };
+    for (const field of ["section", "note", "contentHash"]) {
+      const item = ref[field];
+      if (item !== void 0) out[field] = requireString(item, `documentRefs[${index}].${field}`);
+    }
+    const stableValue = JSON.stringify(out);
+    if (seen.has(stableValue)) return;
+    seen.add(stableValue);
+    result.push(out);
+  });
+  return result;
+}
+function validateContext(value) {
+  if (Buffer.byteLength(value, "utf8") > CONTEXT_MAX_BYTES) {
+    throw new TipValidationError(`context exceeds ${CONTEXT_MAX_BYTES} bytes`);
+  }
+  return value;
+}
+function validateDate(value, field) {
+  const result = requireString(value, field);
+  if (Number.isNaN(Date.parse(result))) throw new TipValidationError(`${field} must be an ISO 8601 timestamp`);
+  return result;
+}
+function validateTip(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TipValidationError("tip value must be an object");
+  }
+  const raw = value;
+  const id = requireString(raw.id, "id");
+  if (!id.startsWith("tip_")) throw new TipValidationError("id must start with tip_");
+  const tip = {
+    id,
+    title: requireString(raw.title, "title"),
+    summary: requireString(raw.summary, "summary"),
+    status: validateStatus(raw.status),
+    createdAt: validateDate(raw.createdAt, "createdAt"),
+    updatedAt: validateDate(raw.updatedAt, "updatedAt")
+  };
+  if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
+  if (raw.module !== void 0) tip.module = optionalString(raw.module, "module");
+  if (raw.tags !== void 0) tip.tags = validateStringArray(raw.tags, "tags");
+  if (raw.nextAction !== void 0) tip.nextAction = requireString(raw.nextAction, "nextAction", false);
+  if (raw.documentRefs !== void 0) tip.documentRefs = validateDocumentRefs(raw.documentRefs);
+  if (raw.sourceRefs !== void 0) tip.sourceRefs = validateStringArray(raw.sourceRefs, "sourceRefs");
+  if (raw.relatedTipIds !== void 0) tip.relatedTipIds = validateStringArray(raw.relatedTipIds, "relatedTipIds");
+  if (raw.relatedProjects !== void 0) tip.relatedProjects = validateStringArray(raw.relatedProjects, "relatedProjects");
+  if (raw.sourceSessionId !== void 0) tip.sourceSessionId = requireString(raw.sourceSessionId, "sourceSessionId");
+  if (raw.author !== void 0) tip.author = requireString(raw.author, "author");
+  return tip;
+}
+function cloneTip(tip) {
+  return JSON.parse(JSON.stringify(tip));
+}
+function tipTags(tip) {
+  const tags = /* @__PURE__ */ new Set([TIP_TAG, `tip:status:${tip.status}`]);
+  if (tip.module !== void 0) tags.add(`tip:module:${tip.module}`);
+  for (const tag of tip.tags ?? []) tags.add(`tip:tag:${tag}`);
+  return [...tags];
+}
+function encodeTip(tip) {
+  const value = JSON.stringify(tip);
+  if (Buffer.byteLength(value, "utf8") > BOARD_VALUE_MAX_BYTES) {
+    throw new TipValidationError(`tip value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  }
+  return value;
+}
+function summaryOf(tip) {
+  const copy = cloneTip(tip);
+  const summary = {
+    id: copy.id,
+    title: copy.title,
+    summary: copy.summary,
+    status: copy.status,
+    createdAt: copy.createdAt,
+    updatedAt: copy.updatedAt
+  };
+  if (copy.module !== void 0) summary.module = copy.module;
+  if (copy.tags !== void 0) summary.tags = copy.tags;
+  if (copy.nextAction !== void 0) summary.nextAction = copy.nextAction;
+  if (copy.author !== void 0) summary.author = copy.author;
+  return summary;
+}
+function normalizeTipLimit(value) {
+  if (value === void 0 || value === null) return TIP_LIST_DEFAULT_LIMIT;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
+    throw new TipValidationError("limit must be a positive number");
+  }
+  return Math.min(Math.floor(value), TIP_LIST_MAX_LIMIT);
+}
+function statuses(value) {
+  if (value === void 0 || value === null) return void 0;
+  const list = Array.isArray(value) ? value : [value];
+  return list.map((item) => validateStatus(item));
+}
+function filterTags(value) {
+  if (value === void 0 || value === null) return void 0;
+  const list = Array.isArray(value) ? value : [value];
+  return validateStringArray(list, "tag");
+}
+var TipStore = class {
+  board;
+  constructor(board) {
+    this.board = board;
+  }
+  async create(first, second) {
+    const workspace = typeof first === "string" ? assertWorkspace(first) : assertWorkspace(second);
+    const input = typeof first === "string" ? second : first;
+    if (typeof input !== "object" || input === null || Array.isArray(input)) {
+      throw new TipValidationError("create input must be an object");
+    }
+    const raw = input;
+    for (const field of ["id", "createdAt", "updatedAt", "creator"]) {
+      if (field in raw) throw new TipValidationError(`${field} cannot be supplied when creating a tip`);
+    }
+    const title = requireString(raw.title, "title");
+    const summary = requireString(raw.summary, "summary");
+    const status = raw.status === void 0 ? "captured" : validateStatus(raw.status);
+    const id = `tip_${randomUUID()}`;
+    return this.board.mutate("workspace", (entries, commitTs) => {
+      const key = tipKey(id);
+      if (entries.has(key)) throw new TipValidationError(`tip id collision: ${id}`);
+      const tip = this.buildTip({ ...raw, id, title, summary, status, createdAt: commitTs, updatedAt: commitTs });
+      entries.set(key, {
+        key,
+        value: encodeTip(tip),
+        author: tip.author ?? "anonymous",
+        ts: commitTs,
+        tags: tipTags(tip)
+      });
+      return tip;
+    }, workspace);
+  }
+  async read(first, second) {
+    const workspace = assertWorkspace(isAbsolute3(first) ? first : second);
+    const id = isAbsolute3(first) ? second : first;
+    const normalizedId = requireString(id, "id");
+    const rows = await this.board.read(tipKey(normalizedId), void 0, "workspace", 1, workspace);
+    const entry = rows[0];
+    if (entry === void 0) return void 0;
+    return this.decodeEntry(normalizedId, entry);
+  }
+  async list(first, second) {
+    const workspace = assertWorkspace(typeof first === "string" ? first : second);
+    const options = typeof first === "string" ? second : first;
+    const filters = options ?? {};
+    if (filters.includeArchived !== void 0 && typeof filters.includeArchived !== "boolean") {
+      throw new TipValidationError("includeArchived must be a boolean");
+    }
+    const wantedStatuses = statuses(filters.status);
+    const wantedTags = filterTags(filters.tags ?? filters.tag);
+    const limit = normalizeTipLimit(filters.limit);
+    const rows = await this.board.read(void 0, void 0, "workspace", TIP_LIST_MAX_LIMIT, workspace);
+    const tips = [];
+    for (const row of rows) {
+      if (!row.key.startsWith(TIP_PREFIX)) continue;
+      const id = row.key.slice(TIP_PREFIX.length);
+      tips.push(this.decodeEntry(id, row));
+    }
+    const filtered = tips.filter((tip) => {
+      if (!filters.includeArchived && tip.status === "archived") return false;
+      if (wantedStatuses !== void 0 && !wantedStatuses.includes(tip.status)) return false;
+      if (filters.module !== void 0 && tip.module !== filters.module) return false;
+      if (wantedTags !== void 0 && !wantedTags.every((tag) => (tip.tags ?? []).includes(tag))) return false;
+      return true;
+    });
+    filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return filtered.slice(0, limit).map(summaryOf);
+  }
+  async update(first, second, third, fourth) {
+    const workspace = assertWorkspace(isAbsolute3(first) ? first : third);
+    const id = isAbsolute3(first) ? second : first;
+    const patch = isAbsolute3(first) ? third : second;
+    const normalizedId = requireString(id, "id");
+    if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new TipValidationError("update patch must be an object");
+    const rawPatch = patch;
+    const boardAuthor = normalizeActor(fourth !== void 0 ? fourth : rawPatch.actor);
+    for (const field of ["id", "createdAt", "updatedAt", "creator", "author"]) {
+      if (field in patch) throw new TipValidationError(`${field} cannot be changed`);
+    }
+    const contentPatch = { ...rawPatch };
+    delete contentPatch.actor;
+    const key = tipKey(normalizedId);
+    return this.board.mutate("workspace", (entries, commitTs) => {
+      const entry = entries.get(key);
+      if (entry === void 0) throw new TipNotFoundError(normalizedId);
+      const current = this.decodeEntry(normalizedId, entry);
+      const next = this.applyPatch(current, contentPatch);
+      next.updatedAt = commitTs;
+      entries.set(key, { key, value: encodeTip(next), author: boardAuthor, ts: commitTs, tags: tipTags(next) });
+      return next;
+    }, workspace);
+  }
+  async archive(first, second, third) {
+    const workspace = assertWorkspace(isAbsolute3(first) ? first : second);
+    const id = isAbsolute3(first) ? second : first;
+    const normalizedId = requireString(id, "id");
+    const boardAuthor = normalizeActor(third);
+    const key = tipKey(normalizedId);
+    return this.board.mutate("workspace", (entries, commitTs) => {
+      const entry = entries.get(key);
+      if (entry === void 0) throw new TipNotFoundError(normalizedId);
+      const current = this.decodeEntry(normalizedId, entry);
+      const archived = { ...current, status: "archived", updatedAt: commitTs };
+      entries.set(key, { key, value: encodeTip(archived), author: boardAuthor, ts: commitTs, tags: tipTags(archived) });
+      return archived;
+    }, workspace);
+  }
+  buildTip(raw) {
+    const tip = validateTip(raw);
+    if (raw.context !== void 0) tip.context = validateContext(requireString(raw.context, "context", false));
+    return tip;
+  }
+  applyPatch(current, patch) {
+    const next = cloneTip(current);
+    const raw = patch;
+    const required2 = ["title", "summary", "status"];
+    for (const field of required2) {
+      if (!(field in raw)) continue;
+      if (raw[field] === null) throw new TipValidationError(`${field} cannot be cleared`);
+      if (field === "status") next.status = validateStatus(raw[field]);
+      else next[field] = requireString(raw[field], field);
+    }
+    const optionalFields = [
+      "context",
+      "module",
+      "tags",
+      "nextAction",
+      "documentRefs",
+      "sourceRefs",
+      "relatedTipIds",
+      "relatedProjects",
+      "sourceSessionId"
+    ];
+    for (const field of optionalFields) {
+      if (!(field in raw)) continue;
+      const value = raw[field];
+      if (value === null) {
+        delete next[field];
+        continue;
+      }
+      if (field === "context") next.context = validateContext(requireString(value, field, false));
+      else if (field === "module") next.module = requireString(value, field);
+      else if (field === "tags" || field === "sourceRefs" || field === "relatedTipIds" || field === "relatedProjects") {
+        next[field] = validateStringArray(value, field);
+      } else if (field === "documentRefs") next.documentRefs = validateDocumentRefs(value);
+      else next[field] = requireString(value, field, field === "sourceSessionId");
+    }
+    return validateTip(next);
+  }
+  decodeEntry(id, entry) {
+    let value;
+    try {
+      value = JSON.parse(entry.value);
+    } catch {
+      throw new TipCorruptError(id, "value is not valid JSON");
+    }
+    try {
+      const tip = validateTip(value);
+      if (tip.id !== id || entry.key !== tipKey(id)) throw new TipValidationError("id/key mismatch");
+      return tip;
+    } catch (err) {
+      if (err instanceof TipCorruptError) throw err;
+      throw new TipCorruptError(id, err.message);
+    }
+  }
+};
+function isProjectTipStatus(value) {
+  return typeof value === "string" && PROJECT_TIP_STATUSES.includes(value);
+}
+
+// src/control-plane.ts
+var CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
+var WORKSPACE_ID = /^[0-9a-f]{16}$/;
+var RUN_STATUSES = /* @__PURE__ */ new Set(["initialized", "debating", "complete", "closed"]);
+var ApiValidationError = class extends Error {
+  status = 400;
+};
+var UnsupportedMediaTypeError = class extends Error {
+  status = 415;
+};
+var ForbiddenError = class extends Error {
+  status = 403;
+};
+var PayloadTooLargeError = class extends Error {
+  status = 413;
+};
+var ResourceNotFoundError = class extends Error {
+  status = 404;
+};
+var ControlPlaneUnavailableError = class extends Error {
+  status = 503;
+};
+var BoardConflictError = class extends Error {
+  constructor(message, currentTs) {
+    super(message);
+    this.currentTs = currentTs;
+  }
+  currentTs;
+  status = 409;
+};
+function checkContentType(req) {
+  const contentType = req.headers["content-type"];
+  if (typeof contentType !== "string") return false;
+  const mediaType = contentType.split(";")[0].trim().toLowerCase();
+  return mediaType === "application/json";
+}
+function checkOrigin(req, serverPort) {
+  const origin = req.headers.origin;
+  if (origin === void 0) return true;
+  if (!origin || origin === "null") return false;
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== "http:") return false;
+    if (url.hostname !== "127.0.0.1" && url.hostname !== "localhost") return false;
+    const hostHeader = req.headers.host;
+    if (hostHeader) {
+      if (url.host !== hostHeader) return false;
+    } else if (serverPort !== void 0) {
+      if (url.port !== String(serverPort) && !(url.port === "" && serverPort === 80)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+function sendJson(res, status, body) {
+  const text = JSON.stringify(body);
+  res.writeHead(status, {
+    "cache-control": "no-store",
+    "content-type": "application/json; charset=utf-8"
+  });
+  res.end(text);
+}
+function sendError(res, status, message) {
+  sendJson(res, status, { error: message });
+}
+function sendCaughtError(res, error2) {
+  if (error2 instanceof BoardConflictError) {
+    sendJson(res, 409, {
+      error: error2.message,
+      ...error2.currentTs === void 0 ? {} : { currentTs: error2.currentTs }
+    });
+    return;
+  }
+  if (error2 instanceof AgentConfigConflictError) {
+    sendJson(res, 409, { error: error2.message, currentHash: error2.currentHash });
+    return;
+  }
+  sendError(res, errorStatus(error2), errorMessage(error2));
+}
+function methodNotAllowed(res, allow) {
+  res.writeHead(405, {
+    allow,
+    "cache-control": "no-store",
+    "content-type": "application/json; charset=utf-8"
+  });
+  res.end(JSON.stringify({ error: "method not allowed" }));
+}
+function errorStatus(error2) {
+  if (error2 instanceof UnsupportedMediaTypeError) return 415;
+  if (error2 instanceof ForbiddenError) return 403;
+  if (error2 instanceof BoardConflictError || error2 instanceof AgentConfigConflictError || error2 instanceof AgentConfigBusyError) return 409;
+  if (error2 instanceof AgentConfigUnsafePathError) return 403;
+  if (error2 instanceof AgentConfigNotFoundError || error2 instanceof ResourceNotFoundError || error2 instanceof TipNotFoundError) return 404;
+  if (error2 instanceof AgentConfigError) return error2.status;
+  if (error2 instanceof ApiValidationError || error2 instanceof TipValidationError) return 400;
+  if (error2 instanceof PayloadTooLargeError) return 413;
+  if (error2 instanceof ControlPlaneUnavailableError) return 503;
+  if (error2 instanceof Error && /^(key|value|tags?|author|limit|scope|workspace)\b/i.test(error2.message)) return 400;
+  return 500;
+}
+function errorMessage(error2) {
+  return error2 instanceof Error ? error2.message : "request failed";
+}
+function assertObject(value, message = "body must be a JSON object") {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new ApiValidationError(message);
+  }
+  return value;
+}
+function rejectPathFields(body) {
+  if ("cwd" in body || "path" in body) {
+    throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
+  }
+}
+function requireWorkspaceId(value) {
+  if (typeof value !== "string" || !WORKSPACE_ID.test(value)) {
+    throw new ApiValidationError("workspace must be a 16-character workspace sidecar id");
+  }
+  return value;
+}
+function requireTipId(value) {
+  let id;
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError("invalid tip id");
+  }
+  if (id.length === 0 || id.includes("/") || id === "." || id === "..") {
+    throw new ApiValidationError("invalid tip id");
+  }
+  return id;
+}
+function requireTaskId(value) {
+  let id;
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError("invalid task id");
+  }
+  if (!isValidTaskId(id)) throw new ApiValidationError("invalid task id");
+  return id;
+}
+function requireAgentName(value) {
+  let name;
+  try {
+    name = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError("invalid agent name");
+  }
+  if (!isKebabCaseName(name)) throw new ApiValidationError("invalid agent name");
+  return name;
+}
+function parseLimit(value) {
+  if (value === null || value === "") return void 0;
+  if (!/^\d+$/.test(value)) throw new ApiValidationError("limit must be a positive integer");
+  const limit = Number(value);
+  if (!Number.isSafeInteger(limit) || limit < 1) throw new ApiValidationError("limit must be a positive integer");
+  return limit;
+}
+function parseBoolean(value, field) {
+  if (value === null || value === "") return void 0;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ApiValidationError(`${field} must be true or false`);
+}
+function queryText(value) {
+  return value === null || value === "" ? void 0 : value;
+}
+function requireExpectedHash(body) {
+  if (!Object.prototype.hasOwnProperty.call(body, "expectedHash")) {
+    throw new ApiValidationError("expectedHash is required for configuration mutations");
+  }
+  const value = body.expectedHash;
+  if (value !== null && typeof value !== "string") throw new ApiValidationError("expectedHash must be a string or null");
+  return value;
+}
+function assertAllowedFields(body, allowed, label) {
+  for (const field of Object.keys(body)) {
+    if (!allowed.includes(field)) throw new ApiValidationError(`unsupported ${label} field: ${field}`);
+  }
+}
+async function readJsonBody(req, serverPort) {
+  if (!checkContentType(req)) {
+    req.resume();
+    throw new UnsupportedMediaTypeError("content-type must be application/json");
+  }
+  if (!checkOrigin(req, serverPort)) {
+    req.resume();
+    throw new ForbiddenError("forbidden origin");
+  }
+  const length = req.headers["content-length"];
+  if (typeof length === "string" && /^\d+$/.test(length) && Number(length) > CONTROL_PLANE_BODY_MAX_BYTES) {
+    req.resume();
+    throw new PayloadTooLargeError(`request body exceeds ${CONTROL_PLANE_BODY_MAX_BYTES} bytes`);
+  }
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+    bytes += part.byteLength;
+    if (bytes > CONTROL_PLANE_BODY_MAX_BYTES) {
+      req.resume();
+      throw new PayloadTooLargeError(`request body exceeds ${CONTROL_PLANE_BODY_MAX_BYTES} bytes`);
+    }
+    chunks.push(part);
+  }
+  if (chunks.length === 0) throw new ApiValidationError("JSON body required");
+  let parsed;
+  try {
+    parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new ApiValidationError("body must be valid JSON");
+  }
+  return assertObject(parsed);
+}
+function workspaceActivity(info) {
+  const timestamp = info.updatedAt ?? info.createdAt;
+  const parsed = Date.parse(timestamp);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function publicWorkspace(info) {
+  return {
+    id: info.id,
+    cwd: info.cwd,
+    createdAt: info.createdAt,
+    updatedAt: info.updatedAt ?? null
+  };
+}
+function controlPlaneUrl(port) {
+  return `http://127.0.0.1:${port}/control-plane`;
+}
+var ControlPlane = class {
+  board;
+  tips;
+  runtime;
+  agentConfig;
+  constructor(board, tips, agentConfig = new WorkspaceAgentConfigService()) {
+    this.agentConfig = agentConfig;
+    if (board !== void 0) this.mount(board, tips);
+  }
+  mount(board, tips = new TipStore(board)) {
+    this.board = board;
+    this.tips = tips;
+  }
+  mountRuntime(runtime) {
+    this.runtime = runtime;
+  }
+  /** Test seam for the source-tree adapter; mounting itself performs no I/O. */
+  mountAgentConfig(agentConfig) {
+    this.agentConfig = agentConfig;
+  }
+  async handle(req, res, serverPort) {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    const path = url.pathname;
+    if (path === "/control-plane") {
+      if (req.method !== "GET") {
+        methodNotAllowed(res, "GET");
+        return true;
+      }
+      res.writeHead(200, {
+        "cache-control": "no-store",
+        "content-type": "text/html; charset=utf-8"
+      });
+      res.end(CONTROL_PLANE_HTML);
+      return true;
+    }
+    let route;
+    try {
+      route = this.route(path);
+    } catch (error2) {
+      sendCaughtError(res, error2);
+      return true;
+    }
+    if (route === void 0) return false;
+    if (!route.methods.includes(req.method ?? "")) {
+      methodNotAllowed(res, route.methods.join(", "));
+      return true;
+    }
+    try {
+      switch (route.name) {
+        case "workspaces":
+          await this.workspaces(res);
+          break;
+        case "tips":
+          if (req.method === "GET") await this.listTips(url, res);
+          else await this.createTip(req, res, serverPort);
+          break;
+        case "tip":
+          if (req.method === "GET") await this.readTip(route.id, url, res);
+          else await this.updateTip(req, route.id, res, serverPort);
+          break;
+        case "tip-archive":
+          await this.archiveTip(req, route.id, res, serverPort);
+          break;
+        case "board":
+          if (req.method === "GET") await this.readBoard(url, res);
+          else await this.mutateBoard(req, res, serverPort);
+          break;
+        case "agent-config":
+          await this.readAgentConfig(url, res);
+          break;
+        case "agent":
+          if (req.method === "GET") await this.readAgent(route.id, url, res);
+          else if (req.method === "PUT") await this.saveAgent(req, route.id, res, serverPort);
+          else await this.deleteAgent(req, route.id, res, serverPort);
+          break;
+        case "agent-bindings":
+          await this.saveBindings(req, res, serverPort);
+          break;
+        case "agent-local":
+          if (req.method === "GET") await this.readLocalToml(url, res);
+          else await this.saveLocalToml(req, res, serverPort);
+          break;
+        case "runs":
+          this.listRuns(url, res);
+          break;
+        case "run":
+          this.readRun(route.id, res);
+          break;
+        case "archives":
+          await this.listArchives(res);
+          break;
+        case "system":
+          await this.system(res);
+          break;
+      }
+    } catch (error2) {
+      sendCaughtError(res, error2);
+    }
+    return true;
+  }
+  route(path) {
+    if (path === "/api/workspaces") return { name: "workspaces", methods: ["GET"] };
+    if (path === "/api/tips") return { name: "tips", methods: ["GET", "POST"] };
+    if (path === "/api/board") return { name: "board", methods: ["GET", "POST", "DELETE"] };
+    if (path === "/api/agent-config") return { name: "agent-config", methods: ["GET"] };
+    if (path === "/api/agent-config/bindings") return { name: "agent-bindings", methods: ["PUT"] };
+    if (path === "/api/agent-config/local-toml") return { name: "agent-local", methods: ["GET", "PUT"] };
+    if (path === "/api/tasks") return { name: "runs", methods: ["GET"] };
+    const agentMatch = /^\/api\/agent-config\/agents\/(.*)$/.exec(path);
+    if (agentMatch !== null) return { name: "agent", methods: ["GET", "PUT", "DELETE"], id: requireAgentName(agentMatch[1]) };
+    if (path === "/api/archives") return { name: "archives", methods: ["GET"] };
+    if (path === "/api/system") return { name: "system", methods: ["GET"] };
+    const runMatch = /^\/api\/tasks\/(.*)$/.exec(path);
+    if (runMatch !== null) return { name: "run", methods: ["GET"], id: requireTaskId(runMatch[1]) };
+    const match = /^\/api\/tips\/([^/]+)(\/archive)?$/.exec(path);
+    if (match === null) return void 0;
+    const id = requireTipId(match[1]);
+    if (match[2] === "/archive") return { name: "tip-archive", methods: ["POST"], id };
+    return { name: "tip", methods: ["GET", "PATCH"], id };
+  }
+  runtimeProvider() {
+    if (this.runtime === void 0) throw new ControlPlaneUnavailableError("runtime provider is not wired");
+    return this.runtime;
+  }
+  listRuns(url, res) {
+    const rawStatus = queryText(url.searchParams.get("status"));
+    if (rawStatus !== void 0 && !RUN_STATUSES.has(rawStatus)) {
+      throw new ApiValidationError("status must be initialized, debating, complete, or closed");
+    }
+    const query = queryText(url.searchParams.get("query"))?.toLocaleLowerCase();
+    const tasks = this.runtimeProvider().listRuns().filter((task) => {
+      if (rawStatus !== void 0 && task.status !== rawStatus) return false;
+      if (query === void 0) return true;
+      return task.taskId.toLocaleLowerCase().includes(query) || task.agentSpecs.some((agent) => agent.id.toLocaleLowerCase().includes(query) || agent.binding_slot?.toLocaleLowerCase().includes(query));
+    });
+    sendJson(res, 200, { tasks });
+  }
+  readRun(taskId, res) {
+    const runtime = this.runtimeProvider();
+    const task = runtime.readRun(taskId);
+    if (task === void 0) throw new ResourceNotFoundError("task not found");
+    sendJson(res, 200, { task, cardUrl: runtime.cardUrl(taskId) });
+  }
+  async listArchives(res) {
+    try {
+      sendJson(res, 200, { archives: await this.runtimeProvider().listArchives() });
+    } catch {
+      throw new ControlPlaneUnavailableError("archive index is unavailable");
+    }
+  }
+  async system(res) {
+    sendJson(res, 200, await this.runtimeProvider().systemInfo());
+  }
+  stores() {
+    if (this.board === void 0 || this.tips === void 0) {
+      throw new ControlPlaneUnavailableError("Control Plane stores are not wired");
+    }
+    return { board: this.board, tips: this.tips };
+  }
+  async resolveWorkspace(id) {
+    const workspaceId = requireWorkspaceId(id);
+    const cwd = await this.stores().board.resolveWorkspace(workspaceId);
+    if (cwd === void 0) throw new ResourceNotFoundError("workspace not found");
+    return { id: workspaceId, cwd };
+  }
+  async workspaces(res) {
+    const { board } = this.stores();
+    const rows = await board.listWorkspaces();
+    rows.sort((a, b) => workspaceActivity(b) - workspaceActivity(a) || b.createdAt.localeCompare(a.createdAt));
+    sendJson(res, 200, { workspaces: rows.map(publicWorkspace) });
+  }
+  async readAgentConfig(url, res) {
+    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
+      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
+    }
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    sendJson(res, 200, { workspace: workspace.id, ...await this.agentConfig.inspect(workspace.cwd) });
+  }
+  async readAgent(name, url, res) {
+    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
+      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
+    }
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    sendJson(res, 200, { workspace: workspace.id, agent: await this.agentConfig.readAgent(workspace.cwd, name) });
+  }
+  async saveAgent(req, name, res, serverPort) {
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    assertAllowedFields(body, ["workspace", "content", "expectedHash"], "agent");
+    if (typeof body.content !== "string") throw new ApiValidationError("content must be a Markdown string");
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const result = await this.agentConfig.saveAgent(workspace.cwd, name, body.content, requireExpectedHash(body));
+    sendJson(res, 200, { workspace: workspace.id, agent: result });
+  }
+  async deleteAgent(req, name, res, serverPort) {
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    assertAllowedFields(body, ["workspace", "expectedHash"], "agent");
+    const workspace = await this.resolveWorkspace(body.workspace);
+    sendJson(res, 200, { workspace: workspace.id, agent: await this.agentConfig.deleteAgent(workspace.cwd, name, requireExpectedHash(body)) });
+  }
+  async saveBindings(req, res, serverPort) {
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    assertAllowedFields(body, ["workspace", "changes", "expectedHash"], "bindings");
+    if (!Array.isArray(body.changes)) {
+      throw new ApiValidationError("changes must be an array");
+    }
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const result = await this.agentConfig.saveBindings(
+      workspace.cwd,
+      body.changes,
+      requireExpectedHash(body)
+    );
+    sendJson(res, 200, {
+      workspace: workspace.id,
+      bindings: result,
+      hash: result.hash,
+      content: result.content
+    });
+  }
+  async readLocalToml(url, res) {
+    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
+      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
+    }
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    sendJson(res, 200, { workspace: workspace.id, localToml: await this.agentConfig.readLocalToml(workspace.cwd) });
+  }
+  async saveLocalToml(req, res, serverPort) {
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    assertAllowedFields(body, ["workspace", "content", "expectedHash"], "local.toml");
+    if (typeof body.content !== "string") throw new ApiValidationError("content must be a TOML string");
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const result = await this.agentConfig.saveLocalToml(workspace.cwd, body.content, requireExpectedHash(body));
+    sendJson(res, 200, { workspace: workspace.id, localToml: result });
+  }
+  async listTips(url, res) {
+    const { tips } = this.stores();
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const rawStatus = queryText(url.searchParams.get("status"));
+    if (rawStatus !== void 0 && !isProjectTipStatus(rawStatus)) {
+      throw new ApiValidationError("status is not a supported Project Tip status");
+    }
+    const options = {
+      ...rawStatus === void 0 ? {} : { status: rawStatus },
+      ...queryText(url.searchParams.get("module")) === void 0 ? {} : { module: queryText(url.searchParams.get("module")) },
+      ...queryText(url.searchParams.get("tag")) === void 0 ? {} : { tag: queryText(url.searchParams.get("tag")) },
+      ...parseBoolean(url.searchParams.get("includeArchived"), "includeArchived") === void 0 ? {} : { includeArchived: parseBoolean(url.searchParams.get("includeArchived"), "includeArchived") },
+      ...parseLimit(url.searchParams.get("limit")) === void 0 ? {} : { limit: parseLimit(url.searchParams.get("limit")) }
+    };
+    const rows = await tips.list(options, workspace.cwd);
+    sendJson(res, 200, { workspace: workspace.id, tips: rows });
+  }
+  async readTip(id, url, res) {
+    const { tips } = this.stores();
+    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const tip = await tips.read(id, workspace.cwd);
+    if (tip === void 0) throw new TipNotFoundError(id);
+    sendJson(res, 200, tip);
+  }
+  async createTip(req, res, serverPort) {
+    const { tips } = this.stores();
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const { workspace: _workspace, ...input } = body;
+    const tip = await tips.create(input, workspace.cwd);
+    sendJson(res, 200, tip);
+  }
+  async updateTip(req, id, res, serverPort) {
+    const { tips } = this.stores();
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const { workspace: _workspace, ...patch } = body;
+    const tip = await tips.update(id, patch, workspace.cwd);
+    sendJson(res, 200, tip);
+  }
+  async archiveTip(req, id, res, serverPort) {
+    const { tips } = this.stores();
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    const workspace = await this.resolveWorkspace(body.workspace);
+    const actor = body.actor;
+    if (actor !== void 0 && actor !== null && typeof actor !== "string") {
+      throw new ApiValidationError("actor must be a string");
+    }
+    const tip = await tips.archive(id, workspace.cwd, actor);
+    sendJson(res, 200, tip);
+  }
+  async mutateBoard(req, res, serverPort) {
+    const { board } = this.stores();
+    const body = await readJsonBody(req, serverPort);
+    rejectPathFields(body);
+    const method = req.method;
+    const allowed = /* @__PURE__ */ new Set(["scope", "workspace", "key", "tags", "author", "expectedTs", ...method === "POST" ? ["value"] : []]);
+    for (const field of Object.keys(body)) {
+      if (!allowed.has(field)) throw new ApiValidationError(`unsupported board field: ${field}`);
+    }
+    if (body.scope !== "workspace" && body.scope !== "global") {
+      throw new ApiValidationError("scope must be workspace or global");
+    }
+    if (typeof body.key !== "string") throw new ApiValidationError("key must be a string");
+    if (method === "POST" && typeof body.value !== "string") {
+      throw new ApiValidationError("value must be a string (markdown)");
+    }
+    if (body.tags !== void 0 && (!Array.isArray(body.tags) || !body.tags.every((tag) => typeof tag === "string"))) {
+      throw new ApiValidationError("tags must be a string array");
+    }
+    if (body.author !== void 0 && typeof body.author !== "string") {
+      throw new ApiValidationError("author must be a string");
+    }
+    if (body.expectedTs !== void 0 && body.expectedTs !== null && typeof body.expectedTs !== "string") {
+      throw new ApiValidationError("expectedTs must be a string or null");
+    }
+    let workspaceId;
+    let cwd;
+    if (body.scope === "workspace" || body.workspace !== void 0) {
+      const workspace = await this.resolveWorkspace(body.workspace);
+      workspaceId = workspace.id;
+      cwd = workspace.cwd;
+    }
+    const expectedTs = body.expectedTs;
+    let responseEntry;
+    let deletedTs = null;
+    await board.mutate(body.key, body.scope, (current, commitTs) => {
+      if (expectedTs === null && current !== void 0) {
+        throw new BoardConflictError("board entry already exists", current.ts);
+      }
+      if (typeof expectedTs === "string" && current?.ts !== expectedTs) {
+        throw new BoardConflictError("board entry timestamp conflict", current?.ts);
+      }
+      if (method === "DELETE") {
+        deletedTs = current === void 0 ? null : commitTs;
+        return null;
+      }
+      const author = body.author === void 0 ? current !== void 0 ? current.author : "anonymous" : body.author === "" ? "anonymous" : body.author;
+      const tags = body.tags === void 0 ? current !== void 0 ? [...current.tags] : [] : [...body.tags];
+      responseEntry = {
+        key: body.key,
+        value: body.value,
+        author,
+        ts: commitTs,
+        tags
+      };
+      return responseEntry;
+    }, cwd);
+    if (method === "POST") {
+      sendJson(res, 200, { ok: true, entry: responseEntry });
+    } else {
+      sendJson(res, 200, { ok: true, ts: deletedTs });
+    }
+  }
+  async readBoard(url, res) {
+    const { board } = this.stores();
+    if (url.searchParams.has("cwd") || url.searchParams.has("path")) {
+      throw new ApiValidationError("cwd/path are not accepted by the Control Plane API");
+    }
+    const rawScope = url.searchParams.get("scope") ?? "workspace";
+    if (rawScope !== "workspace" && rawScope !== "global") {
+      throw new ApiValidationError("scope must be workspace or global");
+    }
+    const workspaceId = queryText(url.searchParams.get("workspace"));
+    let cwd;
+    if (rawScope === "workspace" || workspaceId !== void 0) {
+      const workspace = await this.resolveWorkspace(workspaceId);
+      cwd = workspace.cwd;
+    }
+    const key = queryText(url.searchParams.get("key"));
+    const tag = queryText(url.searchParams.get("tag"));
+    const limit = parseLimit(url.searchParams.get("limit"));
+    const entries = key !== void 0 ? await board.readNamespace(key, tag, rawScope, limit, cwd) : await board.read(void 0, tag, rawScope, limit, cwd);
+    const enrichedEntries = entries.map((entry) => ({
+      ...entry,
+      bytes: Buffer.byteLength(entry.value, "utf8")
+    }));
+    sendJson(res, 200, {
+      scope: rawScope,
+      ...workspaceId === void 0 ? {} : { workspace: workspaceId },
+      entries: enrichedEntries
+    });
+  }
+};
+
+// src/run-read-model.ts
+var KNOWN_EVENTS = /* @__PURE__ */ new Set([
+  "task_initialized",
+  "debate_started",
+  "turn_submitted",
+  "turn_advanced",
+  "signoff_reset",
+  "debate_complete",
+  "task_closed"
+]);
+function objectValue(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
+}
+function nonEmptyString(value) {
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function positiveInteger(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : void 0;
+}
+function validTimestamp(value) {
+  if (typeof value !== "string" || value.length === 0) return void 0;
+  return Number.isFinite(Date.parse(value)) ? value : void 0;
+}
+function stringList(value) {
+  if (!Array.isArray(value)) return void 0;
+  const result = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const item of value) {
+    const text = nonEmptyString(item);
+    if (text !== void 0 && !seen.has(text)) {
+      seen.add(text);
+      result.push(text);
+    }
+  }
+  return result;
+}
+function agentSpecList(value) {
+  if (!Array.isArray(value)) return void 0;
+  const result = [];
+  const positions = /* @__PURE__ */ new Map();
+  for (const item of value) {
+    const source = objectValue(item);
+    const id = nonEmptyString(source?.id);
+    if (source === void 0 || id === void 0) continue;
+    const bindingSlot = typeof source.binding_slot === "string" ? source.binding_slot : void 0;
+    const previous = positions.get(id);
+    if (previous === void 0) {
+      const spec = { id };
+      if (bindingSlot !== void 0) spec.binding_slot = bindingSlot;
+      positions.set(id, result.length);
+      result.push(spec);
+    } else if (result[previous].binding_slot === void 0 && bindingSlot !== void 0) {
+      result[previous].binding_slot = bindingSlot;
+    }
+  }
+  return result;
+}
+function specsForAgents(agents) {
+  return agents.map((id) => ({ id }));
+}
+function mergeAgentsIntoSpecs(specs, agents) {
+  const result = specs.map((spec) => ({ ...spec }));
+  const known = new Set(result.map((spec) => spec.id));
+  for (const id of agents) {
+    if (!known.has(id)) {
+      known.add(id);
+      result.push({ id });
+    }
+  }
+  return result;
+}
+function initialState(taskId, ts, type) {
+  return {
+    taskId,
+    status: "initialized",
+    agents: [],
+    agentSpecs: [],
+    roundsConfigured: null,
+    round: null,
+    turn: null,
+    currentSpeaker: null,
+    turnCount: 0,
+    signoffs: /* @__PURE__ */ new Set(),
+    createdAt: ts,
+    updatedAt: ts,
+    lastEvent: type
+  };
+}
+function detachedSummary(state) {
+  return {
+    taskId: state.taskId,
+    status: state.status,
+    agents: [...state.agents],
+    agentSpecs: state.agentSpecs.map((spec) => ({ ...spec })),
+    roundsConfigured: state.roundsConfigured,
+    round: state.round,
+    turn: state.turn,
+    currentSpeaker: state.currentSpeaker,
+    turnCount: state.turnCount,
+    signoffCount: state.signoffs.size,
+    createdAt: state.createdAt,
+    updatedAt: state.updatedAt,
+    lastEvent: state.lastEvent,
+    ...state.early === void 0 ? {} : { early: state.early },
+    ...state.reason === void 0 ? {} : { reason: state.reason }
+  };
+}
+var RunReadModel = class {
+  tasks = /* @__PURE__ */ new Map();
+  constructor(events) {
+    if (events !== void 0) for (const event of events) this.ingest(event);
+  }
+  /** Apply one flattened Bus event. Returns false when the envelope is ignored. */
+  ingest(envelope) {
+    const event = objectValue(envelope);
+    const taskId = nonEmptyString(event?.task_id);
+    const ts = validTimestamp(event?.ts);
+    const type = nonEmptyString(event?.type);
+    if (event === void 0 || taskId === void 0 || ts === void 0 || type === void 0 || taskId.startsWith("@")) {
+      return false;
+    }
+    let state = this.tasks.get(taskId);
+    if (state === void 0) {
+      if (!KNOWN_EVENTS.has(type)) return false;
+      state = initialState(taskId, ts, type);
+      this.tasks.set(taskId, state);
+    }
+    switch (type) {
+      case "task_initialized":
+        this.initialize(state, event);
+        break;
+      case "debate_started":
+        this.startDebate(state, event);
+        break;
+      case "turn_submitted":
+        this.submitTurn(state, event);
+        break;
+      case "turn_advanced":
+        this.advanceTurn(state, event);
+        break;
+      case "signoff_reset":
+        state.signoffs.clear();
+        break;
+      case "debate_complete":
+        this.completeDebate(state, event);
+        break;
+      case "task_closed":
+        state.status = "closed";
+        state.currentSpeaker = null;
+        break;
+      default:
+        break;
+    }
+    state.updatedAt = ts;
+    state.lastEvent = type;
+    return true;
+  }
+  /** Alias useful to reducer-style callers. */
+  apply(envelope) {
+    return this.ingest(envelope);
+  }
+  /** Read one task by id. The returned object is fully detached. */
+  read(taskId) {
+    const state = this.tasks.get(taskId);
+    return state === void 0 ? void 0 : detachedSummary(state);
+  }
+  /** List all tasks by updatedAt descending; equal timestamps retain insertion order. */
+  list() {
+    return [...this.tasks.values()].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)).map(detachedSummary);
+  }
+  initialize(state, event) {
+    state.status = "initialized";
+    const specs = agentSpecList(event.agent_specs);
+    const listedAgents = stringList(event.agents);
+    const agents = listedAgents !== void 0 && listedAgents.length > 0 ? listedAgents : specs?.map((spec) => spec.id);
+    if (agents !== void 0) state.agents = agents;
+    if (specs !== void 0 && specs.length > 0) {
+      state.agentSpecs = mergeAgentsIntoSpecs(specs, state.agents);
+    } else if (listedAgents !== void 0) {
+      state.agentSpecs = specsForAgents(state.agents);
+    }
+    const rounds = positiveInteger(event.rounds);
+    if (rounds !== void 0) state.roundsConfigured = rounds;
+  }
+  startDebate(state, event) {
+    state.status = "debating";
+    const agents = stringList(event.agents);
+    if (agents !== void 0 && agents.length > 0) {
+      state.agents = agents;
+      state.agentSpecs = mergeAgentsIntoSpecs(state.agentSpecs, agents);
+    }
+    const rounds = positiveInteger(event.rounds);
+    if (rounds !== void 0) state.roundsConfigured = rounds;
+    state.round = positiveInteger(event.round) ?? 1;
+    state.turn = positiveInteger(event.turn) ?? state.turn;
+    state.currentSpeaker = nonEmptyString(event.speaker) ?? state.agents[0] ?? null;
+    state.signoffs.clear();
+    delete state.early;
+    delete state.reason;
+  }
+  submitTurn(state, event) {
+    const round = positiveInteger(event.round);
+    const turn = positiveInteger(event.turn);
+    if (round !== void 0) state.round = round;
+    if (turn !== void 0) state.turn = turn;
+    state.turnCount += 1;
+    if (event.signoff === true) {
+      const agentId = nonEmptyString(event.agent_id);
+      if (agentId !== void 0) state.signoffs.add(agentId);
+    }
+  }
+  advanceTurn(state, event) {
+    const round = positiveInteger(event.round);
+    const speaker = nonEmptyString(event.speaker);
+    if (round !== void 0) state.round = round;
+    if (speaker !== void 0) state.currentSpeaker = speaker;
+  }
+  completeDebate(state, event) {
+    state.status = "complete";
+    state.currentSpeaker = null;
+    if (typeof event.early === "boolean") state.early = event.early;
+    const reason = nonEmptyString(event.reason);
+    if (reason !== void 0) state.reason = reason;
+  }
+};
+
+// src/web/debate-card.ts
+var DEBATE_CARD_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="debate.title">MOA Debate</title>
+<style>
+${TOKENS_CSS}
+${COMPONENTS_CSS}
+
+/* Debate Card Specific Styles */
+.debate-context {
+  display: flex;
+  align-items: center;
+  gap: var(--sp3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp4);
+  padding: 9px 13px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+.debate-context .badge { margin-left: auto; }
+.debate-content {
+  max-width: 960px;
+  margin: 0 auto;
+}
+#configBody {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+#configBody b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+#meta {
+  display: flex;
+  gap: 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-variant-numeric: tabular-nums;
+}
+#meta b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+#agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.agent {
+  padding: 6px 13px;
+  border-radius: var(--r-sm);
+  background: var(--surface-strong);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  transition: border-color var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.agent .sub {
+  color: var(--text-faint);
+  margin-left: 6px;
+  font-size: 12px;
+}
+.agent.speaking {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: var(--tint-green);
+  box-shadow: var(--glow-green);
+  transform: translateY(-1px);
+}
+.agent.speaking .sub {
+  color: var(--accent-green);
+}
+#empty {
+  color: var(--text-faint);
+  padding: 4px 0;
+}
+
+.omkc-scan {
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.omkc-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px;
+}
+.omkc-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.1fr) minmax(130px, 1.4fr) 86px 100px minmax(120px, 1.5fr);
+  gap: 10px;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: var(--r-sm);
+  transition: opacity var(--dur-med) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.omkc-row:hover {
+  background: var(--hover-tint);
+}
+.omkc-row.stale {
+  opacity: 0.4;
+}
+.omkc-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.omkc-row .omkc-id {
+  color: var(--accent-blue);
+}
+.omkc-st {
+  justify-self: start;
+  padding: 1px 9px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  line-height: 18px;
+}
+.omkc-st.on {
+  background: var(--tint-green);
+  color: var(--accent-green);
+}
+.omkc-st.off {
+  background: var(--surface-strong);
+  color: var(--text-dim);
+}
+.omkc-tok {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.omkc-tool {
+  color: var(--text-dim);
+}
+.omkc-tool.err {
+  color: var(--accent-red);
+}
+
+.tool-log {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px;
+}
+.tool-row {
+  display: flex;
+  gap: 10px;
+  padding: 3px 9px;
+  border-radius: var(--r-sm);
+}
+.tool-row:hover {
+  background: var(--hover-tint);
+}
+.tool-ts {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.tool-agent {
+  color: var(--accent-blue);
+  min-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-err {
+  color: var(--accent-red);
+  white-space: nowrap;
+}
+.tool-empty {
+  color: var(--text-faint);
+  padding: 4px 9px;
+}
+
+.round-sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-faint);
+  font-size: 12px;
+  margin: 18px 0 6px;
+}
+.round-sep:first-child {
+  margin-top: 0;
+}
+.round-sep::before, .round-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.turn {
+  border-left: 3px solid var(--border-strong);
+  padding: 9px 13px;
+  margin: 10px 0;
+  border-radius: 0 8px 8px 0;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.turn:hover {
+  background: var(--hover-tint-subtle);
+}
+.turn.signoff {
+  border-left-color: var(--accent-green);
+  background: var(--tint-green-soft);
+}
+.turn .head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+.turn .who {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+}
+.turn .text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.signoff-badge {
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--tint-green);
+  color: var(--accent-green);
+  font-size: 11px;
+  border: 1px solid var(--tint-green-border);
+  white-space: nowrap;
+}
+.transcript-empty {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.early-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+#verdict {
+  border-color: var(--tint-green-border);
+  background: var(--solid);
+  box-shadow: var(--glow-green-verdict), var(--shadow-2);
+}
+#verdict h2 {
+  font-size: 13px;
+  color: var(--accent-green);
+  margin-bottom: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+#verdict .row {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+#verdict .row b {
+  color: var(--text);
+  font-weight: 600;
+}
+#verdictFindings {
+  margin: 10px 0;
+  border-top: 1px dashed var(--tint-green-border-soft);
+  padding-top: 10px;
+}
+.findings-head {
+  font-size: 12px;
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  margin-bottom: 5px;
+}
+.findings-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  color: var(--text-dim);
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--solid-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px;
+}
+#fullBtn {
+  margin-top: 10px;
+  padding: 5px 15px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--tint-green-border);
+  background: transparent;
+  color: var(--accent-green);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+#fullBtn:hover {
+  background: var(--tint-green);
+  box-shadow: var(--glow-green-btn);
+}
+
+#picker h2 {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.task-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 13px;
+  margin: 6px 0;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-strong);
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.task-item:hover {
+  border-color: var(--tint-green-border-strong);
+  color: var(--accent-green);
+  transform: translateY(-1px);
+}
+</style>
+${THEME_BOOTSTRAP}
+${I18N_BOOTSTRAP}
+</head>
+<body>
+<div class="aurora-bg"></div>
+<div class="shell">
+  ${renderAppHeader("debate")}
+  <div class="debate-context" aria-label="Current debate context" data-i18n-aria="debate.context">
     <span class="task" id="taskId"></span>
     <span id="conn"></span>
-    <span class="badge" id="badge">connecting</span>
-  </header>
+    <span class="badge" id="badge" data-i18n="debate.connecting">connecting</span>
+  </div>
+  <div class="debate-content">
   <div class="card" id="picker" hidden>
-    <h2>\u6D3B\u8DC3\u4EFB\u52A1</h2>
-    <div id="pickerList"><span class="hint">loading\u2026</span></div>
+    <h2 data-i18n="debate.activeTasks">Active tasks</h2>
+    <div id="pickerList"><span class="hint" data-i18n="debate.loading">Loading\u2026</span></div>
   </div>
   <div class="card" id="progressCard">
-    <div class="sec-title">\u9636\u6BB5\u8FDB\u5EA6<span class="aux hint" id="stageHint">\u7B49\u5F85\u4EFB\u52A1\u521D\u59CB\u5316\u2026</span></div>
+    <div class="sec-title"><span data-i18n="debate.progress">Stage Progress</span><span class="aux hint" id="stageHint" data-i18n="debate.waitInit">Waiting for task initialization\u2026</span></div>
     <div id="progress">
-      <span class="step" id="st0" data-tip="\u5171\u8BC6 \u2014 \u6587\u4EF6\u5171\u8BC6\u51C6\u5907 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">\u5171\u8BC6</span></span><span class="link" id="lk0"></span>
-      <span class="step" id="st1" data-tip="Reference \u2014 \u53C2\u8003\u6C60 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="Reference\uFF1A\u53C2\u8003\u6C60" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">Reference</span></span><span class="link" id="lk1"></span>
-      <span class="step" id="st2" data-tip="\u8FA9\u8BBA \u2014 \u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" id="st2lb">\u8FA9\u8BBA</span></span><span class="link" id="lk2"></span>
-      <span class="step" id="st3" data-tip="\u805A\u5408 \u2014 \u6C47\u603B\u88C1\u51B3 \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">\u805A\u5408</span></span><span class="link" id="lk3"></span>
-      <span class="step" id="st4" data-tip="\u7ED3\u8BBA \u2014 VERDICT \u8F93\u51FA \xB7 \u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" aria-label="\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb">\u7ED3\u8BBA</span></span>
+      <span class="step" id="st0" data-tip="Consensus \u2014 prepare file consensus \xB7 Select for details" data-i18n-tip="debate.stage.consensusTip" data-i18n-aria="debate.stage.consensusTip" aria-label="Consensus \u2014 prepare file consensus \xB7 Select for details" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" data-i18n="debate.stage.consensus">Consensus</span></span><span class="link" id="lk0"></span>
+      <span class="step" id="st1" data-tip="Reference \u2014 reference pool \xB7 Select for details" data-i18n-tip="debate.stage.referenceTip" data-i18n-aria="debate.stage.referenceTip" aria-label="Reference \u2014 reference pool \xB7 Select for details" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" data-i18n="debate.stage.reference">Reference</span></span><span class="link" id="lk1"></span>
+      <span class="step" id="st2" data-tip="Debate \u2014 debaters take turns \xB7 Select for details" data-i18n-tip="debate.stage.debateTip" data-i18n-aria="debate.stage.debateTip" aria-label="Debate \u2014 debaters take turns \xB7 Select for details" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" id="st2lb">Debate</span></span><span class="link" id="lk2"></span>
+      <span class="step" id="st3" data-tip="Aggregate \u2014 synthesize the verdict \xB7 Select for details" data-i18n-tip="debate.stage.aggregateTip" data-i18n-aria="debate.stage.aggregateTip" aria-label="Aggregate \u2014 synthesize the verdict \xB7 Select for details" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" data-i18n="debate.stage.aggregate">Aggregate</span></span><span class="link" id="lk3"></span>
+      <span class="step" id="st4" data-tip="Verdict \u2014 VERDICT output \xB7 Select for details" data-i18n-tip="debate.stage.verdictTip" data-i18n-aria="debate.stage.verdictTip" aria-label="Verdict \u2014 VERDICT output \xB7 Select for details" role="button" tabindex="0" aria-controls="stageDetail" aria-expanded="false"><span class="dot"></span><span class="lb" data-i18n="debate.stage.verdict">Verdict</span></span>
     </div>
     <div id="stageDetail" role="region" aria-live="polite" hidden></div>
   </div>
   <div class="card" id="config">
-    <div class="sec-title">\u6A21\u5F0F / \u914D\u7F6E</div>
-    <div id="configBody"><span class="hint">waiting for task_initialized\u2026</span></div>
+    <div class="sec-title" data-i18n="debate.modeConfig">Mode / Configuration</div>
+    <div id="configBody"><span class="hint" data-i18n="debate.waitTaskEvent">Waiting for task_initialized\u2026</span></div>
     <div id="meta">
-      <span>Round <b id="round">\u2013</b> / <b id="rounds">\u2013</b></span>
-      <span>Speaker <b id="speaker">\u2013</b></span>
-      <span>Turns <b id="turns">0</b></span>
+      <span><span data-i18n="debate.round">Round</span> <b id="round">\u2013</b> / <b id="rounds">\u2013</b></span>
+      <span><span data-i18n="debate.speaker">Speaker</span> <b id="speaker">\u2013</b></span>
+      <span><span data-i18n="debate.turns">Turns</span> <b id="turns">0</b></span>
     </div>
   </div>
   <div class="card" id="agentsCard">
-    <div class="sec-title">\u8FA9\u624B</div>
+    <div class="sec-title" data-i18n="debate.debaters">Debaters</div>
     <div id="agents"></div>
   </div>
   <div class="card" id="omkcCard" hidden>
-    <div class="sec-title">Agent \u72B6\u6001<span class="omkc-scan" id="omkcScan" hidden></span><span class="aux hint" id="omkcCount"></span></div>
+    <div class="sec-title"><span data-i18n="debate.agentStatus">Agent Status</span><span class="omkc-scan" id="omkcScan" hidden></span><span class="aux hint" id="omkcCount"></span></div>
     <div class="omkc-list" id="omkcAgents"></div>
   </div>
   <div class="card" id="transcriptCard">
-    <div class="sec-title">\u8FA9\u8BBA transcript</div>
-    <div id="transcript"><span class="transcript-empty">\u5C1A\u65E0\u53D1\u8A00\uFF0C\u7B49\u5F85\u8FA9\u8BBA\u5F00\u59CB\u2026</span></div>
+    <div class="sec-title" data-i18n="debate.transcript">Debate Transcript</div>
+    <div id="transcript"><span class="transcript-empty" data-i18n="debate.noTurns">No turns yet. Waiting for the debate to start\u2026</span></div>
   </div>
   <div class="card" id="verdict" hidden>
     <h2>VERDICT</h2>
     <div class="row" id="verdictBody"></div>
     <div id="verdictFindings"></div>
     <div class="row" id="verdictStats"></div>
-    <button id="fullBtn" hidden>\u52A0\u8F7D\u5B8C\u6574 transcript</button>
+    <button id="fullBtn" hidden data-i18n="debate.fullTranscript">Load Full Transcript</button>
   </div>
   <div class="card" id="omkcToolsCard" hidden>
-    <div class="sec-title">\u5DE5\u5177\u8C03\u7528\u65E5\u5FD7<span class="aux hint" id="toolCount"></span></div>
-    <div class="tool-log" id="toolLog"><span class="tool-empty">\u7B49\u5F85\u5DE5\u5177\u8C03\u7528\u2026</span></div>
+    <div class="sec-title"><span data-i18n="debate.toolLog">Tool Call Log</span><span class="aux hint" id="toolCount"></span></div>
+    <div class="tool-log" id="toolLog"><span class="tool-empty" data-i18n="debate.waitTools">Waiting for tool calls\u2026</span></div>
+  </div>
   </div>
 </div>
 <script>
+${I18N_JS}
+${LIB_JS}
 (function () {
+  'use strict';
+  var tr = window.__moaI18n ? window.__moaI18n.t : function (key) { return key; };
   var taskId = new URLSearchParams(location.search).get('task_id') || '';
-  document.getElementById('taskId').textContent = taskId || '(no task_id)';
+  document.getElementById('taskId').textContent = taskId || tr('debate.noTask');
   var agents = [], turns = 0, rounds = '\u2013', curRound = '\u2013', lastRound = 0, speaking = null;
   var badge = document.getElementById('badge');
-  function setBadge(text, cls) { badge.textContent = text; badge.className = 'badge ' + cls; }
+  var curBadgeKey = 'debate.connecting', curBadgeCls = '';
+  function setBadge(text, cls, key) {
+    if (key) curBadgeKey = key;
+    badge.textContent = text;
+    if (cls != null) { curBadgeCls = cls; badge.className = 'badge ' + cls; }
+  }
 
-  // ---- stage progress: \u5171\u8BC6 \u2192 Reference \u2192 \u8FA9\u8BBA R N/M \u2192 \u805A\u5408 \u2192 \u7ED3\u8BBA ----
-  // All five steps stay visible at all times; each carries one of three
-  // explicit states (done \u2713 / active pulse / pending hollow), and the aux
-  // hint names the meaning of the current stage.
   var STEPS = 5;
-  var STAGE_TIPS = ['\u5171\u8BC6\uFF1A\u6587\u4EF6\u5171\u8BC6\u51C6\u5907', 'Reference\uFF1A\u53C2\u8003\u6C60', '\u8FA9\u8BBA\uFF1A\u8FA9\u624B\u8F6E\u6D41\u53D1\u8A00', '\u805A\u5408\uFF1A\u6C47\u603B\u88C1\u51B3', '\u7ED3\u8BBA\uFF1AVERDICT \u8F93\u51FA'];
-  var stageNow = 0;                                  // mirrors setStage: < stageNow done, === active
-  var stageEnteredAt = [null, null, null, null, null]; // per-stage arrival time (ISO), for the detail row
-  function setStage(n, ts) { // steps < n are done, step n is active; n === STEPS \u2192 all done
+  var STAGE_KEYS = ['debate.stage.consensus', 'debate.stage.reference', 'debate.stage.debate', 'debate.stage.aggregate', 'debate.stage.verdict'];
+  var stageNow = 0;
+  var stageEnteredAt = [null, null, null, null, null];
+  function setStage(n, ts) {
     stageNow = n;
     var entered = ts || new Date().toISOString();
     if (n >= STEPS) { if (!stageEnteredAt[STEPS - 1]) stageEnteredAt[STEPS - 1] = entered; }
@@ -16226,28 +32101,25 @@ var FRONTEND_HTML = `<!doctype html>
       if (i < STEPS - 1) document.getElementById('lk' + i).className = 'link' + (i < n ? ' done' : '');
     }
     document.getElementById('stageHint').textContent =
-      n >= STEPS ? '\u5168\u90E8\u5B8C\u6210 \u2014 \u7ED3\u8BBA\u5DF2\u8F93\u51FA VERDICT' : '\u5F53\u524D\uFF1A' + STAGE_TIPS[n];
-    if (detailOpen >= 0) renderStageDetail(detailOpen); // keep an open detail row in sync
+      n >= STEPS ? tr('debate.allComplete') : tr('debate.currentStage', { stage: tr(STAGE_KEYS[n]) });
+    if (detailOpen >= 0) renderStageDetail(detailOpen);
   }
   function setDebateLabel() {
-    document.getElementById('st2lb').textContent =
-      rounds === '\u2013' ? '\u8FA9\u8BBA' : '\u8FA9\u8BBA ' + curRound + '/' + rounds;
+    var label = tr('debate.stage.debate');
+    document.getElementById('st2lb').textContent = rounds === '\u2013' ? label : label + ' ' + curRound + '/' + rounds;
   }
 
-  // ---- clickable stages: pill click \u2192 scroll + outline flash + detail row ----
-  // Stage \u2192 section: \u5171\u8BC6 \u2192 \u914D\u7F6E\u533A (task_initialized snapshot), Reference \u2192
-  // \u8FA9\u624B roster, \u8FA9\u8BBA \u2192 transcript, \u805A\u5408/\u7ED3\u8BBA \u2192 VERDICT \u533A. Pending pills are
-  // clickable too \u2014 the detail row says the stage has not started and names
-  // what brings it in. Same pill again (or a click anywhere else) closes.
-  var STAGE_NAMES = ['\u5171\u8BC6', 'Reference', '\u8FA9\u8BBA', '\u805A\u5408', '\u7ED3\u8BBA'];
+  var STAGE_NAMES = STAGE_KEYS;
   var STAGE_TARGETS = ['config', 'agentsCard', 'transcriptCard', 'verdict', 'verdict'];
-  var initExtras = null;   // task_initialized extras snapshot (may carry reference_results)
-  var verdictSummary = ''; // one-line VERDICT once task_closed lands
-  var detailOpen = -1;     // stage index whose detail row is open, -1 = closed
+  var initExtras = null;
+  var verdictSummary = '';
+  var detailOpen = -1;
 
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function fmtClock(iso) {
     if (!iso) return '\u2013';
     var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
     return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
   }
   function refSnippet() {
@@ -16257,40 +32129,18 @@ var FRONTEND_HTML = `<!doctype html>
     if (s == null) return null;
     return s.length > 500 ? s.slice(0, 500) + '\u2026' : s;
   }
-  function stageDetail(i) { // \u2192 { state: 'done'|'active'|'pending', text }
+  function stageDetail(i) {
     var state = i < stageNow ? 'done' : (i === stageNow ? 'active' : 'pending');
-    var at = '\u8FDB\u5165\u4E8E ' + fmtClock(stageEnteredAt[i]);
-    if (state === 'pending') {
-      var why = [
-        '\u7B49\u5F85\u9875\u9762\u8FDE\u63A5\u5EFA\u7ACB\uFF08\u8F7D\u5165\u5373\u8FDB\u5165\uFF09',
-        '\u7B49\u5F85 moa_init \u5B8C\u6210\u4EFB\u52A1\u521D\u59CB\u5316\uFF08task_initialized\uFF09',
-        '\u7B49\u5F85 moa_start_debate \u6CE8\u5165\u53C2\u8003\u6C60\u5E76\u5F00\u8D5B\uFF08debate_started\uFF09',
-        '\u7B49\u5F85\u6700\u540E\u4E00\u540D\u8FA9\u624B\u63D0\u4EA4\uFF08debate_complete\uFF09',
-        '\u7B49\u5F85 moa_complete \u5199\u5165\u4E09\u5C42\u5F52\u6863\uFF08task_closed\uFF09'
-      ][i];
-      return { state: 'pending', text: '\u8BE5\u9636\u6BB5\u5C1A\u672A\u5F00\u59CB \u2014 ' + why };
-    }
-    if (i === 0) {
-      return { state: state, text: at + ' \xB7 ' + (state === 'done'
-        ? '\u4EFB\u52A1\u5DF2\u521D\u59CB\u5316\uFF0C\u5171\u8BC6\u51C6\u5907\u5B8C\u6210'
-        : '\u5DF2\u8FDE\u63A5\uFF0C\u7B49\u5F85 moa_init \u521D\u59CB\u5316\u4EFB\u52A1') };
-    }
+    var at = tr('debate.enteredAt', { time: fmtClock(stageEnteredAt[i]) });
+    if (state === 'pending') return { state: 'pending', text: tr('debate.notStarted', { reason: tr('debate.pending.' + i) }) };
+    if (i === 0) return { state: state, text: at + ' \xB7 ' + tr(state === 'done' ? 'debate.consensusDone' : 'debate.consensusActive') };
     if (i === 1) {
       var ref = refSnippet();
-      return { state: state, text: at + ' \xB7 ' + (ref != null
-        ? 'reference_results \u6458\u8981\uFF1A' + ref
-        : '\u5FEB\u7167\u672A\u643A\u5E26 reference_results\uFF08\u7531 moa_start_debate \u76F4\u63A5\u6CE8\u5165\u8FA9\u624B\u4E0A\u4E0B\u6587\uFF0C\u4E0D\u7ECF\u5361\u7247\uFF09') };
+      return { state: state, text: at + ' \xB7 ' + (ref != null ? tr('debate.referenceSummary', { value: ref }) : tr('debate.referenceMissing')) };
     }
-    if (i === 2) {
-      return { state: state, text: 'Round ' + curRound + '/' + rounds +
-        ' \xB7 \u5F53\u524D\u53D1\u8A00\u4EBA ' + (speaking || '\u2013') + ' \xB7 \u5DF2\u63D0\u4EA4 ' + turns + ' \u4E2A turn' };
-    }
-    if (i === 3) {
-      return { state: state, text: at + '\uFF08debate_complete\uFF09\xB7 ' + (state === 'done'
-        ? '\u5F52\u6863\u5DF2\u5199\u5165\uFF0C\u88C1\u51B3\u5DF2\u8F93\u51FA'
-        : '\u6C47\u603B\u4E2D \u2014 \u7B49\u5F85 moa_complete \u5199\u5165\u5F52\u6863') };
-    }
-    return { state: state, text: verdictSummary || (at + ' \xB7 \u5F52\u6863\u5DF2\u5199\u5165\uFF0CVERDICT \u8BE6\u60C5\u52A0\u8F7D\u4E2D\u2026') };
+    if (i === 2) return { state: state, text: tr('debate.roundDetail', { round: curRound, rounds: rounds, speaker: speaking || '\u2013', turns: turns }) };
+    if (i === 3) return { state: state, text: at + ' (debate_complete) \xB7 ' + tr(state === 'done' ? 'debate.aggregateDone' : 'debate.aggregateActive') };
+    return { state: state, text: verdictSummary || (at + ' \xB7 ' + tr('debate.verdictLoading')) };
   }
   function renderStageDetail(i) {
     var box = document.getElementById('stageDetail');
@@ -16298,10 +32148,10 @@ var FRONTEND_HTML = `<!doctype html>
     var info = stageDetail(i);
     var name = document.createElement('span');
     name.className = 'sd-name';
-    name.textContent = STAGE_NAMES[i];
+    name.textContent = tr(STAGE_NAMES[i]);
     var chip = document.createElement('span');
     chip.className = 'sd-state ' + info.state;
-    chip.textContent = info.state === 'done' ? '\u5B8C\u6210' : (info.state === 'active' ? '\u8FDB\u884C\u4E2D' : '\u672A\u5F00\u59CB');
+    chip.textContent = tr('debate.state.' + info.state);
     var text = document.createElement('span');
     text.className = 'sd-text';
     text.textContent = info.text;
@@ -16323,7 +32173,7 @@ var FRONTEND_HTML = `<!doctype html>
   function refreshDetailIfOpen(i) { if (detailOpen === i) renderStageDetail(i); }
   function flashCard(el) {
     el.classList.remove('flash');
-    void el.offsetWidth; // force reflow so back-to-back clicks replay the animation
+    void el.offsetWidth;
     el.classList.add('flash');
     el.addEventListener('animationend', function done() {
       el.classList.remove('flash');
@@ -16337,7 +32187,7 @@ var FRONTEND_HTML = `<!doctype html>
     document.getElementById('stageDetail').hidden = false;
     syncStepAria();
     var target = document.getElementById(STAGE_TARGETS[i]);
-    if (target && !target.hidden) { // e.g. the VERDICT card only exists post-debate_complete
+    if (target && !target.hidden) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       flashCard(target);
     }
@@ -16351,16 +32201,21 @@ var FRONTEND_HTML = `<!doctype html>
       });
     })(si);
   }
-  // a click outside pills / detail row closes the row (pill clicks bubble up
-  // here too \u2014 closest('.step') keeps them from closing what they just opened)
+  function isStepOrDetail(t) {
+    var p = t;
+    var detail = document.getElementById('stageDetail');
+    while (p && p !== document.body) {
+      if (p === detail) return true;
+      if (p.className && typeof p.className === 'string' && p.className.indexOf('step') !== -1) return true;
+      p = p.parentNode;
+    }
+    return false;
+  }
   document.addEventListener('click', function (ev) {
     if (detailOpen < 0) return;
-    var t = ev.target;
-    if (t && t.closest && (t.closest('.step') || t.closest('#stageDetail'))) return;
-    closeStageDetail();
+    if (!isStepOrDetail(ev.target)) closeStageDetail();
   });
 
-  // ---- preset / config snapshot (task_initialized) ----
   function renderConfig(extras) {
     var box = document.getElementById('configBody');
     box.textContent = '';
@@ -16389,7 +32244,7 @@ var FRONTEND_HTML = `<!doctype html>
     if (!agents.length) {
       var empty = document.createElement('span');
       empty.id = 'empty';
-      empty.textContent = 'waiting for task_initialized\u2026';
+      empty.textContent = tr('debate.waitTaskEvent');
       box.appendChild(empty);
       return;
     }
@@ -16400,7 +32255,7 @@ var FRONTEND_HTML = `<!doctype html>
       chip.appendChild(document.createTextNode(a.id));
       var sub = document.createElement('span');
       sub.className = 'sub';
-      var label = a.id === speaking ? 'speaking' : (a.turns > 0 ? a.turns + ' turn' + (a.turns > 1 ? 's' : '') : 'waiting');
+      var label = a.id === speaking ? tr('debate.speaking') : (a.turns > 0 ? tr(a.turns === 1 ? 'debate.turnCount' : 'debate.turnCountPlural', { count: a.turns }) : tr('debate.waiting'));
       sub.textContent = (a.tag ? a.tag + ' \xB7 ' : '') + label;
       chip.appendChild(sub);
       box.appendChild(chip);
@@ -16413,7 +32268,6 @@ var FRONTEND_HTML = `<!doctype html>
     document.getElementById('turns').textContent = String(turns);
   }
 
-  // ---- transcript (per-round grouped; everything via textContent) ----
   function clearTranscriptEmpty() {
     var box = document.getElementById('transcript');
     var placeholder = box.querySelector('.transcript-empty');
@@ -16438,7 +32292,7 @@ var FRONTEND_HTML = `<!doctype html>
     if (signoff) {
       var sb = document.createElement('span');
       sb.className = 'signoff-badge';
-      sb.textContent = '\u270D \u7B7E\u5B57';
+      sb.textContent = tr('debate.signoff');
       head.appendChild(w);
       head.appendChild(sb);
     } else {
@@ -16464,7 +32318,6 @@ var FRONTEND_HTML = `<!doctype html>
     for (var i = 0; i < agents.length; i++) if (agents[i].id === id) agents[i].turns++;
   }
 
-  // ---- archive helpers & verdict ----
   function loadArchive(file, cb) {
     fetch('/archive?task_id=' + encodeURIComponent(taskId) + '&file=' + file)
       .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
@@ -16479,8 +32332,8 @@ var FRONTEND_HTML = `<!doctype html>
     box.appendChild(document.createTextNode(' \xB7 '));
   }
   function onClosed(e) {
-    speaking = null; renderAgents(); setBadge('closed', 'closed');
-    verdictSummary = '\u5F52\u6863\u5DF2\u5199\u5165 \xB7 ' + (e.archive || 'logs/' + taskId);
+    speaking = null; renderAgents(); setBadge(tr('debate.closed'), 'closed', 'debate.closed');
+    verdictSummary = tr('debate.archiveWritten', { archive: e.archive || 'logs/' + taskId });
     setStage(STEPS, e.ts);
     document.getElementById('verdict').hidden = false;
     loadArchive('result.json', function (text) {
@@ -16491,26 +32344,25 @@ var FRONTEND_HTML = `<!doctype html>
       if (r.early === true) {
         var eb = document.createElement('span');
         eb.className = 'early-badge';
-        eb.textContent = '\u63D0\u524D\u95ED\u5408\uFF08\u5168\u4F53\u7B7E\u5B57\uFF09\xB7 ' + (r.reason || 'unanimous_signoff');
+        eb.textContent = tr('debate.earlyClose') + ' \xB7 ' + (r.reason || 'unanimous_signoff');
         vb.appendChild(eb);
       }
-      putStat(vb, 'status', r.status || '\u2013');
-      putStat(vb, 'rounds', (r.rounds_completed != null ? r.rounds_completed : '\u2013') + ' / ' + (r.rounds_configured != null ? r.rounds_configured : '\u2013'));
-      putStat(vb, 'turns', r.turns != null ? String(r.turns) : '\u2013');
-      var statsText = 'finished at ' + (r.finished_at || '\u2013') + ' \xB7 archive: ' + (e.archive || 'logs/' + taskId);
+      putStat(vb, tr('common.status'), r.status || '\u2013');
+      putStat(vb, tr('debate.roundsLabel'), (r.rounds_completed != null ? r.rounds_completed : '\u2013') + ' / ' + (r.rounds_configured != null ? r.rounds_configured : '\u2013'));
+      putStat(vb, tr('debate.turnsLabel'), r.turns != null ? String(r.turns) : '\u2013');
+      var statsText = tr('debate.finishedAt') + ' ' + (r.finished_at || '\u2013') + ' \xB7 ' + tr('debate.archive') + ': ' + (e.archive || 'logs/' + taskId);
       if (r.signoffs && typeof r.signoffs === 'object') {
         var signers = Object.keys(r.signoffs);
-        if (signers.length) statsText += ' \xB7 \u270D \u7B7E\u5B57: ' + signers.join(', ');
+        if (signers.length) statsText += ' \xB7 \u270D ' + tr('debate.signers') + ': ' + signers.join(', ');
       }
       document.getElementById('verdictStats').textContent = statsText;
       document.getElementById('fullBtn').hidden = false;
-      verdictSummary = (r.early === true ? '\u63D0\u524D\u95ED\u5408\uFF08\u5168\u4F53\u7B7E\u5B57\uFF09 \xB7 ' : 'VERDICT \xB7 ') + 'status ' + (r.status || '\u2013') + ' \xB7 rounds ' +
+      verdictSummary = (r.early === true ? tr('debate.earlyClose') + ' \xB7 ' : 'VERDICT \xB7 ') + tr('common.status') + ' ' + (r.status || '\u2013') + ' \xB7 ' + tr('debate.roundsLabel') + ' ' +
         (r.rounds_completed != null ? r.rounds_completed : '\u2013') + '/' +
-        (r.rounds_configured != null ? r.rounds_configured : '\u2013') + ' \xB7 turns ' +
+        (r.rounds_configured != null ? r.rounds_configured : '\u2013') + ' \xB7 ' + tr('debate.turnsLabel') + ' ' +
         (r.turns != null ? r.turns : '\u2013');
       refreshDetailIfOpen(4);
     });
-    // findings: the last archived turn carries the synthesized conclusion.
     loadArchive('events.jsonl', function (text) {
       var lines = text.split('\\n');
       for (var i = lines.length - 1; i >= 0; i--) {
@@ -16548,7 +32400,6 @@ var FRONTEND_HTML = `<!doctype html>
     });
   });
 
-  // ---- Bus domain events ----
   function onEvent(e) {
     if (e.type === 'task_initialized') {
       var specs = e.agent_specs || (e.agents || []).map(function (id) { return { id: id }; });
@@ -16560,14 +32411,13 @@ var FRONTEND_HTML = `<!doctype html>
       speaking = null;
       initExtras = e.extras || null;
       renderAgents(); renderConfig(e.extras); setMeta('\u2013', null);
-      setDebateLabel(); setStage(1, e.ts); setBadge('initialized', 'live');
+      setDebateLabel(); setStage(1, e.ts); setBadge(tr('debate.initialized'), 'live', 'debate.initialized');
     } else if (e.type === 'debate_started') {
       rounds = e.rounds || rounds;
       curRound = 1;
-      setDebateLabel(); setMeta(1, null); setStage(2, e.ts); setBadge('debating', 'live');
+      setDebateLabel(); setMeta(1, null); setStage(2, e.ts); setBadge(tr('debate.debating'), 'live', 'debate.debating');
     } else if (e.type === 'turn_submitted') {
       turns++; bumpAgent(e.agent_id); speaking = null;
-      // Prefer the full content; fall back to excerpt for older replay buffers.
       addTurn(e.agent_id, e.round, e.turn, e.content || e.excerpt, e.ts, e.signoff === true);
       renderAgents();
       curRound = e.round; setDebateLabel(); setMeta(e.round, null);
@@ -16578,31 +32428,28 @@ var FRONTEND_HTML = `<!doctype html>
       curRound = e.round; setDebateLabel(); setMeta(e.round, e.speaker);
       refreshDetailIfOpen(2);
     } else if (e.type === 'debate_complete') {
-      speaking = null; renderAgents(); setStage(3, e.ts); setBadge('debate complete', 'done');
+      speaking = null; renderAgents(); setStage(3, e.ts); setBadge(tr('debate.debateComplete'), 'done', 'debate.debateComplete');
       document.getElementById('verdict').hidden = false;
       var vbLive = document.getElementById('verdictBody');
       vbLive.textContent = '';
       if (e.early === true) {
         var ebLive = document.createElement('span');
         ebLive.className = 'early-badge';
-        ebLive.textContent = '\u63D0\u524D\u95ED\u5408\uFF08\u5168\u4F53\u7B7E\u5B57\uFF09';
+        ebLive.textContent = tr('debate.earlyClose');
         vbLive.appendChild(ebLive);
       }
       vbLive.appendChild(document.createTextNode(
-        'Rounds: ' + (e.rounds || '\u2013') + ' \xB7 Turns: ' + (e.turns || turns) +
+        tr('debate.roundsLabel') + ': ' + (e.rounds || '\u2013') + ' \xB7 ' + tr('debate.turnsLabel') + ': ' + (e.turns || turns) +
         (e.early === true ? ' \xB7 reason: ' + (e.reason || 'unanimous_signoff') : '') +
-        ' \u2014 transcript archived on moa_complete.'));
+        ' \u2014 ' + tr('debate.archivedAfterComplete')));
     } else if (e.type === 'signoff_reset') {
-      // A dissent wiped the accumulated signoffs; surface it in the stage hint.
-      document.getElementById('stageHint').textContent =
-        '\u7B7E\u5B57\u6E05\u96F6\uFF08' + (e.agent_id || '\u2013') + ' \u63D0\u51FA\u5F02\u8BAE\uFF09\u2014 \u8FA9\u8BBA\u6309\u539F\u8F6E\u6B21\u7EE7\u7EED';
+      document.getElementById('stageHint').textContent = tr('debate.signoffReset', { agent: e.agent_id || '\u2013' });
       refreshDetailIfOpen(2);
     } else if (e.type === 'task_closed') {
       onClosed(e);
     }
   }
 
-  // ---- task picker: silent 3s refresh, re-render only on real changes ----
   var pickerSig = null, pickerErrShown = false;
   function renderPickerList(tasks) {
     var list = document.getElementById('pickerList');
@@ -16610,7 +32457,7 @@ var FRONTEND_HTML = `<!doctype html>
     if (!tasks.length) {
       var hint = document.createElement('span');
       hint.className = 'hint';
-      hint.textContent = '\u6682\u65E0\u6D3B\u8DC3\u4EFB\u52A1';
+      hint.textContent = tr('debate.noActiveTasks');
       list.appendChild(hint);
       return;
     }
@@ -16630,7 +32477,7 @@ var FRONTEND_HTML = `<!doctype html>
       .then(function (data) {
         var tasks = (data && data.tasks) || [];
         var sig = JSON.stringify(tasks);
-        if (sig === pickerSig && !pickerErrShown) return; // unchanged \u2192 do not touch the DOM
+        if (sig === pickerSig && !pickerErrShown) return;
         pickerSig = sig;
         pickerErrShown = false;
         renderPickerList(tasks);
@@ -16642,7 +32489,7 @@ var FRONTEND_HTML = `<!doctype html>
         list.textContent = '';
         var hint = document.createElement('span');
         hint.className = 'hint';
-        hint.textContent = 'failed to load /tasks';
+        hint.textContent = tr('debate.tasksError');
         list.appendChild(hint);
       });
   }
@@ -16655,15 +32502,9 @@ var FRONTEND_HTML = `<!doctype html>
     setInterval(refreshTasks, 3000);
   }
 
-  // ---- optional omkc-status agent wall + tool call log ----
-  // Optional enhancement from the omkc ecosystem, never a dependency:
-  // probe http://127.0.0.1:39627/health (500ms); when absent, both sections
-  // stay hidden with zero trace. When present, subscribe to its SSE /events:
-  // the first 'snapshot' frame is the full state (can be hundreds of KB \u2014
-  // parsing stays tolerant), afterwards per-agent 'agent' delta frames.
   var OMKC = 'http://127.0.0.1:39627';
-  var omkcRows = new Map();  // 'sessionId:agentId' -> row element
-  var toolSeen = new Map();  // 'sessionId:agentId' -> last rendered lastToolCall.ts
+  var omkcRows = new Map();
+  var toolSeen = new Map();
   var omkcEs = null, omkcFails = 0, omkcReprobe = null, omkcHealthPoll = null;
 
   function fetchWithTimeout(url, ms) {
@@ -16695,7 +32536,7 @@ var FRONTEND_HTML = `<!doctype html>
   function setOmkcScan(scanning) {
     var chip = document.getElementById('omkcScan');
     chip.hidden = !scanning;
-    chip.textContent = '\u626B\u63CF\u4E2D\u2026';
+    chip.textContent = tr('debate.scanning');
   }
   function omkcKey(a) { return (a.sessionId || '') + ':' + (a.agentId || ''); }
   function fmtTok(n) {
@@ -16703,9 +32544,8 @@ var FRONTEND_HTML = `<!doctype html>
     if (!isFinite(n)) return '\u2013';
     return n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'k' : String(n);
   }
-  function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function fillAgentRow(el, a) {
-    var cells = el.children; // [id, model, status, tokens, tool]
+    var cells = el.children;
     cells[0].textContent = String(a.agentId || '?') + (a.kind === 'sub' ? ' \u2937' : '');
     cells[0].title = (a.sessionId || '') + (a.home ? ' @ ' + a.home : '');
     cells[1].textContent = a.model || '\u2013';
@@ -16743,7 +32583,6 @@ var FRONTEND_HTML = `<!doctype html>
     if (!el) {
       el = newRow();
       omkcRows.set(key, el);
-      // late-arriving agents are the most recent \u2014 slot them on top.
       var box = document.getElementById('omkcAgents');
       box.insertBefore(el, box.firstChild);
     }
@@ -16751,8 +32590,6 @@ var FRONTEND_HTML = `<!doctype html>
     maybeLogTool(key, a, false);
   }
   function applyOmkcSnapshot(snap) {
-    // The snapshot can be very large (machine-wide agent list); parse and
-    // render defensively \u2014 a malformed entry must not kill the whole wall.
     var list = (snap && snap.agents) || [];
     if (!list.length) return;
     omkcRows.clear();
@@ -16773,7 +32610,7 @@ var FRONTEND_HTML = `<!doctype html>
       maybeLogTool(omkcKey(sorted[j]), sorted[j], true);
     }
     box.appendChild(frag);
-    document.getElementById('omkcCount').textContent = sorted.length + ' \u4E2A agent';
+    document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: sorted.length });
     setOmkcScan(!!(snap.scan && snap.scan.scanning === true));
   }
   function maybeLogTool(key, a, seed) {
@@ -16781,7 +32618,7 @@ var FRONTEND_HTML = `<!doctype html>
     if (!tc || !tc.name || !tc.ts) return;
     var last = toolSeen.get(key) || 0;
     if (tc.ts <= last) return;
-    if (seed && Date.now() - Number(tc.ts) > 5 * 60 * 1000) return; // seed: last 5 min only
+    if (seed && Date.now() - Number(tc.ts) > 5 * 60 * 1000) return;
     toolSeen.set(key, Number(tc.ts));
     addToolRow(a, tc, seed);
   }
@@ -16807,20 +32644,20 @@ var FRONTEND_HTML = `<!doctype html>
     if (tc.isError) {
       var err = document.createElement('span');
       err.className = 'tool-err';
-      err.textContent = '\u2717 error';
+      err.textContent = tr('debate.error');
       row.appendChild(err);
     }
-    if (seed) box.appendChild(row); // snapshot seed: append in lastSeen-desc order
-    else box.insertBefore(row, box.firstChild); // live: newest on top
+    if (seed) box.appendChild(row);
+    else box.insertBefore(row, box.firstChild);
     while (box.children.length > 150) box.removeChild(box.lastChild);
-    document.getElementById('toolCount').textContent = box.children.length + ' \u6761';
+    document.getElementById('toolCount').textContent = tr('debate.toolCount', { count: box.children.length });
   }
   function omkcConnect() {
     if (omkcEs) { omkcEs.close(); omkcEs = null; }
     omkcEs = new EventSource(OMKC + '/events');
     omkcEs.addEventListener('snapshot', function (m) {
       omkcFails = 0;
-      try { applyOmkcSnapshot(JSON.parse(m.data)); } catch (_) { /* tolerant: wait for deltas */ }
+      try { applyOmkcSnapshot(JSON.parse(m.data)); } catch (_) {}
     });
     omkcEs.addEventListener('agent', function (m) {
       omkcFails = 0;
@@ -16829,9 +32666,6 @@ var FRONTEND_HTML = `<!doctype html>
     omkcEs.onerror = function () {
       if (omkcEs) { omkcEs.close(); omkcEs = null; }
       omkcFails++;
-      // Same E1 rule as the Bus SSE: 1-2 transient errors retry quickly;
-      // 3 consecutive failures read as "service gone" \u2014 hide both sections
-      // silently and re-probe on a slow cadence until it returns.
       if (omkcFails < 3) { setTimeout(omkcConnect, 1000); return; }
       omkcShow(false);
       setOmkcScan(false);
@@ -16849,55 +32683,65 @@ var FRONTEND_HTML = `<!doctype html>
     };
   }
 
-  // ---- bootstrap ----
   probeOmkc().then(function () {
     omkcShow(true);
     omkcConnect();
-    // Keep the \u626B\u63CF\u4E2D badge fresh (scan state only rides on snapshots).
     if (!omkcHealthPoll) {
       omkcHealthPoll = setInterval(function () {
-        if (!omkcEs) return; // hidden / re-probing \u2014 skip
+        if (!omkcEs) return;
         probeOmkc().then(function (h) { setOmkcScan(h.scanning === true); }, function () {});
       }, 15000);
     }
-  }, function () { /* omkc-status not installed \u2014 sections stay hidden */ });
+  }, function () {});
 
-  if (!taskId) { setBadge('pick a task', ''); showPicker(); return; }
-
-  renderAgents();
-  setStage(0);
-  setDebateLabel();
   var sse = null, sseFails = 0, sseDelay = 800, gotAny = false, waitingShown = false;
   function setConn(text) { document.getElementById('conn').textContent = text; }
-  function showWaitingHint() {
-    if (waitingShown) return;
+  function showWaitingHint(force) {
+    if (waitingShown && !force) return;
     waitingShown = true;
-    setBadge('waiting', '');
+    setBadge(tr('debate.waitingBadge'), '', 'debate.waitingBadge');
     var box = document.getElementById('configBody');
     box.textContent = '';
     var span = document.createElement('span');
     span.className = 'hint';
-    span.appendChild(document.createTextNode('\u5DF2\u8FDE\u63A5\uFF0C\u4F46\u4EFB\u52A1 '));
+    span.appendChild(document.createTextNode(tr('debate.connectedNoEventsBefore')));
     var b = document.createElement('b');
     b.textContent = taskId;
     span.appendChild(b);
-    span.appendChild(document.createTextNode(' \u8FD8\u6CA1\u6709\u4EFB\u4F55\u4E8B\u4EF6\u3002\u8FA9\u8BBA\u53EF\u80FD\u5C1A\u672A\u5F00\u59CB\uFF0C\u6216 Bus \u8FDB\u7A0B\u91CD\u542F\u8FC7\uFF08\u4E8B\u4EF6\u65E5\u5FD7\u5728\u5185\u5B58\u4E2D\uFF09\u3002'));
+    span.appendChild(document.createTextNode(tr('debate.connectedNoEventsAfter') + ' '));
     var a = document.createElement('a');
     a.href = '/';
-    a.style.color = '#7cc7ff';
-    a.textContent = '\u8FD4\u56DE\u4EFB\u52A1\u5217\u8868';
+    a.style.color = 'var(--link-soft)';
+    a.textContent = tr('debate.backToTasks');
     span.appendChild(a);
     box.appendChild(span);
   }
+  if (window.addEventListener) window.addEventListener('moamcp:localechange', function () {
+    tr = window.__moaI18n.t;
+    if (!taskId) {
+      setBadge(tr('debate.pickTask'), '', 'debate.pickTask');
+      if (pickerSig) { try { renderPickerList(JSON.parse(pickerSig)); } catch (_) {} }
+    } else {
+      setDebateLabel(); setStage(stageNow); renderAgents();
+      if (curBadgeKey) setBadge(tr(curBadgeKey), curBadgeCls, curBadgeKey);
+      if (waitingShown && !gotAny) showWaitingHint(true);
+      var signoffs = document.querySelectorAll('.signoff-badge');
+      for (var i = 0; i < signoffs.length; i++) signoffs[i].textContent = tr('debate.signoff');
+      var errors = document.querySelectorAll('.tool-err');
+      for (var j = 0; j < errors.length; j++) errors[j].textContent = tr('debate.error');
+    }
+  });
+  if (!taskId) { setBadge(tr('debate.pickTask'), '', 'debate.pickTask'); showPicker(); return; }
+
+  renderAgents();
+  setStage(0);
+  setDebateLabel();
   function connect() {
     sse = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
     sse.onopen = function () {
       sseFails = 0;
       sseDelay = 800;
       setConn('\u25CF sse');
-      // The Bus replays the event log on subscribe. If nothing arrives within
-      // a few seconds the task either hasn't started or the Bus restarted
-      // (event log is in-memory) \u2014 show a useful hint instead of "connecting" forever.
       setTimeout(function () {
         if (!gotAny) showWaitingHint();
       }, 3000);
@@ -16910,14 +32754,11 @@ var FRONTEND_HTML = `<!doctype html>
     sse.onerror = function () {
       if (sse) { sse.close(); sse = null; }
       sseFails++;
-      // E1 lesson: one transient error must not tear the session down \u2014
-      // retry quickly twice, and only after 3 consecutive failures enter
-      // exponential backoff (800ms doubling, capped at 15s).
       var delay = sseFails < 3 ? 800 : Math.min(15000, sseDelay * 2);
       sseDelay = delay;
       setConn(sseFails < 3
-        ? '\u25CB \u77AC\u65AD ' + sseFails + '/3'
-        : '\u25CB \u91CD\u8FDE\u9000\u907F ' + Math.round(delay / 100) / 10 + 's');
+        ? tr('debate.transient', { count: sseFails })
+        : tr('debate.backoff', { seconds: Math.round(delay / 100) / 10 }));
       setTimeout(connect, delay);
     };
   }
@@ -16970,11 +32811,16 @@ var Bus = class {
   cwd;
   replayLimit;
   logsDir;
+  archiveIndex;
+  runReadModel = new RunReadModel();
   portRetryLimit;
   registry;
   watchIntervalMs;
   watchTimeoutMs;
   watchFailThreshold;
+  controlPlane;
+  /** Stable process-listener start time, shared with the registry registration. */
+  startedAt = Date.now();
   /** Reuse-mode host watch timer (undefined outside reuse mode). */
   hostWatch;
   hostWatchFails = 0;
@@ -16992,12 +32838,21 @@ var Bus = class {
     this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
-    this.logsDir = opts.logsDir ?? "logs";
+    this.logsDir = resolve4(opts.logsDir ?? "logs");
+    this.archiveIndex = new ArchiveIndex(this.logsDir);
     this.portRetryLimit = opts.portRetryLimit ?? PORT_RETRY_LIMIT;
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
     this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
     this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
+    this.controlPlane = new ControlPlane(opts.board, opts.tipStore);
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
+    this.controlPlane.mountRuntime({
+      listRuns: () => this.runReadModel.list(),
+      readRun: (taskId) => this.runReadModel.read(taskId),
+      cardUrl: (taskId) => `http://127.0.0.1:${this.actualPort}/?task_id=${encodeURIComponent(taskId)}`,
+      listArchives: () => this.archiveIndex.list(),
+      systemInfo: () => this.systemInfo()
+    });
     this.server = createServer((req, res) => void this.handle(req, res).catch(() => {
       if (!res.headersSent) res.writeHead(500);
       res.end();
@@ -17014,6 +32869,10 @@ var Bus = class {
   get startResult() {
     return { mode: this.startMode, port: this.port };
   }
+  /** Mount the BoardStore/TipStore authority used by Control Plane API routes. */
+  mountControlPlane(board, tips) {
+    this.controlPlane.mount(board, tips);
+  }
   /**
    * Register → bind (port walk + reuse detection) → write back the bound port.
    * Returns the usable port in either mode. On bind failure the registration
@@ -17027,7 +32886,11 @@ var Bus = class {
       await this.writePortFile();
       return this.port;
     }
-    const registration = await this.registry.register({ pid: process.pid, port: this.requestedPort });
+    const registration = await this.registry.register({
+      pid: process.pid,
+      port: this.requestedPort,
+      startedAt: this.startedAt
+    });
     this.registration = registration;
     let result;
     try {
@@ -17049,9 +32912,13 @@ var Bus = class {
     await this.writePortFile();
     return this.port;
   }
-  /** Fan an event out to all subscribers of the task (and append to the replay log). */
+  /** Fan one authoritative envelope through the run projection, replay, and live SSE path. */
   publish(taskId, event) {
-    const frame = `data: ${JSON.stringify({ task_id: taskId, ts: (/* @__PURE__ */ new Date()).toISOString(), ...event })}
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const ts = typeof event.ts === "string" && event.ts.length > 0 && Number.isFinite(Date.parse(event.ts)) ? event.ts : now;
+    const envelope = { ...event, ts, task_id: taskId };
+    if (!taskId.startsWith("@")) this.runReadModel.ingest(envelope);
+    const frame = `data: ${JSON.stringify(envelope)}
 
 `;
     const log = this.eventLog.get(taskId) ?? [];
@@ -17064,15 +32931,58 @@ var Bus = class {
   activeTasks() {
     return [...this.eventLog.keys()];
   }
+  async systemInfo() {
+    const recentWindowSeconds = 60 * 60;
+    const recentCutoff = Date.now() - recentWindowSeconds * 1e3;
+    const runs = this.runReadModel.list();
+    const [listeners, archiveState] = await Promise.all([
+      this.registry.listLive(),
+      this.archiveIndex.list().then((archives) => ({ available: true, count: archives.length })).catch(() => ({ available: false, count: null }))
+    ]);
+    let subscriberCount = 0;
+    for (const subscribers of this.subscribers.values()) subscriberCount += subscribers.size;
+    return {
+      process: {
+        pid: process.pid,
+        instanceId: this.registration?.id ?? null,
+        version: VERSION,
+        startedAt: new Date(this.startedAt).toISOString(),
+        uptimeSeconds: Math.max(0, Math.floor((Date.now() - this.startedAt) / 1e3))
+      },
+      bus: { requestedPort: this.requestedPort, actualPort: this.actualPort, mode: this.mode },
+      registry: {
+        listenerEntries: listeners.map((entry) => ({
+          id: entry.id,
+          pid: entry.pid,
+          port: entry.port,
+          startedAt: new Date(entry.startedAt).toISOString(),
+          version: entry.version
+        }))
+      },
+      runs: {
+        total: runs.length,
+        live: runs.filter((run) => run.status === "initialized" || run.status === "debating").length,
+        recent: runs.filter((run) => Date.parse(run.updatedAt) >= recentCutoff).length,
+        recentWindowSeconds
+      },
+      sse: { channelCount: this.eventLog.size, subscriberCount },
+      archives: archiveState,
+      reuseWatch: {
+        intervalMs: this.watchIntervalMs,
+        timeoutMs: this.watchTimeoutMs,
+        failThreshold: this.watchFailThreshold
+      }
+    };
+  }
   async stop() {
     this.stopped = true;
     this.stopHostWatch();
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
-    await new Promise((resolve3) => this.server.close(() => resolve3()));
+    await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join3(this.cwd, "bus.port"), { force: true });
+    if (this.wrotePortFile) await rm(join6(this.cwd, "bus.port"), { force: true });
   }
   // ---- internals ----
   /**
@@ -17120,7 +33030,7 @@ var Bus = class {
     });
   }
   async writePortFile() {
-    await writeFile(join3(this.cwd, "bus.port"), String(this.port));
+    await writeFile2(join6(this.cwd, "bus.port"), String(this.port));
     this.wrotePortFile = true;
   }
   async releaseRegistration() {
@@ -17211,14 +33121,16 @@ var Bus = class {
   }
   async handle(req, res) {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (await this.controlPlane.handle(req, res, this.actualPort)) return;
     if (req.method === "GET" && url.pathname === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      res.end(FRONTEND_HTML);
+      res.end(DEBATE_CARD_HTML);
       return;
     }
     if (req.method === "GET" && url.pathname === "/tasks") {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ tasks: this.activeTasks() }));
+      const tasks = this.activeTasks().filter((taskId) => !taskId.startsWith("@"));
+      res.end(JSON.stringify({ tasks }));
       return;
     }
     if (req.method === "GET" && url.pathname === "/subscribe") {
@@ -17248,13 +33160,13 @@ var Bus = class {
       const taskId = url.searchParams.get("task_id") ?? "";
       const file = url.searchParams.get("file") ?? "";
       const contentType = ARCHIVE_FILES[file];
-      if (!taskId || /[\\/]|\.\./.test(taskId) || !contentType) {
+      if (!isValidTaskId(taskId) || !contentType) {
         res.writeHead(400, { "content-type": "application/json" });
         res.end(JSON.stringify({ error: "valid task_id and file (result.json|probe.json|events.jsonl|board.jsonl) required" }));
         return;
       }
       try {
-        const content = await readFile2(resolve(this.logsDir, taskId, file), "utf8");
+        const content = await readFile4(resolve4(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
@@ -17264,16 +33176,36 @@ var Bus = class {
       return;
     }
     if (req.method === "POST" && url.pathname === "/publish") {
+      if (!checkContentType(req)) {
+        req.resume();
+        res.writeHead(415, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "content-type must be application/json" }));
+        return;
+      }
+      if (!checkOrigin(req, this.actualPort)) {
+        req.resume();
+        res.writeHead(403, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "forbidden origin" }));
+        return;
+      }
       let body = "";
       for await (const chunk of req) body += chunk;
-      const { task_id: taskId, event } = JSON.parse(body);
+      let parsed;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "body must be valid JSON" }));
+        return;
+      }
+      const { task_id: taskId, event } = parsed ?? {};
       if (!taskId || !event) {
-        res.writeHead(400, { "content-type": "application/json" });
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "body must be {task_id, event}" }));
         return;
       }
       this.publish(taskId, event);
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ ok: true }));
       return;
     }
@@ -17281,334 +33213,6 @@ var Bus = class {
     res.end(JSON.stringify({ error: "not found" }));
   }
 };
-
-// src/board.ts
-import { createHash } from "node:crypto";
-import { appendFile, mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "node:fs/promises";
-import { join as join4, resolve as resolve2 } from "node:path";
-var BOARD_VALUE_MAX_BYTES = 32 * 1024;
-var DEFAULT_READ_LIMIT = 100;
-var MAX_READ_LIMIT = 1e3;
-var KEY_MAX_BYTES = 512;
-function validateKey(key) {
-  if (typeof key !== "string" || key.length === 0) throw new Error("key must be a non-empty string");
-  if (Buffer.byteLength(key, "utf8") > KEY_MAX_BYTES) throw new Error(`key exceeds ${KEY_MAX_BYTES} bytes`);
-  return key;
-}
-function validateValue(value) {
-  if (typeof value !== "string") throw new Error("value must be a string (markdown)");
-  const bytes = Buffer.byteLength(value, "utf8");
-  if (bytes > BOARD_VALUE_MAX_BYTES) {
-    throw new Error(`value too large: ${bytes} bytes > ${BOARD_VALUE_MAX_BYTES} (put large content in files, reference them from the board)`);
-  }
-  return value;
-}
-function normalizeTags(tags) {
-  if (tags === void 0 || tags === null) return [];
-  if (!Array.isArray(tags)) throw new Error("tags must be a string array");
-  return tags.map((tag) => {
-    if (typeof tag !== "string" || tag.length === 0) throw new Error("tags must be non-empty strings");
-    return tag;
-  });
-}
-function normalizeAuthor(author) {
-  if (author === void 0 || author === null || author === "") return "anonymous";
-  if (typeof author !== "string") throw new Error("author must be a string");
-  return author;
-}
-function isRecord(value) {
-  return (value.op === "write" || value.op === "delete") && typeof value.key === "string" && typeof value.author === "string" && typeof value.ts === "string" && (value.op === "delete" || typeof value.value === "string");
-}
-var BoardStore = class {
-  scopes = /* @__PURE__ */ new Map();
-  queues = /* @__PURE__ */ new Map();
-  homeDir;
-  workspaceCwd;
-  waitCapMs;
-  emitFn;
-  /** Monotonic ts generator state: strictly increasing epoch across writes in this process. */
-  lastEpoch = 0;
-  constructor(opts = {}) {
-    this.homeDir = opts.homeDir;
-    this.workspaceCwd = opts.workspaceCwd ?? process.cwd();
-    this.waitCapMs = opts.waitCapMs ?? DEFAULT_WAIT_CAP_MS;
-    this.emitFn = opts.emit;
-  }
-  // ---- tools ----
-  async write(key, value, tags, author, scopeInput) {
-    const k = validateKey(key);
-    const v = validateValue(value);
-    const normalizedTags = normalizeTags(tags);
-    const normalizedAuthor = normalizeAuthor(author);
-    const scope = this.parseScope(scopeInput);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const ts = this.nextTs();
-      const entry = { key: k, value: v, author: normalizedAuthor, ts, tags: normalizedTags };
-      state.entries.set(k, entry);
-      const record2 = {
-        op: "write",
-        scope: scope.key,
-        key: k,
-        value: v,
-        author: normalizedAuthor,
-        ts,
-        ...normalizedTags.length > 0 ? { tags: normalizedTags } : {}
-      };
-      await this.persist(state, record2);
-      this.wakeWaiters(state, entry);
-      this.emit(scope, { type: "board_updated", op: "write", scope: scope.label, key: k, author: normalizedAuthor, ts });
-      return { ok: true, ts };
-    });
-  }
-  /**
-   * Folded read: with `key`, the live entry for that key (0/1 rows); with
-   * `tag`, live entries carrying that tag; with neither, every key's latest
-   * value. Newest first, capped by `limit` (default 100, max 1000).
-   */
-  async read(key, tag, scopeInput, limit) {
-    if (key !== void 0 && key !== null) validateKey(key);
-    if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
-    const scope = this.parseScope(scopeInput);
-    const state = this.scopeState(scope);
-    const cap = normalizeLimit(limit);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      let entries = [...state.entries.values()];
-      if (typeof key === "string") entries = entries.filter((entry) => entry.key === key);
-      if (typeof tag === "string") entries = entries.filter((entry) => entry.tags.includes(tag));
-      entries.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
-      return entries.slice(0, cap);
-    });
-  }
-  /** Lightweight browse: one row per live key, values replaced by their byte size. */
-  async list(scopeInput) {
-    const scope = this.parseScope(scopeInput);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      return [...state.entries.values()].sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts)).map((entry) => ({
-        key: entry.key,
-        author: entry.author,
-        ts: entry.ts,
-        tags: entry.tags,
-        bytes: Buffer.byteLength(entry.value, "utf8")
-      }));
-    });
-  }
-  /**
-   * Long-poll until `key` has a value — or, with `since` (ISO timestamp),
-   * until the entry is strictly newer than it ("wait for the next update").
-   * Resolves `{status:'ready', entry}` on wake, `{status:'timeout', retry:true}`
-   * at the cap (`timeoutMs` overrides, clamped to the cap), `{status:'closed'}`
-   * when a task scope is archived out from under the waiter. Deletes do not
-   * wake: waiters asked for a value, not a change.
-   */
-  async wait(key, scopeInput, timeoutMs, since) {
-    const k = validateKey(key);
-    const scope = this.parseScope(scopeInput);
-    const state = this.scopeState(scope);
-    let sinceEpoch;
-    if (since !== void 0 && since !== null) {
-      if (typeof since !== "string" || Number.isNaN(Date.parse(since))) {
-        throw new Error(`invalid since timestamp: ${String(since)} (expected ISO 8601)`);
-      }
-      sinceEpoch = Date.parse(since);
-    }
-    let effectiveTimeout = this.waitCapMs;
-    if (timeoutMs !== void 0 && timeoutMs !== null) {
-      if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-        throw new Error("timeoutMs must be a positive number");
-      }
-      effectiveTimeout = Math.min(timeoutMs, this.waitCapMs);
-    }
-    const outcome = await this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const current = state.entries.get(k);
-      if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
-        return { kind: "now", payload: { status: "ready", entry: current } };
-      }
-      const promise = new Promise((resolve3) => {
-        const waiter = {
-          key: k,
-          sinceEpoch,
-          resolve: resolve3,
-          timer: setTimeout(() => {
-            state.waiters.delete(waiter);
-            resolve3({ status: "timeout", retry: true });
-          }, effectiveTimeout)
-        };
-        state.waiters.add(waiter);
-      });
-      return { kind: "suspended", promise };
-    });
-    return outcome.kind === "now" ? outcome.payload : outcome.promise;
-  }
-  /** Tombstone delete: the key vanishes from read/list; the JSONL keeps the record. */
-  async delete(key, author, scopeInput) {
-    const k = validateKey(key);
-    const normalizedAuthor = normalizeAuthor(author);
-    const scope = this.parseScope(scopeInput);
-    const state = this.scopeState(scope);
-    return this.enqueue(scope.key, async () => {
-      await this.fold(state);
-      const ts = this.nextTs();
-      state.entries.delete(k);
-      await this.persist(state, { op: "delete", scope: scope.key, key: k, author: normalizedAuthor, ts });
-      this.emit(scope, { type: "board_updated", op: "delete", scope: scope.label, key: k, author: normalizedAuthor, ts });
-      return { ok: true, ts };
-    });
-  }
-  // ---- task lifecycle ----
-  /**
-   * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
-   * archive layer), wake any remaining waiters with `{status:'closed'}`, and
-   * drop the in-memory scope. Called by `DebateHub.complete`. Idempotent for
-   * tasks that never used the board (writes an empty file).
-   */
-  async archiveTask(taskId, dir) {
-    const key = `task:${taskId}`;
-    const state = this.scopes.get(key);
-    const records = state?.history ?? [];
-    await mkdir2(dir, { recursive: true });
-    const body = records.length > 0 ? records.map((record2) => JSON.stringify(record2)).join("\n") + "\n" : "";
-    await writeFile2(resolve2(dir, "board.jsonl"), body);
-    if (state !== void 0) {
-      for (const waiter of [...state.waiters]) {
-        state.waiters.delete(waiter);
-        clearTimeout(waiter.timer);
-        waiter.resolve({ status: "closed" });
-      }
-      this.scopes.delete(key);
-      this.queues.delete(key);
-    }
-  }
-  // ---- internals ----
-  parseScope(input) {
-    if (input === void 0 || input === null) input = "workspace";
-    if (typeof input !== "string") throw new Error("scope must be a string");
-    const raw = input.trim();
-    if (raw === "workspace") {
-      const hash = createHash("sha1").update(resolve2(this.workspaceCwd)).digest("hex").slice(0, 16);
-      return { kind: "workspace", key: `workspace:${hash}`, label: "workspace" };
-    }
-    if (raw === "global") return { kind: "global", key: "global", label: "global" };
-    if (raw.startsWith("task:")) {
-      const taskId = raw.slice("task:".length);
-      if (taskId.length === 0) throw new Error("invalid scope: task:<task_id> requires a non-empty task_id");
-      return { kind: "task", key: raw, label: raw, taskId };
-    }
-    throw new Error(`invalid scope: ${input} (expected "workspace", "global", or "task:<task_id>")`);
-  }
-  boardsDir() {
-    return join4(this.homeDir ?? moamcpHome(), "boards");
-  }
-  scopeState(scope) {
-    let state = this.scopes.get(scope.key);
-    if (state !== void 0) return state;
-    state = { entries: /* @__PURE__ */ new Map(), loaded: false, waiters: /* @__PURE__ */ new Set() };
-    if (scope.kind === "task") {
-      state.history = [];
-    } else if (scope.kind === "global") {
-      state.file = join4(this.boardsDir(), "global.jsonl");
-    } else {
-      const hash = scope.key.slice("workspace:".length);
-      state.file = join4(this.boardsDir(), `ws-${hash}.jsonl`);
-      state.metaFile = join4(this.boardsDir(), `ws-${hash}.meta.json`);
-      state.metaCwd = resolve2(this.workspaceCwd);
-    }
-    this.scopes.set(scope.key, state);
-    return state;
-  }
-  /** Fold the append-only log into the current view (once per scope per process). */
-  async fold(state) {
-    if (state.loaded) return;
-    state.loaded = true;
-    if (state.file === void 0) return;
-    let raw;
-    try {
-      raw = await readFile3(state.file, "utf8");
-    } catch (err) {
-      if (err.code === "ENOENT") return;
-      throw err;
-    }
-    for (const line of raw.split(/\r?\n/)) {
-      if (line.trim() === "") continue;
-      let record2;
-      try {
-        record2 = JSON.parse(line);
-      } catch {
-        console.warn(`[moamcp] board: skipping unparseable line in ${state.file}`);
-        continue;
-      }
-      if (!isRecord(record2)) {
-        console.warn(`[moamcp] board: skipping malformed record in ${state.file}`);
-        continue;
-      }
-      if (record2.op === "write") {
-        state.entries.set(record2.key, {
-          key: record2.key,
-          value: record2.value,
-          author: record2.author,
-          ts: record2.ts,
-          tags: record2.tags ?? []
-        });
-      } else {
-        state.entries.delete(record2.key);
-      }
-    }
-  }
-  /** Append a record to the scope's JSONL (persistent scopes only) + task history. */
-  async persist(state, record2) {
-    if (state.history !== void 0) state.history.push(record2);
-    if (state.file === void 0) return;
-    await mkdir2(this.boardsDir(), { recursive: true });
-    if (state.metaFile !== void 0 && !state.metaWritten) {
-      state.metaWritten = true;
-      await writeFile2(state.metaFile, JSON.stringify({ cwd: state.metaCwd, created_at: record2.ts }, null, 2)).catch(() => {
-      });
-    }
-    await appendFile(state.file, JSON.stringify(record2) + "\n");
-  }
-  wakeWaiters(state, entry) {
-    const epoch = Date.parse(entry.ts);
-    for (const waiter of [...state.waiters]) {
-      if (waiter.key !== entry.key) continue;
-      if (waiter.sinceEpoch !== void 0 && epoch <= waiter.sinceEpoch) continue;
-      state.waiters.delete(waiter);
-      clearTimeout(waiter.timer);
-      waiter.resolve({ status: "ready", entry });
-    }
-  }
-  /** Strictly increasing ISO timestamp: same-millisecond writes still order (wait's `since` depends on it). */
-  nextTs() {
-    const now = Date.now();
-    this.lastEpoch = now > this.lastEpoch ? now : this.lastEpoch + 1;
-    return new Date(this.lastEpoch).toISOString();
-  }
-  emit(scope, event) {
-    this.emitFn?.(scope, event);
-  }
-  /** Serialize all mutations for one scope through a promise chain (mirrors DebateHub.enqueue). */
-  enqueue(scopeKey, fn) {
-    const prev = this.queues.get(scopeKey) ?? Promise.resolve();
-    const next = prev.then(fn, fn);
-    this.queues.set(
-      scopeKey,
-      next.catch(() => {
-      })
-    );
-    return next;
-  }
-};
-function normalizeLimit(limit) {
-  if (limit === void 0 || limit === null) return DEFAULT_READ_LIMIT;
-  if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1) {
-    throw new Error("limit must be a positive number");
-  }
-  return Math.min(Math.floor(limit), MAX_READ_LIMIT);
-}
 
 // src/server.ts
 var REUSE_PUBLISH_TIMEOUT_MS = 2e3;
@@ -17650,6 +33254,61 @@ var BOARD_SCOPE = {
 var BOARD_AUTHOR = {
   type: "string",
   description: 'Who writes this entry (default "anonymous"). Subagents should pass their own agent id.'
+};
+var BOARD_WORKSPACE = {
+  type: "string",
+  description: "Optional absolute project path for workspace scope; omitted keeps the server workspaceCwd default."
+};
+var TIP_STATUS = { type: "string", enum: [...PROJECT_TIP_STATUSES] };
+var TIP_WORKSPACE = {
+  type: "string",
+  description: "Absolute project path. Tips never infer a workspace from the MCP process cwd."
+};
+var TIP_DOCUMENT_REF = {
+  type: "object",
+  properties: {
+    path: { type: "string" },
+    section: { type: "string" },
+    note: { type: "string" },
+    contentHash: { type: "string" }
+  },
+  required: ["path"],
+  additionalProperties: false
+};
+var TIP_DOCUMENT_REFS = { type: "array", items: TIP_DOCUMENT_REF };
+var TIP_STRING_ARRAY = { type: "array", items: { type: "string" } };
+var TIP_CREATE_PROPERTIES = {
+  workspace: TIP_WORKSPACE,
+  title: { type: "string" },
+  summary: { type: "string" },
+  status: TIP_STATUS,
+  context: { type: "string" },
+  module: { type: "string" },
+  tags: TIP_STRING_ARRAY,
+  nextAction: { type: "string" },
+  documentRefs: TIP_DOCUMENT_REFS,
+  sourceRefs: TIP_STRING_ARRAY,
+  relatedTipIds: TIP_STRING_ARRAY,
+  relatedProjects: TIP_STRING_ARRAY,
+  sourceSessionId: { type: "string" },
+  author: { type: "string" }
+};
+var TIP_UPDATE_PROPERTIES = {
+  workspace: TIP_WORKSPACE,
+  id: { type: "string" },
+  title: { type: "string" },
+  summary: { type: "string" },
+  status: TIP_STATUS,
+  context: { type: ["string", "null"] },
+  module: { type: ["string", "null"] },
+  tags: { type: ["array", "null"], items: { type: "string" } },
+  nextAction: { type: ["string", "null"] },
+  documentRefs: { type: ["array", "null"], items: TIP_DOCUMENT_REF },
+  sourceRefs: { type: ["array", "null"], items: { type: "string" } },
+  relatedTipIds: { type: ["array", "null"], items: { type: "string" } },
+  relatedProjects: { type: ["array", "null"], items: { type: "string" } },
+  sourceSessionId: { type: ["string", "null"] },
+  actor: { type: "string" }
 };
 var TOOLS = [
   {
@@ -17724,7 +33383,8 @@ var TOOLS = [
         value: { type: "string", description: "Markdown payload, \u2264 32KB" },
         tags: { type: "array", items: { type: "string" }, description: "Optional tags for moa_board_read tag filtering" },
         author: BOARD_AUTHOR,
-        scope: BOARD_SCOPE
+        scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE
       },
       required: ["key", "value"]
     }
@@ -17738,6 +33398,7 @@ var TOOLS = [
         key: { type: "string" },
         tag: { type: "string" },
         scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE,
         limit: { type: "number", description: "Max entries to return (default 100, hard cap 1000)" }
       }
     }
@@ -17747,7 +33408,7 @@ var TOOLS = [
     description: "Lightweight browse of the blackboard: one row per live key with {key, author, ts, tags, bytes} (no values).",
     inputSchema: {
       type: "object",
-      properties: { scope: BOARD_SCOPE }
+      properties: { scope: BOARD_SCOPE, workspace: BOARD_WORKSPACE }
     }
   },
   {
@@ -17758,6 +33419,7 @@ var TOOLS = [
       properties: {
         key: { type: "string" },
         scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE,
         timeoutMs: { type: "number", description: "Per-call cap override (clamped to the safety cap)" },
         since: { type: "string", description: "ISO timestamp: wake only on entries strictly newer than it" }
       },
@@ -17772,9 +33434,68 @@ var TOOLS = [
       properties: {
         key: { type: "string" },
         author: BOARD_AUTHOR,
-        scope: BOARD_SCOPE
+        scope: BOARD_SCOPE,
+        workspace: BOARD_WORKSPACE
       },
       required: ["key"]
+    }
+  },
+  {
+    name: "moa_tip_create",
+    description: "Create a project-level Tip in the explicitly selected workspace.",
+    inputSchema: {
+      type: "object",
+      properties: TIP_CREATE_PROPERTIES,
+      required: ["workspace", "title", "summary"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "moa_tip_read",
+    description: "Read one complete project Tip, including context when present.",
+    inputSchema: {
+      type: "object",
+      properties: { workspace: TIP_WORKSPACE, id: { type: "string" } },
+      required: ["workspace", "id"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "moa_tip_list",
+    description: "List lightweight project Tip summaries with status/module/tag filters; archived rows are hidden by default.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: TIP_WORKSPACE,
+        status: TIP_STATUS,
+        module: { type: "string" },
+        tag: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        includeArchived: { type: "boolean" },
+        limit: { type: "number" }
+      },
+      required: ["workspace"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "moa_tip_update",
+    description: "Update a Tip atomically; omitted fields remain and nullable optional fields clear their values.",
+    inputSchema: {
+      type: "object",
+      properties: TIP_UPDATE_PROPERTIES,
+      required: ["workspace", "id"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "moa_tip_archive",
+    description: "Archive a project Tip without changing its other content; actor identifies the updater in BoardEntry.author.",
+    inputSchema: {
+      type: "object",
+      properties: { workspace: TIP_WORKSPACE, id: { type: "string" }, actor: { type: "string" } },
+      required: ["workspace", "id"],
+      additionalProperties: false
     }
   },
   {
@@ -17786,8 +33507,10 @@ var TOOLS = [
     }
   }
 ];
-function createServer2(hub = new DebateHub(), bus, board) {
+function createServer2(hub = new DebateHub(), bus, board, tipStore) {
   const boardStore = board ?? new BoardStore();
+  const tips = tipStore ?? new TipStore(boardStore);
+  bus?.mountControlPlane(boardStore, tips);
   const server = new Server(
     { name: "moamcp", version: "0.1.0" },
     { capabilities: { tools: {} } }
@@ -17814,24 +33537,46 @@ function createServer2(hub = new DebateHub(), bus, board) {
         result = await hub.complete(a.task_id);
         break;
       case "moa_board_write":
-        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope);
+        result = await boardStore.write(a.key, a.value, a.tags, a.author, a.scope, a.workspace);
         break;
       case "moa_board_read":
-        result = await boardStore.read(a.key, a.tag, a.scope, a.limit);
+        result = await boardStore.read(a.key, a.tag, a.scope, a.limit, a.workspace);
         break;
       case "moa_board_list":
-        result = await boardStore.list(a.scope);
+        result = await boardStore.list(a.scope, a.workspace);
         break;
       case "moa_board_wait":
-        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since);
+        result = await boardStore.wait(a.key, a.scope, a.timeoutMs, a.since, a.workspace);
         break;
       case "moa_board_delete":
-        result = await boardStore.delete(a.key, a.author, a.scope);
+        result = await boardStore.delete(a.key, a.author, a.scope, a.workspace);
+        break;
+      case "moa_tip_create": {
+        const { workspace, ...input } = a;
+        result = await tips.create(input, workspace);
+        break;
+      }
+      case "moa_tip_read":
+        result = await tips.read(a.id, a.workspace);
+        break;
+      case "moa_tip_list": {
+        const { workspace, ...filters } = a;
+        result = await tips.list(filters, workspace);
+        break;
+      }
+      case "moa_tip_update": {
+        const { workspace, id, ...patch } = a;
+        result = await tips.update(id, patch, workspace);
+        break;
+      }
+      case "moa_tip_archive":
+        result = await tips.archive(a.id, a.workspace, a.actor);
         break;
       case "moa_status":
         result = {
           bus: bus ? { port: bus.actualPort, mode: bus.mode } : void 0,
-          tasks: bus?.activeTasks() ?? [],
+          tasks: (bus?.activeTasks() ?? []).filter((taskId) => !taskId.startsWith("@")),
+          control_plane_url: bus ? controlPlaneUrl(bus.actualPort) : void 0,
           pid: process.pid,
           uptime_s: Math.round(process.uptime())
         };
@@ -17839,7 +33584,7 @@ function createServer2(hub = new DebateHub(), bus, board) {
       default:
         throw new Error(`unknown tool: ${name}`);
     }
-    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+    return { content: [{ type: "text", text: JSON.stringify(result === void 0 ? null : result) }] };
   });
   return server;
 }
@@ -17891,7 +33636,8 @@ async function main() {
     cardUrlFactory: (taskId) => cardUrl(cardPort, taskId),
     board
   });
-  const server = createServer2(hub, bus, board);
+  const tips = new TipStore(board);
+  const server = createServer2(hub, bus, board, tips);
   await server.connect(new StdioServerTransport());
   if (startResult.mode === "reuse") {
     console.error(
@@ -17901,8 +33647,8 @@ async function main() {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
   const { rmSync } = await import("node:fs");
-  const { join: join5 } = await import("node:path");
-  process.on("exit", () => rmSync(join5(process.cwd(), "bus.port"), { force: true }));
+  const { join: join7 } = await import("node:path");
+  process.on("exit", () => rmSync(join7(process.cwd(), "bus.port"), { force: true }));
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;
@@ -17938,3 +33684,42 @@ export {
   cardUrl,
   createServer2 as createServer
 };
+/*! Bundled license information:
+
+smol-toml/dist/date.js:
+smol-toml/dist/error.js:
+smol-toml/dist/primitive.js:
+smol-toml/dist/util.js:
+smol-toml/dist/extract.js:
+smol-toml/dist/struct.js:
+smol-toml/dist/parse.js:
+smol-toml/dist/stringify.js:
+smol-toml/dist/index.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+*/

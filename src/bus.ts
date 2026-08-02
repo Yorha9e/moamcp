@@ -23,7 +23,17 @@
  * Zero-dependency: node:http + hand-rolled SSE (`data: <json>\n\n` frames).
  * Endpoints:
  *   GET  /                     → self-contained debate card (frontend.ts)
- *   GET  /tasks                → active task list (derived from the event log)
+ *   GET  /control-plane        → workspace Tips + Raw Board control plane
+ *   GET  /api/workspaces       → registered workspace sidecars
+ *   GET/POST /api/tips         → typed Project Tip list/create
+ *   GET/PATCH /api/tips/:id    → typed Project Tip read/update
+ *   POST /api/tips/:id/archive → archive a Project Tip
+ *   GET/POST/DELETE /api/board → read/upsert/tombstone Shared Board entries
+ *   GET  /api/tasks            → safe MoA run summaries (status/query filters)
+ *   GET  /api/tasks/:taskId    → one safe run summary + owner card URL
+ *   GET  /api/archives         → safe archive metadata index
+ *   GET  /api/system           → Bus listener/runtime health snapshot
+ *   GET  /tasks                → active debate task list (all system channels hidden)
  *   GET  /subscribe?task_id=X  → SSE stream of all events for that task
  *   GET  /archive?task_id=X&file=result.json|probe.json|events.jsonl
  *                              → archived files written by moa_complete
@@ -34,10 +44,15 @@
  */
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { writeFile, readFile, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
-import { FRONTEND_HTML } from './frontend.js';
-import { createRegistry, pidAlive, type InstanceRegistration } from './registry.js';
+import { join, resolve } from 'node:path';
+import { ArchiveIndex, isValidTaskId } from './archive-index.js';
+import type { BoardStore } from './board.js';
+import { ControlPlane, checkContentType, checkOrigin, type RuntimeSystemInfo } from './control-plane.js';
+import { createRegistry, pidAlive, VERSION, type InstanceRegistration } from './registry.js';
+import { RunReadModel } from './run-read-model.js';
+import type { TipStore } from './tips.js';
+import { DEBATE_CARD_HTML } from './web/debate-card.js';
 
 /** Maximum consecutive `EADDRINUSE` port+1 retries (mirrors kap-server `PORT_RETRY_LIMIT`). */
 export const PORT_RETRY_LIMIT = 100;
@@ -81,6 +96,9 @@ export interface BusOptions {
   reuseWatchTimeoutMs?: number;
   /** Consecutive probe failures before the host is declared dead. Default REUSE_WATCH_FAIL_THRESHOLD (3). */
   reuseWatchFailThreshold?: number;
+  /** BoardStore/Tips authority mounted at the Bus's Control Plane routes. */
+  board?: BoardStore;
+  tipStore?: TipStore;
 }
 
 /** Files the /archive endpoint is allowed to serve, with their content types. */
@@ -130,11 +148,16 @@ export class Bus {
   private readonly cwd: string;
   private readonly replayLimit: number;
   private readonly logsDir: string;
+  private readonly archiveIndex: ArchiveIndex;
+  private readonly runReadModel = new RunReadModel();
   private readonly portRetryLimit: number;
   private readonly registry: ReturnType<typeof createRegistry>;
   private readonly watchIntervalMs: number;
   private readonly watchTimeoutMs: number;
   private readonly watchFailThreshold: number;
+  private readonly controlPlane: ControlPlane;
+  /** Stable process-listener start time, shared with the registry registration. */
+  private readonly startedAt = Date.now();
   /** Reuse-mode host watch timer (undefined outside reuse mode). */
   private hostWatch?: NodeJS.Timeout;
   private hostWatchFails = 0;
@@ -154,12 +177,21 @@ export class Bus {
     this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
-    this.logsDir = opts.logsDir ?? 'logs';
+    this.logsDir = resolve(opts.logsDir ?? 'logs');
+    this.archiveIndex = new ArchiveIndex(this.logsDir);
     this.portRetryLimit = opts.portRetryLimit ?? PORT_RETRY_LIMIT;
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
     this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
     this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
+    this.controlPlane = new ControlPlane(opts.board, opts.tipStore);
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
+    this.controlPlane.mountRuntime({
+      listRuns: () => this.runReadModel.list(),
+      readRun: (taskId) => this.runReadModel.read(taskId),
+      cardUrl: (taskId) => `http://127.0.0.1:${this.actualPort}/?task_id=${encodeURIComponent(taskId)}`,
+      listArchives: () => this.archiveIndex.list(),
+      systemInfo: () => this.systemInfo(),
+    });
     this.server = createServer((req, res) => void this.handle(req, res).catch(() => {
       if (!res.headersSent) res.writeHead(500);
       res.end();
@@ -178,6 +210,11 @@ export class Bus {
   /** Structured start outcome for callers wiring reuse mode (design §3.3). */
   get startResult(): BusStartResult {
     return { mode: this.startMode, port: this.port };
+  }
+
+  /** Mount the BoardStore/TipStore authority used by Control Plane API routes. */
+  mountControlPlane(board: BoardStore, tips?: TipStore): void {
+    this.controlPlane.mount(board, tips);
   }
 
   /**
@@ -200,7 +237,11 @@ export class Bus {
     // Register BEFORE binding: during the bind window the entry is visible to
     // concurrent peers, so they detect "moamcp holds this port" instead of
     // misreading it as a third-party listener (design §3.2 TOCTOU note).
-    const registration = await this.registry.register({ pid: process.pid, port: this.requestedPort });
+    const registration = await this.registry.register({
+      pid: process.pid,
+      port: this.requestedPort,
+      startedAt: this.startedAt,
+    });
     this.registration = registration;
 
     let result: BusStartResult;
@@ -237,9 +278,17 @@ export class Bus {
     return this.port;
   }
 
-  /** Fan an event out to all subscribers of the task (and append to the replay log). */
+  /** Fan one authoritative envelope through the run projection, replay, and live SSE path. */
   publish(taskId: string, event: Record<string, unknown>): void {
-    const frame = `data: ${JSON.stringify({ task_id: taskId, ts: new Date().toISOString(), ...event })}\n\n`;
+    // Preserve a producer/BoardStore commit timestamp when supplied and valid, while the
+    // method argument remains authoritative even if an untrusted event carries task_id.
+    const now = new Date().toISOString();
+    const ts = typeof event.ts === 'string' && event.ts.length > 0 && Number.isFinite(Date.parse(event.ts))
+      ? event.ts
+      : now;
+    const envelope = { ...event, ts, task_id: taskId };
+    if (!taskId.startsWith('@')) this.runReadModel.ingest(envelope);
+    const frame = `data: ${JSON.stringify(envelope)}\n\n`;
     const log = this.eventLog.get(taskId) ?? [];
     log.push(frame);
     if (log.length > this.replayLimit) log.shift();
@@ -250,6 +299,52 @@ export class Bus {
   /** Active task ids, derived from the event log keys (zero-intrusion; design §3.4). */
   activeTasks(): string[] {
     return [...this.eventLog.keys()];
+  }
+
+  private async systemInfo(): Promise<RuntimeSystemInfo> {
+    const recentWindowSeconds = 60 * 60;
+    const recentCutoff = Date.now() - recentWindowSeconds * 1000;
+    const runs = this.runReadModel.list();
+    const [listeners, archiveState] = await Promise.all([
+      this.registry.listLive(),
+      this.archiveIndex.list()
+        .then((archives) => ({ available: true as const, count: archives.length }))
+        .catch(() => ({ available: false as const, count: null })),
+    ]);
+    let subscriberCount = 0;
+    for (const subscribers of this.subscribers.values()) subscriberCount += subscribers.size;
+    return {
+      process: {
+        pid: process.pid,
+        instanceId: this.registration?.id ?? null,
+        version: VERSION,
+        startedAt: new Date(this.startedAt).toISOString(),
+        uptimeSeconds: Math.max(0, Math.floor((Date.now() - this.startedAt) / 1000)),
+      },
+      bus: { requestedPort: this.requestedPort, actualPort: this.actualPort, mode: this.mode },
+      registry: {
+        listenerEntries: listeners.map((entry) => ({
+          id: entry.id,
+          pid: entry.pid,
+          port: entry.port,
+          startedAt: new Date(entry.startedAt).toISOString(),
+          version: entry.version,
+        })),
+      },
+      runs: {
+        total: runs.length,
+        live: runs.filter((run) => run.status === 'initialized' || run.status === 'debating').length,
+        recent: runs.filter((run) => Date.parse(run.updatedAt) >= recentCutoff).length,
+        recentWindowSeconds,
+      },
+      sse: { channelCount: this.eventLog.size, subscriberCount },
+      archives: archiveState,
+      reuseWatch: {
+        intervalMs: this.watchIntervalMs,
+        timeoutMs: this.watchTimeoutMs,
+        failThreshold: this.watchFailThreshold,
+      },
+    };
   }
 
   async stop(): Promise<void> {
@@ -418,14 +513,16 @@ export class Bus {
 
   private async handle(req: import('node:http').IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
+    if (await this.controlPlane.handle(req, res, this.actualPort)) return;
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(FRONTEND_HTML);
+      res.end(DEBATE_CARD_HTML);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/tasks') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ tasks: this.activeTasks() }));
+      const tasks = this.activeTasks().filter((taskId) => !taskId.startsWith('@'));
+      res.end(JSON.stringify({ tasks }));
       return;
     }
     if (req.method === 'GET' && url.pathname === '/subscribe') {
@@ -455,7 +552,7 @@ export class Bus {
       const taskId = url.searchParams.get('task_id') ?? '';
       const file = url.searchParams.get('file') ?? '';
       const contentType = ARCHIVE_FILES[file];
-      if (!taskId || /[\\/]|\.\./.test(taskId) || !contentType) {
+      if (!isValidTaskId(taskId) || !contentType) {
         res.writeHead(400, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'valid task_id and file (result.json|probe.json|events.jsonl|board.jsonl) required' }));
         return;
@@ -471,16 +568,36 @@ export class Bus {
       return;
     }
     if (req.method === 'POST' && url.pathname === '/publish') {
+      if (!checkContentType(req)) {
+        req.resume();
+        res.writeHead(415, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'content-type must be application/json' }));
+        return;
+      }
+      if (!checkOrigin(req, this.actualPort)) {
+        req.resume();
+        res.writeHead(403, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'forbidden origin' }));
+        return;
+      }
       let body = '';
       for await (const chunk of req) body += chunk;
-      const { task_id: taskId, event } = JSON.parse(body) as { task_id?: string; event?: Record<string, unknown> };
+      let parsed: { task_id?: string; event?: Record<string, unknown> } | undefined;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'body must be valid JSON' }));
+        return;
+      }
+      const { task_id: taskId, event } = parsed ?? {};
       if (!taskId || !event) {
-        res.writeHead(400, { 'content-type': 'application/json' });
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'body must be {task_id, event}' }));
         return;
       }
       this.publish(taskId, event);
-      res.writeHead(200, { 'content-type': 'application/json' });
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true }));
       return;
     }
