@@ -46,6 +46,7 @@
  * makes alias-shared project boards safe to write from several sessions.
  */
 import { createHash } from 'node:crypto';
+import { statSync } from 'node:fs';
 import { appendFile, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
@@ -1112,11 +1113,25 @@ export class BoardStore {
    * process (or a stale projection) resolves an aliased workspace to its
    * legacy `ws-<hash>` scope for the first operation — the write lands in
    * `ws-<hash>.jsonl` while later reads (post-fold refresh) resolve to
-   * `project-<id>.jsonl`, a write/read inconsistency (tip_21f72697). A
-   * refresh failure degrades to the stale projection, never fails the op.
+   * `project-<id>.jsonl`, a write/read inconsistency (tip_21f72697).
+   *
+   * The fast path must stay *synchronous*: entry points enqueue by scope key,
+   * so an awaited refresh before the enqueue would desynchronize submission
+   * order and break the "queue order follows call order" LWW guarantee for
+   * write bursts (regression caught by board.test.ts concurrent-writes).
+   * statSync on the registry file is a few µs — cheap enough per op; the
+   * async reload only happens when the file actually changed size.
    */
+  private lastRegistrySize = -1;
   private async refreshRegistryForScope(): Promise<void> {
-    await this.registry.refreshIfStale().catch(() => {});
+    try {
+      const size = statSync(this.registry.registryFile()).size;
+      if (size === this.lastRegistrySize) return;
+      this.lastRegistrySize = size;
+      await this.registry.refreshIfStale().catch(() => {});
+    } catch {
+      // No registry file yet (or unreadable): nothing to refresh, stay sync.
+    }
   }
 
   private async fold(state: ScopeState): Promise<void> {
