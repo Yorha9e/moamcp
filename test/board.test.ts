@@ -579,6 +579,29 @@ it('an aliased workspace resolves to the project board: writes land in project-<
   expect(typeof meta.created_at).toBe('string');
 });
 
+it('refreshes the registry before scope resolution: first op of a fresh process lands in the project board', async () => {
+  const cwd = join(home, 'stale-alias');
+  // Process A (its own registry instance) creates the project and alias.
+  const registryA = new ProjectRegistry({ homeDir: home });
+  const projectId = await registryA.createProject();
+  await registryA.addAlias(projectId, workspaceIdForPath(cwd));
+
+  // Process B: a fresh BoardStore with its own (cold) registry projection —
+  // regression for tip_21f72697 (the first write fell back to ws-<hash>.jsonl
+  // while later reads resolved to project-<id>.jsonl).
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwd });
+  await b.write('stale/probe', 'v1', undefined, 's1', 'workspace');
+
+  const projectRaw = await readFile(projectBoardFile(projectId), 'utf8');
+  expect(projectRaw).toContain('stale/probe');
+  const files = await readdir(join(home, 'boards'));
+  expect(files.some((f) => f.startsWith('ws-'))).toBe(false);
+
+  // Read path resolves identically: the fresh write is visible immediately.
+  expect((await b.read('stale/probe', undefined, 'workspace'))[0]).toMatchObject({ key: 'stale/probe', value: 'v1' });
+  await b.close();
+});
+
 it('project-scope events keep the workspace label and route on @board/project:<id>', async () => {
   const events: Array<{ scope: BoardScope; event: BoardEvent }> = [];
   const cwd = join(home, 'event-project');

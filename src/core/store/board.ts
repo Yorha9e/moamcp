@@ -310,6 +310,7 @@ export class BoardStore {
     const v = validateValue(value);
     const normalizedTags = normalizeTags(tags);
     const normalizedAuthor = normalizeAuthor(author);
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -348,6 +349,7 @@ export class BoardStore {
     }
     if (key !== undefined && key !== null) validateKey(key);
     if (tag !== undefined && tag !== null && typeof tag !== 'string') throw new Error('tag must be a string');
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     const cap = normalizeLimit(limit);
@@ -380,6 +382,7 @@ export class BoardStore {
     }
     if (keyPrefix !== undefined && keyPrefix !== null) validateKey(keyPrefix);
     if (tag !== undefined && tag !== null && typeof tag !== 'string') throw new Error('tag must be a string');
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     const cap = normalizeLimit(limit);
@@ -398,6 +401,7 @@ export class BoardStore {
   /** Lightweight browse: one row per live key, values replaced by their byte size. */
   async list(scopeInput: unknown, workspace?: unknown): Promise<Array<{ key: string; author: string; ts: string; tags: string[]; bytes: number }>> {
     this.assertOpen();
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -429,6 +433,7 @@ export class BoardStore {
       since = undefined;
     }
     const k = validateKey(key);
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     let sinceEpoch: number | undefined;
@@ -502,6 +507,7 @@ export class BoardStore {
       | ((entry: BoardEntry | undefined, commitTs: string) => T | Promise<T>);
     if (typeof mutator !== 'function') throw new Error('mutate requires a function mutator');
     const workspace = scopeMode ? third : fourth;
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -592,6 +598,7 @@ export class BoardStore {
     this.assertOpen();
     const k = validateKey(key);
     const normalizedAuthor = normalizeAuthor(author);
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -1099,6 +1106,19 @@ export class BoardStore {
    * Fold a task log once; for persistent logs, check the real file size on
    * every operation and rebuild whenever it changes, is created, or shrinks.
    */
+  /**
+   * Best-effort registry projection refresh *before* scope resolution. Every
+   * public entry point calls this ahead of parseScope: without it, a fresh
+   * process (or a stale projection) resolves an aliased workspace to its
+   * legacy `ws-<hash>` scope for the first operation — the write lands in
+   * `ws-<hash>.jsonl` while later reads (post-fold refresh) resolve to
+   * `project-<id>.jsonl`, a write/read inconsistency (tip_21f72697). A
+   * refresh failure degrades to the stale projection, never fails the op.
+   */
+  private async refreshRegistryForScope(): Promise<void> {
+    await this.registry.refreshIfStale().catch(() => {});
+  }
+
   private async fold(state: ScopeState): Promise<void> {
     // Piggyback the registry projection refresh on every persistent-operation
     // fold (size check only — unchanged files are neither opened nor read), so
