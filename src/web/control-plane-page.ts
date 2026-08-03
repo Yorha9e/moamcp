@@ -1024,6 +1024,7 @@ ${LIB_JS}
   }
   var busUpdateBanner = null;
   var busUpdateRestarting = false;
+  var busUpdateTarget = null;
   function busUpdateBannerEl() {
     if (busUpdateBanner) return busUpdateBanner;
     busUpdateBanner = document.createElement('div');
@@ -1041,6 +1042,7 @@ ${LIB_JS}
         return;
       }
       var banner = busUpdateBannerEl();
+      busUpdateTarget = data.diskVersion;
       banner.className = 'bus-update-banner';
       banner.textContent = '';
       var text = document.createElement('span');
@@ -1062,15 +1064,17 @@ ${LIB_JS}
     banner.className = 'bus-update-banner';
     banner.textContent = tr('busUpdate.restarting');
     banner.hidden = false;
-    var target = null;
-    api('/api/system').then(function (d) {
-      if (d && typeof d.diskVersion === 'string') target = d.diskVersion;
-    }).catch(function () {});
+    var target = busUpdateTarget;
     api('/api/bus/restart', { method: 'POST' }).catch(function () {});
     var attempts = 0;
     var timer = setInterval(function () {
       attempts++;
       api('/api/system').then(function (d) {
+        // The disk truth does not change mid-flow, so backfill the target from
+        // any successful poll instead of relying on a racy pre-restart GET:
+        // a failed first GET used to lock reload out forever and end in a
+        // misleading "stale" banner after a successful restart.
+        if (d && typeof d.diskVersion === 'string') target = d.diskVersion;
         if (d && typeof d.version === 'string' && target !== null && compareVersions(d.version, target) >= 0) {
           clearInterval(timer);
           location.reload();

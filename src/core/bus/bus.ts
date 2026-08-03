@@ -569,6 +569,13 @@ export class Bus {
     const url = new URL(req.url ?? '/', 'http://localhost');
     // Controlled release (BUS_VERSION_RESTART.md task C): bus-owned by nature.
     if (req.method === 'POST' && url.pathname === '/api/bus/restart') {
+      // Same cross-site protection as the other write endpoints: a plain POST
+      // from an arbitrary web page must not be able to release the port.
+      if (!checkOrigin(req, this.actualPort)) {
+        res.writeHead(403, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'forbidden origin' }));
+        return;
+      }
       if (this.startMode !== 'own' || this.stopped) {
         res.writeHead(409, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'not the bus owner' }));

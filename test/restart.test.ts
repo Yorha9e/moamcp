@@ -102,4 +102,27 @@ describe('bus controlled restart (BUS_VERSION_RESTART.md task C)', () => {
     owner.close();
     await bus.stop();
   });
+
+  it('POST /api/bus/restart rejects a foreign Origin (same rule as other write endpoints)', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-restart-'));
+    const port = await freePort();
+    const bus = new Bus({
+      port,
+      cwd: home,
+      instancesDir: join(home, 'instances'),
+      logsDir: join(home, 'logs'),
+    });
+    expect(await bus.start()).toBe(port);
+
+    const crossSite = await fetch(`http://127.0.0.1:${port}/api/bus/restart`, {
+      method: 'POST',
+      headers: { origin: 'http://evil.example' },
+    });
+    expect(crossSite.status).toBe(403);
+    // No Origin header (curl / same-process clients) is still allowed.
+    const noOrigin = await fetch(`http://127.0.0.1:${port}/api/bus/restart`, { method: 'POST' });
+    expect(noOrigin.status).toBe(202);
+
+    await bus.stop();
+  });
 });

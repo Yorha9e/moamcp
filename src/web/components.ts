@@ -509,6 +509,11 @@ select option {
 .bus-update-banner.danger {
   border-color: var(--accent-red);
 }
+/* Author display:flex outranks the UA [hidden] rule, so hide explicitly
+   (same pattern as .section[hidden] / .cs-pop[hidden]). */
+.bus-update-banner[hidden] {
+  display: none;
+}
 
 /* Notice / Alerts */
 .notice {
