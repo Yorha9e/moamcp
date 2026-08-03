@@ -358,6 +358,60 @@ export class Bus {
     if (this.wrotePortFile) await rm(join(this.cwd, 'bus.port'), { force: true });
   }
 
+  /**
+   * Controlled release (BUS_VERSION_RESTART.md task C): the owner gives up the
+   * port so a newer-code process can take over — without killing this process.
+   * After release this process re-attaches as a *passive* reuser: it stops
+   * serving HTTP/SSE, unregisters, and waits for the new owner to appear
+   * (passive watch — deliberately no takeover, re-binding stale code here
+   * would defeat the whole point). When the new owner answers, `onTakeover`
+   * fires with mode 'reuse' so the caller re-points the event sink; MCP tools
+   * keep working — only the bus layer detaches.
+   */
+  async releaseAndReattach(): Promise<void> {
+    if (this.startMode !== 'own' || this.stopped) {
+      const err = new Error('not the bus owner') as Error & { code?: string };
+      err.code = 'NOT_OWNER';
+      throw err;
+    }
+    this.stopHostWatch();
+    for (const subs of this.subscribers.values()) for (const res of subs) res.end();
+    this.subscribers.clear();
+    this.server.closeAllConnections();
+    await new Promise<void>((resolve) => this.server.close(() => resolve()));
+    await this.releaseRegistration();
+    if (this.wrotePortFile) await rm(join(this.cwd, 'bus.port'), { force: true });
+    this.startMode = 'reuse';
+    this.port = this.actualPort;
+    this.startPassiveWatch(this.actualPort);
+  }
+
+  /** Passive watch: wait for a Bus to answer the released port, then re-attach.
+   *  Unlike the reuse host watch, an unanswered port here is *expected* — this
+   *  process released it on purpose and must not take it back. */
+  private startPassiveWatch(hostPort: number): void {
+    this.stopHostWatch();
+    if (this.stopped) return;
+    const timer = setInterval(() => void this.passiveTick(hostPort), this.watchIntervalMs);
+    timer.unref();
+    this.hostWatch = timer;
+  }
+
+  private async passiveTick(hostPort: number): Promise<void> {
+    if (this.probing || this.takingOver) return;
+    this.probing = true;
+    try {
+      if (!(await busProbe(hostPort, this.watchTimeoutMs))) return; // no new owner yet
+      this.stopHostWatch();
+      this.onTakeover?.({ mode: 'reuse', port: hostPort });
+      this.startHostWatch(hostPort); // normal reuse watch from here on
+    } catch (err) {
+      console.warn(`[moamcp] release: passive watch error: ${(err as Error).message}`);
+    } finally {
+      this.probing = false;
+    }
+  }
+
   // ---- internals ----
 
   /**
@@ -513,6 +567,20 @@ export class Bus {
 
   private async handle(req: import('node:http').IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
+    // Controlled release (BUS_VERSION_RESTART.md task C): bus-owned by nature.
+    if (req.method === 'POST' && url.pathname === '/api/bus/restart') {
+      if (this.startMode !== 'own' || this.stopped) {
+        res.writeHead(409, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not the bus owner' }));
+        return;
+      }
+      res.writeHead(202, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, releasing: true }));
+      void this.releaseAndReattach().catch((err) =>
+        console.warn(`[moamcp] restart: release failed: ${(err as Error).message}`),
+      );
+      return;
+    }
     if (await this.controlPlane.handle(req, res, this.actualPort)) return;
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
