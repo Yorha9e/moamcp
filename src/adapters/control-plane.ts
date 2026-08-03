@@ -9,8 +9,9 @@
  * agent-config service. This module only translates the browser's sidecar
  * workspace id into a BoardStore workspace path.
  */
+import { readFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { dirname } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { isValidTaskId, type ArchiveIndexEntry } from '../core/store/archive-index.js';
 import {
   AgentConfigBusyError,
@@ -21,7 +22,7 @@ import {
   WorkspaceAgentConfigService,
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
-import { BoardStore, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
+import { BoardStore, WORKSPACE_NAME_MAX_CHARS, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
 import { PROJECT_ID_PATTERN } from '../core/store/project-registry.js';
 import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
@@ -362,6 +363,7 @@ function publicWorkspace(info: WorkspaceInfo): Record<string, unknown> {
     cwd: info.cwd,
     createdAt: info.createdAt,
     updatedAt: info.updatedAt ?? null,
+    name: info.name ?? null,
   };
 }
 
@@ -445,6 +447,20 @@ export class ControlPlane {
   private adapterRoutes(): MoaRouteDef[] {
     return [
       { method: 'GET', path: '/api/workspaces', handler: (ctx) => this.workspaces(ctx.res) },
+      {
+        method: 'PUT',
+        path: '/api/workspaces/:id',
+        pattern: /^\/api\/workspaces\/([^/]+)$/,
+        validateParam: requireWorkspaceId,
+        handler: (ctx) => this.renameWorkspaceEntry(ctx),
+      },
+      {
+        method: 'DELETE',
+        path: '/api/workspaces/:id',
+        pattern: /^\/api\/workspaces\/([^/]+)$/,
+        validateParam: requireWorkspaceId,
+        handler: (ctx) => this.releaseWorkspaceEntry(ctx),
+      },
       { method: 'GET', path: '/api/tips', handler: (ctx) => this.listTips(ctx.url, ctx.res) },
       { method: 'POST', path: '/api/tips', handler: (ctx) => this.createTip(ctx) },
       { method: 'GET', path: '/api/board', handler: (ctx) => this.readBoard(ctx.url, ctx.res) },
@@ -589,7 +605,9 @@ export class ControlPlane {
       serverPort,
       param,
       jsonBody: () => readJsonBody(req, serverPort),
-      resolveWorkspace: (id) => this.resolveWorkspace(id),
+      // Module GET routes browse like the adapter's own GET endpoints and may
+      // address projects; mutations keep the strict sidecar-id contract.
+      resolveWorkspace: (id) => (req.method === 'GET' ? this.resolveBrowseWorkspace(id) : this.resolveWorkspace(id)),
       sendJson: (status, body) => sendJson(res, status, body),
       badRequest: (message): never => {
         throw new ApiValidationError(message);
@@ -654,6 +672,47 @@ export class ControlPlane {
     return { id: workspaceId, cwd };
   }
 
+  /**
+   * Browse-oriented resolution (mailbox task 5b): GET endpoints that accept a
+   * `workspace` parameter additionally accept `project:<projectId>`, resolved
+   * through the project's `cwds[]` sidecar — `cwds[0]` becomes the workspace
+   * path handed to the stores, and alias resolution lands on the project scope
+   * there (store layer unchanged). Missing sidecar or empty `cwds` is a 404.
+   */
+  private async resolveBrowseWorkspace(id: unknown): Promise<ResolvedWorkspace> {
+    if (typeof id === 'string' && id.startsWith('project:')) {
+      return this.resolveProjectBrowseTarget(id.slice('project:'.length));
+    }
+    return this.resolveWorkspace(id);
+  }
+
+  private async resolveProjectBrowseTarget(projectId: string): Promise<ResolvedWorkspace> {
+    if (!PROJECT_ID_PATTERN.test(projectId)) {
+      throw new ApiValidationError('workspace must be a 16-character workspace sidecar id or project:<projectId>');
+    }
+    const metaFile = join(this.stores().board.boardsDir(), `project-${projectId}.meta.json`);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT' || err instanceof SyntaxError) {
+        throw new ResourceNotFoundError('project not found');
+      }
+      throw err;
+    }
+    const cwds = parsed.cwds;
+    if (
+      parsed.projectId !== projectId ||
+      !Array.isArray(cwds) ||
+      cwds.length === 0 ||
+      typeof cwds[0] !== 'string' ||
+      !isAbsolute(cwds[0])
+    ) {
+      throw new ResourceNotFoundError('project not found');
+    }
+    return { id: `project:${projectId}`, cwd: cwds[0] };
+  }
+
   private async workspaces(res: ServerResponse): Promise<void> {
     const { board } = this.stores();
     const rows = await board.listWorkspaces();
@@ -661,9 +720,34 @@ export class ControlPlane {
     sendJson(res, 200, { workspaces: rows.map(publicWorkspace) });
   }
 
+  /** PUT /api/workspaces/:id — set (or, with an empty string, clear) the workspace display name (task 5a). */
+  private async renameWorkspaceEntry(ctx: MoaRouteContext): Promise<void> {
+    const { board } = this.stores();
+    const id = ctx.param as string;
+    await this.resolveWorkspace(id); // unknown sidecar id → 404 before reading the body
+    const body = await ctx.jsonBody();
+    ctx.assertAllowedFields(body, ['name'], 'workspace rename');
+    const name = body.name;
+    if (typeof name !== 'string') throw new ApiValidationError('name must be a string');
+    if (name.length > WORKSPACE_NAME_MAX_CHARS) {
+      throw new ApiValidationError(`name must be at most ${WORKSPACE_NAME_MAX_CHARS} characters`);
+    }
+    const info = await board.renameWorkspace(id, name);
+    ctx.sendJson(200, publicWorkspace(info));
+  }
+
+  /** DELETE /api/workspaces/:id — archive (never delete) the board + sidecar and drop any project alias (task 5c). */
+  private async releaseWorkspaceEntry(ctx: MoaRouteContext): Promise<void> {
+    const { board } = this.stores();
+    const id = ctx.param as string;
+    await this.resolveWorkspace(id); // unknown sidecar id → 404
+    const result = await board.releaseWorkspace(id);
+    ctx.sendJson(200, { ok: true, id, releasedAlias: result.releasedAlias });
+  }
+
   private async listTips(url: URL, res: ServerResponse): Promise<void> {
     const { tips } = this.stores();
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get('workspace'));
     const rawStatus = queryText(url.searchParams.get('status'));
     if (rawStatus !== undefined && !isProjectTipStatus(rawStatus)) {
       throw new ApiValidationError('status is not a supported Project Tip status');
@@ -683,7 +767,7 @@ export class ControlPlane {
 
   private async readTip(id: string, url: URL, res: ServerResponse): Promise<void> {
     const { tips } = this.stores();
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get('workspace'));
     const tip = await tips.read(id, workspace.cwd);
     if (tip === undefined) throw new TipNotFoundError(id);
     sendJson(res, 200, tip);
@@ -760,7 +844,7 @@ export class ControlPlane {
   }
 
   private async handoffInbox(url: URL, res: ServerResponse): Promise<void> {
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get('workspace'));
     const states = parseHandoffStates(url.searchParams.get('state'));
     const limit = parseLimit(url.searchParams.get('limit'));
     const options: HandoffListOptions = {
@@ -772,7 +856,7 @@ export class ControlPlane {
   }
 
   private async handoffOutbox(url: URL, res: ServerResponse): Promise<void> {
-    const workspace = await this.resolveWorkspace(url.searchParams.get('workspace'));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get('workspace'));
     const states = parseHandoffStates(url.searchParams.get('state'));
     const limit = parseLimit(url.searchParams.get('limit'));
     const options: HandoffListOptions = {
@@ -894,7 +978,7 @@ export class ControlPlane {
     const workspaceId = queryText(url.searchParams.get('workspace'));
     let cwd: string | undefined;
     if (rawScope === 'workspace' || workspaceId !== undefined) {
-      const workspace = await this.resolveWorkspace(workspaceId);
+      const workspace = await this.resolveBrowseWorkspace(workspaceId);
       cwd = workspace.cwd;
     }
     const key = queryText(url.searchParams.get('key'));

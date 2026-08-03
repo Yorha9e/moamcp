@@ -13,7 +13,7 @@
  *   4. The legacy files are NOT deleted: they are renamed to
  *      `*.migrated-<epoch-ms>` so the original records stay recoverable.
  */
-import { appendFile, mkdir, readFile, rename, stat, truncate, unlink } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, rename, stat, truncate, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { moamcpHome } from '../bus/registry.js';
@@ -66,6 +66,39 @@ async function archiveRename(from: string, to: string): Promise<void> {
 }
 
 /**
+ * Record the migrated cwd in the project's `cwds[]` sidecar
+ * (`project-<id>.meta.json`), creating it when missing. Migration bypasses
+ * BoardStore's scope machinery (which normally writes the sidecar), so the
+ * Control Plane's `project:<id>` browsing — which reads `cwds[0]` to find a
+ * path the alias resolves — depends on this record existing (mailbox task 5b).
+ * The read-modify-write runs under the meta file's append lock, mirroring
+ * BoardStore.ensureProjectSidecar.
+ */
+async function ensureProjectMetaCwd(boardsDir: string, projectId: string, cwd: string): Promise<void> {
+  const metaFile = join(boardsDir, `project-${projectId}.meta.json`);
+  await withAppendLock(metaFile, async () => {
+    let doc: { projectId: string; cwds: string[]; created_at: string } | undefined;
+    try {
+      const parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
+      if (
+        parsed.projectId === projectId &&
+        Array.isArray(parsed.cwds) &&
+        parsed.cwds.every((entry) => typeof entry === 'string') &&
+        typeof parsed.created_at === 'string'
+      ) {
+        doc = parsed as unknown as { projectId: string; cwds: string[]; created_at: string };
+      }
+    } catch {
+      // Missing or corrupt sidecar: rewrite it (mirrors ensureProjectSidecar).
+    }
+    if (doc !== undefined && doc.cwds.includes(cwd)) return; // already recorded
+    const next = doc ?? { projectId, cwds: [] as string[], created_at: new Date().toISOString() };
+    if (!next.cwds.includes(cwd)) next.cwds = [...next.cwds, cwd];
+    await writeFile(metaFile, JSON.stringify(next, null, 2));
+  });
+}
+
+/**
  * Migrate `workspace`'s board into a project, aliasing the workspace path so
  * future workspace-scope operations resolve to the project board. Idempotent:
  * re-running returns the existing alias with `moved: 0` (and rejects when
@@ -94,6 +127,9 @@ export async function migrateWorkspaceToProject(
         `workspace ${cwd} is already aliased to project ${existing}; refusing to migrate it to ${opts.projectId}`,
       );
     }
+    // Repair path: migrations predating the meta record (task 5b) may lack
+    // it; browsing needs cwds[0]. Best-effort — the alias itself is intact.
+    await ensureProjectMetaCwd(boardsDir, existing, cwd).catch(() => {});
     return { projectId: existing, moved: 0 };
   }
 
@@ -159,6 +195,17 @@ export async function migrateWorkspaceToProject(
         );
       }
       await registry.addAlias(projectId, pathHash);
+      // Record the cwd in the project's cwds sidecar so the Control Plane can
+      // browse the project via `project:<id>` (task 5b). A failure unwinds our
+      // freshly registered alias: migration stays all-or-nothing. (removeAlias
+      // runs only on this path — when addAlias itself throws, the hash may be
+      // owned by another project and must not be touched.)
+      try {
+        await ensureProjectMetaCwd(boardsDir, projectId, cwd);
+      } catch (metaErr) {
+        await registry.removeAlias(pathHash).catch(() => {});
+        throw metaErr;
+      }
     } catch (err) {
       // Leave the error scene, but never a grown target or a half-registered alias.
       await rollbackToSize(targetFile, beforeSize);

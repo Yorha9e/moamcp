@@ -22795,7 +22795,7 @@ var Server = class extends Protocol {
 
 // src/core/store/board.ts
 import { createHash } from "node:crypto";
-import { appendFile as appendFile2, mkdir as mkdir3, readFile as readFile3, readdir as readdir2, stat as stat3, writeFile } from "node:fs/promises";
+import { appendFile as appendFile2, mkdir as mkdir3, readFile as readFile3, readdir as readdir2, rename as rename2, stat as stat3, writeFile } from "node:fs/promises";
 import { isAbsolute, join as join3, resolve } from "node:path";
 
 // src/core/bus/registry.ts
@@ -23370,6 +23370,7 @@ var DEFAULT_READ_LIMIT = 100;
 var MAX_READ_LIMIT = 1e3;
 var KEY_MAX_BYTES = 512;
 var DEFAULT_BOARD_POLL_INTERVAL_MS = 250;
+var WORKSPACE_NAME_MAX_CHARS = 80;
 function normalizeWorkspacePath(workspace) {
   if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute(workspace)) {
     throw new Error("workspace must be an absolute path");
@@ -23760,6 +23761,85 @@ var BoardStore = class {
   async resolveWorkspaceId(id) {
     return this.resolveWorkspace(id);
   }
+  /**
+   * Rename a registered workspace (mailbox task 5a): read-modify-write the
+   * `ws-<id>.meta.json` sidecar under its append lock, preserving `cwd` and
+   * `created_at`. An empty or whitespace-only `name` clears the custom name.
+   * Rejects for malformed ids and for sidecars that are missing or corrupt.
+   */
+  async renameWorkspace(id, name) {
+    this.assertOpen();
+    const normalizedId = normalizeWorkspaceId(id);
+    if (normalizedId === void 0) throw new Error("workspace must be a 16-character workspace sidecar id");
+    if (typeof name !== "string") throw new Error("name must be a string");
+    const trimmedName = name.trim();
+    if (trimmedName.length > WORKSPACE_NAME_MAX_CHARS) {
+      throw new Error(`name exceeds ${WORKSPACE_NAME_MAX_CHARS} characters`);
+    }
+    const file = join3(this.boardsDir(), `ws-${normalizedId}.meta.json`);
+    await mkdir3(this.boardsDir(), { recursive: true });
+    return withAppendLock(file, async () => {
+      let doc;
+      try {
+        const parsed = JSON.parse(await readFile3(file, "utf8"));
+        if (typeof parsed === "object" && parsed !== null) doc = parsed;
+      } catch {
+        doc = void 0;
+      }
+      let valid = false;
+      try {
+        valid = doc !== void 0 && doc.id === normalizedId && typeof doc.cwd === "string" && typeof doc.created_at === "string" && workspaceIdForPath(parseWorkspaceCwd(doc.cwd)) === normalizedId;
+      } catch {
+        valid = false;
+      }
+      if (!valid || doc === void 0 || typeof doc.cwd !== "string" || typeof doc.created_at !== "string") {
+        throw new Error(`workspace not found: ${normalizedId}`);
+      }
+      const next = { id: normalizedId, cwd: doc.cwd, created_at: doc.created_at };
+      if (trimmedName.length > 0) next.name = trimmedName;
+      await writeFile(file, JSON.stringify(next, null, 2));
+      const info = await this.readWorkspaceInfo(file, normalizedId);
+      if (info === void 0) throw new Error(`workspace not found: ${normalizedId}`);
+      return info;
+    });
+  }
+  /**
+   * Release a workspace (mailbox task 5c): archive, never delete. Drops the
+   * path's project alias when present (the directory's next write falls back
+   * to a fresh `ws-<hash>.jsonl`), then renames `ws-<hash>.jsonl` and the
+   * sidecar to `*.released-<epoch-ms>` so `listWorkspaces` no longer lists
+   * the workspace while every record stays recoverable. The renames run under
+   * the board file's append lock so a concurrent appender can never write
+   * into a file mid-rename. Returns whether an alias was released.
+   */
+  async releaseWorkspace(id) {
+    this.assertOpen();
+    const normalizedId = normalizeWorkspaceId(id);
+    if (normalizedId === void 0) throw new Error("workspace must be a 16-character workspace sidecar id");
+    const file = join3(this.boardsDir(), `ws-${normalizedId}.jsonl`);
+    const metaFile = join3(this.boardsDir(), `ws-${normalizedId}.meta.json`);
+    let releasedAlias = false;
+    await this.registry.refreshIfStale().catch(() => {
+    });
+    if (this.registry.resolveCached(normalizedId) !== void 0) {
+      await this.registry.removeAlias(normalizedId);
+      releasedAlias = true;
+    }
+    const stamp = Date.now();
+    await mkdir3(this.boardsDir(), { recursive: true });
+    await withAppendLock(file, async () => {
+      await archiveFileRename(file, `${file}.released-${stamp}`);
+    });
+    await withAppendLock(metaFile, async () => {
+      await archiveFileRename(metaFile, `${metaFile}.released-${stamp}`);
+    });
+    const state = this.scopes.get(`workspace:${normalizedId}`);
+    if (state !== void 0) {
+      state.metaWritten = false;
+      state.loaded = false;
+    }
+    return { ok: true, releasedAlias };
+  }
   // ---- task lifecycle ----
   /**
    * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
@@ -23928,7 +24008,8 @@ var BoardStore = class {
       const cwd = parseWorkspaceCwd(parsed.cwd);
       if (workspaceIdForPath(cwd) !== id || expectedCwd !== void 0 && cwd !== expectedCwd) return void 0;
       if (typeof parsed.created_at !== "string" || Number.isNaN(Date.parse(parsed.created_at))) return void 0;
-      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at });
+      const name = parseWorkspaceName(parsed.name);
+      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at, ...name === void 0 ? {} : { name } });
     } catch {
       return void 0;
     }
@@ -23950,7 +24031,11 @@ var BoardStore = class {
     const file = join3(this.boardsDir(), `ws-${info.id}.meta.json`);
     await writeFile(
       file,
-      JSON.stringify({ id: info.id, cwd: info.cwd, created_at: info.createdAt }, null, 2)
+      JSON.stringify(
+        { id: info.id, cwd: info.cwd, created_at: info.createdAt, ...info.name === void 0 ? {} : { name: info.name } },
+        null,
+        2
+      )
     );
   }
   /** Ensure an explicitly used workspace is registered, including an empty board. */
@@ -24158,6 +24243,18 @@ var BoardStore = class {
 function parseWorkspaceCwd(value) {
   if (typeof value !== "string" || value.length === 0 || !isAbsolute(value)) throw new Error("invalid workspace sidecar cwd");
   return resolve(value);
+}
+function parseWorkspaceName(value) {
+  if (typeof value !== "string") return void 0;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : void 0;
+}
+async function archiveFileRename(from, to) {
+  try {
+    await rename2(from, to);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
 }
 function normalizeWorkspaceId(value) {
   if (typeof value !== "string") return void 0;
@@ -24399,16 +24496,16 @@ var DebateHub = class {
   async complete(taskId) {
     return this.enqueue(taskId, async () => {
       const task = this.getTask(taskId);
-      const { mkdir: mkdir6, writeFile: writeFile3 } = await import("node:fs/promises");
+      const { mkdir: mkdir6, writeFile: writeFile4 } = await import("node:fs/promises");
       const { resolve: resolve5 } = await import("node:path");
       const dir = resolve5(this.logsDir, taskId);
       await mkdir6(dir, { recursive: true });
       const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
-      await writeFile3(
+      await writeFile4(
         resolve5(dir, "probe.json"),
         JSON.stringify({ task_id: taskId, created_at: task.createdAt, agents: task.probes }, null, 2)
       );
-      await writeFile3(resolve5(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
+      await writeFile4(resolve5(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
       const result = {
         task_id: taskId,
         status: task.status,
@@ -24422,7 +24519,7 @@ var DebateHub = class {
         result.reason = task.earlyClose.reason;
         result.signoffs = Object.fromEntries(task.signoffs);
       }
-      await writeFile3(resolve5(dir, "result.json"), JSON.stringify(result, null, 2));
+      await writeFile4(resolve5(dir, "result.json"), JSON.stringify(result, null, 2));
       if (this.board !== void 0) await this.board.archiveTask(taskId, dir);
       task.status = "closed";
       this.wakeAll(task, { status: "closed" });
@@ -25665,7 +25762,8 @@ function createTipsModule(tips) {
 }
 
 // src/adapters/control-plane.ts
-import { dirname as dirname3 } from "node:path";
+import { readFile as readFile6 } from "node:fs/promises";
+import { dirname as dirname3, isAbsolute as isAbsolute5, join as join8 } from "node:path";
 
 // src/core/store/archive-index.ts
 import { constants } from "node:fs";
@@ -27721,7 +27819,7 @@ function createAgentConfigModule(agentConfig = new WorkspaceAgentConfigService()
 }
 
 // src/core/store/project-migration.ts
-import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile5, rename as rename2, stat as stat4, truncate, unlink as unlink5 } from "node:fs/promises";
+import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile5, rename as rename3, stat as stat4, truncate, unlink as unlink5, writeFile as writeFile2 } from "node:fs/promises";
 import { join as join7 } from "node:path";
 async function fileSizeOrZero(file) {
   try {
@@ -27742,10 +27840,27 @@ async function rollbackToSize(file, size) {
 }
 async function archiveRename(from, to) {
   try {
-    await rename2(from, to);
+    await rename3(from, to);
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
   }
+}
+async function ensureProjectMetaCwd(boardsDir, projectId, cwd) {
+  const metaFile = join7(boardsDir, `project-${projectId}.meta.json`);
+  await withAppendLock(metaFile, async () => {
+    let doc;
+    try {
+      const parsed = JSON.parse(await readFile5(metaFile, "utf8"));
+      if (parsed.projectId === projectId && Array.isArray(parsed.cwds) && parsed.cwds.every((entry) => typeof entry === "string") && typeof parsed.created_at === "string") {
+        doc = parsed;
+      }
+    } catch {
+    }
+    if (doc !== void 0 && doc.cwds.includes(cwd)) return;
+    const next = doc ?? { projectId, cwds: [], created_at: (/* @__PURE__ */ new Date()).toISOString() };
+    if (!next.cwds.includes(cwd)) next.cwds = [...next.cwds, cwd];
+    await writeFile2(metaFile, JSON.stringify(next, null, 2));
+  });
 }
 async function migrateWorkspaceToProject(workspace, opts = {}) {
   const homeDir = opts.homeDir ?? moamcpHome();
@@ -27763,6 +27878,8 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
         `workspace ${cwd} is already aliased to project ${existing}; refusing to migrate it to ${opts.projectId}`
       );
     }
+    await ensureProjectMetaCwd(boardsDir, existing, cwd).catch(() => {
+    });
     return { projectId: existing, moved: 0 };
   }
   let projectId;
@@ -27813,6 +27930,13 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
         );
       }
       await registry2.addAlias(projectId, pathHash);
+      try {
+        await ensureProjectMetaCwd(boardsDir, projectId, cwd);
+      } catch (metaErr) {
+        await registry2.removeAlias(pathHash).catch(() => {
+        });
+        throw metaErr;
+      }
     } catch (err) {
       await rollbackToSize(targetFile, beforeSize);
       throw err;
@@ -29902,6 +30026,17 @@ var I18N_DICTIONARIES = {
     "memory.workspaceAria": "Select workspace",
     "memory.tabs": "Workspace Memory",
     "memory.tips": "Project Tips",
+    "workspace.groupWorkspaces": "Workspaces",
+    "workspace.groupProjects": "Projects",
+    "workspace.rename": "Rename",
+    "workspace.renameTitle": "Rename the selected workspace",
+    "workspace.renamePlaceholder": "Workspace name (empty clears)",
+    "workspace.renameSave": "Save",
+    "workspace.renamed": "Workspace name updated.",
+    "workspace.release": "Release",
+    "workspace.releaseTitle": "Release the selected workspace",
+    "workspace.releaseConfirm": "Release workspace {workspace}? The board is archived (never deleted), any project alias is removed, and the next write to this directory starts from an empty board.",
+    "workspace.released": "Workspace released; the board was archived.",
     "memory.board": "Shared Board \xB7 Raw",
     "common.status": "Status",
     "common.allStatuses": "All statuses",
@@ -30189,6 +30324,17 @@ var I18N_DICTIONARIES = {
     "memory.tabs": "\u5DE5\u4F5C\u533A\u8BB0\u5FC6",
     "memory.tips": "\u9879\u76EE Tips",
     "memory.board": "\u5171\u4EAB\u9ED1\u677F \xB7 \u539F\u59CB\u6570\u636E",
+    "workspace.groupWorkspaces": "\u5DE5\u4F5C\u533A",
+    "workspace.groupProjects": "\u9879\u76EE",
+    "workspace.rename": "\u6539\u540D",
+    "workspace.renameTitle": "\u91CD\u547D\u540D\u9009\u4E2D\u7684\u5DE5\u4F5C\u533A",
+    "workspace.renamePlaceholder": "\u5DE5\u4F5C\u533A\u540D\u79F0\uFF08\u7559\u7A7A\u6E05\u9664\uFF09",
+    "workspace.renameSave": "\u4FDD\u5B58",
+    "workspace.renamed": "\u5DE5\u4F5C\u533A\u540D\u79F0\u5DF2\u66F4\u65B0\u3002",
+    "workspace.release": "\u91CA\u653E",
+    "workspace.releaseTitle": "\u91CA\u653E\u9009\u4E2D\u7684\u5DE5\u4F5C\u533A",
+    "workspace.releaseConfirm": "\u786E\u8BA4\u91CA\u653E\u5DE5\u4F5C\u533A {workspace}\uFF1F\u770B\u677F\u6570\u636E\u7559\u6863\u4E0D\u5220\u9664\uFF0C\u9879\u76EE\u522B\u540D\u89E3\u9664\uFF0C\u8BE5\u76EE\u5F55\u4E0B\u6B21\u5199\u5165\u4ECE\u7A7A\u767D\u770B\u677F\u5F00\u59CB\u3002",
+    "workspace.released": "\u5DE5\u4F5C\u533A\u5DF2\u91CA\u653E\uFF0C\u770B\u677F\u5DF2\u7559\u6863\u3002",
     "common.status": "\u72B6\u6001",
     "common.allStatuses": "\u5168\u90E8\u72B6\u6001",
     "common.module": "\u6A21\u5757",
@@ -31686,6 +31832,36 @@ ${COMPONENTS_CSS}
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+/* Workspace rename + release (mailbox task 5a/5c) */
+.ws-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.ws-actions button {
+  padding: 8px 12px;
+}
+.ws-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.ws-rename[hidden] {
+  display: none;
+}
+.ws-rename input {
+  min-width: 200px;
+  padding: 8px 9px;
+}
+.ws-rename button {
+  padding: 8px 12px;
+}
+.ws-actions button:disabled, .ws-rename button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
 .tabs {
   display: flex;
@@ -32402,6 +32578,15 @@ ${I18N_BOOTSTRAP}
   <div id="workspaceBar" class="workspace-bar">
     <label for="workspace" data-i18n="memory.workspaceLabel">Workspace \xB7 Memory only</label>
     <select id="workspace" aria-label="Select workspace" data-i18n-aria="memory.workspaceAria"></select>
+    <span class="ws-actions">
+      <button id="renameWorkspaceButton" class="secondary" type="button" disabled data-i18n="workspace.rename" data-i18n-title="workspace.renameTitle">Rename</button>
+      <button id="releaseWorkspaceButton" class="danger" type="button" disabled data-i18n="workspace.release" data-i18n-title="workspace.releaseTitle">Release</button>
+    </span>
+    <span id="workspaceRename" class="ws-rename" hidden>
+      <input id="workspaceRenameInput" type="text" maxlength="80" data-i18n-placeholder="workspace.renamePlaceholder" placeholder="Workspace name (empty clears)">
+      <button id="workspaceRenameSave" class="primary" type="button" data-i18n="workspace.renameSave">Save</button>
+      <button id="workspaceRenameCancel" class="secondary" type="button" data-i18n="common.cancel">Cancel</button>
+    </span>
     <span id="workspaceHint"></span>
   </div>
 
@@ -32437,6 +32622,9 @@ ${LIB_JS}
   var formError = document.getElementById('formError');
   var currentWorkspace = '';
   var workspaces = [];
+  var projects = [];
+  var workspaceRename = document.getElementById('workspaceRename');
+  var workspaceRenameInput = document.getElementById('workspaceRenameInput');
   var selectedTip = null;
   var editingId = '';
   var BOARD_VALUE_MAX_BYTES = 32768;
@@ -32561,6 +32749,9 @@ ${LIB_JS}
     if (scope === 'global') {
       return '@board/global';
     }
+    // Project selections key the synthetic channel directly (project:<id>);
+    // workspace selections keep the workspace:<hash> channel.
+    if (currentWorkspace && isProjectValue(currentWorkspace)) return '@board/' + currentWorkspace;
     return currentWorkspace ? '@board/workspace:' + currentWorkspace : '';
   }
   function connectBoardSubscription() {
@@ -32583,21 +32774,92 @@ ${LIB_JS}
     }
     boardPollTimer = setInterval(function () { refreshActiveView().catch(function () {}); }, 15000);
   }
+  function isProjectValue(value) { return typeof value === 'string' && value.indexOf('project:') === 0; }
+  function projectForValue(value) {
+    if (!isProjectValue(value)) return null;
+    var projectId = value.slice('project:'.length);
+    return projects.filter(function (project) { return project.projectId === projectId; })[0] || null;
+  }
+  function projectLabel(project) { return project ? (project.name || project.projectId) : ''; }
+  function workspaceDisplay(item) {
+    // Custom name first (mailbox task 5a): "name (cwd)", falling back to cwd.
+    return item.name ? item.name + ' (' + item.cwd + ')' : item.cwd;
+  }
   function renderWorkspaceOptions() {
     workspaceSelect.textContent = '';
-    workspaces.forEach(function (item) {
-      var option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = item.id + ' \xB7 ' + item.cwd;
-      workspaceSelect.appendChild(option);
-    });
+    if (workspaces.length) {
+      var wsGroup = document.createElement('optgroup');
+      wsGroup.label = tr('workspace.groupWorkspaces');
+      workspaces.forEach(function (item) {
+        var option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = workspaceDisplay(item);
+        wsGroup.appendChild(option);
+      });
+      workspaceSelect.appendChild(wsGroup);
+    }
+    if (projects.length) {
+      // Merged workspaces/projects stay browsable via project:<id> (task 5b).
+      var projectGroup = document.createElement('optgroup');
+      projectGroup.label = tr('workspace.groupProjects');
+      projects.forEach(function (project) {
+        var option = document.createElement('option');
+        option.value = 'project:' + project.projectId;
+        option.textContent = projectLabel(project);
+        projectGroup.appendChild(option);
+      });
+      workspaceSelect.appendChild(projectGroup);
+    }
+    if (currentWorkspace) workspaceSelect.value = currentWorkspace;
+  }
+  function updateWorkspaceActions() {
+    var actionable = !!currentWorkspace && !isProjectValue(currentWorkspace);
+    document.getElementById('renameWorkspaceButton').disabled = !actionable;
+    document.getElementById('releaseWorkspaceButton').disabled = !actionable;
+    if (!actionable) closeWorkspaceRename();
+  }
+  function openWorkspaceRename() {
+    if (!currentWorkspace || isProjectValue(currentWorkspace)) return;
+    var info = workspaces.filter(function (item) { return item.id === currentWorkspace; })[0];
+    workspaceRenameInput.value = info && info.name ? info.name : '';
+    workspaceRename.hidden = false;
+    workspaceRenameInput.focus();
+  }
+  function closeWorkspaceRename() { workspaceRename.hidden = true; }
+  function saveWorkspaceRename() {
+    if (!currentWorkspace || isProjectValue(currentWorkspace)) return;
+    var id = currentWorkspace;
+    var name = workspaceRenameInput.value.trim();
+    api('/api/workspaces/' + encodeURIComponent(id), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name }) }).then(function (updated) {
+      closeWorkspaceRename();
+      var info = workspaces.filter(function (item) { return item.id === id; })[0];
+      if (info) info.name = updated && updated.name ? updated.name : null;
+      renderWorkspaceOptions();
+      setNotice(tr('workspace.renamed'), false);
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function releaseCurrentWorkspace() {
+    if (!currentWorkspace || isProjectValue(currentWorkspace)) return;
+    var info = workspaces.filter(function (item) { return item.id === currentWorkspace; })[0];
+    var label = info ? workspaceDisplay(info) : currentWorkspace;
+    if (!window.confirm(tr('workspace.releaseConfirm', { workspace: label }))) return;
+    api('/api/workspaces/' + encodeURIComponent(currentWorkspace), { method: 'DELETE' }).then(function () {
+      setNotice(tr('workspace.released'), false);
+      // Reload picks the first remaining workspace/project automatically when
+      // the released selection is gone (task 5c).
+      return loadWorkspaces().catch(function (error) { setNotice(error.message, true); });
+    }).catch(function (error) { setNotice(error.message, true); });
   }
   function applyWorkspace(id) {
     if (!id || currentWorkspace === id) return;
     currentWorkspace = id;
     workspaceSelect.value = id;
     var info = workspaces.filter(function (item) { return item.id === id; })[0];
-    workspaceHint.textContent = info ? info.cwd : '';
+    var project = projectForValue(id);
+    // The bar names the selection: cwd for workspaces, the project name (or
+    // projectId) when a project is selected (tasks 5a/5b).
+    workspaceHint.textContent = info ? info.cwd : (project ? projectLabel(project) : '');
+    updateWorkspaceActions();
     updateLocation(id);
     closeBoardSubscription();
     connectBoardSubscription();
@@ -32612,6 +32874,7 @@ ${LIB_JS}
     currentWorkspace = '';
     workspaceSelect.disabled = true;
     workspaceHint.textContent = '';
+    updateWorkspaceActions();
     closeBoardSubscription();
     tipList.textContent = '';
     var empty = document.createElement('div');
@@ -32625,13 +32888,24 @@ ${LIB_JS}
     setNotice(tr('tips.createWorkspace'), false);
   }
   function loadWorkspaces() {
-    return api('/api/workspaces').then(function (data) {
-      workspaces = data && Array.isArray(data.workspaces) ? data.workspaces : [];
+    // Projects are fetched alongside (task 5b): merged workspaces vanish from
+    // /api/workspaces but stay browsable as project:<projectId> options.
+    return Promise.all([
+      api('/api/workspaces'),
+      api('/api/projects').catch(function () { return { projects: [] }; })
+    ]).then(function (results) {
+      workspaces = results[0] && Array.isArray(results[0].workspaces) ? results[0].workspaces : [];
+      projects = results[1] && Array.isArray(results[1].projects) ? results[1].projects : [];
       renderWorkspaceOptions();
-      if (!workspaces.length) { showNoWorkspace(); return; }
+      if (!workspaces.length && !projects.length) { showNoWorkspace(); return; }
       workspaceSelect.disabled = false;
       var requested = new URLSearchParams(location.search).get('workspace');
-      var found = requested && workspaces.some(function (item) { return item.id === requested; }) ? requested : workspaces[0].id;
+      var known = function (value) {
+        return workspaces.some(function (item) { return item.id === value; })
+          || projects.some(function (project) { return 'project:' + project.projectId === value; });
+      };
+      var found = requested && known(requested) ? requested
+        : (workspaces.length ? workspaces[0].id : 'project:' + projects[0].projectId);
       applyWorkspace(found);
     });
   }
@@ -32677,6 +32951,14 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     else loadTips().catch(function (error) { setNotice(error.message, true); });
   }
   workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
+  document.getElementById('renameWorkspaceButton').addEventListener('click', openWorkspaceRename);
+  document.getElementById('releaseWorkspaceButton').addEventListener('click', releaseCurrentWorkspace);
+  document.getElementById('workspaceRenameSave').addEventListener('click', saveWorkspaceRename);
+  document.getElementById('workspaceRenameCancel').addEventListener('click', closeWorkspaceRename);
+  workspaceRenameInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') { event.preventDefault(); saveWorkspaceRename(); }
+    else if (event.key === 'Escape') closeWorkspaceRename();
+  });
   document.getElementById('newTip').addEventListener('click', function () { openTipForm(null); });
   document.getElementById('cancelForm').addEventListener('click', closeTipForm);
   document.getElementById('tipsTab').addEventListener('click', function () { switchView('tips'); });
@@ -32735,7 +33017,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   document.getElementById('copyControlPlaneUrl').addEventListener('click', function () { copyBoardText(location.href, 'Control Plane URL'); });
   window.addEventListener('moamcp:localechange', function () {
     tr = window.__moaI18n.t;
-    if (!workspaces.length) showNoWorkspace();
+    if (!workspaces.length && !projects.length) showNoWorkspace();
+    else renderWorkspaceOptions();
     if (selectedTip && !tipDrawer.hidden) renderDrawer(selectedTip);
     if (!tipForm.hidden) document.getElementById('formTitle').textContent = tr(editingId ? 'tips.edit' : 'tips.new').replace(/^\\+\\s*/, '');
     if (boardEditing) document.getElementById('boardFormTitle').textContent = tr(boardEditing.mode === 'edit' ? 'board.editTitle' : 'board.newTitle');
@@ -33003,7 +33286,8 @@ function publicWorkspace(info) {
     id: info.id,
     cwd: info.cwd,
     createdAt: info.createdAt,
-    updatedAt: info.updatedAt ?? null
+    updatedAt: info.updatedAt ?? null,
+    name: info.name ?? null
   };
 }
 function controlPlaneUrl(port) {
@@ -33061,6 +33345,20 @@ var ControlPlane = class {
   adapterRoutes() {
     return [
       { method: "GET", path: "/api/workspaces", handler: (ctx) => this.workspaces(ctx.res) },
+      {
+        method: "PUT",
+        path: "/api/workspaces/:id",
+        pattern: /^\/api\/workspaces\/([^/]+)$/,
+        validateParam: requireWorkspaceId,
+        handler: (ctx) => this.renameWorkspaceEntry(ctx)
+      },
+      {
+        method: "DELETE",
+        path: "/api/workspaces/:id",
+        pattern: /^\/api\/workspaces\/([^/]+)$/,
+        validateParam: requireWorkspaceId,
+        handler: (ctx) => this.releaseWorkspaceEntry(ctx)
+      },
       { method: "GET", path: "/api/tips", handler: (ctx) => this.listTips(ctx.url, ctx.res) },
       { method: "POST", path: "/api/tips", handler: (ctx) => this.createTip(ctx) },
       { method: "GET", path: "/api/board", handler: (ctx) => this.readBoard(ctx.url, ctx.res) },
@@ -33193,7 +33491,9 @@ var ControlPlane = class {
       serverPort,
       param,
       jsonBody: () => readJsonBody(req, serverPort),
-      resolveWorkspace: (id) => this.resolveWorkspace(id),
+      // Module GET routes browse like the adapter's own GET endpoints and may
+      // address projects; mutations keep the strict sidecar-id contract.
+      resolveWorkspace: (id) => req.method === "GET" ? this.resolveBrowseWorkspace(id) : this.resolveWorkspace(id),
       sendJson: (status, body) => sendJson(res, status, body),
       badRequest: (message) => {
         throw new ApiValidationError(message);
@@ -33248,15 +33548,71 @@ var ControlPlane = class {
     if (cwd === void 0) throw new ResourceNotFoundError("workspace not found");
     return { id: workspaceId, cwd };
   }
+  /**
+   * Browse-oriented resolution (mailbox task 5b): GET endpoints that accept a
+   * `workspace` parameter additionally accept `project:<projectId>`, resolved
+   * through the project's `cwds[]` sidecar — `cwds[0]` becomes the workspace
+   * path handed to the stores, and alias resolution lands on the project scope
+   * there (store layer unchanged). Missing sidecar or empty `cwds` is a 404.
+   */
+  async resolveBrowseWorkspace(id) {
+    if (typeof id === "string" && id.startsWith("project:")) {
+      return this.resolveProjectBrowseTarget(id.slice("project:".length));
+    }
+    return this.resolveWorkspace(id);
+  }
+  async resolveProjectBrowseTarget(projectId) {
+    if (!PROJECT_ID_PATTERN.test(projectId)) {
+      throw new ApiValidationError("workspace must be a 16-character workspace sidecar id or project:<projectId>");
+    }
+    const metaFile = join8(this.stores().board.boardsDir(), `project-${projectId}.meta.json`);
+    let parsed;
+    try {
+      parsed = JSON.parse(await readFile6(metaFile, "utf8"));
+    } catch (err) {
+      if (err.code === "ENOENT" || err instanceof SyntaxError) {
+        throw new ResourceNotFoundError("project not found");
+      }
+      throw err;
+    }
+    const cwds = parsed.cwds;
+    if (parsed.projectId !== projectId || !Array.isArray(cwds) || cwds.length === 0 || typeof cwds[0] !== "string" || !isAbsolute5(cwds[0])) {
+      throw new ResourceNotFoundError("project not found");
+    }
+    return { id: `project:${projectId}`, cwd: cwds[0] };
+  }
   async workspaces(res) {
     const { board } = this.stores();
     const rows = await board.listWorkspaces();
     rows.sort((a, b) => workspaceActivity(b) - workspaceActivity(a) || b.createdAt.localeCompare(a.createdAt));
     sendJson(res, 200, { workspaces: rows.map(publicWorkspace) });
   }
+  /** PUT /api/workspaces/:id — set (or, with an empty string, clear) the workspace display name (task 5a). */
+  async renameWorkspaceEntry(ctx) {
+    const { board } = this.stores();
+    const id = ctx.param;
+    await this.resolveWorkspace(id);
+    const body = await ctx.jsonBody();
+    ctx.assertAllowedFields(body, ["name"], "workspace rename");
+    const name = body.name;
+    if (typeof name !== "string") throw new ApiValidationError("name must be a string");
+    if (name.length > WORKSPACE_NAME_MAX_CHARS) {
+      throw new ApiValidationError(`name must be at most ${WORKSPACE_NAME_MAX_CHARS} characters`);
+    }
+    const info = await board.renameWorkspace(id, name);
+    ctx.sendJson(200, publicWorkspace(info));
+  }
+  /** DELETE /api/workspaces/:id — archive (never delete) the board + sidecar and drop any project alias (task 5c). */
+  async releaseWorkspaceEntry(ctx) {
+    const { board } = this.stores();
+    const id = ctx.param;
+    await this.resolveWorkspace(id);
+    const result = await board.releaseWorkspace(id);
+    ctx.sendJson(200, { ok: true, id, releasedAlias: result.releasedAlias });
+  }
   async listTips(url, res) {
     const { tips } = this.stores();
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get("workspace"));
     const rawStatus = queryText(url.searchParams.get("status"));
     if (rawStatus !== void 0 && !isProjectTipStatus(rawStatus)) {
       throw new ApiValidationError("status is not a supported Project Tip status");
@@ -33273,7 +33629,7 @@ var ControlPlane = class {
   }
   async readTip(id, url, res) {
     const { tips } = this.stores();
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get("workspace"));
     const tip = await tips.read(id, workspace.cwd);
     if (tip === void 0) throw new TipNotFoundError(id);
     sendJson(res, 200, tip);
@@ -33342,7 +33698,7 @@ var ControlPlane = class {
     ctx.sendJson(200, result);
   }
   async handoffInbox(url, res) {
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get("workspace"));
     const states = parseHandoffStates(url.searchParams.get("state"));
     const limit = parseLimit(url.searchParams.get("limit"));
     const options = {
@@ -33353,7 +33709,7 @@ var ControlPlane = class {
     sendJson(res, 200, { workspace: workspace.id, handoffs: rows });
   }
   async handoffOutbox(url, res) {
-    const workspace = await this.resolveWorkspace(url.searchParams.get("workspace"));
+    const workspace = await this.resolveBrowseWorkspace(url.searchParams.get("workspace"));
     const states = parseHandoffStates(url.searchParams.get("state"));
     const limit = parseLimit(url.searchParams.get("limit"));
     const options = {
@@ -33451,7 +33807,7 @@ var ControlPlane = class {
     const workspaceId = queryText(url.searchParams.get("workspace"));
     let cwd;
     if (rawScope === "workspace" || workspaceId !== void 0) {
-      const workspace = await this.resolveWorkspace(workspaceId);
+      const workspace = await this.resolveBrowseWorkspace(workspaceId);
       cwd = workspace.cwd;
     }
     const key = queryText(url.searchParams.get("key"));
@@ -33523,8 +33879,8 @@ function createServer(hub = new DebateHub(), bus, board, tipStore) {
 
 // src/core/bus/bus.ts
 import { createServer as createServer2, get } from "node:http";
-import { writeFile as writeFile2, readFile as readFile6, rm } from "node:fs/promises";
-import { join as join8, resolve as resolve4 } from "node:path";
+import { writeFile as writeFile3, readFile as readFile7, rm } from "node:fs/promises";
+import { join as join9, resolve as resolve4 } from "node:path";
 
 // src/core/store/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
@@ -35091,7 +35447,7 @@ var Bus = class {
     this.server.closeAllConnections();
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join8(this.cwd, "bus.port"), { force: true });
+    if (this.wrotePortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
   }
   // ---- internals ----
   /**
@@ -35139,7 +35495,7 @@ var Bus = class {
     });
   }
   async writePortFile() {
-    await writeFile2(join8(this.cwd, "bus.port"), String(this.port));
+    await writeFile3(join9(this.cwd, "bus.port"), String(this.port));
     this.wrotePortFile = true;
   }
   async releaseRegistration() {
@@ -35275,7 +35631,7 @@ var Bus = class {
         return;
       }
       try {
-        const content = await readFile6(resolve4(this.logsDir, taskId, file), "utf8");
+        const content = await readFile7(resolve4(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
@@ -35413,8 +35769,8 @@ async function main() {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
   const { rmSync } = await import("node:fs");
-  const { join: join9 } = await import("node:path");
-  process.on("exit", () => rmSync(join9(process.cwd(), "bus.port"), { force: true }));
+  const { join: join10 } = await import("node:path");
+  process.on("exit", () => rmSync(join10(process.cwd(), "bus.port"), { force: true }));
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;

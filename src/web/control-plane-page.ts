@@ -69,6 +69,36 @@ ${COMPONENTS_CSS}
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+/* Workspace rename + release (mailbox task 5a/5c) */
+.ws-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.ws-actions button {
+  padding: 8px 12px;
+}
+.ws-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.ws-rename[hidden] {
+  display: none;
+}
+.ws-rename input {
+  min-width: 200px;
+  padding: 8px 9px;
+}
+.ws-rename button {
+  padding: 8px 12px;
+}
+.ws-actions button:disabled, .ws-rename button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
 .tabs {
   display: flex;
@@ -785,6 +815,15 @@ ${I18N_BOOTSTRAP}
   <div id="workspaceBar" class="workspace-bar">
     <label for="workspace" data-i18n="memory.workspaceLabel">Workspace · Memory only</label>
     <select id="workspace" aria-label="Select workspace" data-i18n-aria="memory.workspaceAria"></select>
+    <span class="ws-actions">
+      <button id="renameWorkspaceButton" class="secondary" type="button" disabled data-i18n="workspace.rename" data-i18n-title="workspace.renameTitle">Rename</button>
+      <button id="releaseWorkspaceButton" class="danger" type="button" disabled data-i18n="workspace.release" data-i18n-title="workspace.releaseTitle">Release</button>
+    </span>
+    <span id="workspaceRename" class="ws-rename" hidden>
+      <input id="workspaceRenameInput" type="text" maxlength="80" data-i18n-placeholder="workspace.renamePlaceholder" placeholder="Workspace name (empty clears)">
+      <button id="workspaceRenameSave" class="primary" type="button" data-i18n="workspace.renameSave">Save</button>
+      <button id="workspaceRenameCancel" class="secondary" type="button" data-i18n="common.cancel">Cancel</button>
+    </span>
     <span id="workspaceHint"></span>
   </div>
 
@@ -820,6 +859,9 @@ ${LIB_JS}
   var formError = document.getElementById('formError');
   var currentWorkspace = '';
   var workspaces = [];
+  var projects = [];
+  var workspaceRename = document.getElementById('workspaceRename');
+  var workspaceRenameInput = document.getElementById('workspaceRenameInput');
   var selectedTip = null;
   var editingId = '';
   var BOARD_VALUE_MAX_BYTES = 32768;
@@ -944,6 +986,9 @@ ${LIB_JS}
     if (scope === 'global') {
       return '@board/global';
     }
+    // Project selections key the synthetic channel directly (project:<id>);
+    // workspace selections keep the workspace:<hash> channel.
+    if (currentWorkspace && isProjectValue(currentWorkspace)) return '@board/' + currentWorkspace;
     return currentWorkspace ? '@board/workspace:' + currentWorkspace : '';
   }
   function connectBoardSubscription() {
@@ -966,21 +1011,92 @@ ${LIB_JS}
     }
     boardPollTimer = setInterval(function () { refreshActiveView().catch(function () {}); }, 15000);
   }
+  function isProjectValue(value) { return typeof value === 'string' && value.indexOf('project:') === 0; }
+  function projectForValue(value) {
+    if (!isProjectValue(value)) return null;
+    var projectId = value.slice('project:'.length);
+    return projects.filter(function (project) { return project.projectId === projectId; })[0] || null;
+  }
+  function projectLabel(project) { return project ? (project.name || project.projectId) : ''; }
+  function workspaceDisplay(item) {
+    // Custom name first (mailbox task 5a): "name (cwd)", falling back to cwd.
+    return item.name ? item.name + ' (' + item.cwd + ')' : item.cwd;
+  }
   function renderWorkspaceOptions() {
     workspaceSelect.textContent = '';
-    workspaces.forEach(function (item) {
-      var option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = item.id + ' · ' + item.cwd;
-      workspaceSelect.appendChild(option);
-    });
+    if (workspaces.length) {
+      var wsGroup = document.createElement('optgroup');
+      wsGroup.label = tr('workspace.groupWorkspaces');
+      workspaces.forEach(function (item) {
+        var option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = workspaceDisplay(item);
+        wsGroup.appendChild(option);
+      });
+      workspaceSelect.appendChild(wsGroup);
+    }
+    if (projects.length) {
+      // Merged workspaces/projects stay browsable via project:<id> (task 5b).
+      var projectGroup = document.createElement('optgroup');
+      projectGroup.label = tr('workspace.groupProjects');
+      projects.forEach(function (project) {
+        var option = document.createElement('option');
+        option.value = 'project:' + project.projectId;
+        option.textContent = projectLabel(project);
+        projectGroup.appendChild(option);
+      });
+      workspaceSelect.appendChild(projectGroup);
+    }
+    if (currentWorkspace) workspaceSelect.value = currentWorkspace;
+  }
+  function updateWorkspaceActions() {
+    var actionable = !!currentWorkspace && !isProjectValue(currentWorkspace);
+    document.getElementById('renameWorkspaceButton').disabled = !actionable;
+    document.getElementById('releaseWorkspaceButton').disabled = !actionable;
+    if (!actionable) closeWorkspaceRename();
+  }
+  function openWorkspaceRename() {
+    if (!currentWorkspace || isProjectValue(currentWorkspace)) return;
+    var info = workspaces.filter(function (item) { return item.id === currentWorkspace; })[0];
+    workspaceRenameInput.value = info && info.name ? info.name : '';
+    workspaceRename.hidden = false;
+    workspaceRenameInput.focus();
+  }
+  function closeWorkspaceRename() { workspaceRename.hidden = true; }
+  function saveWorkspaceRename() {
+    if (!currentWorkspace || isProjectValue(currentWorkspace)) return;
+    var id = currentWorkspace;
+    var name = workspaceRenameInput.value.trim();
+    api('/api/workspaces/' + encodeURIComponent(id), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name }) }).then(function (updated) {
+      closeWorkspaceRename();
+      var info = workspaces.filter(function (item) { return item.id === id; })[0];
+      if (info) info.name = updated && updated.name ? updated.name : null;
+      renderWorkspaceOptions();
+      setNotice(tr('workspace.renamed'), false);
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function releaseCurrentWorkspace() {
+    if (!currentWorkspace || isProjectValue(currentWorkspace)) return;
+    var info = workspaces.filter(function (item) { return item.id === currentWorkspace; })[0];
+    var label = info ? workspaceDisplay(info) : currentWorkspace;
+    if (!window.confirm(tr('workspace.releaseConfirm', { workspace: label }))) return;
+    api('/api/workspaces/' + encodeURIComponent(currentWorkspace), { method: 'DELETE' }).then(function () {
+      setNotice(tr('workspace.released'), false);
+      // Reload picks the first remaining workspace/project automatically when
+      // the released selection is gone (task 5c).
+      return loadWorkspaces().catch(function (error) { setNotice(error.message, true); });
+    }).catch(function (error) { setNotice(error.message, true); });
   }
   function applyWorkspace(id) {
     if (!id || currentWorkspace === id) return;
     currentWorkspace = id;
     workspaceSelect.value = id;
     var info = workspaces.filter(function (item) { return item.id === id; })[0];
-    workspaceHint.textContent = info ? info.cwd : '';
+    var project = projectForValue(id);
+    // The bar names the selection: cwd for workspaces, the project name (or
+    // projectId) when a project is selected (tasks 5a/5b).
+    workspaceHint.textContent = info ? info.cwd : (project ? projectLabel(project) : '');
+    updateWorkspaceActions();
     updateLocation(id);
     closeBoardSubscription();
     connectBoardSubscription();
@@ -995,6 +1111,7 @@ ${LIB_JS}
     currentWorkspace = '';
     workspaceSelect.disabled = true;
     workspaceHint.textContent = '';
+    updateWorkspaceActions();
     closeBoardSubscription();
     tipList.textContent = '';
     var empty = document.createElement('div');
@@ -1008,13 +1125,24 @@ ${LIB_JS}
     setNotice(tr('tips.createWorkspace'), false);
   }
   function loadWorkspaces() {
-    return api('/api/workspaces').then(function (data) {
-      workspaces = data && Array.isArray(data.workspaces) ? data.workspaces : [];
+    // Projects are fetched alongside (task 5b): merged workspaces vanish from
+    // /api/workspaces but stay browsable as project:<projectId> options.
+    return Promise.all([
+      api('/api/workspaces'),
+      api('/api/projects').catch(function () { return { projects: [] }; })
+    ]).then(function (results) {
+      workspaces = results[0] && Array.isArray(results[0].workspaces) ? results[0].workspaces : [];
+      projects = results[1] && Array.isArray(results[1].projects) ? results[1].projects : [];
       renderWorkspaceOptions();
-      if (!workspaces.length) { showNoWorkspace(); return; }
+      if (!workspaces.length && !projects.length) { showNoWorkspace(); return; }
       workspaceSelect.disabled = false;
       var requested = new URLSearchParams(location.search).get('workspace');
-      var found = requested && workspaces.some(function (item) { return item.id === requested; }) ? requested : workspaces[0].id;
+      var known = function (value) {
+        return workspaces.some(function (item) { return item.id === value; })
+          || projects.some(function (project) { return 'project:' + project.projectId === value; });
+      };
+      var found = requested && known(requested) ? requested
+        : (workspaces.length ? workspaces[0].id : 'project:' + projects[0].projectId);
       applyWorkspace(found);
     });
   }
@@ -1060,6 +1188,14 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     else loadTips().catch(function (error) { setNotice(error.message, true); });
   }
   workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
+  document.getElementById('renameWorkspaceButton').addEventListener('click', openWorkspaceRename);
+  document.getElementById('releaseWorkspaceButton').addEventListener('click', releaseCurrentWorkspace);
+  document.getElementById('workspaceRenameSave').addEventListener('click', saveWorkspaceRename);
+  document.getElementById('workspaceRenameCancel').addEventListener('click', closeWorkspaceRename);
+  workspaceRenameInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') { event.preventDefault(); saveWorkspaceRename(); }
+    else if (event.key === 'Escape') closeWorkspaceRename();
+  });
   document.getElementById('newTip').addEventListener('click', function () { openTipForm(null); });
   document.getElementById('cancelForm').addEventListener('click', closeTipForm);
   document.getElementById('tipsTab').addEventListener('click', function () { switchView('tips'); });
@@ -1118,7 +1254,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   document.getElementById('copyControlPlaneUrl').addEventListener('click', function () { copyBoardText(location.href, 'Control Plane URL'); });
   window.addEventListener('moamcp:localechange', function () {
     tr = window.__moaI18n.t;
-    if (!workspaces.length) showNoWorkspace();
+    if (!workspaces.length && !projects.length) showNoWorkspace();
+    else renderWorkspaceOptions();
     if (selectedTip && !tipDrawer.hidden) renderDrawer(selectedTip);
     if (!tipForm.hidden) document.getElementById('formTitle').textContent = tr(editingId ? 'tips.edit' : 'tips.new').replace(/^\\+\\s*/, '');
     if (boardEditing) document.getElementById('boardFormTitle').textContent = tr(boardEditing.mode === 'edit' ? 'board.editTitle' : 'board.newTitle');

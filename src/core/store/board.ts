@@ -46,7 +46,7 @@
  * makes alias-shared project boards safe to write from several sessions.
  */
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { moamcpHome } from '../bus/registry.js';
@@ -67,6 +67,9 @@ export const DEFAULT_BOARD_POLL_INTERVAL_MS = 250;
 /** Backward-friendly alias for callers that want to describe the interval directly. */
 export const BOARD_POLL_INTERVAL_MS = DEFAULT_BOARD_POLL_INTERVAL_MS;
 
+/** Character cap for a custom workspace name (mailbox task 5a; HTTP enforces the same cap). */
+export const WORKSPACE_NAME_MAX_CHARS = 80;
+
 /** A registered workspace sidecar (`ws-<id>.meta.json`) plus board activity metadata. */
 export interface WorkspaceInfo {
   id: string;
@@ -74,6 +77,8 @@ export interface WorkspaceInfo {
   createdAt: string;
   /** mtime of the workspace JSONL when it exists; absent for empty workspaces. */
   updatedAt?: string;
+  /** Optional user-defined display name kept in the sidecar (mailbox task 5a). */
+  name?: string;
 }
 
 /** Normalize a workspace path without resolving a relative path by accident. */
@@ -655,6 +660,102 @@ export class BoardStore {
     return this.resolveWorkspace(id);
   }
 
+  /**
+   * Rename a registered workspace (mailbox task 5a): read-modify-write the
+   * `ws-<id>.meta.json` sidecar under its append lock, preserving `cwd` and
+   * `created_at`. An empty or whitespace-only `name` clears the custom name.
+   * Rejects for malformed ids and for sidecars that are missing or corrupt.
+   */
+  async renameWorkspace(id: unknown, name: unknown): Promise<WorkspaceInfo> {
+    this.assertOpen();
+    const normalizedId = normalizeWorkspaceId(id);
+    if (normalizedId === undefined) throw new Error('workspace must be a 16-character workspace sidecar id');
+    if (typeof name !== 'string') throw new Error('name must be a string');
+    const trimmedName = name.trim();
+    if (trimmedName.length > WORKSPACE_NAME_MAX_CHARS) {
+      throw new Error(`name exceeds ${WORKSPACE_NAME_MAX_CHARS} characters`);
+    }
+    const file = join(this.boardsDir(), `ws-${normalizedId}.meta.json`);
+    // The lock file is created beside the sidecar, so the boards dir must
+    // exist before acquisition (mirrors ensureProjectSidecar).
+    await mkdir(this.boardsDir(), { recursive: true });
+    return withAppendLock(file, async () => {
+      let doc: Record<string, unknown> | undefined;
+      try {
+        const parsed = JSON.parse(await readFile(file, 'utf8')) as unknown;
+        if (typeof parsed === 'object' && parsed !== null) doc = parsed as Record<string, unknown>;
+      } catch {
+        doc = undefined; // missing/corrupt sidecar: treated as unknown below
+      }
+      let valid = false;
+      try {
+        valid =
+          doc !== undefined &&
+          doc.id === normalizedId &&
+          typeof doc.cwd === 'string' &&
+          typeof doc.created_at === 'string' &&
+          workspaceIdForPath(parseWorkspaceCwd(doc.cwd)) === normalizedId;
+      } catch {
+        valid = false; // malformed cwd: treat the sidecar as unknown
+      }
+      if (!valid || doc === undefined || typeof doc.cwd !== 'string' || typeof doc.created_at !== 'string') {
+        throw new Error(`workspace not found: ${normalizedId}`);
+      }
+      const next: Record<string, unknown> = { id: normalizedId, cwd: doc.cwd, created_at: doc.created_at };
+      if (trimmedName.length > 0) next.name = trimmedName;
+      await writeFile(file, JSON.stringify(next, null, 2));
+      const info = await this.readWorkspaceInfo(file, normalizedId);
+      if (info === undefined) throw new Error(`workspace not found: ${normalizedId}`);
+      return info;
+    });
+  }
+
+  /**
+   * Release a workspace (mailbox task 5c): archive, never delete. Drops the
+   * path's project alias when present (the directory's next write falls back
+   * to a fresh `ws-<hash>.jsonl`), then renames `ws-<hash>.jsonl` and the
+   * sidecar to `*.released-<epoch-ms>` so `listWorkspaces` no longer lists
+   * the workspace while every record stays recoverable. The renames run under
+   * the board file's append lock so a concurrent appender can never write
+   * into a file mid-rename. Returns whether an alias was released.
+   */
+  async releaseWorkspace(id: unknown): Promise<{ ok: true; releasedAlias: boolean }> {
+    this.assertOpen();
+    const normalizedId = normalizeWorkspaceId(id);
+    if (normalizedId === undefined) throw new Error('workspace must be a 16-character workspace sidecar id');
+    const file = join(this.boardsDir(), `ws-${normalizedId}.jsonl`);
+    const metaFile = join(this.boardsDir(), `ws-${normalizedId}.meta.json`);
+
+    // 1. Release the path alias first so any write racing the release already
+    //    resolves back to the plain workspace scope.
+    let releasedAlias = false;
+    await this.registry.refreshIfStale().catch(() => {});
+    if (this.registry.resolveCached(normalizedId) !== undefined) {
+      await this.registry.removeAlias(normalizedId);
+      releasedAlias = true;
+    }
+
+    // 2+3. Archive the board and sidecar (absent files are skipped).
+    const stamp = Date.now();
+    await mkdir(this.boardsDir(), { recursive: true });
+    await withAppendLock(file, async () => {
+      await archiveFileRename(file, `${file}.released-${stamp}`);
+    });
+    await withAppendLock(metaFile, async () => {
+      await archiveFileRename(metaFile, `${metaFile}.released-${stamp}`);
+    });
+
+    // A live scope may still believe its sidecar/board exist: drop the flags
+    // so the next operation folds an empty board and re-registers a fresh
+    // sidecar (the directory "starts from an empty board" in-process too).
+    const state = this.scopes.get(`workspace:${normalizedId}`);
+    if (state !== undefined) {
+      state.metaWritten = false;
+      state.loaded = false;
+    }
+    return { ok: true, releasedAlias };
+  }
+
   // ---- task lifecycle ----
 
   /**
@@ -857,7 +958,8 @@ export class BoardStore {
       const cwd = parseWorkspaceCwd(parsed.cwd);
       if (workspaceIdForPath(cwd) !== id || (expectedCwd !== undefined && cwd !== expectedCwd)) return undefined;
       if (typeof parsed.created_at !== 'string' || Number.isNaN(Date.parse(parsed.created_at))) return undefined;
-      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at });
+      const name = parseWorkspaceName(parsed.name);
+      return this.withWorkspaceUpdatedAt({ id, cwd, createdAt: parsed.created_at, ...(name === undefined ? {} : { name }) });
     } catch {
       // A sidecar can be observed while another process is replacing it;
       // invalid entries are deliberately ignored by scans and repaired on explicit use.
@@ -884,7 +986,11 @@ export class BoardStore {
     const file = join(this.boardsDir(), `ws-${info.id}.meta.json`);
     await writeFile(
       file,
-      JSON.stringify({ id: info.id, cwd: info.cwd, created_at: info.createdAt }, null, 2),
+      JSON.stringify(
+        { id: info.id, cwd: info.cwd, created_at: info.createdAt, ...(info.name === undefined ? {} : { name: info.name }) },
+        null,
+        2,
+      ),
     );
   }
 
@@ -1124,6 +1230,22 @@ export class BoardStore {
 function parseWorkspaceCwd(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0 || !isAbsolute(value)) throw new Error('invalid workspace sidecar cwd');
   return resolve(value);
+}
+
+/** Sidecar `name`: a non-empty string after trimming; anything else is absent. */
+function parseWorkspaceName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** Archive-rename a file; an absent file is simply skipped (release/migration archiving). */
+async function archiveFileRename(from: string, to: string): Promise<void> {
+  try {
+    await rename(from, to);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
 }
 
 function normalizeWorkspaceId(value: unknown): string | undefined {

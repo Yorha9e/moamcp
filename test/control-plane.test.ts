@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, get } from 'node:http';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -1085,6 +1085,183 @@ describe('control plane HTTP surface', () => {
     expect(html).toContain('Merge current workspace into this project');
     expect(html).not.toContain('innerHTML');
     expect(html).not.toContain('window.prompt');
+  });
+
+  it('renames workspaces over HTTP: PUT sets, trims, clears, validates, and GET lists the name (task 5a)', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const idB = workspaceIdForPath(workspaceB);
+
+    // Names start out absent.
+    const before = await request('/api/workspaces');
+    expect(before.body.workspaces.map((w: any) => w.name)).toEqual([null, null]);
+
+    // PUT sets the name; the response row and the listing both carry it.
+    const renamed = await request(`/api/workspaces/${idA}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: json({ name: '  Web Side  ' }),
+    });
+    expect(renamed.response.status).toBe(200);
+    expect(renamed.body).toMatchObject({ id: idA, cwd: workspaceA, name: 'Web Side' });
+    const after = await request('/api/workspaces');
+    expect(after.body.workspaces.find((w: any) => w.id === idA).name).toBe('Web Side');
+    expect(after.body.workspaces.find((w: any) => w.id === idB).name).toBe(null);
+    // The sidecar keeps cwd/created_at through the read-modify-write.
+    const sidecar = JSON.parse(await readFile(join(home, 'boards', `ws-${idA}.meta.json`), 'utf8'));
+    expect(sidecar).toMatchObject({ id: idA, cwd: workspaceA, name: 'Web Side' });
+
+    // Empty string clears the name.
+    const cleared = await request(`/api/workspaces/${idA}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: json({ name: '' }),
+    });
+    expect(cleared.response.status).toBe(200);
+    expect(cleared.body.name).toBe(null);
+    expect((await request('/api/workspaces')).body.workspaces.find((w: any) => w.id === idA).name).toBe(null);
+
+    // Validation: non-string, over-length, unsupported fields, unknown id, malformed id.
+    expect((await request(`/api/workspaces/${idA}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json({ name: 7 }) })).response.status).toBe(400);
+    expect((await request(`/api/workspaces/${idA}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json({ name: 'x'.repeat(81) }) })).response.status).toBe(400);
+    expect((await request(`/api/workspaces/${idA}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json({ name: 'ok', nope: true }) })).response.status).toBe(400);
+    expect((await request(`/api/workspaces/${'0'.repeat(16)}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json({ name: 'x' }) })).response.status).toBe(404);
+    expect((await request('/api/workspaces/not-an-id', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json({ name: 'x' }) })).response.status).toBe(400);
+    // Method routing on the new parameterized path.
+    expect((await request(`/api/workspaces/${idA}`)).response.status).toBe(405);
+    const notAllowed = await request(`/api/workspaces/${idA}`);
+    expect(notAllowed.response.headers.get('allow')).toContain('PUT');
+    expect(notAllowed.response.headers.get('allow')).toContain('DELETE');
+  });
+
+  it('browses migrated project content via project:<id> on GET endpoints after the old id 404s (task 5b)', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const idB = workspaceIdForPath(workspaceB);
+
+    // Seed workspace A with a tip and a board entry, then migrate it.
+    expect((await request('/api/tips', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, title: 'survivor', summary: 'migrated tip' }) })).response.status).toBe(200);
+    expect((await request('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ scope: 'workspace', workspace: idA, key: 'browse/keep', value: 'v1' }) })).response.status).toBe(200);
+    const migrated = await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, name: 'Browsable' }) });
+    expect(migrated.response.status).toBe(200);
+    const projectId = migrated.body.projectId;
+
+    // Migration recorded the cwd so project:<id> can resolve a path.
+    const meta = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+    expect(meta).toMatchObject({ projectId, cwds: [workspaceA] });
+
+    // The archived sidecar makes the old workspace id 404 on every GET.
+    expect((await request(`/api/tips?workspace=${idA}`)).response.status).toBe(404);
+    expect((await request(`/api/board?scope=workspace&workspace=${idA}`)).response.status).toBe(404);
+    expect((await request(`/api/handoff/inbox?workspace=${idA}`)).response.status).toBe(404);
+
+    // A handoff addressed to the project lands in the project inbox.
+    const handoffs = new HandoffStore(board);
+    const sent = await handoffs.send({ toProject: projectId, title: 'to project', summary: 'browse me' }, workspaceB);
+
+    // project:<id> browses tips, board, and inbox/outbox through cwds[0].
+    const tips = await request(`/api/tips?workspace=${encodeURIComponent(`project:${projectId}`)}`);
+    expect(tips.response.status).toBe(200);
+    expect(tips.body).toMatchObject({ workspace: `project:${projectId}` });
+    expect(tips.body.tips.map((t: any) => t.title)).toEqual(['survivor']);
+    const tipId = tips.body.tips[0].id;
+    expect((await request(`/api/tips/${encodeURIComponent(tipId)}?workspace=${encodeURIComponent(`project:${projectId}`)}`)).response.status).toBe(200);
+
+    const boardRows = await request(`/api/board?scope=workspace&workspace=${encodeURIComponent(`project:${projectId}`)}`);
+    expect(boardRows.response.status).toBe(200);
+    expect(boardRows.body.entries.map((e: any) => e.key)).toContain('browse/keep');
+
+    const inbox = await request(`/api/handoff/inbox?workspace=${encodeURIComponent(`project:${projectId}`)}`);
+    expect(inbox.response.status).toBe(200);
+    expect(inbox.body.handoffs.map((h: any) => h.id)).toEqual([sent.id]);
+    const outbox = await request(`/api/handoff/outbox?workspace=${idB}`);
+    expect(outbox.body.handoffs.map((h: any) => h.id)).toEqual([sent.id]);
+
+    // Missing meta / unknown project → 404; malformed project id → 400.
+    const emptyProject = await board.registry.createProject('no meta yet');
+    expect((await request(`/api/tips?workspace=project:${emptyProject}`)).response.status).toBe(404);
+    expect((await request(`/api/tips?workspace=project:p_${'0'.repeat(12)}`)).response.status).toBe(404);
+    expect((await request('/api/tips?workspace=project:not-a-project')).response.status).toBe(400);
+    expect((await request('/api/board?scope=workspace&workspace=project:zzz')).response.status).toBe(400);
+
+    // project:<id> is a browse-only alias for the transport: mutations keep
+    // the strict 16-hex sidecar-id contract.
+    expect((await request('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ scope: 'workspace', workspace: `project:${projectId}`, key: 'no', value: 'write' }) })).response.status).toBe(400);
+    expect((await request('/api/tips', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}`, title: 'x', summary: 'y' }) })).response.status).toBe(400);
+    expect((await request(`/api/handoff/${sent.id}/consume`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}` }) })).response.status).toBe(400);
+  });
+
+  it('releases workspaces over HTTP: archives files, unaliases, hides, and restarts empty (task 5c)', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const idB = workspaceIdForPath(workspaceB);
+
+    // A has board content and an aliased project; releasing must drop the
+    // alias first. (Write before aliasing so the record lands in the ws file.)
+    expect((await request('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ scope: 'workspace', workspace: idA, key: 'release/keep', value: 'v1' }) })).response.status).toBe(200);
+    const projectId = await board.registry.createProject('victim');
+    await board.registry.addAlias(projectId, idA);
+
+    const released = await request(`/api/workspaces/${idA}`, { method: 'DELETE' });
+    expect(released.response.status).toBe(200);
+    expect(released.body).toEqual({ ok: true, id: idA, releasedAlias: true });
+
+    // Files are archived with .released- stamps; nothing is deleted.
+    const names = await readdir(join(home, 'boards'));
+    expect(names).not.toContain(`ws-${idA}.jsonl`);
+    expect(names).not.toContain(`ws-${idA}.meta.json`);
+    expect(names.some((n) => n.startsWith(`ws-${idA}.jsonl.released-`))).toBe(true);
+    expect(names.some((n) => n.startsWith(`ws-${idA}.meta.json.released-`))).toBe(true);
+
+    // The alias is gone (the project itself survives), the listing loses A,
+    // and the old id no longer resolves.
+    await board.registry.refreshIfStale();
+    expect(board.registry.resolveCached(idA)).toBeUndefined();
+    expect((await request('/api/projects')).body.projects[0].projectId).toBe(projectId);
+    expect((await request('/api/workspaces')).body.workspaces.map((w: any) => w.id)).toEqual([idB]);
+    expect((await request(`/api/tips?workspace=${idA}`)).response.status).toBe(404);
+    expect((await request(`/api/workspaces/${idA}`, { method: 'DELETE' })).response.status).toBe(404);
+
+    // The directory's next write starts from an empty board in a fresh file.
+    await board.write('fresh/start', 'v2', undefined, 'seed', 'workspace', workspaceA);
+    const freshNames = await readdir(join(home, 'boards'));
+    expect(freshNames).toContain(`ws-${idA}.jsonl`);
+    const rows = await board.read(undefined, undefined, 'workspace', undefined, workspaceA);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ key: 'fresh/start', value: 'v2' });
+
+    // Unaliased release reports releasedAlias false; malformed ids are 400s.
+    expect((await request(`/api/workspaces/${idB}`, { method: 'DELETE' })).body).toEqual({ ok: true, id: idB, releasedAlias: false });
+    expect((await request('/api/workspaces/bad-id', { method: 'DELETE' })).response.status).toBe(400);
+  });
+
+  it('serves the workspace rename/release/project-browse frontend contract in the assembled page (task 5)', async () => {
+    const page = await request('/control-plane');
+    expect(page.response.status).toBe(200);
+    const html = page.body as string;
+
+    // Workspace bar actions + inline rename form (no window.prompt anywhere).
+    for (const anchor of [
+      'renameWorkspaceButton', 'releaseWorkspaceButton', 'workspaceRename',
+      'workspaceRenameInput', 'workspaceRenameSave', 'workspaceRenameCancel',
+    ]) {
+      expect(html).toContain(anchor);
+    }
+    expect(html).toContain('maxlength="80"');
+    expect(html).toContain("document.createElement('optgroup')");
+    expect(html).toContain("tr('workspace.groupWorkspaces')");
+    expect(html).toContain("tr('workspace.groupProjects')");
+    expect(html).toContain("'project:' + project.projectId");
+    expect(html).toContain("tr('workspace.releaseConfirm'");
+    expect(html).toContain('workspace.renamed');
+    expect(html).toContain("method: 'PUT'");
+    expect(html).toContain("method: 'DELETE'");
+    expect(html).toContain("'/api/workspaces/' + encodeURIComponent(");
+    expect(html).toContain("api('/api/projects').catch(");
+    // Project selections subscribe to the project board channel.
+    expect(html).toContain("if (currentWorkspace && isProjectValue(currentWorkspace)) return '@board/' + currentWorkspace");
+    // Display contract: named workspaces show "name (cwd)".
+    expect(html).toContain("item.name ? item.name + ' (' + item.cwd + ')' : item.cwd");
+    expect(html).not.toContain('innerHTML');
+    expect(html).not.toContain('window.prompt');
+    expect(html).not.toContain('insertAdjacent' + 'HTML');
   });
 });
 

@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { BoardStore, BOARD_VALUE_MAX_BYTES, workspaceIdForPath, type BoardEvent, type BoardScope } from '../src/core/store/board.js';
+import { BoardStore, BOARD_VALUE_MAX_BYTES, WORKSPACE_NAME_MAX_CHARS, workspaceIdForPath, type BoardEvent, type BoardScope } from '../src/core/store/board.js';
 import { ProjectRegistry, newProjectId } from '../src/core/store/project-registry.js';
 import { migrateWorkspaceToProject } from '../src/core/store/project-migration.js';
 import { DebateHub } from '../src/modules/debate/state.js';
@@ -774,4 +774,112 @@ it('migrating a workspace with no board file aliases it with moved: 0', async ()
   // No legacy board file is created (the lag op may recreate the ws meta
   // sidecar — that is the pre-existing workspace-registration behavior).
   expect(files.some((f) => f.startsWith('ws-') && f.endsWith('.jsonl'))).toBe(false);
+});
+
+// ---- workspace rename + release (mailbox task 5a/5c) ----
+
+it('renameWorkspace writes, trims, and clears the sidecar name under the append lock', async () => {
+  const cwd = join(home, 'rename-me');
+  const b = store({ cwd });
+  const info = await b.registerWorkspace(cwd);
+  await b.write('k', 'v', undefined, 'a', 'workspace', cwd);
+
+  // Set a name: sidecar gains `name`, cwd/created_at survive the RMW.
+  const renamed = await b.renameWorkspace(info.id, '  My Space  ');
+  expect(renamed).toMatchObject({ id: info.id, cwd, createdAt: info.createdAt, name: 'My Space' });
+  const sidecar = JSON.parse(await readFile(join(home, 'boards', `ws-${info.id}.meta.json`), 'utf8'));
+  expect(sidecar).toMatchObject({ id: info.id, cwd, created_at: info.createdAt, name: 'My Space' });
+  expect((await b.listWorkspaces()).find((w) => w.id === info.id)?.name).toBe('My Space');
+
+  // The board itself is untouched by the rename.
+  expect(await b.read('k', undefined, 'workspace', undefined, cwd)).toHaveLength(1);
+
+  // Empty (and whitespace-only) names clear the field again.
+  const cleared = await b.renameWorkspace(info.id, '   ');
+  expect(cleared.name).toBeUndefined();
+  const clearedSidecar = JSON.parse(await readFile(join(home, 'boards', `ws-${info.id}.meta.json`), 'utf8'));
+  expect(clearedSidecar).not.toHaveProperty('name');
+  expect((await b.listWorkspaces()).find((w) => w.id === info.id)?.name).toBeUndefined();
+
+  // Guards: unknown/malformed ids, non-string names, and the length cap.
+  await expect(b.renameWorkspace('0'.repeat(16), 'x')).rejects.toThrow(/workspace not found/);
+  await expect(b.renameWorkspace('not-an-id', 'x')).rejects.toThrow(/16-character workspace sidecar id/);
+  await expect(b.renameWorkspace(info.id, 7)).rejects.toThrow(/name must be a string/);
+  await expect(b.renameWorkspace(info.id, 'x'.repeat(WORKSPACE_NAME_MAX_CHARS + 1))).rejects.toThrow(/exceeds/);
+
+  // Reopen: a fresh store sees the name (set one first).
+  await b.renameWorkspace(info.id, 'Durable');
+  const reopened = store({ cwd });
+  expect((await reopened.listWorkspaces()).find((w) => w.id === info.id)?.name).toBe('Durable');
+
+  // Concurrent renames from two stores serialize on the meta lock: the sidecar
+  // stays valid JSON and carries exactly one of the two names.
+  await Promise.all([b.renameWorkspace(info.id, 'first'), reopened.renameWorkspace(info.id, 'second')]);
+  const finalSidecar = JSON.parse(await readFile(join(home, 'boards', `ws-${info.id}.meta.json`), 'utf8'));
+  expect(['first', 'second']).toContain(finalSidecar.name);
+  await b.close();
+  await reopened.close();
+});
+
+it('releaseWorkspace archives files, drops the alias, and restarts the board empty', async () => {
+  const cwd = join(home, 'release-me');
+  const b = store({ cwd });
+  const info = await b.registerWorkspace(cwd);
+  await b.write('before/release', 'old', undefined, 'a', 'workspace', cwd);
+  const projectId = await b.registry.createProject('owner');
+  await b.registry.addAlias(projectId, info.id);
+
+  const result = await b.releaseWorkspace(info.id);
+  expect(result).toEqual({ ok: true, releasedAlias: true });
+
+  // Alias is gone: the path resolves to a plain workspace scope again.
+  await b.registry.refreshIfStale();
+  expect(b.registry.resolveCached(info.id)).toBeUndefined();
+
+  // Both files are archived (renamed, never deleted) with .released- stamps.
+  const names = await readdir(join(home, 'boards'));
+  expect(names).not.toContain(`ws-${info.id}.jsonl`);
+  expect(names).not.toContain(`ws-${info.id}.meta.json`);
+  expect(names.some((n) => n.startsWith(`ws-${info.id}.jsonl.released-`))).toBe(true);
+  expect(names.some((n) => n.startsWith(`ws-${info.id}.meta.json.released-`))).toBe(true);
+  const archived = await readFile(join(home, 'boards', names.find((n) => n.startsWith(`ws-${info.id}.jsonl.released-`)) as string), 'utf8');
+  expect(archived).toContain('before/release');
+
+  // The workspace vanished from the scan.
+  expect(await b.listWorkspaces()).toEqual([]);
+
+  // The next write to the directory starts from an empty board: a fresh
+  // ws file + sidecar appear and only the new record is visible.
+  await b.write('after/release', 'new', undefined, 'a', 'workspace', cwd);
+  const afterNames = await readdir(join(home, 'boards'));
+  expect(afterNames).toContain(`ws-${info.id}.jsonl`);
+  expect(afterNames).toContain(`ws-${info.id}.meta.json`);
+  const rows = await b.read(undefined, undefined, 'workspace', undefined, cwd);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ key: 'after/release', value: 'new' });
+  expect((await b.listWorkspaces()).find((w) => w.id === info.id)?.name).toBeUndefined();
+
+  // Releasing an unaliased workspace reports releasedAlias false; releasing
+  // twice is a no-op the second time (nothing left to archive).
+  const otherInfo = await b.registerWorkspace(join(home, 'release-unaliased'));
+  expect(await b.releaseWorkspace(otherInfo.id)).toEqual({ ok: true, releasedAlias: false });
+  expect(await b.releaseWorkspace(otherInfo.id)).toEqual({ ok: true, releasedAlias: false });
+  await expect(b.releaseWorkspace('bad')).rejects.toThrow(/16-character workspace sidecar id/);
+  await b.close();
+});
+
+it('migration records the migrated cwd in the project meta sidecar for browsing', async () => {
+  const cwd = join(home, 'meta-migrate');
+  const b = store({ cwd });
+  await b.write('seed', 'v', undefined, 'a', 'workspace', cwd);
+  const { projectId } = await migrateWorkspaceToProject(cwd, { homeDir: home, registry: b.registry });
+  const meta = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+  expect(meta.projectId).toBe(projectId);
+  expect(meta.cwds).toEqual([cwd]);
+
+  // Idempotent re-run keeps the meta intact (repair path is a no-op).
+  await migrateWorkspaceToProject(cwd, { homeDir: home, registry: b.registry, projectId });
+  const metaAgain = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+  expect(metaAgain.cwds).toEqual([cwd]);
+  await b.close();
 });
