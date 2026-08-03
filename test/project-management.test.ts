@@ -356,6 +356,27 @@ describe('control plane project management (task 6)', () => {
     expect((await put(`/api/projects/${projectId}`, { name: 'ghost' })).response.status).toBe(404);
   });
 
+  it('lists member workspace directories per project (GET /api/projects enrichment)', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const idB = workspaceIdForPath(workspaceB);
+    await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, name: 'Dirs' }) });
+    const projectsAfterFirst = (await request('/api/projects')).body.projects;
+    const projectId = projectsAfterFirst[0].projectId;
+    // Second workspace joins via migrate targeting the existing project.
+    await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idB, projectId }) });
+
+    const projects = (await request('/api/projects')).body.projects;
+    expect(projects).toHaveLength(1);
+    const dirs = projects[0].workspaces;
+    expect(Array.isArray(dirs)).toBe(true);
+    expect(dirs).toHaveLength(2);
+    const byHash = Object.fromEntries(dirs.map((d: any) => [d.hash, d.cwd]));
+    expect(byHash[idA]).toBe(workspaceA);
+    expect(byHash[idB]).toBe(workspaceB);
+    // Legacy alias shape stays intact for existing consumers.
+    expect(projects[0].aliases.sort()).toEqual([idA, idB].sort());
+  });
+
   it('serves the project rename/detach/archive frontend contract in the assembled page (task 6)', async () => {
     const page = await request('/control-plane');
     expect(page.response.status).toBe(200);

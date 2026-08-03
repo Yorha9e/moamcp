@@ -649,6 +649,35 @@ ${COMPONENTS_CSS}
   flex: 1 1 240px;
   max-width: 360px;
 }
+.proj-dirs {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.proj-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.proj-dir-cwd {
+  flex: 1 1 auto;
+  font-family: var(--mono, monospace);
+  overflow-wrap: anywhere;
+}
+.proj-dir-hash {
+  color: var(--text-faint);
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+}
+.proj-dirs-empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
 .proj-list, .ho-list {
   display: flex;
   flex-direction: column;

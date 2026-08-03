@@ -30483,6 +30483,8 @@ var I18N_DICTIONARIES = {
     "projects.aliases": "Aliases",
     "projects.noAliases": "no aliases yet",
     "projects.merge": "Merge current workspace into this project",
+    "projects.directories": "Directories",
+    "projects.unknownPath": "unknown path",
     "projects.create": "New project + merge current workspace",
     "projects.namePlaceholder": "Project name (optional)",
     "projects.untitled": "untitled project",
@@ -30793,6 +30795,8 @@ var I18N_DICTIONARIES = {
     "projects.aliases": "\u522B\u540D",
     "projects.noAliases": "\u6682\u65E0\u522B\u540D",
     "projects.merge": "\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u6B64\u9879\u76EE",
+    "projects.directories": "\u76EE\u5F55\u8BE6\u60C5",
+    "projects.unknownPath": "\u672A\u77E5\u8DEF\u5F84",
     "projects.create": "\u65B0\u5EFA\u9879\u76EE\u5E76\u5408\u5E76\u5F53\u524D\u5DE5\u4F5C\u533A",
     "projects.namePlaceholder": "\u9879\u76EE\u540D\uFF08\u53EF\u9009\uFF09",
     "projects.untitled": "\u672A\u547D\u540D\u9879\u76EE",
@@ -31916,6 +31920,15 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     card.appendChild(aliases);
     var actions = document.createElement('div');
     actions.className = 'proj-actions';
+    var dirsToggle = document.createElement('button');
+    dirsToggle.className = 'secondary';
+    dirsToggle.type = 'button';
+    dirsToggle.textContent = tr('projects.directories');
+    var dirsPanel = document.createElement('div');
+    dirsPanel.className = 'proj-dirs';
+    dirsPanel.hidden = true;
+    dirsToggle.addEventListener('click', function () { dirsPanel.hidden = !dirsPanel.hidden; });
+    actions.appendChild(dirsToggle);
     var merge = document.createElement('button');
     merge.className = 'primary';
     merge.type = 'button';
@@ -31930,6 +31943,36 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     archive.addEventListener('click', function () { archiveProjectAction(project); });
     actions.appendChild(archive);
     card.appendChild(actions);
+    var members = Array.isArray(project.workspaces) ? project.workspaces : [];
+    if (!members.length) {
+      var emptyDirs = document.createElement('p');
+      emptyDirs.className = 'proj-dirs-empty';
+      emptyDirs.textContent = tr('projects.noAliases');
+      dirsPanel.appendChild(emptyDirs);
+    }
+    members.forEach(function (member) {
+      var row = document.createElement('div');
+      row.className = 'proj-dir-row';
+      var cwd = document.createElement('span');
+      cwd.className = 'proj-dir-cwd';
+      cwd.textContent = member.cwd || tr('projects.unknownPath');
+      cwd.title = member.cwd || '';
+      row.appendChild(cwd);
+      var hash = document.createElement('span');
+      hash.className = 'proj-dir-hash';
+      hash.textContent = member.hash;
+      row.appendChild(hash);
+      var detach = document.createElement('button');
+      detach.className = 'proj-alias-detach';
+      detach.type = 'button';
+      detach.textContent = '\xD7';
+      detach.title = tr('projects.detachAliasTitle');
+      detach.setAttribute('aria-label', tr('projects.detachAliasTitle') + ' ' + (member.cwd || member.hash));
+      detach.addEventListener('click', function () { detachProjectAliasAction(project, member.hash); });
+      row.appendChild(detach);
+      dirsPanel.appendChild(row);
+    });
+    card.appendChild(dirsPanel);
     return card;
   }
   function openProjectRename(project, card, nameEl) {
@@ -32802,6 +32845,35 @@ ${COMPONENTS_CSS}
 .proj-create input {
   flex: 1 1 240px;
   max-width: 360px;
+}
+.proj-dirs {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.proj-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.proj-dir-cwd {
+  flex: 1 1 auto;
+  font-family: var(--mono, monospace);
+  overflow-wrap: anywhere;
+}
+.proj-dir-hash {
+  color: var(--text-faint);
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+}
+.proj-dirs-empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12.5px;
 }
 .proj-list, .ho-list {
   display: flex;
@@ -34175,7 +34247,29 @@ var ControlPlane = class {
   }
   async listProjects(res) {
     const projects = await this.stores().board.registry.listProjects();
-    sendJson(res, 200, { projects });
+    const enriched = [];
+    for (const project of projects) {
+      enriched.push({ ...project, workspaces: await this.projectMemberDirs(project.projectId, project.aliases) });
+    }
+    sendJson(res, 200, { projects: enriched });
+  }
+  /** Pair each alias hash with its absolute directory path (null when unresolvable). */
+  async projectMemberDirs(projectId, aliases) {
+    const board = this.stores().board;
+    let cwds = [];
+    try {
+      const parsed = JSON.parse(await readFile6(join8(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
+      if (Array.isArray(parsed.cwds)) cwds = parsed.cwds.filter((cwd) => typeof cwd === "string");
+    } catch {
+    }
+    if (cwds.length === 0) {
+      try {
+        cwds = await board.repairProjectMeta(projectId);
+      } catch {
+        cwds = [];
+      }
+    }
+    return aliases.map((hash) => ({ hash, cwd: cwds.find((cwd) => workspaceIdForPath(cwd) === hash) ?? null }));
   }
   async migrateProject(ctx) {
     const body = await ctx.jsonBody();

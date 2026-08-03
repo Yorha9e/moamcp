@@ -72,6 +72,15 @@ export const PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     card.appendChild(aliases);
     var actions = document.createElement('div');
     actions.className = 'proj-actions';
+    var dirsToggle = document.createElement('button');
+    dirsToggle.className = 'secondary';
+    dirsToggle.type = 'button';
+    dirsToggle.textContent = tr('projects.directories');
+    var dirsPanel = document.createElement('div');
+    dirsPanel.className = 'proj-dirs';
+    dirsPanel.hidden = true;
+    dirsToggle.addEventListener('click', function () { dirsPanel.hidden = !dirsPanel.hidden; });
+    actions.appendChild(dirsToggle);
     var merge = document.createElement('button');
     merge.className = 'primary';
     merge.type = 'button';
@@ -86,6 +95,36 @@ export const PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     archive.addEventListener('click', function () { archiveProjectAction(project); });
     actions.appendChild(archive);
     card.appendChild(actions);
+    var members = Array.isArray(project.workspaces) ? project.workspaces : [];
+    if (!members.length) {
+      var emptyDirs = document.createElement('p');
+      emptyDirs.className = 'proj-dirs-empty';
+      emptyDirs.textContent = tr('projects.noAliases');
+      dirsPanel.appendChild(emptyDirs);
+    }
+    members.forEach(function (member) {
+      var row = document.createElement('div');
+      row.className = 'proj-dir-row';
+      var cwd = document.createElement('span');
+      cwd.className = 'proj-dir-cwd';
+      cwd.textContent = member.cwd || tr('projects.unknownPath');
+      cwd.title = member.cwd || '';
+      row.appendChild(cwd);
+      var hash = document.createElement('span');
+      hash.className = 'proj-dir-hash';
+      hash.textContent = member.hash;
+      row.appendChild(hash);
+      var detach = document.createElement('button');
+      detach.className = 'proj-alias-detach';
+      detach.type = 'button';
+      detach.textContent = '×';
+      detach.title = tr('projects.detachAliasTitle');
+      detach.setAttribute('aria-label', tr('projects.detachAliasTitle') + ' ' + (member.cwd || member.hash));
+      detach.addEventListener('click', function () { detachProjectAliasAction(project, member.hash); });
+      row.appendChild(detach);
+      dirsPanel.appendChild(row);
+    });
+    card.appendChild(dirsPanel);
     return card;
   }
   function openProjectRename(project, card, nameEl) {

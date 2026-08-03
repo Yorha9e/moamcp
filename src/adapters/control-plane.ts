@@ -22,7 +22,7 @@ import {
   WorkspaceAgentConfigService,
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
-import { BoardStore, WORKSPACE_NAME_MAX_CHARS, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
+import { BoardStore, WORKSPACE_NAME_MAX_CHARS, workspaceIdForPath, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
 import { VERSION } from '../core/bus/registry.js';
 import { PROJECT_ID_PATTERN, PROJECT_NAME_MAX_CHARS } from '../core/store/project-registry.js';
@@ -879,7 +879,34 @@ export class ControlPlane {
 
   private async listProjects(res: ServerResponse): Promise<void> {
     const projects = await this.stores().board.registry.listProjects();
-    sendJson(res, 200, { projects });
+    // Enrich each project with its member workspace directories (paths are
+    // recoverable from the project meta cwds; hashes pair via sha1 of the
+    // normalized path). Legacy projects missing meta get the self-heal repair.
+    const enriched = [];
+    for (const project of projects) {
+      enriched.push({ ...project, workspaces: await this.projectMemberDirs(project.projectId, project.aliases) });
+    }
+    sendJson(res, 200, { projects: enriched });
+  }
+
+  /** Pair each alias hash with its absolute directory path (null when unresolvable). */
+  private async projectMemberDirs(projectId: string, aliases: readonly string[]): Promise<Array<{ hash: string; cwd: string | null }>> {
+    const board = this.stores().board;
+    let cwds: string[] = [];
+    try {
+      const parsed = JSON.parse(await readFile(join(board.boardsDir(), `project-${projectId}.meta.json`), 'utf8')) as Record<string, unknown>;
+      if (Array.isArray(parsed.cwds)) cwds = parsed.cwds.filter((cwd): cwd is string => typeof cwd === 'string');
+    } catch {
+      // Missing or malformed meta: fall through to the self-heal repair.
+    }
+    if (cwds.length === 0) {
+      try {
+        cwds = await board.repairProjectMeta(projectId);
+      } catch {
+        cwds = [];
+      }
+    }
+    return aliases.map((hash) => ({ hash, cwd: cwds.find((cwd) => workspaceIdForPath(cwd) === hash) ?? null }));
   }
 
   private async migrateProject(ctx: MoaRouteContext): Promise<void> {
