@@ -1,6 +1,6 @@
 {
   "name": "moamcp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Mailbox-style multi-agent debate hub, exposed as an MCP server over stdio",
   "type": "module",
   "bin": {
