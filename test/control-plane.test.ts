@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { WorkspaceAgentConfigService } from '../src/modules/agentconfig/agent-config.js';
+import { resetDiskVersionCache } from '../src/core/bus/disk-version.js';
 import { BoardStore, workspaceIdForPath } from '../src/core/store/board.js';
 import { VERSION } from '../src/core/bus/registry.js';
 import { migrateWorkspaceToProject } from '../src/core/store/project-migration.js';
@@ -143,6 +144,26 @@ describe('control plane HTTP surface', () => {
     // esbuild bundle resolves it to the real version (verified against dist).
     expect(system.body.version).toBe(VERSION);
     if (VERSION !== '0.0.0') expect(VERSION).toBe(pkgVersion);
+  });
+
+  it('reports the installed disk version on /api/system (BUS_VERSION_RESTART.md task A)', async () => {
+    // Inject a fake "newer build on disk" via the documented test hook and
+    // make the endpoint report it as diskVersion (running VERSION untouched).
+    const dir = await mkdtemp(join(tmpdir(), 'moamcp-cp-diskver-'));
+    const pkg = join(dir, 'package.json');
+    await writeFile(pkg, JSON.stringify({ version: '99.0.0' }));
+    process.env.MOAMCP_PACKAGE_JSON = pkg;
+    resetDiskVersionCache();
+    try {
+      const system = await request('/api/system');
+      expect(system.response.status).toBe(200);
+      expect(system.body.version).toBe(VERSION);
+      expect(system.body.diskVersion).toBe('99.0.0');
+    } finally {
+      delete process.env.MOAMCP_PACKAGE_JSON;
+      resetDiskVersionCache();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('routes management sections through the URL while preserving other query parameters', async () => {

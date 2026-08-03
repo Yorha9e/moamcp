@@ -24,6 +24,7 @@ import {
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { BoardStore, WORKSPACE_NAME_MAX_CHARS, workspaceIdForPath, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
+import { readDiskVersion } from '../core/bus/disk-version.js';
 import { VERSION } from '../core/bus/registry.js';
 import { PROJECT_ID_PATTERN, PROJECT_NAME_MAX_CHARS } from '../core/store/project-registry.js';
 import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
@@ -697,8 +698,14 @@ export class ControlPlane {
     // The build version rides on every /api/system response so the Control
     // Plane can tell which backend build is running (VERSION is read from
     // package.json via registry.ts's createRequire pattern — source and
-    // esbuild bundle alike).
-    sendJson(res, 200, { ...(await this.runtimeProvider().systemInfo()), version: VERSION });
+    // esbuild bundle alike). diskVersion is the *installed* truth, re-read
+    // from disk on a short cache — a mismatch is what drives the "newer
+    // build installed" banner (BUS_VERSION_RESTART.md task A).
+    sendJson(res, 200, {
+      ...(await this.runtimeProvider().systemInfo()),
+      version: VERSION,
+      diskVersion: await readDiskVersion(),
+    });
   }
 
   private stores(): { board: BoardStore; tips: TipsAuthority } {
