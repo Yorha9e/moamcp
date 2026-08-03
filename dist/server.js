@@ -23840,6 +23840,65 @@ var BoardStore = class {
     }
     return { ok: true, releasedAlias };
   }
+  /**
+   * Self-heal a project's meta sidecar (`project-<id>.meta.json`) for projects
+   * created before task 5 — their migration archived the workspace sidecars but
+   * never wrote the meta, so `project:<id>` browsing 404s. Rebuilds `cwds[]`
+   * from the aliased workspace sidecars: each alias's live
+   * `ws-<hash>.meta.json` first, then its archived `ws-<hash>.meta.json.migrated-*`
+   * copies; a sidecar's `cwd` is kept only when it is an absolute path string,
+   * and duplicates are dropped while preserving first-appearance order.
+   *
+   * With at least one recovered cwd the meta is written under the append lock
+   * (same `{projectId, cwds[], created_at}` shape as `ensureProjectSidecar`;
+   * `created_at` is the registry create record's timestamp, else now) and the
+   * recovered cwds are returned. With none, returns `[]` and writes nothing.
+   */
+  async repairProjectMeta(projectId) {
+    this.assertOpen();
+    const project = (await this.registry.listProjects()).find((candidate) => candidate.projectId === projectId);
+    if (project === void 0) return [];
+    const boardsDir = this.boardsDir();
+    let names;
+    try {
+      names = await readdir2(boardsDir);
+    } catch (err) {
+      if (err.code === "ENOENT") return [];
+      throw err;
+    }
+    const cwds = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const hash of project.aliases) {
+      const liveName = `ws-${hash}.meta.json`;
+      const migratedPrefix = `ws-${hash}.meta.json.migrated-`;
+      const candidates = names.includes(liveName) ? [liveName] : [];
+      candidates.push(...names.filter((name) => name.startsWith(migratedPrefix)).sort());
+      for (const name of candidates) {
+        const cwd = await workspaceSidecarCwd(join3(boardsDir, name));
+        if (cwd !== void 0 && !seen.has(cwd)) {
+          seen.add(cwd);
+          cwds.push(cwd);
+        }
+      }
+    }
+    if (cwds.length === 0) return [];
+    const metaFile = join3(boardsDir, `project-${projectId}.meta.json`);
+    await mkdir3(boardsDir, { recursive: true });
+    await withAppendLock(metaFile, async () => {
+      let doc;
+      try {
+        const parsed = JSON.parse(await readFile3(metaFile, "utf8"));
+        if (parsed.projectId === projectId && Array.isArray(parsed.cwds) && parsed.cwds.every((entry) => typeof entry === "string") && typeof parsed.created_at === "string") {
+          doc = parsed;
+        }
+      } catch {
+      }
+      if (doc !== void 0) return;
+      const next = { projectId, cwds, created_at: project.createdAt ?? (/* @__PURE__ */ new Date()).toISOString() };
+      await writeFile(metaFile, JSON.stringify(next, null, 2));
+    });
+    return cwds;
+  }
   // ---- task lifecycle ----
   /**
    * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
@@ -24243,6 +24302,15 @@ var BoardStore = class {
 function parseWorkspaceCwd(value) {
   if (typeof value !== "string" || value.length === 0 || !isAbsolute(value)) throw new Error("invalid workspace sidecar cwd");
   return resolve(value);
+}
+async function workspaceSidecarCwd(file) {
+  try {
+    const parsed = JSON.parse(await readFile3(file, "utf8"));
+    const cwd = parsed.cwd;
+    return typeof cwd === "string" && cwd.length > 0 && isAbsolute(cwd) ? cwd : void 0;
+  } catch {
+    return void 0;
+  }
 }
 function parseWorkspaceName(value) {
   if (typeof value !== "string") return void 0;
@@ -33553,7 +33621,9 @@ var ControlPlane = class {
    * `workspace` parameter additionally accept `project:<projectId>`, resolved
    * through the project's `cwds[]` sidecar — `cwds[0]` becomes the workspace
    * path handed to the stores, and alias resolution lands on the project scope
-   * there (store layer unchanged). Missing sidecar or empty `cwds` is a 404.
+   * there (store layer unchanged). A missing/invalid project sidecar is
+   * self-healed from the aliased workspace sidecars; when nothing can be
+   * recovered the request still 404s.
    */
   async resolveBrowseWorkspace(id) {
     if (typeof id === "string" && id.startsWith("project:")) {
@@ -33561,25 +33631,43 @@ var ControlPlane = class {
     }
     return this.resolveWorkspace(id);
   }
+  /**
+   * Browse-oriented project resolution (mailbox task 5b): reads the project's
+   * `cwds[]` sidecar — `cwds[0]` becomes the workspace path handed to the
+   * stores, and alias resolution lands on the project scope there (store layer
+   * unchanged). When the sidecar is missing, unparseable, or fails field
+   * validation (including an empty `cwds`), the meta is self-healed from the
+   * aliased workspace sidecars (`repairProjectMeta`) so projects migrated
+   * before task 5 — which never wrote the meta — browse instead of 404. A
+   * repair that recovers nothing keeps the original 404.
+   */
   async resolveProjectBrowseTarget(projectId) {
     if (!PROJECT_ID_PATTERN.test(projectId)) {
       throw new ApiValidationError("workspace must be a 16-character workspace sidecar id or project:<projectId>");
     }
     const metaFile = join8(this.stores().board.boardsDir(), `project-${projectId}.meta.json`);
+    let cwd = await this.validProjectMetaCwd(metaFile, projectId);
+    if (cwd === void 0) {
+      const repaired = await this.stores().board.repairProjectMeta(projectId);
+      if (repaired.length === 0) throw new ResourceNotFoundError("project not found");
+      cwd = repaired[0];
+    }
+    return { id: `project:${projectId}`, cwd };
+  }
+  /** The meta sidecar's validated `cwds[0]`, or undefined when missing/invalid (repair trigger). */
+  async validProjectMetaCwd(metaFile, projectId) {
     let parsed;
     try {
       parsed = JSON.parse(await readFile6(metaFile, "utf8"));
     } catch (err) {
-      if (err.code === "ENOENT" || err instanceof SyntaxError) {
-        throw new ResourceNotFoundError("project not found");
-      }
+      if (err.code === "ENOENT" || err instanceof SyntaxError) return void 0;
       throw err;
     }
     const cwds = parsed.cwds;
     if (parsed.projectId !== projectId || !Array.isArray(cwds) || cwds.length === 0 || typeof cwds[0] !== "string" || !isAbsolute5(cwds[0])) {
-      throw new ResourceNotFoundError("project not found");
+      return void 0;
     }
-    return { id: `project:${projectId}`, cwd: cwds[0] };
+    return cwds[0];
   }
   async workspaces(res) {
     const { board } = this.stores();

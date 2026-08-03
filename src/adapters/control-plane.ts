@@ -677,7 +677,9 @@ export class ControlPlane {
    * `workspace` parameter additionally accept `project:<projectId>`, resolved
    * through the project's `cwds[]` sidecar — `cwds[0]` becomes the workspace
    * path handed to the stores, and alias resolution lands on the project scope
-   * there (store layer unchanged). Missing sidecar or empty `cwds` is a 404.
+   * there (store layer unchanged). A missing/invalid project sidecar is
+   * self-healed from the aliased workspace sidecars; when nothing can be
+   * recovered the request still 404s.
    */
   private async resolveBrowseWorkspace(id: unknown): Promise<ResolvedWorkspace> {
     if (typeof id === 'string' && id.startsWith('project:')) {
@@ -686,19 +688,38 @@ export class ControlPlane {
     return this.resolveWorkspace(id);
   }
 
+  /**
+   * Browse-oriented project resolution (mailbox task 5b): reads the project's
+   * `cwds[]` sidecar — `cwds[0]` becomes the workspace path handed to the
+   * stores, and alias resolution lands on the project scope there (store layer
+   * unchanged). When the sidecar is missing, unparseable, or fails field
+   * validation (including an empty `cwds`), the meta is self-healed from the
+   * aliased workspace sidecars (`repairProjectMeta`) so projects migrated
+   * before task 5 — which never wrote the meta — browse instead of 404. A
+   * repair that recovers nothing keeps the original 404.
+   */
   private async resolveProjectBrowseTarget(projectId: string): Promise<ResolvedWorkspace> {
     if (!PROJECT_ID_PATTERN.test(projectId)) {
       throw new ApiValidationError('workspace must be a 16-character workspace sidecar id or project:<projectId>');
     }
     const metaFile = join(this.stores().board.boardsDir(), `project-${projectId}.meta.json`);
+    let cwd = await this.validProjectMetaCwd(metaFile, projectId);
+    if (cwd === undefined) {
+      const repaired = await this.stores().board.repairProjectMeta(projectId);
+      if (repaired.length === 0) throw new ResourceNotFoundError('project not found');
+      cwd = repaired[0];
+    }
+    return { id: `project:${projectId}`, cwd };
+  }
+
+  /** The meta sidecar's validated `cwds[0]`, or undefined when missing/invalid (repair trigger). */
+  private async validProjectMetaCwd(metaFile: string, projectId: string): Promise<string | undefined> {
     let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT' || err instanceof SyntaxError) {
-        throw new ResourceNotFoundError('project not found');
-      }
-      throw err;
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT' || err instanceof SyntaxError) return undefined;
+      throw err; // e.g. permission errors surface unchanged
     }
     const cwds = parsed.cwds;
     if (
@@ -708,9 +729,9 @@ export class ControlPlane {
       typeof cwds[0] !== 'string' ||
       !isAbsolute(cwds[0])
     ) {
-      throw new ResourceNotFoundError('project not found');
+      return undefined;
     }
-    return { id: `project:${projectId}`, cwd: cwds[0] };
+    return cwds[0];
   }
 
   private async workspaces(res: ServerResponse): Promise<void> {

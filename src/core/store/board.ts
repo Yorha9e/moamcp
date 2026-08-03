@@ -756,6 +756,76 @@ export class BoardStore {
     return { ok: true, releasedAlias };
   }
 
+  /**
+   * Self-heal a project's meta sidecar (`project-<id>.meta.json`) for projects
+   * created before task 5 — their migration archived the workspace sidecars but
+   * never wrote the meta, so `project:<id>` browsing 404s. Rebuilds `cwds[]`
+   * from the aliased workspace sidecars: each alias's live
+   * `ws-<hash>.meta.json` first, then its archived `ws-<hash>.meta.json.migrated-*`
+   * copies; a sidecar's `cwd` is kept only when it is an absolute path string,
+   * and duplicates are dropped while preserving first-appearance order.
+   *
+   * With at least one recovered cwd the meta is written under the append lock
+   * (same `{projectId, cwds[], created_at}` shape as `ensureProjectSidecar`;
+   * `created_at` is the registry create record's timestamp, else now) and the
+   * recovered cwds are returned. With none, returns `[]` and writes nothing.
+   */
+  async repairProjectMeta(projectId: string): Promise<string[]> {
+    this.assertOpen();
+    const project = (await this.registry.listProjects()).find((candidate) => candidate.projectId === projectId);
+    if (project === undefined) return [];
+    const boardsDir = this.boardsDir();
+    let names: string[];
+    try {
+      names = await readdir(boardsDir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw err;
+    }
+    const cwds: string[] = [];
+    const seen = new Set<string>();
+    for (const hash of project.aliases) {
+      const liveName = `ws-${hash}.meta.json`;
+      const migratedPrefix = `ws-${hash}.meta.json.migrated-`;
+      const candidates = names.includes(liveName) ? [liveName] : [];
+      candidates.push(...names.filter((name) => name.startsWith(migratedPrefix)).sort());
+      for (const name of candidates) {
+        const cwd = await workspaceSidecarCwd(join(boardsDir, name));
+        if (cwd !== undefined && !seen.has(cwd)) {
+          seen.add(cwd);
+          cwds.push(cwd);
+        }
+      }
+    }
+    if (cwds.length === 0) return [];
+    const metaFile = join(boardsDir, `project-${projectId}.meta.json`);
+    // The lock file is created beside the meta, so the boards dir must exist
+    // before acquisition (mirrors ensureProjectSidecar).
+    await mkdir(boardsDir, { recursive: true });
+    await withAppendLock(metaFile, async () => {
+      let doc: { projectId: string; cwds: string[]; created_at: string } | undefined;
+      try {
+        const parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
+        if (
+          parsed.projectId === projectId &&
+          Array.isArray(parsed.cwds) &&
+          parsed.cwds.every((entry) => typeof entry === 'string') &&
+          typeof parsed.created_at === 'string'
+        ) {
+          doc = parsed as unknown as { projectId: string; cwds: string[]; created_at: string };
+        }
+      } catch {
+        // Missing or corrupt sidecar: rewrite it (mirrors ensureProjectSidecar).
+      }
+      // A peer may have repaired the meta between our read failure and the lock;
+      // never clobber a valid sidecar — only fill the gap.
+      if (doc !== undefined) return;
+      const next = { projectId, cwds, created_at: project.createdAt ?? new Date().toISOString() };
+      await writeFile(metaFile, JSON.stringify(next, null, 2));
+    });
+    return cwds;
+  }
+
   // ---- task lifecycle ----
 
   /**
@@ -1230,6 +1300,17 @@ export class BoardStore {
 function parseWorkspaceCwd(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0 || !isAbsolute(value)) throw new Error('invalid workspace sidecar cwd');
   return resolve(value);
+}
+
+/** Extract an absolute `cwd` from a workspace sidecar; missing/unreadable/non-absolute entries yield undefined. */
+async function workspaceSidecarCwd(file: string): Promise<string | undefined> {
+  try {
+    const parsed = JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
+    const cwd = parsed.cwd;
+    return typeof cwd === 'string' && cwd.length > 0 && isAbsolute(cwd) ? cwd : undefined;
+  } catch {
+    return undefined; // corrupt or transiently-replaced sidecar: skip
+  }
 }
 
 /** Sidecar `name`: a non-empty string after trimming; anything else is absent. */

@@ -6,7 +6,7 @@
  * moa_complete, and the five moa_board_* tools end-to-end over MCP.
  */
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -882,4 +882,104 @@ it('migration records the migrated cwd in the project meta sidecar for browsing'
   const metaAgain = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
   expect(metaAgain.cwds).toEqual([cwd]);
   await b.close();
+});
+
+// ---- project meta self-heal (legacy pre-task5 projects) ----
+
+it('repairProjectMeta rebuilds a missing project meta from the migrated ws sidecar', async () => {
+  const cwd = join(home, 'legacy-cwd');
+  const hash = workspaceIdForPath(cwd);
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject('legacy');
+  const createdAt = (await registry.listProjects()).find((p) => p.projectId === projectId)!.createdAt;
+  await registry.addAlias(projectId, hash);
+  // A task-5 migration archives the live sidecar to ws-<hash>.meta.json.migrated-<ts>
+  // and leaves the records in project-<id>.jsonl — but pre-task5 runs never
+  // wrote the project meta, so browsing 404s until this repair.
+  await mkdir(join(home, 'boards'), { recursive: true });
+  await writeFile(
+    join(home, 'boards', `ws-${hash}.meta.json.migrated-${Date.now()}`),
+    JSON.stringify({ id: hash, cwd, created_at: new Date().toISOString() }, null, 2),
+  );
+  await writeFile(join(home, 'boards', `project-${projectId}.jsonl`), '');
+
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwd, registry });
+  expect(await b.repairProjectMeta(projectId)).toEqual([cwd]);
+  const meta = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+  expect(meta).toEqual({ projectId, cwds: [cwd], created_at: createdAt });
+  await b.close();
+});
+
+it('repairProjectMeta prefers live sidecars, skips invalid cwds, dedupes, and keeps collection order', async () => {
+  const cwdA = join(home, 'legacy-live-a');
+  const cwdB = join(home, 'legacy-migrated-b');
+  const hashA = workspaceIdForPath(cwdA);
+  const hashB = workspaceIdForPath(cwdB);
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject();
+  await registry.addAlias(projectId, hashA);
+  await registry.addAlias(projectId, hashB);
+  const boardsDir = join(home, 'boards');
+  await mkdir(boardsDir, { recursive: true });
+  // cwdA: live sidecar + an older migrated copy (deduped) + a corrupt copy (skipped).
+  await writeFile(join(boardsDir, `ws-${hashA}.meta.json`), JSON.stringify({ id: hashA, cwd: cwdA, created_at: new Date().toISOString() }, null, 2));
+  await writeFile(join(boardsDir, `ws-${hashA}.meta.json.migrated-1000`), JSON.stringify({ id: hashA, cwd: cwdA, created_at: new Date().toISOString() }, null, 2));
+  await writeFile(join(boardsDir, `ws-${hashA}.meta.json.migrated-3000`), '{not json');
+  // cwdB: a migrated copy with a relative cwd (skipped) plus a valid one.
+  await writeFile(join(boardsDir, `ws-${hashB}.meta.json.migrated-2000`), JSON.stringify({ id: hashB, cwd: 'relative/project', created_at: new Date().toISOString() }, null, 2));
+  await writeFile(join(boardsDir, `ws-${hashB}.meta.json.migrated-4000`), JSON.stringify({ id: hashB, cwd: cwdB, created_at: new Date().toISOString() }, null, 2));
+
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwdA, registry });
+  expect(await b.repairProjectMeta(projectId)).toEqual([cwdA, cwdB]);
+  const meta = JSON.parse(await readFile(join(boardsDir, `project-${projectId}.meta.json`), 'utf8'));
+  expect(meta.cwds).toEqual([cwdA, cwdB]);
+  await b.close();
+});
+
+it('repairProjectMeta returns [] and writes nothing when no sidecar is recoverable', async () => {
+  const cwd = join(home, 'no-sidecar');
+  const hash = workspaceIdForPath(cwd);
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject();
+  await registry.addAlias(projectId, hash);
+  const b = new BoardStore({ homeDir: home, workspaceCwd: cwd, registry });
+  expect(await b.repairProjectMeta(projectId)).toEqual([]);
+  await expect(readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  await b.close();
+});
+
+it('repairProjectMeta returns [] for an unknown projectId without creating the boards dir', async () => {
+  const b = store();
+  expect(await b.repairProjectMeta(`p_${'0'.repeat(12)}`)).toEqual([]);
+  expect(await b.repairProjectMeta('not-a-project-id')).toEqual([]);
+  await expect(readdir(join(home, 'boards'))).rejects.toMatchObject({ code: 'ENOENT' });
+  await b.close();
+});
+
+it('concurrent repairProjectMeta from two instances never tears the meta (append lock)', async () => {
+  const cwd = join(home, 'concurrent-legacy');
+  const hash = workspaceIdForPath(cwd);
+  const registry = new ProjectRegistry({ homeDir: home });
+  const projectId = await registry.createProject();
+  await registry.addAlias(projectId, hash);
+  await mkdir(join(home, 'boards'), { recursive: true });
+  await writeFile(
+    join(home, 'boards', `ws-${hash}.meta.json.migrated-${Date.now()}`),
+    JSON.stringify({ id: hash, cwd, created_at: new Date().toISOString() }, null, 2),
+  );
+
+  // Separate registries per instance: each folds registry.jsonl on demand.
+  const first = new BoardStore({ homeDir: home, workspaceCwd: cwd });
+  const second = new BoardStore({ homeDir: home, workspaceCwd: cwd });
+  const [cwds1, cwds2] = await Promise.all([
+    first.repairProjectMeta(projectId),
+    second.repairProjectMeta(projectId),
+  ]);
+  expect(cwds1).toEqual([cwd]);
+  expect(cwds2).toEqual([cwd]);
+  const meta = JSON.parse(await readFile(join(home, 'boards', `project-${projectId}.meta.json`), 'utf8'));
+  expect(meta).toMatchObject({ projectId, cwds: [cwd] });
+  expect(typeof meta.created_at).toBe('string');
+  await first.close();
+  await second.close();
 });

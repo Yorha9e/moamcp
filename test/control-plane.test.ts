@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, get } from 'node:http';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -1187,6 +1187,41 @@ describe('control plane HTTP surface', () => {
     expect((await request('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ scope: 'workspace', workspace: `project:${projectId}`, key: 'no', value: 'write' }) })).response.status).toBe(400);
     expect((await request('/api/tips', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}`, title: 'x', summary: 'y' }) })).response.status).toBe(400);
     expect((await request(`/api/handoff/${sent.id}/consume`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}` }) })).response.status).toBe(400);
+  });
+
+  it('self-heals legacy pre-task5 projects: project:<id> browses after the missing meta is repaired', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const boardsDir = join(home, 'boards');
+
+    // Seed a tip while A is still a plain workspace, then simulate what a
+    // pre-task5 migration left behind: records moved into project-<id>.jsonl,
+    // the ws board + sidecar archived as .migrated-<ts>, the alias registered,
+    // and NO project meta — the exact state that used to 404 on browse.
+    expect((await request('/api/tips', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idA, title: 'legacy', summary: 'from before task 5' }) })).response.status).toBe(200);
+    const projectId = await board.registry.createProject('legacy');
+    const stamp = Date.now();
+    await writeFile(join(boardsDir, `project-${projectId}.jsonl`), await readFile(join(boardsDir, `ws-${idA}.jsonl`), 'utf8'));
+    await rename(join(boardsDir, `ws-${idA}.jsonl`), join(boardsDir, `ws-${idA}.jsonl.migrated-${stamp}`));
+    await rename(join(boardsDir, `ws-${idA}.meta.json`), join(boardsDir, `ws-${idA}.meta.json.migrated-${stamp}`));
+    await board.registry.addAlias(projectId, idA);
+
+    // The legacy project's meta is missing: the first browse self-heals it
+    // instead of 404ing, and the repaired meta lands on disk.
+    const tips = await request(`/api/tips?workspace=${encodeURIComponent(`project:${projectId}`)}`);
+    expect(tips.response.status).toBe(200);
+    expect(tips.body).toMatchObject({ workspace: `project:${projectId}` });
+    expect(tips.body.tips.map((t: any) => t.title)).toEqual(['legacy']);
+    const meta = JSON.parse(await readFile(join(boardsDir, `project-${projectId}.meta.json`), 'utf8'));
+    expect(meta).toMatchObject({ projectId, cwds: [workspaceA] });
+    expect(typeof meta.created_at).toBe('string');
+
+    // With the meta in place, a second browse is an ordinary read (no rewrite).
+    expect((await request(`/api/tips?workspace=${encodeURIComponent(`project:${projectId}`)}`)).response.status).toBe(200);
+
+    // A project with no aliases / no sidecar still 404s and writes no meta.
+    const bare = await board.registry.createProject('bare');
+    expect((await request(`/api/tips?workspace=${encodeURIComponent(`project:${bare}`)}`)).response.status).toBe(404);
+    await expect(readFile(join(boardsDir, `project-${bare}.meta.json`), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('releases workspaces over HTTP: archives files, unaliases, hides, and restarts empty (task 5c)', async () => {
