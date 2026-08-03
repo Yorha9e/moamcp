@@ -14,10 +14,14 @@
  *   {op:'alias',   projectId, pathHash, ts}
  *   {op:'unalias', projectId, pathHash, ts}
  *   {op:'rename',  projectId, name, ts}
+ *   {op:'archive', projectId, ts}                     (mailbox task 6c)
  * The current view is an in-memory projection rebuilt by folding the log,
  * invalidated by the real file size (same pattern as BoardStore's `fold()`),
  * so `resolveCached` can answer synchronously on the parseScope hot path while
- * peer processes' appends are picked up on the next `refreshIfStale`.
+ * peer processes' appends are picked up on the next `refreshIfStale`. Archived
+ * projects (mailbox task 6c) stay in the log but are filtered out of
+ * `listProjects` and never resolve through `resolveCached` — archive is a
+ * projection-level tombstone, so historical records are never rewritten.
  *
  * Concurrency: every append runs under `withAppendLock` (task 1) and conflict
  * checks re-refresh the projection inside the lock, so two processes cannot
@@ -35,13 +39,19 @@ export type ProjectRegistryRecord =
   | { op: 'create'; projectId: string; name?: string; ts: string }
   | { op: 'alias'; projectId: string; pathHash: string; ts: string }
   | { op: 'unalias'; projectId: string; pathHash: string; ts: string }
-  | { op: 'rename'; projectId: string; name: string; ts: string };
+  | { op: 'rename'; projectId: string; name: string; ts: string }
+  | { op: 'archive'; projectId: string; ts: string };
+
+/** Character cap for a project display name (mailbox task 6a; HTTP enforces the same cap). */
+export const PROJECT_NAME_MAX_CHARS = 80;
 
 /** Folded per-project view behind the projection maps. */
 interface ProjectProjection {
   name?: string;
   createdAt: string;
   aliases: Set<string>;
+  /** Archived projects (task 6c) are filtered from listings and alias resolution. */
+  archived?: boolean;
 }
 
 /** Row shape returned by `listProjects` (aliases sorted for determinism). */
@@ -103,6 +113,8 @@ function isRegistryRecord(value: unknown): value is ProjectRegistryRecord {
       return typeof record.projectId === 'string' && typeof record.pathHash === 'string';
     case 'rename':
       return typeof record.projectId === 'string' && typeof record.name === 'string';
+    case 'archive':
+      return typeof record.projectId === 'string';
     default:
       return false;
   }
@@ -136,7 +148,13 @@ export class ProjectRegistry {
    * stale projection self-heals on the next fold-driven `refreshIfStale`.
    */
   resolveCached(pathHash: string): string | undefined {
-    return this.byAlias.get(pathHash);
+    const projectId = this.byAlias.get(pathHash);
+    if (projectId === undefined) return undefined;
+    // An archived project never resolves (task 6c), even if a stale alias
+    // lingers mid-cleanup: alias resolution must fall back to the plain
+    // workspace scope, and browse must 404.
+    if (this.projects.get(projectId)?.archived === true) return undefined;
+    return projectId;
   }
 
   /**
@@ -234,7 +252,7 @@ export class ProjectRegistry {
       if (owner !== undefined) {
         throw new Error(`pathHash ${hash} is already aliased to project ${owner} (cannot alias to ${id})`);
       }
-      if (!this.projects.has(id)) throw new Error(`unknown projectId: ${id}`);
+      if (this.liveProject(id) === undefined) throw new Error(`unknown projectId: ${id}`);
       await this.appendRecord({ op: 'alias', projectId: id, pathHash: hash, ts: new Date().toISOString() });
     });
   }
@@ -249,20 +267,49 @@ export class ProjectRegistry {
     });
   }
 
-  /** Rename a project; rejects for unknown projects. */
+  /**
+   * Rename a project (mailbox task 6a); trims the name and rejects empty /
+   * over-length names and unknown (or archived) projects. Projects cannot be
+   * "cleared" back to unnamed here — the registry keeps a non-empty display
+   * name once set (the card falls back to the projectId when never named).
+   */
   async renameProject(projectId: unknown, name: unknown): Promise<void> {
     const id = validateProjectId(projectId);
-    const normalizedName = validateName(name);
+    if (typeof name !== 'string') throw new Error('name must be a string');
+    const trimmedName = name.trim();
+    validateName(trimmedName);
+    if (trimmedName.length > PROJECT_NAME_MAX_CHARS) {
+      throw new Error(`name exceeds ${PROJECT_NAME_MAX_CHARS} characters`);
+    }
     await this.mutateUnderLock(async () => {
-      if (!this.projects.has(id)) throw new Error(`unknown projectId: ${id}`);
-      await this.appendRecord({ op: 'rename', projectId: id, name: normalizedName, ts: new Date().toISOString() });
+      if (this.liveProject(id) === undefined) throw new Error(`unknown projectId: ${id}`);
+      await this.appendRecord({ op: 'rename', projectId: id, name: trimmedName, ts: new Date().toISOString() });
     });
   }
 
-  /** Folded project list (refreshes first); sorted by creation, then id. */
+  /**
+   * Archive a project (mailbox task 6c, soft delete): append an `op:'archive'`
+   * record and mark the projection entry archived. The project then disappears
+   * from `listProjects` and stops resolving through `resolveCached`. Historical
+   * records are never rewritten — archive is a projection-level tombstone.
+   * Rejects for unknown and already-archived projects (both surface as 404).
+   */
+  async archiveProject(projectId: unknown): Promise<void> {
+    const id = validateProjectId(projectId);
+    await this.mutateUnderLock(async () => {
+      if (this.liveProject(id) === undefined) throw new Error(`unknown projectId: ${id}`);
+      await this.appendRecord({ op: 'archive', projectId: id, ts: new Date().toISOString() });
+    });
+  }
+
+  /**
+   * Folded project list (refreshes first); sorted by creation, then id.
+   * Archived projects (task 6c) are filtered out — they are soft-deleted.
+   */
   async listProjects(): Promise<ProjectSummary[]> {
     await this.refreshIfStale();
     return [...this.projects.entries()]
+      .filter(([, project]) => project.archived !== true)
       .map(([projectId, project]) => ({
         projectId,
         ...(project.name !== undefined ? { name: project.name } : {}),
@@ -276,6 +323,16 @@ export class ProjectRegistry {
   }
 
   // ---- internals ----
+
+  /**
+   * The live (non-archived) projection for `id`, or undefined. Mutations treat
+   * archived projects as unknown (task 6c): you cannot alias, rename, or
+   * re-archive a soft-deleted project.
+   */
+  private liveProject(projectId: string): ProjectProjection | undefined {
+    const project = this.projects.get(projectId);
+    return project !== undefined && project.archived !== true ? project : undefined;
+  }
 
   /**
    * Run a check-then-append mutation under the registry's append lock, with a
@@ -354,6 +411,13 @@ export class ProjectRegistry {
       case 'rename': {
         const project = this.projects.get(record.projectId);
         if (project !== undefined) project.name = record.name;
+        return;
+      }
+      case 'archive': {
+        // Soft-delete tombstone (task 6c): mark archived so listProjects and
+        // resolveCached skip it. Absent projects (partial log) are left alone.
+        const project = this.projects.get(record.projectId);
+        if (project !== undefined) project.archived = true;
         return;
       }
     }

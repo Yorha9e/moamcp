@@ -24,7 +24,7 @@ import {
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { BoardStore, WORKSPACE_NAME_MAX_CHARS, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
-import { PROJECT_ID_PATTERN } from '../core/store/project-registry.js';
+import { PROJECT_ID_PATTERN, PROJECT_NAME_MAX_CHARS } from '../core/store/project-registry.js';
 import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
 import type { TipsAuthority } from '../core/store/tips-authority.js';
 import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
@@ -230,6 +230,23 @@ function requireWorkspaceId(value: unknown): string {
   }
   return value;
 }
+
+/** Validate a `p_<12 hex chars>` project id path parameter (mailbox task 6). */
+function requireProjectId(value: string): string {
+  let id: string;
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError('invalid project id');
+  }
+  if (!PROJECT_ID_PATTERN.test(id)) {
+    throw new ApiValidationError('project id must be a p_<12 hex chars> project id');
+  }
+  return id;
+}
+
+/** The detach route's second path segment; a malformed hash cannot belong to any project. */
+const PROJECT_ALIAS_PATH = /^\/api\/projects\/[^/]+\/aliases\/([^/]+)$/;
 
 function requireTipId(value: string): string {
   let id: string;
@@ -471,6 +488,27 @@ export class ControlPlane {
       { method: 'GET', path: '/api/system', handler: (ctx) => this.system(ctx.res) },
       { method: 'GET', path: '/api/projects', handler: (ctx) => this.listProjects(ctx.res) },
       { method: 'POST', path: '/api/projects/migrate', handler: (ctx) => this.migrateProject(ctx) },
+      {
+        method: 'PUT',
+        path: '/api/projects/:id',
+        pattern: /^\/api\/projects\/([^/]+)$/,
+        validateParam: requireProjectId,
+        handler: (ctx) => this.renameProjectEntry(ctx),
+      },
+      {
+        method: 'POST',
+        path: '/api/projects/:id/archive',
+        pattern: /^\/api\/projects\/([^/]+)\/archive$/,
+        validateParam: requireProjectId,
+        handler: (ctx) => this.archiveProjectEntry(ctx),
+      },
+      {
+        method: 'DELETE',
+        path: '/api/projects/:id/aliases/:pathHash',
+        pattern: /^\/api\/projects\/([^/]+)\/aliases\/([^/]+)$/,
+        validateParam: requireProjectId,
+        handler: (ctx) => this.detachProjectAliasEntry(ctx),
+      },
       { method: 'GET', path: '/api/handoff/inbox', handler: (ctx) => this.handoffInbox(ctx.url, ctx.res) },
       { method: 'GET', path: '/api/handoff/outbox', handler: (ctx) => this.handoffOutbox(ctx.url, ctx.res) },
       {
@@ -862,6 +900,69 @@ export class ControlPlane {
       ...(name === undefined ? {} : { name: name as string }),
     });
     ctx.sendJson(200, result);
+  }
+
+  /** PUT /api/projects/:id — rename a project (task 6a); validation mirrors workspace rename. */
+  private async renameProjectEntry(ctx: MoaRouteContext): Promise<void> {
+    const { board } = this.stores();
+    const id = ctx.param as string;
+    // Unknown (or archived) id → 404 before reading the body, like workspace rename.
+    const project = (await board.registry.listProjects()).find((candidate) => candidate.projectId === id);
+    if (project === undefined) throw new ResourceNotFoundError('project not found');
+    const body = await ctx.jsonBody();
+    ctx.assertAllowedFields(body, ['name'], 'project rename');
+    const name = body.name;
+    if (typeof name !== 'string') throw new ApiValidationError('name must be a string');
+    const trimmedName = name.trim();
+    // Projects keep a non-empty display name once set (the registry rejects empty).
+    if (trimmedName.length === 0) throw new ApiValidationError('name must be a non-empty string');
+    if (trimmedName.length > PROJECT_NAME_MAX_CHARS) {
+      throw new ApiValidationError(`name must be at most ${PROJECT_NAME_MAX_CHARS} characters`);
+    }
+    await board.registry.renameProject(id, trimmedName);
+    ctx.sendJson(200, { ok: true, projectId: id, name: trimmedName });
+  }
+
+  /** POST /api/projects/:id/archive — soft-delete a project (task 6c); re-archive → 404. */
+  private async archiveProjectEntry(ctx: MoaRouteContext): Promise<void> {
+    const { board } = this.stores();
+    const id = ctx.param as string;
+    // listProjects excludes archived projects, so an already-archived (or never
+    // existing) id is not found and 404s here.
+    const project = (await board.registry.listProjects()).find((candidate) => candidate.projectId === id);
+    if (project === undefined) throw new ResourceNotFoundError('project not found');
+    await board.archiveProject(id);
+    ctx.sendJson(200, { ok: true, projectId: id });
+  }
+
+  /** DELETE /api/projects/:id/aliases/:pathHash — un-merge one alias (task 6b). */
+  private async detachProjectAliasEntry(ctx: MoaRouteContext): Promise<void> {
+    const { board } = this.stores();
+    const projectId = ctx.param as string;
+    const aliasMatch = PROJECT_ALIAS_PATH.exec(ctx.url.pathname);
+    if (aliasMatch === null) throw new ResourceNotFoundError('alias not found');
+    let pathHash: string;
+    try {
+      pathHash = decodeURIComponent(aliasMatch[1]);
+    } catch {
+      throw new ResourceNotFoundError('alias not found');
+    }
+    // Only a 16-hex workspace hash can be an alias; anything else belongs to no project.
+    if (!WORKSPACE_ID.test(pathHash)) throw new ResourceNotFoundError('alias not found');
+    const project = (await board.registry.listProjects()).find((candidate) => candidate.projectId === projectId);
+    if (project === undefined || !project.aliases.includes(pathHash)) {
+      // Unknown/archived project, or the hash belongs to another project (or none).
+      throw new ResourceNotFoundError('alias not found');
+    }
+    await board.registry.removeAlias(pathHash);
+    const result = await board.detachProjectAlias(projectId, pathHash);
+    ctx.sendJson(200, {
+      ok: true,
+      projectId,
+      pathHash,
+      removedCwd: result.removedCwd ?? null,
+      restoredSidecar: result.restoredSidecar,
+    });
   }
 
   private async handoffInbox(url: URL, res: ServerResponse): Promise<void> {

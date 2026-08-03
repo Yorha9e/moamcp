@@ -23096,6 +23096,7 @@ async function withAppendLock(file, fn, opts = {}) {
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir as mkdir2, readFile as readFile2, stat as stat2 } from "node:fs/promises";
 import { dirname, join as join2 } from "node:path";
+var PROJECT_NAME_MAX_CHARS = 80;
 var PROJECT_ID_PATTERN = /^p_[0-9a-f]{12}$/;
 function newProjectId() {
   return "p_" + randomUUID().replace(/-/g, "").slice(0, 12);
@@ -23134,6 +23135,8 @@ function isRegistryRecord(value) {
       return typeof record2.projectId === "string" && typeof record2.pathHash === "string";
     case "rename":
       return typeof record2.projectId === "string" && typeof record2.name === "string";
+    case "archive":
+      return typeof record2.projectId === "string";
     default:
       return false;
   }
@@ -23163,7 +23166,10 @@ var ProjectRegistry = class {
    * stale projection self-heals on the next fold-driven `refreshIfStale`.
    */
   resolveCached(pathHash) {
-    return this.byAlias.get(pathHash);
+    const projectId = this.byAlias.get(pathHash);
+    if (projectId === void 0) return void 0;
+    if (this.projects.get(projectId)?.archived === true) return void 0;
+    return projectId;
   }
   /**
    * Rebuild the projection when the log's size changed (or appeared/vanished).
@@ -23252,7 +23258,7 @@ var ProjectRegistry = class {
       if (owner !== void 0) {
         throw new Error(`pathHash ${hash} is already aliased to project ${owner} (cannot alias to ${id})`);
       }
-      if (!this.projects.has(id)) throw new Error(`unknown projectId: ${id}`);
+      if (this.liveProject(id) === void 0) throw new Error(`unknown projectId: ${id}`);
       await this.appendRecord({ op: "alias", projectId: id, pathHash: hash, ts: (/* @__PURE__ */ new Date()).toISOString() });
     });
   }
@@ -23265,19 +23271,46 @@ var ProjectRegistry = class {
       await this.appendRecord({ op: "unalias", projectId: owner, pathHash: hash, ts: (/* @__PURE__ */ new Date()).toISOString() });
     });
   }
-  /** Rename a project; rejects for unknown projects. */
+  /**
+   * Rename a project (mailbox task 6a); trims the name and rejects empty /
+   * over-length names and unknown (or archived) projects. Projects cannot be
+   * "cleared" back to unnamed here — the registry keeps a non-empty display
+   * name once set (the card falls back to the projectId when never named).
+   */
   async renameProject(projectId, name) {
     const id = validateProjectId(projectId);
-    const normalizedName = validateName(name);
+    if (typeof name !== "string") throw new Error("name must be a string");
+    const trimmedName = name.trim();
+    validateName(trimmedName);
+    if (trimmedName.length > PROJECT_NAME_MAX_CHARS) {
+      throw new Error(`name exceeds ${PROJECT_NAME_MAX_CHARS} characters`);
+    }
     await this.mutateUnderLock(async () => {
-      if (!this.projects.has(id)) throw new Error(`unknown projectId: ${id}`);
-      await this.appendRecord({ op: "rename", projectId: id, name: normalizedName, ts: (/* @__PURE__ */ new Date()).toISOString() });
+      if (this.liveProject(id) === void 0) throw new Error(`unknown projectId: ${id}`);
+      await this.appendRecord({ op: "rename", projectId: id, name: trimmedName, ts: (/* @__PURE__ */ new Date()).toISOString() });
     });
   }
-  /** Folded project list (refreshes first); sorted by creation, then id. */
+  /**
+   * Archive a project (mailbox task 6c, soft delete): append an `op:'archive'`
+   * record and mark the projection entry archived. The project then disappears
+   * from `listProjects` and stops resolving through `resolveCached`. Historical
+   * records are never rewritten — archive is a projection-level tombstone.
+   * Rejects for unknown and already-archived projects (both surface as 404).
+   */
+  async archiveProject(projectId) {
+    const id = validateProjectId(projectId);
+    await this.mutateUnderLock(async () => {
+      if (this.liveProject(id) === void 0) throw new Error(`unknown projectId: ${id}`);
+      await this.appendRecord({ op: "archive", projectId: id, ts: (/* @__PURE__ */ new Date()).toISOString() });
+    });
+  }
+  /**
+   * Folded project list (refreshes first); sorted by creation, then id.
+   * Archived projects (task 6c) are filtered out — they are soft-deleted.
+   */
   async listProjects() {
     await this.refreshIfStale();
-    return [...this.projects.entries()].map(([projectId, project]) => ({
+    return [...this.projects.entries()].filter(([, project]) => project.archived !== true).map(([projectId, project]) => ({
       projectId,
       ...project.name !== void 0 ? { name: project.name } : {},
       aliases: [...project.aliases].sort(),
@@ -23288,6 +23321,15 @@ var ProjectRegistry = class {
     });
   }
   // ---- internals ----
+  /**
+   * The live (non-archived) projection for `id`, or undefined. Mutations treat
+   * archived projects as unknown (task 6c): you cannot alias, rename, or
+   * re-archive a soft-deleted project.
+   */
+  liveProject(projectId) {
+    const project = this.projects.get(projectId);
+    return project !== void 0 && project.archived !== true ? project : void 0;
+  }
   /**
    * Run a check-then-append mutation under the registry's append lock, with a
    * forced-enough refresh inside the lock: peers also append under this lock,
@@ -23358,6 +23400,11 @@ var ProjectRegistry = class {
       case "rename": {
         const project = this.projects.get(record2.projectId);
         if (project !== void 0) project.name = record2.name;
+        return;
+      }
+      case "archive": {
+        const project = this.projects.get(record2.projectId);
+        if (project !== void 0) project.archived = true;
         return;
       }
     }
@@ -23899,6 +23946,141 @@ var BoardStore = class {
     });
     return cwds;
   }
+  // ---- project management (mailbox task 6) ----
+  /**
+   * Remove a cwd from a project's `cwds[]` sidecar (mailbox task 6b). The
+   * read-modify-write runs under the meta file's append lock (mirrors
+   * `ensureProjectSidecar`); a missing/invalid sidecar or an absent cwd is a
+   * no-op. Alias detach uses it so the detached directory stops being reported
+   * as one of the project's paths.
+   */
+  async removeProjectCwd(projectId, cwd) {
+    this.assertOpen();
+    if (typeof projectId !== "string" || !PROJECT_ID_PATTERN.test(projectId)) {
+      throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+    }
+    if (typeof cwd !== "string") throw new Error("cwd must be a string");
+    const normalizedCwd = normalizeWorkspacePath(cwd);
+    const metaFile = join3(this.boardsDir(), `project-${projectId}.meta.json`);
+    await mkdir3(this.boardsDir(), { recursive: true });
+    await withAppendLock(metaFile, async () => {
+      let doc;
+      try {
+        const parsed = JSON.parse(await readFile3(metaFile, "utf8"));
+        if (parsed.projectId === projectId && Array.isArray(parsed.cwds) && parsed.cwds.every((entry) => typeof entry === "string") && typeof parsed.created_at === "string") {
+          doc = parsed;
+        }
+      } catch {
+        doc = void 0;
+      }
+      if (doc === void 0 || !doc.cwds.includes(normalizedCwd)) return;
+      doc.cwds = doc.cwds.filter((entry) => entry !== normalizedCwd);
+      await writeFile(metaFile, JSON.stringify(doc, null, 2));
+    });
+  }
+  /**
+   * Restore a detached workspace's sidecar (mailbox task 6b): rename the newest
+   * `ws-<hash>.meta.json.migrated-*` archive back to the live
+   * `ws-<hash>.meta.json` so the directory reappears in the workspace list.
+   * No archive (or a live sidecar already present) leaves the state untouched
+   * and returns false. The board file is deliberately NOT restored — the
+   * project keeps its records; the directory's next write starts a fresh board.
+   */
+  async restoreWorkspaceSidecar(pathHash) {
+    this.assertOpen();
+    if (typeof pathHash !== "string" || !/^[0-9a-f]{16}$/.test(pathHash)) {
+      throw new Error("pathHash must be a 16-hex workspace id");
+    }
+    const dir = this.boardsDir();
+    let names;
+    try {
+      names = await readdir2(dir);
+    } catch (err) {
+      if (err.code === "ENOENT") return false;
+      throw err;
+    }
+    const liveName = `ws-${pathHash}.meta.json`;
+    if (names.includes(liveName)) return false;
+    const prefix = `${liveName}.migrated-`;
+    const archives = names.filter((name) => name.startsWith(prefix)).sort((a, b) => archiveStamp(a, prefix) - archiveStamp(b, prefix));
+    if (archives.length === 0) return false;
+    const newest = archives[archives.length - 1];
+    await rename2(join3(dir, newest), join3(dir, liveName));
+    return true;
+  }
+  /**
+   * Alias detach file work (un-merge, mailbox task 6b): the symmetric half of a
+   * merge. Removes the detached directory's cwd from the project's `cwds[]`
+   * sidecar and restores its archived workspace sidecar so it reappears as an
+   * independent workspace. The caller has already dropped the registry alias
+   * (`registry.removeAlias`); the project's existing records stay in the
+   * project board — nothing is deleted.
+   */
+  async detachProjectAlias(projectId, pathHash) {
+    this.assertOpen();
+    if (typeof projectId !== "string" || !PROJECT_ID_PATTERN.test(projectId)) {
+      throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+    }
+    if (typeof pathHash !== "string" || !/^[0-9a-f]{16}$/.test(pathHash)) {
+      throw new Error("pathHash must be a 16-hex workspace id");
+    }
+    const metaFile = join3(this.boardsDir(), `project-${projectId}.meta.json`);
+    let removedCwd;
+    try {
+      const parsed = JSON.parse(await readFile3(metaFile, "utf8"));
+      const cwds = Array.isArray(parsed.cwds) ? parsed.cwds : [];
+      removedCwd = cwds.find((entry) => {
+        if (typeof entry !== "string") return false;
+        try {
+          return workspaceIdForPath(entry) === pathHash;
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      removedCwd = void 0;
+    }
+    if (removedCwd !== void 0) await this.removeProjectCwd(projectId, removedCwd);
+    const restoredSidecar = await this.restoreWorkspaceSidecar(pathHash);
+    return { ...removedCwd !== void 0 ? { removedCwd } : {}, restoredSidecar };
+  }
+  /**
+   * Archive a project (mailbox task 6c, soft delete): write the registry
+   * `archive` tombstone, drop every alias (the directories fall back to plain
+   * workspaces, but their migrated sidecars are NOT restored — archive ≠ detach),
+   * and archive (never delete) `project-<id>.jsonl` + `project-<id>.meta.json`
+   * under their locks. Rejects for unknown / already-archived projects.
+   */
+  async archiveProject(projectId) {
+    this.assertOpen();
+    if (typeof projectId !== "string" || !PROJECT_ID_PATTERN.test(projectId)) {
+      throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+    }
+    const registry2 = this.registry;
+    await registry2.refreshIfStale();
+    const project = (await registry2.listProjects()).find((candidate) => candidate.projectId === projectId);
+    if (project === void 0) throw new Error(`unknown projectId: ${projectId}`);
+    await registry2.archiveProject(projectId);
+    for (const alias of project.aliases) {
+      await registry2.removeAlias(alias);
+    }
+    const stamp = Date.now();
+    const file = join3(this.boardsDir(), `project-${projectId}.jsonl`);
+    const metaFile = join3(this.boardsDir(), `project-${projectId}.meta.json`);
+    await mkdir3(this.boardsDir(), { recursive: true });
+    await withAppendLock(file, async () => {
+      await archiveFileRename(file, `${file}.archived-${stamp}`);
+    });
+    await withAppendLock(metaFile, async () => {
+      await archiveFileRename(metaFile, `${metaFile}.archived-${stamp}`);
+    });
+    const state = this.scopes.get(`project:${projectId}`);
+    if (state !== void 0) {
+      state.metaWritten = false;
+      state.loaded = false;
+    }
+    return { ok: true, projectId };
+  }
   // ---- task lifecycle ----
   /**
    * Write the task scope's raw record log to `<dir>/board.jsonl` (the fourth
@@ -24323,6 +24505,10 @@ async function archiveFileRename(from, to) {
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
   }
+}
+function archiveStamp(name, prefix) {
+  const stamp = Number(name.slice(prefix.length));
+  return Number.isFinite(stamp) ? stamp : 0;
 }
 function normalizeWorkspaceId(value) {
   if (typeof value !== "string") return void 0;
@@ -30278,6 +30464,18 @@ var I18N_DICTIONARIES = {
     "projects.merged": "Workspace merged into {projectId} \xB7 {moved} records moved.",
     "projects.count": "{count} project",
     "projects.countPlural": "{count} projects",
+    "projects.renameTitle": "Rename this project",
+    "projects.renamePlaceholder": "Project name",
+    "projects.renameSave": "Save",
+    "projects.renamed": "Project name updated.",
+    "projects.renameRequired": "Project name cannot be empty.",
+    "projects.detachAliasTitle": "Detach this alias (un-merge)",
+    "projects.detachConfirm": "Detach alias {alias} from project {project}? Only the path-to-project binding is removed: the project keeps its existing board records, and the directory returns to its own independent workspace (future writes start from an empty board). No data is deleted.",
+    "projects.detached": "Alias detached; the directory is an independent workspace again.",
+    "projects.archiveProject": "Archive",
+    "projects.archiveTitle": "Archive this project (soft delete)",
+    "projects.archiveConfirm": "Archive project {project}? It disappears from the project list and all of its aliases are removed; its data is archived (never deleted). v1 has no in-app restore \u2014 recover it manually from disk if needed.",
+    "projects.archived": "Project archived.",
     "inbox.state.pending": "pending",
     "inbox.state.consumed": "consumed",
     "inbox.state.archived": "archived",
@@ -30575,6 +30773,18 @@ var I18N_DICTIONARIES = {
     "projects.merged": "\u5DE5\u4F5C\u533A\u5DF2\u5408\u5E76\u8FDB {projectId} \xB7 \u8FC1\u79FB {moved} \u6761\u8BB0\u5F55\u3002",
     "projects.count": "{count} \u4E2A\u9879\u76EE",
     "projects.countPlural": "{count} \u4E2A\u9879\u76EE",
+    "projects.renameTitle": "\u91CD\u547D\u540D\u6B64\u9879\u76EE",
+    "projects.renamePlaceholder": "\u9879\u76EE\u540D\u79F0",
+    "projects.renameSave": "\u4FDD\u5B58",
+    "projects.renamed": "\u9879\u76EE\u540D\u79F0\u5DF2\u66F4\u65B0\u3002",
+    "projects.renameRequired": "\u9879\u76EE\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A\u3002",
+    "projects.detachAliasTitle": "\u62C6\u51FA\u6B64\u522B\u540D\uFF08\u53D6\u6D88\u5408\u5E76\uFF09",
+    "projects.detachConfirm": "\u786E\u8BA4\u628A\u522B\u540D {alias} \u4ECE\u9879\u76EE {project} \u62C6\u51FA\uFF1F\u53EA\u89E3\u9664\u8DEF\u5F84\u4E0E\u9879\u76EE\u7684\u7ED1\u5B9A\uFF1A\u9879\u76EE\u770B\u677F\u91CC\u7684\u65E2\u6709\u8BB0\u5F55\u4FDD\u7559\u5728\u9879\u76EE\uFF0C\u8BE5\u76EE\u5F55\u56DE\u5230\u72EC\u7ACB\u5DE5\u4F5C\u533A\uFF08\u4E4B\u540E\u65B0\u5199\u5165\u4ECE\u7A7A\u767D\u770B\u677F\u5F00\u59CB\uFF09\u3002\u6570\u636E\u4E0D\u5220\u9664\u3002",
+    "projects.detached": "\u522B\u540D\u5DF2\u62C6\u51FA\uFF0C\u8BE5\u76EE\u5F55\u5DF2\u56DE\u5230\u72EC\u7ACB\u5DE5\u4F5C\u533A\u3002",
+    "projects.archiveProject": "\u5F52\u6863",
+    "projects.archiveTitle": "\u5F52\u6863\u6B64\u9879\u76EE\uFF08\u8F6F\u5220\u9664\uFF09",
+    "projects.archiveConfirm": "\u786E\u8BA4\u5F52\u6863\u9879\u76EE {project}\uFF1F\u9879\u76EE\u5C06\u4ECE\u5217\u8868\u6D88\u5931\u3001\u5168\u90E8\u522B\u540D\u89E3\u9664\uFF0C\u6570\u636E\u7559\u6863\uFF08\u4E0D\u5220\u9664\uFF09\u3002v1 \u4E0D\u63D0\u4F9B\u754C\u9762\u6062\u590D\uFF0C\u5982\u9700\u627E\u56DE\u8BF7\u4ECE\u78C1\u76D8\u624B\u5DE5\u6062\u590D\u3002",
+    "projects.archived": "\u9879\u76EE\u5DF2\u5F52\u6863\u3002",
     "inbox.state.pending": "\u5F85\u5904\u7406",
     "inbox.state.consumed": "\u5DF2\u6D88\u8D39",
     "inbox.state.archived": "\u5DF2\u5F52\u6863",
@@ -31629,8 +31839,11 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     var head = document.createElement('div');
     head.className = 'proj-head';
     var name = document.createElement('h3');
-    name.className = 'proj-name';
+    name.className = 'proj-name proj-name-edit';
     name.textContent = project.name || project.projectId;
+    name.title = tr('projects.renameTitle');
+    name.setAttribute('role', 'button');
+    name.addEventListener('click', function () { openProjectRename(project, card, name); });
     head.appendChild(name);
     var id = document.createElement('span');
     id.className = 'proj-id';
@@ -31657,7 +31870,18 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     aliasList.forEach(function (alias) {
       var chip = document.createElement('span');
       chip.className = 'tag proj-alias';
-      chip.textContent = alias;
+      var aliasHash = document.createElement('span');
+      aliasHash.className = 'proj-alias-hash';
+      aliasHash.textContent = alias;
+      chip.appendChild(aliasHash);
+      var detach = document.createElement('button');
+      detach.className = 'proj-alias-detach';
+      detach.type = 'button';
+      detach.textContent = '\xD7';
+      detach.title = tr('projects.detachAliasTitle');
+      detach.setAttribute('aria-label', tr('projects.detachAliasTitle') + ' ' + alias);
+      detach.addEventListener('click', function () { detachProjectAliasAction(project, alias); });
+      chip.appendChild(detach);
       aliases.appendChild(chip);
     });
     card.appendChild(aliases);
@@ -31669,8 +31893,78 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
     merge.textContent = tr('projects.merge');
     merge.addEventListener('click', function () { migrateCurrentWorkspace(project); });
     actions.appendChild(merge);
+    var archive = document.createElement('button');
+    archive.className = 'danger';
+    archive.type = 'button';
+    archive.textContent = tr('projects.archiveProject');
+    archive.title = tr('projects.archiveTitle');
+    archive.addEventListener('click', function () { archiveProjectAction(project); });
+    actions.appendChild(archive);
     card.appendChild(actions);
     return card;
+  }
+  function openProjectRename(project, card, nameEl) {
+    if (card.querySelector('.proj-rename')) return; // one inline editor per card
+    var form = document.createElement('span');
+    form.className = 'proj-rename';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 80;
+    input.value = project.name || '';
+    input.placeholder = tr('projects.renamePlaceholder');
+    input.setAttribute('data-i18n-placeholder', 'projects.renamePlaceholder');
+    var save = document.createElement('button');
+    save.className = 'primary';
+    save.type = 'button';
+    save.textContent = tr('projects.renameSave');
+    var cancel = document.createElement('button');
+    cancel.className = 'secondary';
+    cancel.type = 'button';
+    cancel.textContent = tr('common.cancel');
+    function closeEditor() {
+      if (form.parentNode) form.parentNode.removeChild(form);
+      nameEl.hidden = false;
+    }
+    function saveRename() {
+      var value = input.value.trim();
+      if (!value) { setNotice(tr('projects.renameRequired'), true); return; }
+      api('/api/projects/' + encodeURIComponent(project.projectId), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: value })
+      }).then(function () {
+        setNotice(tr('projects.renamed'), false);
+        return loadProjects().then(function () { return loadWorkspaces().catch(function () {}); });
+      }).catch(function (error) { setNotice(error.message, true); });
+    }
+    save.addEventListener('click', saveRename);
+    cancel.addEventListener('click', closeEditor);
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); saveRename(); }
+      else if (event.key === 'Escape') closeEditor();
+    });
+    form.appendChild(input);
+    form.appendChild(save);
+    form.appendChild(cancel);
+    nameEl.hidden = true;
+    nameEl.parentNode.insertBefore(form, nameEl);
+    input.focus();
+  }
+  function detachProjectAliasAction(project, alias) {
+    var label = project.name || project.projectId;
+    if (!window.confirm(tr('projects.detachConfirm', { alias: alias, project: label }))) return;
+    api('/api/projects/' + encodeURIComponent(project.projectId) + '/aliases/' + encodeURIComponent(alias), { method: 'DELETE' }).then(function () {
+      setNotice(tr('projects.detached'), false);
+      return loadProjects().then(function () { return loadWorkspaces().catch(function () {}); });
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function archiveProjectAction(project) {
+    var label = project.name || project.projectId;
+    if (!window.confirm(tr('projects.archiveConfirm', { project: label }))) return;
+    api('/api/projects/' + encodeURIComponent(project.projectId) + '/archive', { method: 'POST' }).then(function () {
+      setNotice(tr('projects.archived'), false);
+      return loadProjects().then(function () { return loadWorkspaces().catch(function () {}); });
+    }).catch(function (error) { setNotice(error.message, true); });
   }
   function renderProjects(projects) {
     var list = document.getElementById('projectsList');
@@ -32542,6 +32836,48 @@ ${COMPONENTS_CSS}
   padding: 5px 10px;
   font-size: 12px;
 }
+/* Project rename / alias detach / archive (mailbox task 6) */
+.proj-name-edit {
+  cursor: pointer;
+}
+.proj-name-edit:hover {
+  color: var(--accent-blue);
+}
+.proj-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 240px;
+}
+.proj-rename input {
+  min-width: 160px;
+  padding: 6px 8px;
+}
+.proj-rename button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.proj-alias {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.proj-alias-hash {
+  overflow-wrap: anywhere;
+}
+.proj-alias-detach {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.proj-alias-detach:hover {
+  color: var(--accent-red);
+}
 .ho-row {
   padding: 13px 15px;
   background: var(--solid);
@@ -33238,6 +33574,19 @@ function requireWorkspaceId(value) {
   }
   return value;
 }
+function requireProjectId(value) {
+  let id;
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    throw new ApiValidationError("invalid project id");
+  }
+  if (!PROJECT_ID_PATTERN.test(id)) {
+    throw new ApiValidationError("project id must be a p_<12 hex chars> project id");
+  }
+  return id;
+}
+var PROJECT_ALIAS_PATH = /^\/api\/projects\/[^/]+\/aliases\/([^/]+)$/;
 function requireTipId(value) {
   let id;
   try {
@@ -33437,6 +33786,27 @@ var ControlPlane = class {
       { method: "GET", path: "/api/system", handler: (ctx) => this.system(ctx.res) },
       { method: "GET", path: "/api/projects", handler: (ctx) => this.listProjects(ctx.res) },
       { method: "POST", path: "/api/projects/migrate", handler: (ctx) => this.migrateProject(ctx) },
+      {
+        method: "PUT",
+        path: "/api/projects/:id",
+        pattern: /^\/api\/projects\/([^/]+)$/,
+        validateParam: requireProjectId,
+        handler: (ctx) => this.renameProjectEntry(ctx)
+      },
+      {
+        method: "POST",
+        path: "/api/projects/:id/archive",
+        pattern: /^\/api\/projects\/([^/]+)\/archive$/,
+        validateParam: requireProjectId,
+        handler: (ctx) => this.archiveProjectEntry(ctx)
+      },
+      {
+        method: "DELETE",
+        path: "/api/projects/:id/aliases/:pathHash",
+        pattern: /^\/api\/projects\/([^/]+)\/aliases\/([^/]+)$/,
+        validateParam: requireProjectId,
+        handler: (ctx) => this.detachProjectAliasEntry(ctx)
+      },
       { method: "GET", path: "/api/handoff/inbox", handler: (ctx) => this.handoffInbox(ctx.url, ctx.res) },
       { method: "GET", path: "/api/handoff/outbox", handler: (ctx) => this.handoffOutbox(ctx.url, ctx.res) },
       {
@@ -33784,6 +34154,60 @@ var ControlPlane = class {
       ...name === void 0 ? {} : { name }
     });
     ctx.sendJson(200, result);
+  }
+  /** PUT /api/projects/:id — rename a project (task 6a); validation mirrors workspace rename. */
+  async renameProjectEntry(ctx) {
+    const { board } = this.stores();
+    const id = ctx.param;
+    const project = (await board.registry.listProjects()).find((candidate) => candidate.projectId === id);
+    if (project === void 0) throw new ResourceNotFoundError("project not found");
+    const body = await ctx.jsonBody();
+    ctx.assertAllowedFields(body, ["name"], "project rename");
+    const name = body.name;
+    if (typeof name !== "string") throw new ApiValidationError("name must be a string");
+    const trimmedName = name.trim();
+    if (trimmedName.length === 0) throw new ApiValidationError("name must be a non-empty string");
+    if (trimmedName.length > PROJECT_NAME_MAX_CHARS) {
+      throw new ApiValidationError(`name must be at most ${PROJECT_NAME_MAX_CHARS} characters`);
+    }
+    await board.registry.renameProject(id, trimmedName);
+    ctx.sendJson(200, { ok: true, projectId: id, name: trimmedName });
+  }
+  /** POST /api/projects/:id/archive — soft-delete a project (task 6c); re-archive → 404. */
+  async archiveProjectEntry(ctx) {
+    const { board } = this.stores();
+    const id = ctx.param;
+    const project = (await board.registry.listProjects()).find((candidate) => candidate.projectId === id);
+    if (project === void 0) throw new ResourceNotFoundError("project not found");
+    await board.archiveProject(id);
+    ctx.sendJson(200, { ok: true, projectId: id });
+  }
+  /** DELETE /api/projects/:id/aliases/:pathHash — un-merge one alias (task 6b). */
+  async detachProjectAliasEntry(ctx) {
+    const { board } = this.stores();
+    const projectId = ctx.param;
+    const aliasMatch = PROJECT_ALIAS_PATH.exec(ctx.url.pathname);
+    if (aliasMatch === null) throw new ResourceNotFoundError("alias not found");
+    let pathHash;
+    try {
+      pathHash = decodeURIComponent(aliasMatch[1]);
+    } catch {
+      throw new ResourceNotFoundError("alias not found");
+    }
+    if (!WORKSPACE_ID.test(pathHash)) throw new ResourceNotFoundError("alias not found");
+    const project = (await board.registry.listProjects()).find((candidate) => candidate.projectId === projectId);
+    if (project === void 0 || !project.aliases.includes(pathHash)) {
+      throw new ResourceNotFoundError("alias not found");
+    }
+    await board.registry.removeAlias(pathHash);
+    const result = await board.detachProjectAlias(projectId, pathHash);
+    ctx.sendJson(200, {
+      ok: true,
+      projectId,
+      pathHash,
+      removedCwd: result.removedCwd ?? null,
+      restoredSidecar: result.restoredSidecar
+    });
   }
   async handoffInbox(url, res) {
     const workspace = await this.resolveBrowseWorkspace(url.searchParams.get("workspace"));

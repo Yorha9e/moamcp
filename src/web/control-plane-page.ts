@@ -711,6 +711,48 @@ ${COMPONENTS_CSS}
   padding: 5px 10px;
   font-size: 12px;
 }
+/* Project rename / alias detach / archive (mailbox task 6) */
+.proj-name-edit {
+  cursor: pointer;
+}
+.proj-name-edit:hover {
+  color: var(--accent-blue);
+}
+.proj-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 240px;
+}
+.proj-rename input {
+  min-width: 160px;
+  padding: 6px 8px;
+}
+.proj-rename button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.proj-alias {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.proj-alias-hash {
+  overflow-wrap: anywhere;
+}
+.proj-alias-detach {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.proj-alias-detach:hover {
+  color: var(--accent-red);
+}
 .ho-row {
   padding: 13px 15px;
   background: var(--solid);

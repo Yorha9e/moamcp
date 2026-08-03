@@ -826,6 +826,167 @@ export class BoardStore {
     return cwds;
   }
 
+  // ---- project management (mailbox task 6) ----
+
+  /**
+   * Remove a cwd from a project's `cwds[]` sidecar (mailbox task 6b). The
+   * read-modify-write runs under the meta file's append lock (mirrors
+   * `ensureProjectSidecar`); a missing/invalid sidecar or an absent cwd is a
+   * no-op. Alias detach uses it so the detached directory stops being reported
+   * as one of the project's paths.
+   */
+  async removeProjectCwd(projectId: unknown, cwd: unknown): Promise<void> {
+    this.assertOpen();
+    if (typeof projectId !== 'string' || !PROJECT_ID_PATTERN.test(projectId)) {
+      throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+    }
+    if (typeof cwd !== 'string') throw new Error('cwd must be a string');
+    const normalizedCwd = normalizeWorkspacePath(cwd);
+    const metaFile = join(this.boardsDir(), `project-${projectId}.meta.json`);
+    // The lock file is created beside the meta, so the boards dir must exist
+    // before acquisition (mirrors ensureProjectSidecar).
+    await mkdir(this.boardsDir(), { recursive: true });
+    await withAppendLock(metaFile, async () => {
+      let doc: { projectId: string; cwds: string[]; created_at: string } | undefined;
+      try {
+        const parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
+        if (
+          parsed.projectId === projectId &&
+          Array.isArray(parsed.cwds) &&
+          parsed.cwds.every((entry) => typeof entry === 'string') &&
+          typeof parsed.created_at === 'string'
+        ) {
+          doc = parsed as unknown as { projectId: string; cwds: string[]; created_at: string };
+        }
+      } catch {
+        doc = undefined; // missing/corrupt sidecar: nothing to remove
+      }
+      if (doc === undefined || !doc.cwds.includes(normalizedCwd)) return;
+      doc.cwds = doc.cwds.filter((entry) => entry !== normalizedCwd);
+      await writeFile(metaFile, JSON.stringify(doc, null, 2));
+    });
+  }
+
+  /**
+   * Restore a detached workspace's sidecar (mailbox task 6b): rename the newest
+   * `ws-<hash>.meta.json.migrated-*` archive back to the live
+   * `ws-<hash>.meta.json` so the directory reappears in the workspace list.
+   * No archive (or a live sidecar already present) leaves the state untouched
+   * and returns false. The board file is deliberately NOT restored — the
+   * project keeps its records; the directory's next write starts a fresh board.
+   */
+  async restoreWorkspaceSidecar(pathHash: unknown): Promise<boolean> {
+    this.assertOpen();
+    if (typeof pathHash !== 'string' || !/^[0-9a-f]{16}$/.test(pathHash)) {
+      throw new Error('pathHash must be a 16-hex workspace id');
+    }
+    const dir = this.boardsDir();
+    let names: string[];
+    try {
+      names = await readdir(dir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw err;
+    }
+    const liveName = `ws-${pathHash}.meta.json`;
+    if (names.includes(liveName)) return false; // already a live workspace
+    const prefix = `${liveName}.migrated-`;
+    const archives = names
+      .filter((name) => name.startsWith(prefix))
+      .sort((a, b) => archiveStamp(a, prefix) - archiveStamp(b, prefix));
+    if (archives.length === 0) return false; // no archive: next write rebuilds
+    const newest = archives[archives.length - 1];
+    await rename(join(dir, newest), join(dir, liveName));
+    return true;
+  }
+
+  /**
+   * Alias detach file work (un-merge, mailbox task 6b): the symmetric half of a
+   * merge. Removes the detached directory's cwd from the project's `cwds[]`
+   * sidecar and restores its archived workspace sidecar so it reappears as an
+   * independent workspace. The caller has already dropped the registry alias
+   * (`registry.removeAlias`); the project's existing records stay in the
+   * project board — nothing is deleted.
+   */
+  async detachProjectAlias(
+    projectId: unknown,
+    pathHash: unknown,
+  ): Promise<{ removedCwd?: string; restoredSidecar: boolean }> {
+    this.assertOpen();
+    if (typeof projectId !== 'string' || !PROJECT_ID_PATTERN.test(projectId)) {
+      throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+    }
+    if (typeof pathHash !== 'string' || !/^[0-9a-f]{16}$/.test(pathHash)) {
+      throw new Error('pathHash must be a 16-hex workspace id');
+    }
+    // Resolve the cwd this alias stands for from the project meta.
+    const metaFile = join(this.boardsDir(), `project-${projectId}.meta.json`);
+    let removedCwd: string | undefined;
+    try {
+      const parsed = JSON.parse(await readFile(metaFile, 'utf8')) as Record<string, unknown>;
+      const cwds = Array.isArray(parsed.cwds) ? parsed.cwds : [];
+      removedCwd = cwds.find((entry) => {
+        if (typeof entry !== 'string') return false;
+        try {
+          return workspaceIdForPath(entry) === pathHash;
+        } catch {
+          return false; // non-absolute/corrupt cwd never matches
+        }
+      });
+    } catch {
+      removedCwd = undefined; // missing/corrupt meta: nothing to remove
+    }
+    if (removedCwd !== undefined) await this.removeProjectCwd(projectId, removedCwd);
+    const restoredSidecar = await this.restoreWorkspaceSidecar(pathHash);
+    return { ...(removedCwd !== undefined ? { removedCwd } : {}), restoredSidecar };
+  }
+
+  /**
+   * Archive a project (mailbox task 6c, soft delete): write the registry
+   * `archive` tombstone, drop every alias (the directories fall back to plain
+   * workspaces, but their migrated sidecars are NOT restored — archive ≠ detach),
+   * and archive (never delete) `project-<id>.jsonl` + `project-<id>.meta.json`
+   * under their locks. Rejects for unknown / already-archived projects.
+   */
+  async archiveProject(projectId: unknown): Promise<{ ok: true; projectId: string }> {
+    this.assertOpen();
+    if (typeof projectId !== 'string' || !PROJECT_ID_PATTERN.test(projectId)) {
+      throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
+    }
+    const registry = this.registry;
+    await registry.refreshIfStale();
+    // Capture the live project (listProjects already excludes archived) so its
+    // aliases can be dropped after the archive record lands.
+    const project = (await registry.listProjects()).find((candidate) => candidate.projectId === projectId);
+    if (project === undefined) throw new Error(`unknown projectId: ${projectId}`);
+    // 1. Registry tombstone first: from here resolveCached refuses the project,
+    //    so any racing write already falls back to the plain workspace scope.
+    await registry.archiveProject(projectId);
+    // 2. Release every alias (directories resolve to plain workspaces again).
+    for (const alias of project.aliases) {
+      await registry.removeAlias(alias);
+    }
+    // 3. Archive the board + meta files (absent files are skipped).
+    const stamp = Date.now();
+    const file = join(this.boardsDir(), `project-${projectId}.jsonl`);
+    const metaFile = join(this.boardsDir(), `project-${projectId}.meta.json`);
+    await mkdir(this.boardsDir(), { recursive: true });
+    await withAppendLock(file, async () => {
+      await archiveFileRename(file, `${file}.archived-${stamp}`);
+    });
+    await withAppendLock(metaFile, async () => {
+      await archiveFileRename(metaFile, `${metaFile}.archived-${stamp}`);
+    });
+    // A live scope may still believe its files exist: drop the flags so a later
+    // direct project-scope write folds an empty board instead of a stale view.
+    const state = this.scopes.get(`project:${projectId}`);
+    if (state !== undefined) {
+      state.metaWritten = false;
+      state.loaded = false;
+    }
+    return { ok: true, projectId };
+  }
+
   // ---- task lifecycle ----
 
   /**
@@ -1327,6 +1488,12 @@ async function archiveFileRename(from: string, to: string): Promise<void> {
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
+}
+
+/** Numeric epoch-ms stamp encoded after an archive prefix (orders `.migrated-*` copies). */
+function archiveStamp(name: string, prefix: string): number {
+  const stamp = Number(name.slice(prefix.length));
+  return Number.isFinite(stamp) ? stamp : 0;
 }
 
 function normalizeWorkspaceId(value: unknown): string | undefined {
