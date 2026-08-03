@@ -23023,6 +23023,7 @@ function createRegistry(options = {}) {
 
 // src/core/store/board.ts
 import { createHash } from "node:crypto";
+import { statSync } from "node:fs";
 import { appendFile as appendFile2, mkdir as mkdir3, readFile as readFile3, readdir as readdir2, rename as rename2, stat as stat3, writeFile } from "node:fs/promises";
 import { isAbsolute, join as join3, resolve } from "node:path";
 
@@ -24183,12 +24184,25 @@ var BoardStore = class {
    * process (or a stale projection) resolves an aliased workspace to its
    * legacy `ws-<hash>` scope for the first operation — the write lands in
    * `ws-<hash>.jsonl` while later reads (post-fold refresh) resolve to
-   * `project-<id>.jsonl`, a write/read inconsistency (tip_21f72697). A
-   * refresh failure degrades to the stale projection, never fails the op.
+   * `project-<id>.jsonl`, a write/read inconsistency (tip_21f72697).
+   *
+   * The fast path must stay *synchronous*: entry points enqueue by scope key,
+   * so an awaited refresh before the enqueue would desynchronize submission
+   * order and break the "queue order follows call order" LWW guarantee for
+   * write bursts (regression caught by board.test.ts concurrent-writes).
+   * statSync on the registry file is a few µs — cheap enough per op; the
+   * async reload only happens when the file actually changed size.
    */
+  lastRegistrySize = -1;
   async refreshRegistryForScope() {
-    await this.registry.refreshIfStale().catch(() => {
-    });
+    try {
+      const size = statSync(this.registry.registryFile()).size;
+      if (size === this.lastRegistrySize) return;
+      this.lastRegistrySize = size;
+      await this.registry.refreshIfStale().catch(() => {
+      });
+    } catch {
+    }
   }
   async fold(state) {
     await this.registry.refreshIfStale().catch(() => {
@@ -26036,7 +26050,7 @@ function createTipsModule(tips) {
 }
 
 // src/adapters/control-plane.ts
-import { readFile as readFile6 } from "node:fs/promises";
+import { readFile as readFile7 } from "node:fs/promises";
 import { dirname as dirname3, isAbsolute as isAbsolute5, join as join8 } from "node:path";
 
 // src/core/store/archive-index.ts
@@ -28229,6 +28243,38 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
   });
 }
 
+// src/core/bus/disk-version.ts
+import { createRequire as createRequire2 } from "node:module";
+import { readFile as readFile6 } from "node:fs/promises";
+var DISK_VERSION_CACHE_MS = 5e3;
+var cached2 = null;
+function packageJsonPath() {
+  const override = process.env.MOAMCP_PACKAGE_JSON;
+  if (typeof override === "string" && override.length > 0) return override;
+  try {
+    const require2 = createRequire2(import.meta.url);
+    return require2.resolve("../package.json");
+  } catch {
+    return void 0;
+  }
+}
+async function readDiskVersion() {
+  const now = Date.now();
+  if (cached2 !== null && now - cached2.at < DISK_VERSION_CACHE_MS) return cached2.value;
+  let value = null;
+  const path = packageJsonPath();
+  if (path !== void 0) {
+    try {
+      const pkg = JSON.parse(await readFile6(path, "utf8"));
+      value = typeof pkg.version === "string" && pkg.version.length > 0 ? pkg.version : null;
+    } catch {
+      value = null;
+    }
+  }
+  cached2 = { at: now, value };
+  return value;
+}
+
 // src/web/tokens.ts
 var THEMES = [
   { name: "glass", label: "Glass" },
@@ -29445,6 +29491,31 @@ select option {
   border-color: var(--accent-red);
 }
 
+/* Bus update banner (BUS_VERSION_RESTART.md task B): fixed top-center chip,
+   amber when a newer build is installed, red when the restart could not
+   complete. */
+.bus-update-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(760px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--accent-amber);
+  background: var(--solid);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font-size: 13px;
+}
+.bus-update-banner.danger {
+  border-color: var(--accent-red);
+}
+
 /* Notice / Alerts */
 .notice {
   margin: var(--sp2) 0;
@@ -30448,6 +30519,10 @@ var I18N_DICTIONARIES = {
     "system.unavailable": "System Health unavailable: ",
     "system.value": "value",
     "system.version": "Version",
+    "busUpdate.banner": "Newer build installed: v{disk} (running v{running}). Restart the backend to pick it up.",
+    "busUpdate.restart": "Restart backend",
+    "busUpdate.restarting": "Restarting backend\u2026",
+    "busUpdate.stale": "An older process still holds the service \u2014 restart the session.",
     "memory.agents": "Agents & Profiles",
     "agent.title": "Agents & Profiles",
     "agent.intro": "Manage project-local Agent Markdown and local.toml bindings. Changes are written atomically to disk; the running Session adopts them only after /reload.",
@@ -30760,6 +30835,10 @@ var I18N_DICTIONARIES = {
     "system.unavailable": "\u7CFB\u7EDF\u5065\u5EB7\u4FE1\u606F\u6682\u4E0D\u53EF\u7528\uFF1A",
     "system.value": "\u503C",
     "system.version": "\u7248\u672C",
+    "busUpdate.banner": "\u78C1\u76D8\u4E0A\u5DF2\u5B89\u88C5\u65B0\u7248\u672C v{disk}\uFF08\u5F53\u524D\u8FD0\u884C v{running}\uFF09\u3002\u91CD\u542F\u540E\u7AEF\u540E\u751F\u6548\u3002",
+    "busUpdate.restart": "\u7ACB\u5373\u91CD\u542F\u540E\u7AEF",
+    "busUpdate.restarting": "\u6B63\u5728\u91CD\u542F\u540E\u7AEF\u2026",
+    "busUpdate.stale": "\u4ECD\u6709\u65E7\u8FDB\u7A0B\u6301\u6709\u670D\u52A1\uFF0C\u8BF7\u91CD\u542F session\u3002",
     "memory.agents": "Agent \u4E0E Profile",
     "agent.title": "Agent \u4E0E Profile",
     "agent.intro": "\u7BA1\u7406\u9879\u76EE\u5185\u7684 Agent Markdown \u4E0E local.toml binding\u3002\u4FEE\u6539\u4F1A\u539F\u5B50\u5199\u5165\u78C1\u76D8\uFF1B\u8FD0\u884C\u4E2D\u7684 Session \u53EA\u6709\u5728\u6267\u884C /reload \u540E\u624D\u4F1A\u91C7\u7528\u3002",
@@ -33224,6 +33303,83 @@ ${LIB_JS}
       });
     });
   }
+
+  // ---- Bus update banner (BUS_VERSION_RESTART.md task B) ----
+  // Control-plane only (deliberate: the shared lib must stay reload-free).
+  // The served page may be older than the build installed on disk; the banner
+  // makes that visible and offers a controlled restart (task C endpoint).
+  function compareVersions(a, b) {
+    var pa = String(a).split('.').map(Number);
+    var pb = String(b).split('.').map(Number);
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+      var x = pa[i] || 0;
+      var y = pb[i] || 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+  var busUpdateBanner = null;
+  var busUpdateRestarting = false;
+  function busUpdateBannerEl() {
+    if (busUpdateBanner) return busUpdateBanner;
+    busUpdateBanner = document.createElement('div');
+    busUpdateBanner.className = 'bus-update-banner';
+    busUpdateBanner.hidden = true;
+    document.body.appendChild(busUpdateBanner);
+    return busUpdateBanner;
+  }
+  function checkDiskVersion() {
+    if (busUpdateRestarting) return;
+    api('/api/system').then(function (data) {
+      if (!data || typeof data.version !== 'string' || typeof data.diskVersion !== 'string') return;
+      if (compareVersions(data.diskVersion, data.version) <= 0) {
+        busUpdateBannerEl().hidden = true;
+        return;
+      }
+      var banner = busUpdateBannerEl();
+      banner.className = 'bus-update-banner';
+      banner.textContent = '';
+      var text = document.createElement('span');
+      text.textContent = tr('busUpdate.banner', { disk: data.diskVersion, running: data.version });
+      banner.appendChild(text);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'primary';
+      btn.textContent = tr('busUpdate.restart');
+      btn.addEventListener('click', restartBackend);
+      banner.appendChild(btn);
+      banner.hidden = false;
+    }).catch(function () {});
+  }
+  function restartBackend() {
+    if (busUpdateRestarting) return;
+    busUpdateRestarting = true;
+    var banner = busUpdateBannerEl();
+    banner.className = 'bus-update-banner';
+    banner.textContent = tr('busUpdate.restarting');
+    banner.hidden = false;
+    var target = null;
+    api('/api/system').then(function (d) {
+      if (d && typeof d.diskVersion === 'string') target = d.diskVersion;
+    }).catch(function () {});
+    api('/api/bus/restart', { method: 'POST' }).catch(function () {});
+    var attempts = 0;
+    var timer = setInterval(function () {
+      attempts++;
+      api('/api/system').then(function (d) {
+        if (d && typeof d.version === 'string' && target !== null && compareVersions(d.version, target) >= 0) {
+          clearInterval(timer);
+          location.reload();
+        }
+      }).catch(function () {}); // request failures while the old owner releases are expected
+      if (attempts >= 15) {
+        clearInterval(timer);
+        busUpdateRestarting = false;
+        banner.className = 'bus-update-banner danger';
+        banner.textContent = tr('busUpdate.stale');
+      }
+    }, 2000);
+  }
   function utf8Bytes(value) {
     if (typeof TextEncoder === 'function') return new TextEncoder().encode(value).length;
     var bytes = 0;
@@ -33582,6 +33738,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   var requestedSection = new URLSearchParams(location.search).get('section');
   switchSection(requestedSection);
   loadWorkspaces().catch(function (error) { setNotice(error.message, true); });
+  checkDiskVersion();
+  setInterval(checkDiskVersion, 60000);
 })();
 </script>
 </body>
@@ -34114,7 +34272,11 @@ var ControlPlane = class {
     }
   }
   async system(res) {
-    sendJson(res, 200, { ...await this.runtimeProvider().systemInfo(), version: VERSION });
+    sendJson(res, 200, {
+      ...await this.runtimeProvider().systemInfo(),
+      version: VERSION,
+      diskVersion: await readDiskVersion()
+    });
   }
   stores() {
     if (this.board === void 0 || this.tips === void 0) {
@@ -34170,7 +34332,7 @@ var ControlPlane = class {
   async validProjectMetaCwd(metaFile, projectId) {
     let parsed;
     try {
-      parsed = JSON.parse(await readFile6(metaFile, "utf8"));
+      parsed = JSON.parse(await readFile7(metaFile, "utf8"));
     } catch (err) {
       if (err.code === "ENOENT" || err instanceof SyntaxError) return void 0;
       throw err;
@@ -34282,7 +34444,7 @@ var ControlPlane = class {
     const board = this.stores().board;
     let cwds = [];
     try {
-      const parsed = JSON.parse(await readFile6(join8(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
+      const parsed = JSON.parse(await readFile7(join8(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
       if (Array.isArray(parsed.cwds)) cwds = parsed.cwds.filter((cwd) => typeof cwd === "string");
     } catch {
     }
@@ -34555,7 +34717,7 @@ function createServer(hub = new DebateHub(), bus, board, tipStore) {
 
 // src/core/bus/bus.ts
 import { createServer as createServer2, get } from "node:http";
-import { writeFile as writeFile3, readFile as readFile7, rm } from "node:fs/promises";
+import { writeFile as writeFile3, readFile as readFile8, rm } from "node:fs/promises";
 import { join as join9, resolve as resolve4 } from "node:path";
 
 // src/core/store/run-read-model.ts
@@ -36125,6 +36287,57 @@ var Bus = class {
     await this.releaseRegistration();
     if (this.wrotePortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
   }
+  /**
+   * Controlled release (BUS_VERSION_RESTART.md task C): the owner gives up the
+   * port so a newer-code process can take over — without killing this process.
+   * After release this process re-attaches as a *passive* reuser: it stops
+   * serving HTTP/SSE, unregisters, and waits for the new owner to appear
+   * (passive watch — deliberately no takeover, re-binding stale code here
+   * would defeat the whole point). When the new owner answers, `onTakeover`
+   * fires with mode 'reuse' so the caller re-points the event sink; MCP tools
+   * keep working — only the bus layer detaches.
+   */
+  async releaseAndReattach() {
+    if (this.startMode !== "own" || this.stopped) {
+      const err = new Error("not the bus owner");
+      err.code = "NOT_OWNER";
+      throw err;
+    }
+    this.stopHostWatch();
+    for (const subs of this.subscribers.values()) for (const res of subs) res.end();
+    this.subscribers.clear();
+    this.server.closeAllConnections();
+    await new Promise((resolve5) => this.server.close(() => resolve5()));
+    await this.releaseRegistration();
+    if (this.wrotePortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
+    this.startMode = "reuse";
+    this.port = this.actualPort;
+    this.startPassiveWatch(this.actualPort);
+  }
+  /** Passive watch: wait for a Bus to answer the released port, then re-attach.
+   *  Unlike the reuse host watch, an unanswered port here is *expected* — this
+   *  process released it on purpose and must not take it back. */
+  startPassiveWatch(hostPort) {
+    this.stopHostWatch();
+    if (this.stopped) return;
+    const timer = setInterval(() => void this.passiveTick(hostPort), this.watchIntervalMs);
+    timer.unref();
+    this.hostWatch = timer;
+  }
+  async passiveTick(hostPort) {
+    if (this.probing || this.takingOver) return;
+    this.probing = true;
+    try {
+      if (!await busProbe(hostPort, this.watchTimeoutMs)) return;
+      this.stopHostWatch();
+      this.onTakeover?.({ mode: "reuse", port: hostPort });
+      this.startHostWatch(hostPort);
+    } catch (err) {
+      console.warn(`[moamcp] release: passive watch error: ${err.message}`);
+    } finally {
+      this.probing = false;
+    }
+  }
   // ---- internals ----
   /**
    * Port+1 walk on EADDRINUSE (mirrors kap-server `listenWithPortRetry`):
@@ -36262,6 +36475,19 @@ var Bus = class {
   }
   async handle(req, res) {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (req.method === "POST" && url.pathname === "/api/bus/restart") {
+      if (this.startMode !== "own" || this.stopped) {
+        res.writeHead(409, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "not the bus owner" }));
+        return;
+      }
+      res.writeHead(202, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, releasing: true }));
+      void this.releaseAndReattach().catch(
+        (err) => console.warn(`[moamcp] restart: release failed: ${err.message}`)
+      );
+      return;
+    }
     if (await this.controlPlane.handle(req, res, this.actualPort)) return;
     if (req.method === "GET" && url.pathname === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -36307,7 +36533,7 @@ var Bus = class {
         return;
       }
       try {
-        const content = await readFile7(resolve4(this.logsDir, taskId, file), "utf8");
+        const content = await readFile8(resolve4(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
