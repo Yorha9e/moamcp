@@ -33214,16 +33214,28 @@ ${LIB_JS}
     return projects.filter(function (project) { return project.projectId === projectId; })[0] || null;
   }
   function projectLabel(project) { return project ? (project.name || project.projectId) : ''; }
+  function aliasedWorkspaceIds() {
+    // Workspaces aliased to a project are already represented by that project's
+    // option; showing them again as plain workspaces duplicates one board under
+    // two identities (their lag-recreated sidecar is just a shell).
+    var ids = {};
+    projects.forEach(function (project) {
+      (project.aliases || []).forEach(function (hash) { ids[hash] = true; });
+    });
+    return ids;
+  }
   function workspaceDisplay(item) {
     // Custom name first (mailbox task 5a): "name (cwd)", falling back to cwd.
     return item.name ? item.name + ' (' + item.cwd + ')' : item.cwd;
   }
   function renderWorkspaceOptions() {
     workspaceSelect.textContent = '';
-    if (workspaces.length) {
+    var aliased = aliasedWorkspaceIds();
+    var plainWorkspaces = workspaces.filter(function (item) { return !aliased[item.id]; });
+    if (plainWorkspaces.length) {
       var wsGroup = document.createElement('optgroup');
       wsGroup.label = tr('workspace.groupWorkspaces');
-      workspaces.forEach(function (item) {
+      plainWorkspaces.forEach(function (item) {
         var option = document.createElement('option');
         option.value = item.id;
         option.textContent = workspaceDisplay(item);
@@ -33337,8 +33349,13 @@ ${LIB_JS}
         return workspaces.some(function (item) { return item.id === value; })
           || projects.some(function (project) { return 'project:' + project.projectId === value; });
       };
-      var found = requested && known(requested) ? requested
-        : (workspaces.length ? workspaces[0].id : 'project:' + projects[0].projectId);
+      // Prefer a non-aliased workspace; aliased ones are hidden behind their
+      // project option, so fall through to the first project instead.
+      var aliased = aliasedWorkspaceIds();
+      var firstPlain = workspaces.filter(function (item) { return !aliased[item.id]; })[0];
+      var fallback = firstPlain ? firstPlain.id
+        : (projects.length ? 'project:' + projects[0].projectId : (workspaces.length ? workspaces[0].id : ''));
+      var found = requested && known(requested) ? requested : fallback;
       applyWorkspace(found);
     });
   }
