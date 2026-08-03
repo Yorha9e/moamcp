@@ -125,4 +125,52 @@ describe('bus controlled restart (BUS_VERSION_RESTART.md task C)', () => {
 
     await bus.stop();
   });
+
+  it('releaseAndReattach fires onRelease once, after the port is already free (task D)', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-restart-'));
+    const port = await freePort();
+    const bus = new Bus({
+      port,
+      cwd: home,
+      instancesDir: join(home, 'instances'),
+      logsDir: join(home, 'logs'),
+      reuseWatchIntervalMs: 100,
+      reuseWatchTimeoutMs: 100,
+      reuseWatchFailThreshold: 1,
+    });
+    expect(await bus.start()).toBe(port);
+
+    let calls = 0;
+    bus.onRelease = () => {
+      calls++;
+    };
+    await bus.releaseAndReattach();
+    expect(calls).toBe(1);
+    expect(await probeTasks(port)).toBe(false); // listener really is gone
+    expect(bus.mode).toBe('reuse');
+
+    // A failing hook must not break the passive re-attach path.
+    const bus2 = new Bus({
+      port,
+      cwd: home,
+      instancesDir: join(home, 'instances'),
+      logsDir: join(home, 'logs'),
+      reuseWatchIntervalMs: 100,
+      reuseWatchTimeoutMs: 100,
+      reuseWatchFailThreshold: 1,
+    });
+    expect(await bus2.start()).toBe(port);
+    bus2.onRelease = () => {
+      throw new Error('boom');
+    };
+    await expect(bus2.releaseAndReattach()).resolves.toBeUndefined();
+    expect(bus2.mode).toBe('reuse');
+
+    // NOT_OWNER on a second release never fires the hook again.
+    await expect(bus.releaseAndReattach()).rejects.toMatchObject({ code: 'NOT_OWNER' });
+    expect(calls).toBe(1);
+
+    await bus.stop();
+    await bus2.stop();
+  });
 });

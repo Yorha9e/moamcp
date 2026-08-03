@@ -1,7 +1,6 @@
 import { buildSync } from 'esbuild';
 
-buildSync({
-  entryPoints: ['src/server.ts'],
+const shared = {
   bundle: true,
   platform: 'node',
   format: 'esm',
@@ -12,5 +11,10 @@ buildSync({
   alias: {
     process: 'node:process',
   },
-  outfile: 'dist/server.js',
-});
+};
+
+buildSync({ ...shared, entryPoints: ['src/server.ts'], outfile: 'dist/server.js' });
+
+// Headless Bus owner spawned by the controlled restart flow (task D) — kept
+// as a separate flat bundle because dist/server.js resolves it as a sibling.
+buildSync({ ...shared, entryPoints: ['src/bus-daemon.ts'], outfile: 'dist/bus-daemon.js' });

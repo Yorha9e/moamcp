@@ -14,6 +14,7 @@ import { request } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createServer } from './adapters/mcp.js';
 import { Bus } from './core/bus/bus.js';
+import { spawnBusDaemon } from './core/bus/daemon-spawn.js';
 import { BoardStore } from './core/store/board.js';
 import { DebateHub, defaultLogsDir, type DomainEvent } from './modules/debate/state.js';
 import { TipStore } from './modules/tips/tips.js';
@@ -102,6 +103,13 @@ async function main(): Promise<void> {
     throw err;
   }
   const startResult = bus.startResult;
+  // Controlled restart (task D): once this owner releases the port, spawn the
+  // headless bus daemon from the current disk build so the panel recovers on
+  // the new code without waiting for a fresh session. Evaluated at release
+  // time so a later takeover's port is the one handed over.
+  bus.onRelease = () => {
+    spawnBusDaemon({ port: bus.startResult.port, cwd: process.cwd() });
+  };
   // own: fan events out on this process's Bus. reuse: forward them to the Bus
   // that owns the port — best-effort, never blocks the MCP call chain (§3.3).
   // Either way the card points at the owning Bus's port. Both go through

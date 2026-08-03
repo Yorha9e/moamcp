@@ -36153,6 +36153,15 @@ var Bus = class {
    * event sink and card_url from the result.
    */
   onTakeover;
+  /**
+   * Fires inside `releaseAndReattach()` once the listener is closed and the
+   * port is free, before the passive re-attach watch starts. Entries that can
+   * spawn a replacement (the MCP server and the bus daemon) use it to launch
+   * a headless daemon from the current disk build so the panel comes back
+   * without waiting for a fresh session. Exceptions are swallowed — the
+   * passive watch is the fallback.
+   */
+  onRelease;
   constructor(opts = {}) {
     this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
@@ -36326,6 +36335,11 @@ var Bus = class {
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
     if (this.wrotePortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
+    try {
+      this.onRelease?.();
+    } catch (err) {
+      console.warn(`[moamcp] restart: onRelease hook failed: ${err.message}`);
+    }
     this.startMode = "reuse";
     this.port = this.actualPort;
     this.startPassiveWatch(this.actualPort);
@@ -36602,6 +36616,36 @@ var Bus = class {
   }
 };
 
+// src/core/bus/daemon-spawn.ts
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+function defaultDaemonScript() {
+  return fileURLToPath(new URL("./bus-daemon.js", import.meta.url));
+}
+function spawnBusDaemon(opts) {
+  let script;
+  try {
+    script = opts.script ?? defaultDaemonScript();
+  } catch {
+    return false;
+  }
+  try {
+    const child = spawn(process.execPath, [script], {
+      cwd: opts.cwd,
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+      env: { ...process.env, MOAMCP_BUS_PORT: String(opts.port) }
+    });
+    child.on("error", () => {
+    });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // src/server.ts
 var REUSE_PUBLISH_TIMEOUT_MS = 2e3;
 function cardUrl(port, taskId) {
@@ -36660,6 +36704,9 @@ async function main() {
     throw err;
   }
   const startResult = bus.startResult;
+  bus.onRelease = () => {
+    spawnBusDaemon({ port: bus.startResult.port, cwd: process.cwd() });
+  };
   let sink = startResult.mode === "own" ? (taskId, event) => bus.publish(taskId, event) : reusePublishForwarder(startResult.port);
   let cardPort = startResult.port;
   bus.onTakeover = (result) => {

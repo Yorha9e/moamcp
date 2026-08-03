@@ -173,6 +173,16 @@ export class Bus {
    */
   onTakeover?: (result: BusStartResult) => void;
 
+  /**
+   * Fires inside `releaseAndReattach()` once the listener is closed and the
+   * port is free, before the passive re-attach watch starts. Entries that can
+   * spawn a replacement (the MCP server and the bus daemon) use it to launch
+   * a headless daemon from the current disk build so the panel comes back
+   * without waiting for a fresh session. Exceptions are swallowed — the
+   * passive watch is the fallback.
+   */
+  onRelease?: () => void;
+
   constructor(opts: BusOptions = {}) {
     this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
@@ -381,6 +391,15 @@ export class Bus {
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
     await this.releaseRegistration();
     if (this.wrotePortFile) await rm(join(this.cwd, 'bus.port'), { force: true });
+    // The port is free now — let the entry layer spawn a headless replacement
+    // (bus-daemon) from the current disk build before we settle into the
+    // passive watch. A spawn failure just keeps the old "wait for a fresh
+    // session" behaviour.
+    try {
+      this.onRelease?.();
+    } catch (err) {
+      console.warn(`[moamcp] restart: onRelease hook failed: ${(err as Error).message}`);
+    }
     this.startMode = 'reuse';
     this.port = this.actualPort;
     this.startPassiveWatch(this.actualPort);
