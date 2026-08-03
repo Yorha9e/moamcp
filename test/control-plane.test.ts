@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, get } from 'node:http';
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { WorkspaceAgentConfigService } from '../src/modules/agentconfig/agent-config.js';
 import { BoardStore, workspaceIdForPath } from '../src/core/store/board.js';
+import { VERSION } from '../src/core/bus/registry.js';
 import { migrateWorkspaceToProject } from '../src/core/store/project-migration.js';
 import { ControlPlane } from '../src/adapters/control-plane.js';
 import { Bus } from '../src/core/bus/bus.js';
@@ -24,6 +26,9 @@ let tips: TipStore;
 let port: number;
 
 const json = (value: unknown): string => JSON.stringify(value);
+
+/** package.json version is the single source of truth for the build version. */
+const pkgVersion = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
 
 async function request(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
   const response = await fetch(`http://127.0.0.1:${port}${path}`, init);
@@ -122,6 +127,22 @@ describe('control plane HTTP surface', () => {
     expect(cardHtml).toContain('<div class="debate-context" aria-label="Current debate context" data-i18n-aria="debate.context">');
     expect(cardHtml.indexOf('class="app-header"')).toBeLessThan(cardHtml.indexOf('class="debate-context"'));
     expect(cardHtml.indexOf('class="debate-context"')).toBeLessThan(cardHtml.indexOf('id="taskId"'));
+  });
+
+  it('exposes the build version in the header and on /api/system', async () => {
+    const page = await request('/control-plane');
+    expect(page.body).toContain('id="appVersion"');
+    expect(page.body).toContain('data-i18n="system.version"');
+    const system = await request('/api/system');
+    expect(system.response.status).toBe(200);
+    // The endpoint reports the same VERSION the whole backend uses (the
+    // package.json-derived registry.ts pattern). Under vitest source
+    // resolution VERSION falls back to '0.0.0' — the known dist-relative
+    // createRequire characteristic, deliberately untouched — so the literal
+    // package.json match is asserted only when resolution actually ran; the
+    // esbuild bundle resolves it to the real version (verified against dist).
+    expect(system.body.version).toBe(VERSION);
+    if (VERSION !== '0.0.0') expect(VERSION).toBe(pkgVersion);
   });
 
   it('routes management sections through the URL while preserving other query parameters', async () => {

@@ -48,6 +48,19 @@ header {
   font-size: 18px;
   letter-spacing: 0.01em;
 }
+.app-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.app-version .app-version-value {
+  color: var(--text-faint);
+}
 header h1 {
   font-size: 18px;
   font-weight: 650;

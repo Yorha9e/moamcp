@@ -24,6 +24,7 @@ import {
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { BoardStore, WORKSPACE_NAME_MAX_CHARS, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
+import { VERSION } from '../core/bus/registry.js';
 import { PROJECT_ID_PATTERN, PROJECT_NAME_MAX_CHARS } from '../core/store/project-registry.js';
 import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
 import type { TipsAuthority } from '../core/store/tips-authority.js';
@@ -693,7 +694,11 @@ export class ControlPlane {
   }
 
   private async system(res: ServerResponse): Promise<void> {
-    sendJson(res, 200, await this.runtimeProvider().systemInfo());
+    // The build version rides on every /api/system response so the Control
+    // Plane can tell which backend build is running (VERSION is read from
+    // package.json via registry.ts's createRequire pattern — source and
+    // esbuild bundle alike).
+    sendJson(res, 200, { ...(await this.runtimeProvider().systemInfo()), version: VERSION });
   }
 
   private stores(): { board: BoardStore; tips: TipsAuthority } {

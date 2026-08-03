@@ -16,6 +16,7 @@ export function renderAppHeader(active: AppSection): string {
 
   return `<header class="app-header">
     <div class="brand"><span class="brand-mark"></span><span class="brand-title" data-i18n="app.brand">MOA Workspace</span></div>
+    <span class="app-version" id="appVersion"><span data-i18n="system.version">Version</span> <span class="app-version-value" id="appVersionValue">…</span></span>
     <nav class="top-nav" aria-label="Main navigation" data-i18n-aria="app.nav">
       ${nav}
     </nav>

@@ -22793,11 +22793,6 @@ var Server = class extends Protocol {
   }
 };
 
-// src/core/store/board.ts
-import { createHash } from "node:crypto";
-import { appendFile as appendFile2, mkdir as mkdir3, readFile as readFile3, readdir as readdir2, rename as rename2, stat as stat3, writeFile } from "node:fs/promises";
-import { isAbsolute, join as join3, resolve } from "node:path";
-
 // src/core/bus/registry.ts
 import { randomInt as randomInt2 } from "node:crypto";
 import { mkdir, readdir, readFile, unlink as unlink2 } from "node:fs/promises";
@@ -23025,6 +23020,11 @@ function createRegistry(options = {}) {
     }
   };
 }
+
+// src/core/store/board.ts
+import { createHash } from "node:crypto";
+import { appendFile as appendFile2, mkdir as mkdir3, readFile as readFile3, readdir as readdir2, rename as rename2, stat as stat3, writeFile } from "node:fs/promises";
+import { isAbsolute, join as join3, resolve } from "node:path";
 
 // src/core/constants.ts
 var DEFAULT_WAIT_CAP_MS = 25 * 60 * 1e3;
@@ -28988,6 +28988,19 @@ header {
   font-size: 18px;
   letter-spacing: 0.01em;
 }
+.app-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.app-version .app-version-value {
+  color: var(--text-faint);
+}
 header h1 {
   font-size: 18px;
   font-weight: 650;
@@ -29720,6 +29733,17 @@ var LIB_JS = `
     try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
   }
 
+  /** Fill the header version chip from /api/system (best-effort, safe DOM text only). */
+  function loadAppVersion() {
+    try {
+      var el = document.getElementById('appVersionValue');
+      if (!el) return;
+      api('/api/system').then(function (data) {
+        if (data && typeof data.version === 'string') el.textContent = data.version;
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
   function api(url, options) {
     return fetch(url, options).then(function(res) {
       return res.text().then(function(raw) {
@@ -30170,12 +30194,14 @@ var LIB_JS = `
     initThemePicker: initThemePicker,
     initLiquidParallax: initLiquidParallax,
     EnhanceSelect: EnhanceSelect,
-    initCustomSelects: initCustomSelects
+    initCustomSelects: initCustomSelects,
+    loadAppVersion: loadAppVersion
   };
 
   initThemePicker();
   initLiquidParallax();
   initCustomSelects();
+  loadAppVersion();
 })(typeof window !== 'undefined' ? window : this);
 `;
 
@@ -30401,6 +30427,7 @@ var I18N_DICTIONARIES = {
     "system.intro": "Bus listener entries do not represent every Kimi Session or MCP process. This page is read-only and provides no dangerous mutations.",
     "system.unavailable": "System Health unavailable: ",
     "system.value": "value",
+    "system.version": "Version",
     "memory.agents": "Agents & Profiles",
     "agent.title": "Agents & Profiles",
     "agent.intro": "Manage project-local Agent Markdown and local.toml bindings. Changes are written atomically to disk; the running Session adopts them only after /reload.",
@@ -30710,6 +30737,7 @@ var I18N_DICTIONARIES = {
     "system.intro": "Bus listener \u6761\u76EE\u4E0D\u7B49\u4E8E\u5168\u90E8 Kimi Session / MCP \u8FDB\u7A0B\u3002\u6B64\u9875\u9762\u53EA\u8BFB\uFF0C\u4E0D\u63D0\u4F9B\u5371\u9669\u64CD\u4F5C\u3002",
     "system.unavailable": "\u7CFB\u7EDF\u5065\u5EB7\u4FE1\u606F\u6682\u4E0D\u53EF\u7528\uFF1A",
     "system.value": "\u503C",
+    "system.version": "\u7248\u672C",
     "memory.agents": "Agent \u4E0E Profile",
     "agent.title": "Agent \u4E0E Profile",
     "agent.intro": "\u7BA1\u7406\u9879\u76EE\u5185\u7684 Agent Markdown \u4E0E local.toml binding\u3002\u4FEE\u6539\u4F1A\u539F\u5B50\u5199\u5165\u78C1\u76D8\uFF1B\u8FD0\u884C\u4E2D\u7684 Session \u53EA\u6709\u5728\u6267\u884C /reload \u540E\u624D\u4F1A\u91C7\u7528\u3002",
@@ -30898,6 +30926,7 @@ function renderAppHeader(active) {
   }).join("\n      ");
   return `<header class="app-header">
     <div class="brand"><span class="brand-mark"></span><span class="brand-title" data-i18n="app.brand">MOA Workspace</span></div>
+    <span class="app-version" id="appVersion"><span data-i18n="system.version">Version</span> <span class="app-version-value" id="appVersionValue">\u2026</span></span>
     <nav class="top-nav" aria-label="Main navigation" data-i18n-aria="app.nav">
       ${nav}
     </nav>
@@ -33972,7 +34001,7 @@ var ControlPlane = class {
     }
   }
   async system(res) {
-    sendJson(res, 200, await this.runtimeProvider().systemInfo());
+    sendJson(res, 200, { ...await this.runtimeProvider().systemInfo(), version: VERSION });
   }
   stores() {
     if (this.board === void 0 || this.tips === void 0) {
@@ -34373,7 +34402,7 @@ function createServer(hub = new DebateHub(), bus, board, tipStore) {
   ];
   const toolByName = new Map(tools.map((tool) => [tool.name, tool]));
   const server = new Server(
-    { name: "moamcp", version: "0.1.0" },
+    { name: "moamcp", version: VERSION },
     { capabilities: { tools: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

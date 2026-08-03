@@ -146,6 +146,17 @@ export const LIB_JS = `
     try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
   }
 
+  /** Fill the header version chip from /api/system (best-effort, safe DOM text only). */
+  function loadAppVersion() {
+    try {
+      var el = document.getElementById('appVersionValue');
+      if (!el) return;
+      api('/api/system').then(function (data) {
+        if (data && typeof data.version === 'string') el.textContent = data.version;
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
   function api(url, options) {
     return fetch(url, options).then(function(res) {
       return res.text().then(function(raw) {
@@ -596,11 +607,13 @@ export const LIB_JS = `
     initThemePicker: initThemePicker,
     initLiquidParallax: initLiquidParallax,
     EnhanceSelect: EnhanceSelect,
-    initCustomSelects: initCustomSelects
+    initCustomSelects: initCustomSelects,
+    loadAppVersion: loadAppVersion
   };
 
   initThemePicker();
   initLiquidParallax();
   initCustomSelects();
+  loadAppVersion();
 })(typeof window !== 'undefined' ? window : this);
 `;

@@ -10,6 +10,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { Bus } from '../core/bus/bus.js';
+import { VERSION } from '../core/bus/registry.js';
 import { BoardStore } from '../core/store/board.js';
 import { DebateHub } from '../modules/debate/state.js';
 import { createBoardModule } from '../modules/board/index.js';
@@ -58,7 +59,7 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?
   const toolByName = new Map(tools.map((tool) => [tool.name, tool]));
 
   const server = new Server(
-    { name: 'moamcp', version: '0.1.0' },
+    { name: 'moamcp', version: VERSION },
     { capabilities: { tools: {} } },
   );
 
