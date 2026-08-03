@@ -23511,6 +23511,7 @@ var BoardStore = class {
     const v = validateValue(value);
     const normalizedTags = normalizeTags(tags);
     const normalizedAuthor = normalizeAuthor(author);
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -23546,6 +23547,7 @@ var BoardStore = class {
     }
     if (key !== void 0 && key !== null) validateKey(key);
     if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     const cap = normalizeLimit(limit);
@@ -23571,6 +23573,7 @@ var BoardStore = class {
     }
     if (keyPrefix !== void 0 && keyPrefix !== null) validateKey(keyPrefix);
     if (tag !== void 0 && tag !== null && typeof tag !== "string") throw new Error("tag must be a string");
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     const cap = normalizeLimit(limit);
@@ -23588,6 +23591,7 @@ var BoardStore = class {
   /** Lightweight browse: one row per live key, values replaced by their byte size. */
   async list(scopeInput, workspace) {
     this.assertOpen();
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -23616,6 +23620,7 @@ var BoardStore = class {
       since = void 0;
     }
     const k = validateKey(key);
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     let sinceEpoch;
@@ -23664,6 +23669,7 @@ var BoardStore = class {
     const mutator = scopeMode ? second : third;
     if (typeof mutator !== "function") throw new Error("mutate requires a function mutator");
     const workspace = scopeMode ? third : fourth;
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -23747,6 +23753,7 @@ var BoardStore = class {
     this.assertOpen();
     const k = validateKey(key);
     const normalizedAuthor = normalizeAuthor(author);
+    await this.refreshRegistryForScope();
     const scope = this.parseScope(scopeInput, workspace);
     const state = this.scopeState(scope);
     return this.enqueue(scope.key, async () => {
@@ -24170,6 +24177,19 @@ var BoardStore = class {
    * Fold a task log once; for persistent logs, check the real file size on
    * every operation and rebuild whenever it changes, is created, or shrinks.
    */
+  /**
+   * Best-effort registry projection refresh *before* scope resolution. Every
+   * public entry point calls this ahead of parseScope: without it, a fresh
+   * process (or a stale projection) resolves an aliased workspace to its
+   * legacy `ws-<hash>` scope for the first operation — the write lands in
+   * `ws-<hash>.jsonl` while later reads (post-fold refresh) resolve to
+   * `project-<id>.jsonl`, a write/read inconsistency (tip_21f72697). A
+   * refresh failure degrades to the stale projection, never fails the op.
+   */
+  async refreshRegistryForScope() {
+    await this.registry.refreshIfStale().catch(() => {
+    });
+  }
   async fold(state) {
     await this.registry.refreshIfStale().catch(() => {
     });
