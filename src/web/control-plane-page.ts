@@ -657,6 +657,10 @@ ${COMPONENTS_CSS}
   flex-direction: column;
   gap: 6px;
 }
+/* display:flex would otherwise override the hidden attribute's UA display:none. */
+.proj-dirs[hidden] {
+  display: none;
+}
 .proj-dir-row {
   display: flex;
   align-items: center;
