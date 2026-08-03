@@ -10,6 +10,10 @@ export const PROJECTS_VIEW_HTML = `  <section id="projectsView" class="view" rol
       <button id="refreshProjects" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
       <span id="projectsCount" class="result-count" role="status"></span>
     </div>
+    <div class="proj-create">
+      <input id="newProjectName" type="text" data-i18n-placeholder="projects.namePlaceholder" placeholder="Project name (optional)" maxlength="80">
+      <button id="createProject" class="primary" type="button" data-i18n="projects.create">New project + merge current workspace</button>
+    </div>
     <div id="projectsList" class="proj-list"></div>
   </section>
 `;
@@ -92,6 +96,22 @@ export const PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
       return loadProjects().then(function () {
         // The migrated workspace sidecar is archived, so the workspace list
         // must be re-read (applyWorkspace then picks the next workspace).
+        return loadWorkspaces().catch(function () {});
+      });
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function createProjectFromCurrentWorkspace() {
+    if (!currentWorkspace) return;
+    var nameInput = document.getElementById('newProjectName');
+    var name = nameInput.value.trim();
+    var label = name || tr('projects.untitled');
+    if (!window.confirm(tr('projects.createConfirm', { project: label }))) return;
+    var payload = { workspace: currentWorkspace };
+    if (name) payload.name = name;
+    api('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }).then(function (result) {
+      nameInput.value = '';
+      setNotice(tr('projects.merged', { projectId: result.projectId, moved: result.moved }), false);
+      return loadProjects().then(function () {
         return loadWorkspaces().catch(function () {});
       });
     }).catch(function (error) { setNotice(error.message, true); });

@@ -30067,6 +30067,10 @@ var I18N_DICTIONARIES = {
     "projects.aliases": "Aliases",
     "projects.noAliases": "no aliases yet",
     "projects.merge": "Merge current workspace into this project",
+    "projects.create": "New project + merge current workspace",
+    "projects.namePlaceholder": "Project name (optional)",
+    "projects.untitled": "untitled project",
+    "projects.createConfirm": "Create new project {project} and merge the current workspace into it? This migration is immediate and cannot be automatically undone; the workspace board is archived (never deleted).",
     "projects.mergeConfirm": "Merge the current workspace into project {project}? This migration is immediate and cannot be automatically undone; the workspace board is archived (never deleted).",
     "projects.merged": "Workspace merged into {projectId} \xB7 {moved} records moved.",
     "projects.count": "{count} project",
@@ -30349,6 +30353,10 @@ var I18N_DICTIONARIES = {
     "projects.aliases": "\u522B\u540D",
     "projects.noAliases": "\u6682\u65E0\u522B\u540D",
     "projects.merge": "\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u6B64\u9879\u76EE",
+    "projects.create": "\u65B0\u5EFA\u9879\u76EE\u5E76\u5408\u5E76\u5F53\u524D\u5DE5\u4F5C\u533A",
+    "projects.namePlaceholder": "\u9879\u76EE\u540D\uFF08\u53EF\u9009\uFF09",
+    "projects.untitled": "\u672A\u547D\u540D\u9879\u76EE",
+    "projects.createConfirm": "\u786E\u8BA4\u65B0\u5EFA\u9879\u76EE {project} \u5E76\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u53BB\uFF1F\u6B64\u8FC1\u79FB\u7ACB\u5373\u751F\u6548\u4E14\u65E0\u6CD5\u81EA\u52A8\u64A4\u9500\uFF1B\u539F\u5DE5\u4F5C\u533A\u770B\u677F\u4F1A\u7559\u6863\uFF08\u4E0D\u4F1A\u5220\u9664\uFF09\u3002",
     "projects.mergeConfirm": "\u786E\u8BA4\u628A\u5F53\u524D\u5DE5\u4F5C\u533A\u5408\u5E76\u8FDB\u9879\u76EE {project}\uFF1F\u6B64\u8FC1\u79FB\u7ACB\u5373\u751F\u6548\u4E14\u65E0\u6CD5\u81EA\u52A8\u64A4\u9500\uFF1B\u539F\u5DE5\u4F5C\u533A\u770B\u677F\u4F1A\u7559\u6863\uFF08\u4E0D\u4F1A\u5220\u9664\uFF09\u3002",
     "projects.merged": "\u5DE5\u4F5C\u533A\u5DF2\u5408\u5E76\u8FDB {projectId} \xB7 \u8FC1\u79FB {moved} \u6761\u8BB0\u5F55\u3002",
     "projects.count": "{count} \u4E2A\u9879\u76EE",
@@ -31394,6 +31402,10 @@ var PROJECTS_VIEW_HTML = `  <section id="projectsView" class="view" role="tabpan
       <button id="refreshProjects" class="secondary" type="button" data-i18n="common.refresh">Refresh</button>
       <span id="projectsCount" class="result-count" role="status"></span>
     </div>
+    <div class="proj-create">
+      <input id="newProjectName" type="text" data-i18n-placeholder="projects.namePlaceholder" placeholder="Project name (optional)" maxlength="80">
+      <button id="createProject" class="primary" type="button" data-i18n="projects.create">New project + merge current workspace</button>
+    </div>
     <div id="projectsList" class="proj-list"></div>
   </section>
 `;
@@ -31475,6 +31487,22 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
       return loadProjects().then(function () {
         // The migrated workspace sidecar is archived, so the workspace list
         // must be re-read (applyWorkspace then picks the next workspace).
+        return loadWorkspaces().catch(function () {});
+      });
+    }).catch(function (error) { setNotice(error.message, true); });
+  }
+  function createProjectFromCurrentWorkspace() {
+    if (!currentWorkspace) return;
+    var nameInput = document.getElementById('newProjectName');
+    var name = nameInput.value.trim();
+    var label = name || tr('projects.untitled');
+    if (!window.confirm(tr('projects.createConfirm', { project: label }))) return;
+    var payload = { workspace: currentWorkspace };
+    if (name) payload.name = name;
+    api('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }).then(function (result) {
+      nameInput.value = '';
+      setNotice(tr('projects.merged', { projectId: result.projectId, moved: result.moved }), false);
+      return loadProjects().then(function () {
         return loadWorkspaces().catch(function () {});
       });
     }).catch(function (error) { setNotice(error.message, true); });
@@ -32197,6 +32225,17 @@ ${COMPONENTS_CSS}
   max-width: 640px;
   flex: 1 1 320px;
 }
+.proj-create {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.proj-create input {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
 .proj-list, .ho-list {
   display: flex;
   flex-direction: column;
@@ -32646,6 +32685,7 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   document.getElementById('projectsTab').addEventListener('click', function () { switchView('projects'); });
   document.getElementById('inboxTab').addEventListener('click', function () { switchView('inbox'); });
   document.getElementById('refreshProjects').addEventListener('click', function () { loadProjects().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('createProject').addEventListener('click', createProjectFromCurrentWorkspace);
   document.getElementById('refreshAgents').addEventListener('click', function () { loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); }); });
   document.getElementById('newAgent').addEventListener('click', openNewAgent);
   agentForm.addEventListener('submit', saveAgent);

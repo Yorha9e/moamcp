@@ -608,6 +608,17 @@ ${COMPONENTS_CSS}
   max-width: 640px;
   flex: 1 1 320px;
 }
+.proj-create {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.proj-create input {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
 .proj-list, .ho-list {
   display: flex;
   flex-direction: column;
@@ -1057,6 +1068,7 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   document.getElementById('projectsTab').addEventListener('click', function () { switchView('projects'); });
   document.getElementById('inboxTab').addEventListener('click', function () { switchView('inbox'); });
   document.getElementById('refreshProjects').addEventListener('click', function () { loadProjects().catch(function (error) { setNotice(error.message, true); }); });
+  document.getElementById('createProject').addEventListener('click', createProjectFromCurrentWorkspace);
   document.getElementById('refreshAgents').addEventListener('click', function () { loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); }); });
   document.getElementById('newAgent').addEventListener('click', openNewAgent);
   agentForm.addEventListener('submit', saveAgent);
