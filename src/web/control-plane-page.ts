@@ -1007,6 +1007,83 @@ ${LIB_JS}
       });
     });
   }
+
+  // ---- Bus update banner (BUS_VERSION_RESTART.md task B) ----
+  // Control-plane only (deliberate: the shared lib must stay reload-free).
+  // The served page may be older than the build installed on disk; the banner
+  // makes that visible and offers a controlled restart (task C endpoint).
+  function compareVersions(a, b) {
+    var pa = String(a).split('.').map(Number);
+    var pb = String(b).split('.').map(Number);
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+      var x = pa[i] || 0;
+      var y = pb[i] || 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+  var busUpdateBanner = null;
+  var busUpdateRestarting = false;
+  function busUpdateBannerEl() {
+    if (busUpdateBanner) return busUpdateBanner;
+    busUpdateBanner = document.createElement('div');
+    busUpdateBanner.className = 'bus-update-banner';
+    busUpdateBanner.hidden = true;
+    document.body.appendChild(busUpdateBanner);
+    return busUpdateBanner;
+  }
+  function checkDiskVersion() {
+    if (busUpdateRestarting) return;
+    api('/api/system').then(function (data) {
+      if (!data || typeof data.version !== 'string' || typeof data.diskVersion !== 'string') return;
+      if (compareVersions(data.diskVersion, data.version) <= 0) {
+        busUpdateBannerEl().hidden = true;
+        return;
+      }
+      var banner = busUpdateBannerEl();
+      banner.className = 'bus-update-banner';
+      banner.textContent = '';
+      var text = document.createElement('span');
+      text.textContent = tr('busUpdate.banner', { disk: data.diskVersion, running: data.version });
+      banner.appendChild(text);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'primary';
+      btn.textContent = tr('busUpdate.restart');
+      btn.addEventListener('click', restartBackend);
+      banner.appendChild(btn);
+      banner.hidden = false;
+    }).catch(function () {});
+  }
+  function restartBackend() {
+    if (busUpdateRestarting) return;
+    busUpdateRestarting = true;
+    var banner = busUpdateBannerEl();
+    banner.className = 'bus-update-banner';
+    banner.textContent = tr('busUpdate.restarting');
+    banner.hidden = false;
+    var target = null;
+    api('/api/system').then(function (d) {
+      if (d && typeof d.diskVersion === 'string') target = d.diskVersion;
+    }).catch(function () {});
+    api('/api/bus/restart', { method: 'POST' }).catch(function () {});
+    var attempts = 0;
+    var timer = setInterval(function () {
+      attempts++;
+      api('/api/system').then(function (d) {
+        if (d && typeof d.version === 'string' && target !== null && compareVersions(d.version, target) >= 0) {
+          clearInterval(timer);
+          location.reload();
+        }
+      }).catch(function () {}); // request failures while the old owner releases are expected
+      if (attempts >= 15) {
+        clearInterval(timer);
+        busUpdateRestarting = false;
+        banner.className = 'bus-update-banner danger';
+        banner.textContent = tr('busUpdate.stale');
+      }
+    }, 2000);
+  }
   function utf8Bytes(value) {
     if (typeof TextEncoder === 'function') return new TextEncoder().encode(value).length;
     var bytes = 0;
@@ -1365,6 +1442,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
   var requestedSection = new URLSearchParams(location.search).get('section');
   switchSection(requestedSection);
   loadWorkspaces().catch(function (error) { setNotice(error.message, true); });
+  checkDiskVersion();
+  setInterval(checkDiskVersion, 60000);
 })();
 </script>
 </body>

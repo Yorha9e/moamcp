@@ -133,7 +133,14 @@ describe('shared Web i18n', () => {
     expect(CONTROL_PLANE_HTML).toContain('data-i18n="board.keyAsc"');
     expect(CONTROL_PLANE_HTML).toContain("new URLSearchParams(location.search).get('section')");
     expect(DEBATE_CARD_HTML).toContain("new URLSearchParams(location.search).get('task_id')");
-    expect(CONTROL_PLANE_HTML).not.toContain('location.reload');
+    // The shared lib must never force a page reload; the control-plane page
+    // may, but only inside the deliberate bus-restart flow (task B/C of
+    // BUS_VERSION_RESTART.md: banner → POST /api/bus/restart → reload when
+    // the served version catches up to the installed disk version).
     expect(DEBATE_CARD_HTML).not.toContain('location.reload');
+    expect(CONTROL_PLANE_HTML).toContain("api('/api/bus/restart'");
+    expect(CONTROL_PLANE_HTML).toContain('busUpdate.banner');
+    expect(CONTROL_PLANE_HTML).toContain('busUpdate.stale');
+    expect(CONTROL_PLANE_HTML.match(/location\.reload/g) || []).toHaveLength(1);
   });
 });

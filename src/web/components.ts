@@ -485,6 +485,31 @@ select option {
   border-color: var(--accent-red);
 }
 
+/* Bus update banner (BUS_VERSION_RESTART.md task B): fixed top-center chip,
+   amber when a newer build is installed, red when the restart could not
+   complete. */
+.bus-update-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(760px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--accent-amber);
+  background: var(--solid);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font-size: 13px;
+}
+.bus-update-banner.danger {
+  border-color: var(--accent-red);
+}
+
 /* Notice / Alerts */
 .notice {
   margin: var(--sp2) 0;
