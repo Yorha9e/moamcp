@@ -930,9 +930,14 @@ it('repairProjectMeta prefers live sidecars, skips invalid cwds, dedupes, and ke
   await writeFile(join(boardsDir, `ws-${hashB}.meta.json.migrated-4000`), JSON.stringify({ id: hashB, cwd: cwdB, created_at: new Date().toISOString() }, null, 2));
 
   const b = new BoardStore({ homeDir: home, workspaceCwd: cwdA, registry });
-  expect(await b.repairProjectMeta(projectId)).toEqual([cwdA, cwdB]);
+  // listProjects returns aliases in sorted (lexicographic) order, and repair
+  // collects cwds in that order; registration order is not preserved. Compute
+  // the expected order from the actual sorted hashes instead of assuming
+  // hashA < hashB (mkdtemp prefixes make that assumption flaky).
+  const expectedCwds = [hashA, hashB].sort().map((h) => (h === hashA ? cwdA : cwdB));
+  expect(await b.repairProjectMeta(projectId)).toEqual(expectedCwds);
   const meta = JSON.parse(await readFile(join(boardsDir, `project-${projectId}.meta.json`), 'utf8'));
-  expect(meta.cwds).toEqual([cwdA, cwdB]);
+  expect(meta.cwds).toEqual(expectedCwds);
   await b.close();
 });
 
