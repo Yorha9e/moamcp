@@ -34307,6 +34307,13 @@ var ControlPlane = class {
    * there (store layer unchanged). A missing/invalid project sidecar is
    * self-healed from the aliased workspace sidecars; when nothing can be
    * recovered the request still 404s.
+   *
+   * Mutations that target an existing entry by id (tip update/archive, handoff
+   * consume/archive) plus board writes use this too: after a merge every member
+   * workspace aliases to the project scope, so resolving `project:<id>` to
+   * `cwds[0]` writes to the exact same scope any member workspace would — and
+   * for a fully merged project the `project:<id>` view is the *only* UI handle
+   * left (member sidecars are archived). Workspace migration stays strict.
    */
   async resolveBrowseWorkspace(id) {
     if (typeof id === "string" && id.startsWith("project:")) {
@@ -34409,7 +34416,7 @@ var ControlPlane = class {
     const { tips } = this.stores();
     const body = await ctx.jsonBody();
     rejectPathFields(body);
-    const workspace = await this.resolveWorkspace(body.workspace);
+    const workspace = await this.resolveBrowseWorkspace(body.workspace);
     const { workspace: _workspace, ...input } = body;
     const tip = await tips.create(input, workspace.cwd);
     ctx.sendJson(200, tip);
@@ -34418,7 +34425,7 @@ var ControlPlane = class {
     const { tips } = this.stores();
     const body = await ctx.jsonBody();
     rejectPathFields(body);
-    const workspace = await this.resolveWorkspace(body.workspace);
+    const workspace = await this.resolveBrowseWorkspace(body.workspace);
     const { workspace: _workspace, ...patch } = body;
     const tip = await tips.update(id, patch, workspace.cwd);
     ctx.sendJson(200, tip);
@@ -34427,7 +34434,7 @@ var ControlPlane = class {
     const { tips } = this.stores();
     const body = await ctx.jsonBody();
     rejectPathFields(body);
-    const workspace = await this.resolveWorkspace(body.workspace);
+    const workspace = await this.resolveBrowseWorkspace(body.workspace);
     const actor = body.actor;
     if (actor !== void 0 && actor !== null && typeof actor !== "string") {
       throw new ApiValidationError("actor must be a string");
@@ -34570,7 +34577,7 @@ var ControlPlane = class {
     const body = await ctx.jsonBody();
     rejectPathFields(body);
     ctx.assertAllowedFields(body, ["workspace", "actor"], "handoff transition");
-    const workspace = await this.resolveWorkspace(body.workspace);
+    const workspace = await this.resolveBrowseWorkspace(body.workspace);
     const actor = body.actor;
     if (actor !== void 0 && actor !== null && typeof actor !== "string") {
       throw new ApiValidationError("actor must be a string");
@@ -34607,7 +34614,7 @@ var ControlPlane = class {
     let workspaceId;
     let cwd;
     if (body.scope === "workspace" || body.workspace !== void 0) {
-      const workspace = await this.resolveWorkspace(body.workspace);
+      const workspace = await this.resolveBrowseWorkspace(body.workspace);
       workspaceId = workspace.id;
       cwd = workspace.cwd;
     }

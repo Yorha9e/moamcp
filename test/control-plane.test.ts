@@ -1224,11 +1224,25 @@ describe('control plane HTTP surface', () => {
     expect((await request('/api/tips?workspace=project:not-a-project')).response.status).toBe(400);
     expect((await request('/api/board?scope=workspace&workspace=project:zzz')).response.status).toBe(400);
 
-    // project:<id> is a browse-only alias for the transport: mutations keep
-    // the strict 16-hex sidecar-id contract.
-    expect((await request('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ scope: 'workspace', workspace: `project:${projectId}`, key: 'no', value: 'write' }) })).response.status).toBe(400);
-    expect((await request('/api/tips', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}`, title: 'x', summary: 'y' }) })).response.status).toBe(400);
-    expect((await request(`/api/handoff/${sent.id}/consume`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}` }) })).response.status).toBe(400);
+    // Contract evolution (0.3.2, was "browse-only, mutations 400"): after a
+    // merge every member workspace aliases to the project scope, and the
+    // archived member sidecars leave project:<id> as the ONLY UI handle —
+    // keeping mutations strict made consume/archive on merged projects
+    // impossible from the panel. Mutations now resolve project:<id> through
+    // cwds[0]; alias resolution lands the write in the exact same project
+    // scope any member workspace would hit.
+    const boardWrite = await request('/api/board', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ scope: 'workspace', workspace: `project:${projectId}`, key: 'yes', value: 'write' }) });
+    expect(boardWrite.response.status).toBe(200);
+    expect(boardWrite.body).toMatchObject({ ok: true, entry: { key: 'yes', value: 'write' } });
+    const tipCreate = await request('/api/tips', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}`, title: 'x', summary: 'y' }) });
+    expect(tipCreate.response.status).toBe(200);
+    expect(tipCreate.body).toMatchObject({ title: 'x' });
+    const consumed = await request(`/api/handoff/${sent.id}/consume`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: `project:${projectId}` }) });
+    expect(consumed.response.status).toBe(200);
+    expect(consumed.body).toMatchObject({ id: sent.id, state: 'consumed' });
+    // The writes landed in the project scope, visible through the same view.
+    expect((await request(`/api/board?scope=workspace&workspace=${encodeURIComponent(`project:${projectId}`)}`)).body.entries.map((e: any) => e.key)).toContain('yes');
+    expect((await request(`/api/handoff/inbox?workspace=${encodeURIComponent(`project:${projectId}`)}&state=consumed`)).body.handoffs).toHaveLength(1);
   });
 
   it('self-heals legacy pre-task5 projects: project:<id> browses after the missing meta is repaired', async () => {
