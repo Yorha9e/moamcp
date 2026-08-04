@@ -36763,6 +36763,7 @@ var OmkcSource = class {
           this.connectedAt = null;
           this.opts.onDisconnect?.(info);
         }
+        if (!this.running || gen !== this.generation) break;
         await sleep2(this.probeIntervalMs);
       } else {
         await sleep2(this.probeIntervalMs);
@@ -36791,59 +36792,68 @@ var OmkcSource = class {
   }
   async subscribe(info) {
     this.abort = new AbortController();
-    const res = await fetch(`http://127.0.0.1:${info.port}/events`, {
-      signal: this.abort.signal,
-      headers: { Accept: "text/event-stream" }
-    });
-    if (!res.ok || !res.body) throw new Error(`omkc /events: HTTP ${res.status}`);
-    this.current = info;
-    this.connectedAt = Date.now();
-    this.opts.onConnect?.(info);
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let dataLines = [];
-    let idleTimer = null;
-    const flush = () => {
-      if (dataLines.length === 0) return;
-      const raw = dataLines.join("\n");
-      dataLines = [];
-      let parsed = null;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-      }
-      this.opts.onEvent(raw, parsed);
-    };
+    const attempt = new AbortController();
+    const linkAbort = () => attempt.abort();
+    this.abort.signal.addEventListener("abort", linkAbort);
+    const headerTimer = setTimeout(() => attempt.abort(), this.readIdleTimeoutMs);
     try {
-      for (; ; ) {
-        const idle = new Promise((resolve5) => {
-          idleTimer = setTimeout(() => resolve5("idle"), this.readIdleTimeoutMs);
-        });
-        const chunk = await Promise.race([reader.read(), idle]);
-        if (idleTimer) clearTimeout(idleTimer);
-        if (chunk === "idle") {
-          this.abort?.abort();
-          throw new Error(`omkc /events: no bytes for ${this.readIdleTimeoutMs}ms (read idle timeout)`);
+      const res = await fetch(`http://127.0.0.1:${info.port}/events`, {
+        signal: attempt.signal,
+        headers: { Accept: "text/event-stream" }
+      });
+      clearTimeout(headerTimer);
+      if (!res.ok || !res.body) throw new Error(`omkc /events: HTTP ${res.status}`);
+      this.current = info;
+      this.connectedAt = Date.now();
+      this.opts.onConnect?.(info);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let dataLines = [];
+      let idleTimer = null;
+      const flush = () => {
+        if (dataLines.length === 0) return;
+        const raw = dataLines.join("\n");
+        dataLines = [];
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
         }
-        const { done, value } = chunk;
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (line === "" || line === "\r") {
-            flush();
-          } else if (line.startsWith("data:")) {
-            dataLines.push(line.slice(5).replace(/^ /, "").replace(/\r$/, ""));
+        this.opts.onEvent(raw, parsed);
+      };
+      try {
+        for (; ; ) {
+          const idle = new Promise((resolve5) => {
+            idleTimer = setTimeout(() => resolve5("idle"), this.readIdleTimeoutMs);
+          });
+          const chunk = await Promise.race([reader.read(), idle]);
+          if (idleTimer) clearTimeout(idleTimer);
+          if (chunk === "idle") {
+            this.abort?.abort();
+            throw new Error(`omkc /events: no bytes for ${this.readIdleTimeoutMs}ms (read idle timeout)`);
+          }
+          const { done, value } = chunk;
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line === "" || line === "\r") {
+              flush();
+            } else if (line.startsWith("data:")) {
+              dataLines.push(line.slice(5).replace(/^ /, "").replace(/\r$/, ""));
+            }
           }
         }
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        flush();
+        reader.releaseLock();
       }
     } finally {
-      if (idleTimer) clearTimeout(idleTimer);
-      buffer += decoder.decode();
-      flush();
-      reader.releaseLock();
+      clearTimeout(headerTimer);
+      this.abort.signal.removeEventListener("abort", linkAbort);
     }
   }
 };

@@ -3,6 +3,9 @@
  * batch-1b regressions: SSE frame parsing (split chunks, CRLF, multi-line,
  * comments), F1 read-idle timeout, F4 reconnect throttle, F2/finiteTime fold
  * guards, F7 stop→start generation race, controller assembly, F6 takeover.
+ * Batch-0.6.1 regressions: P1 header-stage timeout (never-ending /events
+ * headers), F3 stop-while-connected fast exit (F8 no-op removal has no
+ * observable test delta by design).
  */
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -132,6 +135,61 @@ function startMockSourceOn(
       resolve({
         port,
         ctx,
+        close: () =>
+          new Promise<void>((r) => {
+            server.closeAllConnections?.();
+            server.close(() => r());
+          }),
+      });
+    });
+  });
+}
+
+/**
+ * Mock source whose /events handler accepts the TCP connection but never
+ * writes HTTP headers (P1): fetch() hangs until the source's header-stage
+ * timeout aborts the attempt. /health probes are timestamped so a test can
+ * assert the fallback to probing.
+ */
+function startSilentEventsMock(
+  body: Record<string, unknown>,
+): Promise<{ port: number; ctx: MockEventsCtx; healthProbes: number[]; close(): Promise<void> }> {
+  return new Promise((resolve) => {
+    const ctx: MockEventsCtx = {
+      connections: 0,
+      connectTimes: [],
+      active: 0,
+      maxActive: 0,
+      closes: 0,
+    };
+    const healthProbes: number[] = [];
+    const server = http.createServer((req, res) => {
+      if (req.url === '/health') {
+        healthProbes.push(Date.now());
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(body));
+        return;
+      }
+      if (req.url === '/events') {
+        ctx.connections++;
+        ctx.connectTimes.push(Date.now());
+        ctx.active++;
+        ctx.maxActive = Math.max(ctx.maxActive, ctx.active);
+        res.on('close', () => {
+          ctx.active--;
+          ctx.closes++;
+        });
+        return; // accept the socket, never writeHead/flushHeaders/end
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const port = (server.address() as AddressInfo).port;
+      resolve({
+        port,
+        ctx,
+        healthProbes,
         close: () =>
           new Promise<void>((r) => {
             server.closeAllConnections?.();
@@ -483,6 +541,32 @@ describe('OmkcSource reconnect / idle / stop lifecycle', () => {
     }
   });
 
+  it('aborts a /events attempt whose headers never arrive and falls back to probing (P1)', async () => {
+    const readIdleTimeoutMs = 150;
+    const probeIntervalMs = 60;
+    const mock = await startSilentEventsMock(health());
+    const h = makeSource({ probePort: mock.port, readIdleTimeoutMs, probeIntervalMs });
+    try {
+      h.source.start();
+      // The first /events attempt hangs on headers; the per-attempt header
+      // timeout (same idle budget as the read stage) must abort it and loop
+      // back to probing. Without it, undici's default header timeout (~300s)
+      // would stall the attempt and no second /health probe would arrive
+      // within the 5s waitFor deadline.
+      await waitFor(() => mock.healthProbes.length >= 2, 5000);
+      const gap = mock.healthProbes[1] - mock.healthProbes[0];
+      // ≈ readIdleTimeoutMs (header hang) + probeIntervalMs (F4 throttle)
+      expect(gap).toBeLessThan(2 * readIdleTimeoutMs + probeIntervalMs);
+      // the hanging attempt reached the server but never became a connection
+      expect(mock.ctx.connections).toBeGreaterThanOrEqual(1);
+      expect(h.connects).toHaveLength(0);
+      expect(h.disconnects).toHaveLength(0);
+    } finally {
+      await h.stop();
+      await mock.close();
+    }
+  });
+
   it('stop() during the probe sleep exits within ~2×probeIntervalMs', async () => {
     // Grab a port and free it: nothing listens there, so the source stays in
     // the not-found probe→sleep branch forever.
@@ -497,6 +581,25 @@ describe('OmkcSource reconnect / idle / stop lifecycle', () => {
     await h.stop();
     const elapsed = Date.now() - t0;
     expect(elapsed).toBeLessThan(2 * 300);
+  });
+
+  it('stop() while connected exits without waiting out a probe interval (F3)', async () => {
+    const probeIntervalMs = 120;
+    const mock = await startMockSource(health()); // /events held open, byte-silent
+    const h = makeSource({ probePort: mock.port, probeIntervalMs });
+    try {
+      h.source.start();
+      await waitFor(() => h.connects.length === 1);
+      const t0 = Date.now();
+      await h.stop();
+      const elapsed = Date.now() - t0;
+      // Without the F3 short-circuit the loop would wait out a full
+      // probeIntervalMs after the disconnect before exiting; the 2× bound
+      // leaves headroom for CI jitter on the (much faster) fixed path.
+      expect(elapsed).toBeLessThan(2 * probeIntervalMs);
+    } finally {
+      await mock.close();
+    }
   });
 });
 

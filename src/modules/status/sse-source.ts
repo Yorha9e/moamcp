@@ -166,6 +166,12 @@ export class OmkcSource {
           this.connectedAt = null;
           this.opts.onDisconnect?.(info);
         }
+        // F3 (batch 0.6.1): a stop() landing mid-connection would otherwise
+        // make this branch wait out the full probeIntervalMs before the loop
+        // notices running=false. Break out immediately instead; normal
+        // operation keeps running=true, so the F4 reconnect throttle below is
+        // unaffected.
+        if (!this.running || gen !== this.generation) break;
         // F4 (deviation from omkc-status): the original looped straight back
         // into probe() when a subscribe ended, so a source that accepts
         // /events but immediately closes caused a tight probe→subscribe→probe
@@ -203,71 +209,92 @@ export class OmkcSource {
 
   private async subscribe(info: OmkcSourceInfo): Promise<void> {
     this.abort = new AbortController();
-    const res = await fetch(`http://127.0.0.1:${info.port}/events`, {
-      signal: this.abort.signal,
-      headers: { Accept: 'text/event-stream' },
-    });
-    if (!res.ok || !res.body) throw new Error(`omkc /events: HTTP ${res.status}`);
-    this.current = info;
-    this.connectedAt = Date.now();
-    this.opts.onConnect?.(info);
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let dataLines: string[] = [];
-    let idleTimer: NodeJS.Timeout | null = null;
-    const flush = () => {
-      if (dataLines.length === 0) return;
-      const raw = dataLines.join('\n');
-      dataLines = [];
-      let parsed: OmkcEvent | null = null;
-      try {
-        parsed = JSON.parse(raw) as OmkcEvent;
-      } catch {
-        // forward raw anyway
-      }
-      this.opts.onEvent(raw, parsed);
-    };
+    // P1 (batch 0.6.1): a server that accepts /events over TCP but never
+    // writes HTTP headers would otherwise leave fetch() hanging until
+    // undici's default header timeout (~300s) — far past the read-idle
+    // budget. Race the header stage against a per-attempt AbortController on
+    // the same idle budget as the read stage (header stage and read stage
+    // share the same idle budget), and link it to this.abort so stop() tears
+    // the attempt down too.
+    const attempt = new AbortController();
+    const linkAbort = () => attempt.abort();
+    this.abort.signal.addEventListener('abort', linkAbort);
+    const headerTimer = setTimeout(() => attempt.abort(), this.readIdleTimeoutMs);
     try {
-      for (;;) {
-        // F1 (deviation from omkc-status): race every read against a read-idle
-        // timer. The server's `: heartbeat` comment frames (15s) keep the
-        // stream alive, so the timeout means no bytes at all for
-        // READ_IDLE_TIMEOUT_MS — abort the stream and let the caller fall back
-        // to probing. Timed by bytes, not frames: heartbeats reset it without
-        // ever reaching onEvent.
-        const idle = new Promise<'idle'>((resolve) => {
-          idleTimer = setTimeout(() => resolve('idle'), this.readIdleTimeoutMs);
-        });
-        const chunk = await Promise.race([reader.read(), idle]);
-        if (idleTimer) clearTimeout(idleTimer);
-        if (chunk === 'idle') {
-          this.abort?.abort();
-          throw new Error(`omkc /events: no bytes for ${this.readIdleTimeoutMs}ms (read idle timeout)`);
+      const res = await fetch(`http://127.0.0.1:${info.port}/events`, {
+        signal: attempt.signal,
+        headers: { Accept: 'text/event-stream' },
+      });
+      clearTimeout(headerTimer);
+      if (!res.ok || !res.body) throw new Error(`omkc /events: HTTP ${res.status}`);
+      this.current = info;
+      this.connectedAt = Date.now();
+      this.opts.onConnect?.(info);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let dataLines: string[] = [];
+      let idleTimer: NodeJS.Timeout | null = null;
+      const flush = () => {
+        if (dataLines.length === 0) return;
+        const raw = dataLines.join('\n');
+        dataLines = [];
+        let parsed: OmkcEvent | null = null;
+        try {
+          parsed = JSON.parse(raw) as OmkcEvent;
+        } catch {
+          // forward raw anyway
         }
-        const { done, value } = chunk;
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-        for (const line of lines) {
-          if (line === '' || line === '\r') {
-            flush();
-          } else if (line.startsWith('data:')) {
-            dataLines.push(line.slice(5).replace(/^ /, '').replace(/\r$/, ''));
+        this.opts.onEvent(raw, parsed);
+      };
+      try {
+        for (;;) {
+          // F1 (deviation from omkc-status): race every read against a read-idle
+          // timer. The server's `: heartbeat` comment frames (15s) keep the
+          // stream alive, so the timeout means no bytes at all for
+          // READ_IDLE_TIMEOUT_MS — abort the stream and let the caller fall back
+          // to probing. Timed by bytes, not frames: heartbeats reset it without
+          // ever reaching onEvent.
+          const idle = new Promise<'idle'>((resolve) => {
+            idleTimer = setTimeout(() => resolve('idle'), this.readIdleTimeoutMs);
+          });
+          const chunk = await Promise.race([reader.read(), idle]);
+          if (idleTimer) clearTimeout(idleTimer);
+          if (chunk === 'idle') {
+            this.abort?.abort();
+            throw new Error(`omkc /events: no bytes for ${this.readIdleTimeoutMs}ms (read idle timeout)`);
           }
-          // event:/id:/comment lines are ignored; frames are data-only
+          const { done, value } = chunk;
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (line === '' || line === '\r') {
+              flush();
+            } else if (line.startsWith('data:')) {
+              dataLines.push(line.slice(5).replace(/^ /, '').replace(/\r$/, ''));
+            }
+            // event:/id:/comment lines are ignored; frames are data-only
+          }
         }
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        // F8 removed (batch 0.6.1): the former `buffer += decoder.decode()`
+        // flush at stream end was proven a no-op — TextDecoder's stream mode
+        // already re-assembles multi-byte characters split across chunk
+        // boundaries, and an unterminated final line was never flushed anyway.
+        // A side-by-side run with and without the line showed identical
+        // observable behavior, so it is deleted rather than kept as dead code.
+        flush();
+        reader.releaseLock();
       }
     } finally {
-      if (idleTimer) clearTimeout(idleTimer);
-      // F8 (deviation from omkc-status): flush the TextDecoder at stream end so
-      // a multi-byte UTF-8 character split across the final chunk boundary is
-      // still emitted into the residual buffer before the last flush().
-      buffer += decoder.decode();
-      flush();
-      reader.releaseLock();
+      // Always drop the per-attempt abort link when the attempt ends; leaving
+      // one listener per attempt across reconnect cycles would pile them up.
+      clearTimeout(headerTimer);
+      this.abort.signal.removeEventListener('abort', linkAbort);
     }
   }
 }
