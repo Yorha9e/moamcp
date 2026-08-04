@@ -346,14 +346,23 @@ export class StateFold {
 
   /** Fold one omkc SSE event (authoritative overlay, carries real phase). */
   applyOmkcEvent(ev: OmkcEvent | null): AgentState | null {
-    if (!ev || typeof ev.sessionId !== 'string' || typeof ev.agentId !== 'string') return null;
+    if (
+      !ev ||
+      typeof ev.sessionId !== 'string' ||
+      typeof ev.agentId !== 'string' ||
+      typeof ev.type !== 'string'
+    ) {
+      // F2 (batch 1b): a parseable frame without a string `type` is dropped
+      // outright — the switch below (and ev.type.startsWith for subagent.*)
+      // assumes it, so letting it through would throw.
+      return null;
+    }
     const payload = asRecord(ev.payload);
-    // NOTE (batch 1b): ev.ts deliberately keeps the source's unguarded semantics
-    // for now — a non-finite ts (Infinity via JSON overflow) would propagate
-    // into lastSeen and block stale forever. Batch 1b MUST route this through
-    // the same finiteTime guard as the wire-side entries when wiring the SSE
-    // source (and/or sanitize at the source).
-    const ts = typeof ev.ts === 'number' ? ev.ts : Date.now();
+    // Batch 1b: ev.ts now routes through the same finiteTime guard as the
+    // wire-side entries (this was the batch-1a NOTE) — a non-finite ts
+    // (Infinity via a JSON overflow like 1e999) would otherwise propagate
+    // into lastSeen and block the stale sweep forever.
+    const ts = typeof ev.ts === 'number' ? finiteTime(ev.ts) : Date.now();
     // subagent.* events are filed under the parent agent when identified.
     let agentId = ev.agentId;
     if (ev.type.startsWith('subagent.') && typeof payload.parentAgentId === 'string') {

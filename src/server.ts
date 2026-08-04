@@ -13,15 +13,33 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { request } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createServer } from './adapters/mcp.js';
-import { Bus } from './core/bus/bus.js';
+import { Bus, type BusStartResult } from './core/bus/bus.js';
 import { spawnBusDaemon } from './core/bus/daemon-spawn.js';
 import { BoardStore } from './core/store/board.js';
 import { DebateHub, defaultLogsDir, type DomainEvent } from './modules/debate/state.js';
-import { createStatusController, createStatusModule } from './modules/status/index.js';
+import {
+  createStatusController,
+  createStatusModule,
+  type StatusController,
+} from './modules/status/index.js';
 import { TipStore } from './modules/tips/tips.js';
 
 // Public entry surface: tests and embedders import createServer from here.
 export { createServer };
+
+/**
+ * Status-module part of a Bus takeover (batch 1b, F6): when this process wins
+ * the port race, (re)start the status controller so its omkc SSE source and
+ * wire watchers come up. `controller.start()` is idempotent, so an own→own
+ * re-takeover is safe. The reverse direction (own → reuse: stop the
+ * controller) is left to batch 1c.
+ */
+export function startStatusOnOwnTakeover(
+  result: BusStartResult,
+  controller: Pick<StatusController, 'start'>,
+): void {
+  if (result.mode === 'own') controller.start();
+}
 
 /** Best-effort forward timeout for reuse-mode publishes (design §3.3: no retries). */
 const REUSE_PUBLISH_TIMEOUT_MS = 2000;
@@ -135,6 +153,11 @@ async function main(): Promise<void> {
       result.mode === 'own'
         ? (taskId, event) => bus.publish(taskId, event)
         : reusePublishForwarder(result.port);
+    // F6 (batch 1b): if we win the takeover, start the status controller —
+    // its omkc SSE source + wire watchers are otherwise only started at boot
+    // (main() above, own mode). start() is idempotent. Reverse (own→reuse
+    // stops the controller) is left to batch 1c.
+    startStatusOnOwnTakeover(result, statusController);
     console.error(
       result.mode === 'own'
         ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)`

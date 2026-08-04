@@ -1,12 +1,14 @@
 /**
  * Status module: live agent/session view folded from the CLI homes' session
- * trees (wire.jsonl / state.json / tasks/*.json). Batch 1a wires the
- * WireWatcher (source ①) into the StateFold; the omkc SSE source (source ②)
- * lands in 1b. The controller owns watcher lifecycle + the stale sweep; the
- * module exposes the `moa_status_agents` tool over that fold.
+ * trees (wire.jsonl / state.json / tasks/*.json) plus the omkc embedded SSE
+ * source. Batch 1a wired the WireWatcher (source ①) into the StateFold;
+ * batch 1b adds the omkc SSE source (source ②) to the same fold. The
+ * controller owns watcher + SSE lifecycle and the stale sweep; the module
+ * exposes the `moa_status_agents` tool over that fold.
  */
 import fs from 'node:fs';
 import type { MoaModule, MoaToolDef } from '../types.js';
+import { OmkcSource } from './sse-source.js';
 import { StateFold } from './state.js';
 import {
   resolveHomes,
@@ -23,6 +25,15 @@ export interface StatusControllerOptions {
   pollIntervalMs?: number;
   /** Fold stale threshold (default STALE_MS = 60s). */
   staleMs?: number;
+  /** omkc SSE source (source ②) probe window (default 39631..39731). */
+  omkcProbeMin?: number;
+  omkcProbeMax?: number;
+  /** Health probe interval while disconnected (default 5000ms). */
+  omkcProbeIntervalMs?: number;
+  /** Per-port /health timeout (default 200ms). */
+  omkcProbeTimeoutMs?: number;
+  /** /events read-idle timeout (default READ_IDLE_TIMEOUT_MS = 45s). */
+  omkcReadIdleTimeoutMs?: number;
 }
 
 export interface StatusScanStatus {
@@ -53,6 +64,21 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
   let started = false;
   let homeRecheck: NodeJS.Timeout | null = null;
   let sweepTimer: NodeJS.Timeout | null = null;
+
+  // Batch 1b: the omkc embedded SSE source (source ②) feeds the same fold.
+  // Parseable events fold in; raw frames (unparseable JSON) have no landing
+  // point and are dropped here. Probe window / timings are injectable so
+  // tests can point the source at high-port mock servers.
+  const omkc = new OmkcSource({
+    probeMin: opts.omkcProbeMin,
+    probeMax: opts.omkcProbeMax,
+    probeIntervalMs: opts.omkcProbeIntervalMs,
+    probeTimeoutMs: opts.omkcProbeTimeoutMs,
+    readIdleTimeoutMs: opts.omkcReadIdleTimeoutMs,
+    onEvent: (_raw, ev) => {
+      if (ev) fold.applyOmkcEvent(ev);
+    },
+  });
 
   // cli.ts:44-71 wiring: one watcher per home that exists, callbacks fold
   // straight into the shared StateFold.
@@ -101,6 +127,9 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
         sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
         sweepTimer.unref();
       }
+      // Batch 1b: raise the omkc SSE subscription too (OmkcSource.start() is
+      // idempotent, mirroring the watchers above).
+      omkc.start();
     },
     stop(): void {
       if (!started) return;
@@ -114,6 +143,11 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
         clearInterval(sweepTimer);
         sweepTimer = null;
       }
+      // Batch 1b (F5): stop() keeps its synchronous signature — the omkc
+      // source is stopped fire-and-forget. OmkcSource.stop() never rejects
+      // (every await inside is caught), so there is no unhandled-rejection
+      // risk and server.ts's shutdown call site stays untouched.
+      void omkc.stop();
     },
     isStarted: () => started,
     getFold: () => fold,
