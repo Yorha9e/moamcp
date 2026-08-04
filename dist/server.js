@@ -3236,8 +3236,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path) {
-      let input = path;
+    function removeDotSegments(path2) {
+      let input = path2;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3489,8 +3489,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path && path !== "/" ? path : void 0;
+        const [path2, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6889,12 +6889,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs, exportName) {
+    function addFormats(ajv, list, fs3, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs[f]);
+        ajv.addFormat(f, fs3[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6979,17 +6979,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path) {
-      const ctrl = callVisitor(key, node, visitor, path);
+    function visit_(key, node, visitor, path2) {
+      const ctrl = callVisitor(key, node, visitor, path2);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path, ctrl);
-        return visit_(key, ctrl, visitor, path);
+        replaceNode(key, path2, ctrl);
+        return visit_(key, ctrl, visitor, path2);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path = Object.freeze(path.concat(node));
+          path2 = Object.freeze(path2.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path);
+            const ci = visit_(i, node.items[i], visitor, path2);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -7000,13 +7000,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path = Object.freeze(path.concat(node));
-          const ck = visit_("key", node.key, visitor, path);
+          path2 = Object.freeze(path2.concat(node));
+          const ck = visit_("key", node.key, visitor, path2);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path);
+          const cv = visit_("value", node.value, visitor, path2);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -7027,17 +7027,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path) {
-      const ctrl = await callVisitor(key, node, visitor, path);
+    async function visitAsync_(key, node, visitor, path2) {
+      const ctrl = await callVisitor(key, node, visitor, path2);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path, ctrl);
-        return visitAsync_(key, ctrl, visitor, path);
+        replaceNode(key, path2, ctrl);
+        return visitAsync_(key, ctrl, visitor, path2);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path = Object.freeze(path.concat(node));
+          path2 = Object.freeze(path2.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path);
+            const ci = await visitAsync_(i, node.items[i], visitor, path2);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -7048,13 +7048,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path = Object.freeze(path.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path);
+          path2 = Object.freeze(path2.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path2);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path);
+          const cv = await visitAsync_("value", node.value, visitor, path2);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -7081,23 +7081,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path) {
+    function callVisitor(key, node, visitor, path2) {
       if (typeof visitor === "function")
-        return visitor(key, node, path);
+        return visitor(key, node, path2);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path);
+        return visitor.Map?.(key, node, path2);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path);
+        return visitor.Seq?.(key, node, path2);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path);
+        return visitor.Pair?.(key, node, path2);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path);
+        return visitor.Scalar?.(key, node, path2);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path);
+        return visitor.Alias?.(key, node, path2);
       return void 0;
     }
-    function replaceNode(key, path, node) {
-      const parent = path[path.length - 1];
+    function replaceNode(key, path2, node) {
+      const parent = path2[path2.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -7707,10 +7707,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path, value) {
+    function collectionFromPath(schema, path2, value) {
       let v = value;
-      for (let i = path.length - 1; i >= 0; --i) {
-        const k = path[i];
+      for (let i = path2.length - 1; i >= 0; --i) {
+        const k = path2[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -7729,7 +7729,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path) => path == null || typeof path === "object" && !!path[Symbol.iterator]().next().done;
+    var isEmptyPath = (path2) => path2 == null || typeof path2 === "object" && !!path2[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -7759,11 +7759,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path, value) {
-        if (isEmptyPath(path))
+      addIn(path2, value) {
+        if (isEmptyPath(path2))
           this.add(value);
         else {
-          const [key, ...rest] = path;
+          const [key, ...rest] = path2;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -7777,8 +7777,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path) {
-        const [key, ...rest] = path;
+      deleteIn(path2) {
+        const [key, ...rest] = path2;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -7792,8 +7792,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path, keepScalar) {
-        const [key, ...rest] = path;
+      getIn(path2, keepScalar) {
+        const [key, ...rest] = path2;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -7811,8 +7811,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path) {
-        const [key, ...rest] = path;
+      hasIn(path2) {
+        const [key, ...rest] = path2;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -7822,8 +7822,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path, value) {
-        const [key, ...rest] = path;
+      setIn(path2, value) {
+        const [key, ...rest] = path2;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -10338,9 +10338,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path, value) {
+      addIn(path2, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path, value);
+          this.contents.addIn(path2, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -10415,14 +10415,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path) {
-        if (Collection.isEmptyPath(path)) {
+      deleteIn(path2) {
+        if (Collection.isEmptyPath(path2)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path2) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -10437,10 +10437,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path, keepScalar) {
-        if (Collection.isEmptyPath(path))
+      getIn(path2, keepScalar) {
+        if (Collection.isEmptyPath(path2))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path2, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -10451,10 +10451,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path) {
-        if (Collection.isEmptyPath(path))
+      hasIn(path2) {
+        if (Collection.isEmptyPath(path2))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path2) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -10471,13 +10471,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path, value) {
-        if (Collection.isEmptyPath(path)) {
+      setIn(path2, value) {
+        if (Collection.isEmptyPath(path2)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path2), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path, value);
+          this.contents.setIn(path2, value);
         }
       }
       /**
@@ -12437,9 +12437,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path) => {
+    visit.itemAtPath = (cst, path2) => {
       let item = cst;
-      for (const [field, index] of path) {
+      for (const [field, index] of path2) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -12448,23 +12448,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path) => {
-      const parent = visit.itemAtPath(cst, path.slice(0, -1));
-      const field = path[path.length - 1][0];
+    visit.parentCollection = (cst, path2) => {
+      const parent = visit.itemAtPath(cst, path2.slice(0, -1));
+      const field = path2[path2.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path, item, visitor) {
-      let ctrl = visitor(item, path);
+    function _visit(path2, item, visitor) {
+      let ctrl = visitor(item, path2);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path2.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -12475,10 +12475,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path);
+            ctrl = ctrl(item, path2);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path2) : ctrl;
     }
     exports.visit = visit;
   }
@@ -13780,14 +13780,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs, sep: [] });
+                map.items.push({ start, key: fs3, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs);
+                this.stack.push(fs3);
               } else {
-                Object.assign(it, { key: fs, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -13915,13 +13915,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs, sep: [] });
+                fc.items.push({ start: [], key: fs3, sep: [] });
               else if (it.sep)
-                this.stack.push(fs);
+                this.stack.push(fs3);
               else
-                Object.assign(it, { key: fs, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -14472,10 +14472,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path) {
-  if (!path)
+function getElementAtPath(obj, path2) {
+  if (!path2)
     return obj;
-  return path.reduce((acc, key) => acc?.[key], obj);
+  return path2.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14884,11 +14884,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path, issues) {
+function prefixIssues(path2, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path);
+    iss.path.unshift(path2);
     return iss;
   });
 }
@@ -15035,16 +15035,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path = []) => {
+  const processError = (error3, path2 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path2, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
       } else {
-        const fullpath = [...path, ...issue2.path];
+        const fullpath = [...path2, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -26065,7 +26065,7 @@ var ARCHIVE_FILE_NAMES = [
   "board.jsonl"
 ];
 var nodeFileSystem = {
-  readdir: (path, options) => readdir4(path, options),
+  readdir: (path2, options) => readdir4(path2, options),
   lstat,
   open: open3
 };
@@ -26978,11 +26978,11 @@ var AGENT_FILE_SUFFIX = ".md";
 var SECTION_NAMES = ["subagent", "subagent-slot"];
 var BINDING_FIELDS = ["model", "thinking_effort", "inherit"];
 var nodeFileSystem2 = {
-  readdir: (path, options) => readdir5(path, options),
+  readdir: (path2, options) => readdir5(path2, options),
   lstat: lstat2,
   realpath,
-  readFile: (path, encoding) => readFile4(path, encoding),
-  mkdir: (path, options) => mkdir4(path, options),
+  readFile: (path2, encoding) => readFile4(path2, encoding),
+  mkdir: (path2, options) => mkdir4(path2, options),
   unlink: unlink4,
   writeFileAtomic
 };
@@ -27812,10 +27812,10 @@ var WorkspaceAgentConfigService = class {
    * Check an existing path without following a symbolic link. Missing fixed
    * config directories are allowed because a first save may create them.
    */
-  async existingPath(path, expected, allowMissing, root) {
+  async existingPath(path2, expected, allowMissing, root) {
     let stat5;
     try {
-      stat5 = await this.fs.lstat(path);
+      stat5 = await this.fs.lstat(path2);
     } catch (error2) {
       if (isMissing(error2) && allowMissing) return false;
       throw mapReadError(error2, "project configuration path could not be inspected");
@@ -27825,29 +27825,29 @@ var WorkspaceAgentConfigService = class {
     if (expected === "directory" && !stat5.isDirectory()) throw new AgentConfigUnsafePathError("configuration parent is not a directory");
     let physical;
     try {
-      physical = await this.fs.realpath(path);
+      physical = await this.fs.realpath(path2);
     } catch (error2) {
       throw mapReadError(error2, "project configuration path could not be resolved");
     }
     if (!isInside(root, physical)) throw new AgentConfigUnsafePathError();
     return true;
   }
-  async ensureDirectory(path, root, allowMissing = false) {
-    const exists = await this.existingPath(path, "directory", true, root);
+  async ensureDirectory(path2, root, allowMissing = false) {
+    const exists = await this.existingPath(path2, "directory", true, root);
     if (exists || allowMissing) return exists;
     try {
-      await this.fs.mkdir(path, { recursive: true });
+      await this.fs.mkdir(path2, { recursive: true });
     } catch (error2) {
       throw mapFileMutationError(error2);
     }
-    await this.existingPath(path, "directory", false, root);
+    await this.existingPath(path2, "directory", false, root);
     return true;
   }
-  async ensureTargetForWrite(path, parent, root) {
+  async ensureTargetForWrite(path2, parent, root) {
     await this.ensureDirectory(parent, root);
-    await this.existingPath(path, "file", true, root);
+    await this.existingPath(path2, "file", true, root);
   }
-  async readManagedFile(path, maxBytes, parent) {
+  async readManagedFile(path2, maxBytes, parent) {
     let parentStat;
     let parentPhysical;
     try {
@@ -27865,7 +27865,7 @@ var WorkspaceAgentConfigService = class {
     }
     let stat5;
     try {
-      stat5 = await this.fs.lstat(path);
+      stat5 = await this.fs.lstat(path2);
     } catch (error2) {
       if (isMissing(error2)) return { exists: false, content: "", hash: null, size: 0 };
       throw mapReadError(error2, "configuration file could not be inspected");
@@ -27874,16 +27874,16 @@ var WorkspaceAgentConfigService = class {
     if (stat5.size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
     let content;
     try {
-      content = await this.fs.readFile(path, "utf8");
+      content = await this.fs.readFile(path2, "utf8");
     } catch (error2) {
       throw mapReadError(error2, "configuration file could not be read");
     }
     const size = Buffer.byteLength(content, "utf8");
     if (size > maxBytes) throw new AgentConfigValidationError(`configuration file exceeds ${maxBytes} bytes`);
     try {
-      const current = await this.fs.lstat(path);
+      const current = await this.fs.lstat(path2);
       if (current.isSymbolicLink() || !current.isFile()) throw new AgentConfigUnsafePathError();
-      const physical = await this.fs.realpath(path);
+      const physical = await this.fs.realpath(path2);
       if (parentPhysical !== void 0 && !isInside(parentPhysical, physical)) throw new AgentConfigUnsafePathError();
     } catch (error2) {
       if (error2 instanceof AgentConfigError) throw error2;
@@ -27891,28 +27891,28 @@ var WorkspaceAgentConfigService = class {
     }
     return { exists: true, content, hash: contentHash(content), size };
   }
-  async atomicWriteWithCas(path, content, expectedCurrentHash, maxBytes) {
+  async atomicWriteWithCas(path2, content, expectedCurrentHash, maxBytes) {
     const atomic = this.fs.writeFileAtomic ?? writeFileAtomic;
     const options = {
       beforeRename: async () => {
-        const latest = await this.readManagedFile(path, maxBytes, dirname2(path));
+        const latest = await this.readManagedFile(path2, maxBytes, dirname2(path2));
         assertSameHash(expectedCurrentHash, latest.hash);
       }
     };
     try {
-      await atomic(path, content, options);
+      await atomic(path2, content, options);
     } catch (error2) {
       if (error2 instanceof AgentConfigError) throw error2;
       throw mapFileMutationError(error2);
     }
   }
-  withPathQueue(path, operation) {
-    const previous = this.queues.get(path) ?? Promise.resolve();
+  withPathQueue(path2, operation) {
+    const previous = this.queues.get(path2) ?? Promise.resolve();
     const next = previous.then(operation, operation);
     const marker = next.then(() => void 0, () => void 0);
-    this.queues.set(path, marker);
+    this.queues.set(path2, marker);
     return next.finally(() => {
-      if (this.queues.get(path) === marker) this.queues.delete(path);
+      if (this.queues.get(path2) === marker) this.queues.delete(path2);
     });
   }
 };
@@ -28262,10 +28262,10 @@ async function readDiskVersion() {
   const now = Date.now();
   if (cached2 !== null && now - cached2.at < DISK_VERSION_CACHE_MS) return cached2.value;
   let value = null;
-  const path = packageJsonPath();
-  if (path !== void 0) {
+  const path2 = packageJsonPath();
+  if (path2 !== void 0) {
     try {
-      const pkg = JSON.parse(await readFile6(path, "utf8"));
+      const pkg = JSON.parse(await readFile6(path2, "utf8"));
       value = typeof pkg.version === "string" && pkg.version.length > 0 ? pkg.version : null;
     } catch {
       value = null;
@@ -34164,8 +34164,8 @@ var ControlPlane = class {
   }
   async handle(req, res, serverPort) {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    const path = url.pathname;
-    if (path === "/control-plane") {
+    const path2 = url.pathname;
+    if (path2 === "/control-plane") {
       if (req.method !== "GET") {
         methodNotAllowed(res, "GET");
         return true;
@@ -34179,7 +34179,7 @@ var ControlPlane = class {
     }
     let route;
     try {
-      route = this.resolveRoute(path, req.method ?? "");
+      route = this.resolveRoute(path2, req.method ?? "");
     } catch (error2) {
       if (error2 instanceof MethodNotAllowedError) {
         methodNotAllowed(res, error2.allow);
@@ -34204,15 +34204,15 @@ var ControlPlane = class {
    * methods). Throws MethodNotAllowedError when the path exists for other
    * methods; returns undefined for non-Control-Plane paths.
    */
-  resolveRoute(path, method) {
-    const exact = this.exactRoutes.get(path);
+  resolveRoute(path2, method) {
+    const exact = this.exactRoutes.get(path2);
     if (exact !== void 0) {
       const hit = exact.find((def) => def.method === method);
       if (hit !== void 0) return { def: hit, param: void 0 };
       throw new MethodNotAllowedError(exact.map((def) => def.method).join(", "));
     }
     for (const group of this.patternRoutes) {
-      const match = group.pattern.exec(path);
+      const match = group.pattern.exec(path2);
       if (match === null) continue;
       let param;
       if (group.validateParam !== void 0) {
@@ -34698,7 +34698,7 @@ function statusTool(bus) {
     })
   };
 }
-function createServer(hub = new DebateHub(), bus, board, tipStore) {
+function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule) {
   const boardStore = board ?? new BoardStore();
   const tips = tipStore ?? new TipStore(boardStore);
   const handoffs = new HandoffStore(boardStore);
@@ -34709,6 +34709,7 @@ function createServer(hub = new DebateHub(), bus, board, tipStore) {
     createTipsModule(tips),
     createHandoffModule(handoffs, boardStore)
   ];
+  if (statusModule) modules.push(statusModule);
   const tools = [
     ...modules.flatMap((module) => module.tools ?? []),
     statusTool(bus)
@@ -36646,6 +36647,747 @@ function spawnBusDaemon(opts) {
   }
 }
 
+// src/modules/status/index.ts
+import fs2 from "node:fs";
+
+// src/modules/status/state.ts
+var OMKC_PRIORITY_MS = 3e4;
+var STALE_MS = 6e4;
+function asRecord2(v) {
+  return v ?? {};
+}
+function cloneJson(value) {
+  return value === void 0 ? value : JSON.parse(JSON.stringify(value));
+}
+function laterOf(a, b) {
+  if (a === void 0) return b;
+  if (b === void 0) return a;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (!Number.isFinite(ta)) return b;
+  if (!Number.isFinite(tb)) return a;
+  return ta >= tb ? a : b;
+}
+function finiteTime(value) {
+  return Number.isFinite(value) ? value : Date.now();
+}
+var StateFold = class _StateFold {
+  agents = /* @__PURE__ */ new Map();
+  sessions = /* @__PURE__ */ new Map();
+  omkcPriorityMs;
+  staleMs;
+  constructor(opts) {
+    this.omkcPriorityMs = opts?.omkcPriorityMs ?? OMKC_PRIORITY_MS;
+    this.staleMs = opts?.staleMs ?? STALE_MS;
+  }
+  /**
+   * Agents are keyed by sessionId + agentId only — deliberately no home and
+   * no workDirHash. 1b's OmkcEvent carries neither, so applyOmkcEvent's
+   * ensure() cannot fill them; "completing the symmetry" (e.g. keying on home
+   * too) would make omkc events unable to override their wire counterparts.
+   * Do not change this key.
+   */
+  static key(sessionId, agentId) {
+    return `${sessionId}:${agentId}`;
+  }
+  ensure(sessionId, agentId, ts, workDirHash, home) {
+    const key = _StateFold.key(sessionId, agentId);
+    let agent = this.agents.get(key);
+    if (!agent) {
+      agent = {
+        sessionId,
+        agentId,
+        home,
+        workDirHash,
+        busy: false,
+        subagents: [],
+        lastSeen: ts,
+        firstSeen: ts,
+        source: "wire",
+        omkcTs: 0,
+        stale: false
+      };
+      this.agents.set(key, agent);
+    }
+    if (workDirHash && !agent.workDirHash) agent.workDirHash = workDirHash;
+    if (home && !agent.home) agent.home = home;
+    return agent;
+  }
+  /** True while omkc events for this agent are fresh enough to own its fields. */
+  omkcOwns(agent, now) {
+    return agent.omkcTs > 0 && now - agent.omkcTs < this.omkcPriorityMs;
+  }
+  // ---------------------------------------------------------------- source ①
+  /** Fold one wire.jsonl record (read-only inference). */
+  applyWire(ref, record2) {
+    if (!record2 || typeof record2.type !== "string") return null;
+    const rawTs = typeof record2.time === "number" ? record2.time : NaN;
+    const ts = finiteTime(rawTs);
+    const agent = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
+    agent.lastSeen = Math.max(agent.lastSeen, ts);
+    agent.stale = false;
+    if (this.omkcOwns(agent, Date.now())) return agent;
+    switch (record2.type) {
+      case "metadata":
+        break;
+      case "turn.prompt":
+      case "turn.steer":
+        agent.busy = true;
+        agent.source = "wire";
+        break;
+      case "turn.cancel":
+        agent.busy = false;
+        agent.lastFinishReason = "cancelled";
+        agent.source = "wire";
+        break;
+      case "config.update": {
+        const alias = record2.modelAlias;
+        if (typeof alias === "string") agent.model = alias;
+        break;
+      }
+      case "llm.request": {
+        if (!agent.model) {
+          const alias = record2.modelAlias ?? record2.model;
+          if (typeof alias === "string") agent.model = alias;
+        }
+        break;
+      }
+      case "usage.record": {
+        if (typeof record2.model === "string") agent.model = record2.model;
+        if (record2.usage !== void 0) agent.usage = record2.usage;
+        agent.source = "wire";
+        break;
+      }
+      case "context.update_token_count": {
+        if (typeof record2.tokenCount === "number") agent.contextTokens = record2.tokenCount;
+        break;
+      }
+      case "context.append_loop_event":
+        this.applyLoopEvent(agent, asRecord2(record2.event), ts);
+        break;
+      default:
+        break;
+    }
+    return agent;
+  }
+  applyLoopEvent(agent, ev, ts) {
+    switch (ev.type) {
+      case "step.begin":
+        agent.busy = true;
+        agent.source = "wire";
+        break;
+      case "step.end": {
+        if (ev.usage !== void 0) agent.usage = ev.usage;
+        const reason = ev.finishReason;
+        if (typeof reason === "string" && reason !== "tool_use") {
+          agent.busy = false;
+          agent.lastFinishReason = reason;
+        }
+        agent.source = "wire";
+        break;
+      }
+      case "tool.call": {
+        if (typeof ev.name === "string") {
+          agent.lastToolCall = {
+            name: ev.name,
+            ts,
+            description: typeof ev.description === "string" ? ev.description : void 0
+          };
+        }
+        agent.busy = true;
+        agent.source = "wire";
+        break;
+      }
+      case "tool.result": {
+        const result = asRecord2(ev.result);
+        if (agent.lastToolCall && typeof result.isError === "boolean") {
+          agent.lastToolCall.isError = result.isError;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  /** Fold a (re-)read state.json: session metadata + agents table. */
+  applySessionState(ref, state) {
+    const skey = `${ref.workDirHash}/${ref.sessionId}`;
+    const existing = this.sessions.get(skey);
+    this.sessions.set(skey, {
+      workDirHash: ref.workDirHash,
+      sessionId: ref.sessionId,
+      home: existing?.home ?? ref.home,
+      title: state.title ?? existing?.title,
+      workDir: state.workDir ?? existing?.workDir,
+      createdAt: state.createdAt ?? existing?.createdAt,
+      updatedAt: laterOf(existing?.updatedAt, state.updatedAt)
+    });
+    const parsed = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
+    const ts = finiteTime(parsed);
+    for (const [agentId, info] of Object.entries(state.agents ?? {})) {
+      const agent = this.ensure(ref.sessionId, agentId, ts, ref.workDirHash, ref.home);
+      agent.kind = info.type;
+      agent.parentAgentId = info.parentAgentId ?? null;
+      if (!this.omkcOwns(agent, Date.now())) {
+        agent.lastSeen = Math.max(agent.lastSeen, ts || 0);
+      }
+      const parentId = info.parentAgentId;
+      if (parentId) {
+        const parent = this.ensure(ref.sessionId, parentId, ts, ref.workDirHash, ref.home);
+        if (!parent.subagents.some((s) => s.subagentId === agentId)) {
+          parent.subagents.push({ subagentId: agentId, status: "unknown", ts });
+        }
+      }
+    }
+  }
+  /** Fold a tasks/<taskId>.json snapshot: auxiliary subagent lifecycle. */
+  applyTask(ref, task) {
+    if (task.kind !== "agent" || typeof task.agentId !== "string") return;
+    const rawTs = task.endedAt ?? task.startedAt ?? NaN;
+    const ts = finiteTime(rawTs);
+    const owner = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
+    let sub = owner.subagents.find((s) => s.subagentId === task.agentId);
+    if (!sub) {
+      sub = { subagentId: task.agentId, status: "unknown", ts };
+      owner.subagents.push(sub);
+    }
+    if (this.omkcOwns(owner, Date.now())) return;
+    sub.status = task.status ?? sub.status;
+    sub.ts = ts;
+    if (typeof task.description === "string") sub.description = task.description;
+    if (typeof task.stopReason === "string") sub.resultSummary = task.stopReason;
+    if (typeof task.subagentType === "string") sub.name = task.subagentType;
+  }
+  // ---------------------------------------------------------------- source ②
+  /** Fold one omkc SSE event (authoritative overlay, carries real phase). */
+  applyOmkcEvent(ev) {
+    if (!ev || typeof ev.sessionId !== "string" || typeof ev.agentId !== "string") return null;
+    const payload = asRecord2(ev.payload);
+    const ts = typeof ev.ts === "number" ? ev.ts : Date.now();
+    let agentId = ev.agentId;
+    if (ev.type.startsWith("subagent.") && typeof payload.parentAgentId === "string") {
+      agentId = payload.parentAgentId;
+    }
+    const agent = this.ensure(ev.sessionId, agentId, ts);
+    agent.lastSeen = Math.max(agent.lastSeen, ts);
+    agent.stale = false;
+    agent.omkcTs = Date.now();
+    agent.source = "omkc";
+    switch (ev.type) {
+      case "agent.status.updated": {
+        if (typeof payload.model === "string") agent.model = payload.model;
+        if (typeof payload.contextTokens === "number") agent.contextTokens = payload.contextTokens;
+        if (typeof payload.maxContextTokens === "number") agent.maxContextTokens = payload.maxContextTokens;
+        if (payload.usage !== void 0) agent.usage = payload.usage;
+        if (typeof payload.planMode === "boolean") agent.planMode = payload.planMode;
+        if (typeof payload.phase === "string") agent.phase = payload.phase;
+        break;
+      }
+      case "turn.started":
+        agent.busy = true;
+        break;
+      case "turn.ended":
+        agent.busy = false;
+        if (typeof payload.reason === "string") agent.lastTurnReason = payload.reason;
+        break;
+      case "tool.call.started":
+        if (typeof payload.name === "string") {
+          agent.lastToolCall = {
+            name: payload.name,
+            ts,
+            description: typeof payload.description === "string" ? payload.description : void 0
+          };
+        }
+        break;
+      case "tool.result":
+        if (agent.lastToolCall && typeof payload.isError === "boolean") {
+          agent.lastToolCall.isError = payload.isError;
+        }
+        break;
+      case "subagent.spawned":
+      case "subagent.started":
+      case "subagent.completed":
+      case "subagent.failed":
+      case "subagent.suspended": {
+        const subId = typeof payload.subagentId === "string" ? payload.subagentId : void 0;
+        if (!subId) break;
+        let sub = agent.subagents.find((s) => s.subagentId === subId);
+        if (!sub) {
+          sub = { subagentId: subId, status: "spawned", ts };
+          agent.subagents.push(sub);
+        }
+        sub.status = ev.type.slice("subagent.".length);
+        sub.ts = ts;
+        if (typeof payload.subagentName === "string") sub.name = payload.subagentName;
+        if (typeof payload.description === "string") sub.description = payload.description;
+        if (typeof payload.resultSummary === "string") sub.resultSummary = payload.resultSummary;
+        if (payload.usage !== void 0) sub.usage = payload.usage;
+        if (typeof payload.contextTokens === "number") sub.contextTokens = payload.contextTokens;
+        if (typeof payload.error === "string") sub.error = payload.error;
+        break;
+      }
+      default:
+        break;
+    }
+    return agent;
+  }
+  // ---------------------------------------------------------------- sweep
+  /** Mark agents with no events for >STALE_MS as stale (kept, not deleted). */
+  sweepStale(now = Date.now()) {
+    for (const agent of this.agents.values()) {
+      agent.stale = now - agent.lastSeen > this.staleMs;
+    }
+  }
+  get agentCount() {
+    return this.agents.size;
+  }
+  get sessionCount() {
+    return this.sessions.size;
+  }
+  snapshotSessions() {
+    return [...this.sessions.values()].map((s) => ({ ...s }));
+  }
+  snapshotAgents() {
+    return [...this.agents.values()].map((a) => ({
+      ...a,
+      // usage is deep-copied too: it can nest, and sharing the reference
+      // would leak fold-internal state to snapshot consumers.
+      usage: cloneJson(a.usage),
+      subagents: a.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
+      lastToolCall: a.lastToolCall ? { ...a.lastToolCall } : void 0
+    }));
+  }
+};
+
+// src/modules/status/watcher.ts
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+function omkcHome(env = process.env) {
+  return env.OMKC_HOME ?? env.KIMI_CODE_HOME ?? path.join(os.homedir(), ".omkc");
+}
+function kimiHome(env = process.env) {
+  return env.KIMI_CODE_HOME ?? path.join(os.homedir(), ".kimi-code");
+}
+function resolveHomes(env = process.env) {
+  const specs = [
+    { label: "omkc", home: omkcHome(env) },
+    { label: "kimi-code", home: kimiHome(env) }
+  ];
+  const seen = /* @__PURE__ */ new Set();
+  return specs.filter((s) => {
+    const key = path.resolve(s.home).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function sessionsRoot(home) {
+  return path.join(home, "sessions");
+}
+var PUMP_CHUNK = 256 * 1024;
+var SCAN_YIELD_EVERY = 16;
+function yieldNow() {
+  return new Promise((resolve5) => setImmediate(resolve5));
+}
+async function readdirSafe(dir) {
+  try {
+    return await fs.promises.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+async function statSafe(file) {
+  try {
+    return await fs.promises.stat(file);
+  } catch {
+    return null;
+  }
+}
+var WireWatcher = class {
+  constructor(opts) {
+    this.opts = opts;
+    this.root = opts.root;
+    this.scanMs = opts.scanIntervalMs ?? 5e3;
+    this.pollMs = opts.pollIntervalMs ?? 1e3;
+  }
+  opts;
+  root;
+  scanMs;
+  pollMs;
+  tails = /* @__PURE__ */ new Map();
+  stateMtimes = /* @__PURE__ */ new Map();
+  taskMtimes = /* @__PURE__ */ new Map();
+  dirWatchers = /* @__PURE__ */ new Map();
+  scanTimer = null;
+  pollTimer = null;
+  debounceTimer = null;
+  pumpDebounce = null;
+  scanning = false;
+  scanAgain = false;
+  pumping = false;
+  stopped = false;
+  started = false;
+  records = 0;
+  sessionCount = 0;
+  lastScanMs = 0;
+  start() {
+    if (this.started) return;
+    this.started = true;
+    this.stopped = false;
+    void this.scan();
+    this.scanTimer = setInterval(() => this.scheduleScan(0), this.scanMs);
+    this.scanTimer.unref();
+    this.pollTimer = setInterval(() => this.schedulePump(0), this.pollMs);
+    this.pollTimer.unref();
+  }
+  stop() {
+    this.stopped = true;
+    this.started = false;
+    for (const t of [this.scanTimer, this.pollTimer, this.debounceTimer, this.pumpDebounce]) {
+      if (t) clearInterval(t);
+    }
+    this.scanTimer = this.pollTimer = this.debounceTimer = this.pumpDebounce = null;
+    for (const w of this.dirWatchers.values()) w.close();
+    this.dirWatchers.clear();
+  }
+  get tailCount() {
+    return this.tails.size;
+  }
+  getProgress() {
+    let catchingUp = 0;
+    for (const tail of this.tails.values()) {
+      if (tail.offset < tail.size) catchingUp++;
+    }
+    return {
+      scanning: this.scanning,
+      catchingUp,
+      sessions: this.sessionCount,
+      agents: this.tails.size,
+      records: this.records,
+      lastScanMs: this.lastScanMs
+    };
+  }
+  /** Debounced scan scheduling: collapses fs.watch event bursts. */
+  scheduleScan(debounceMs) {
+    if (this.stopped) return;
+    if (debounceMs <= 0) {
+      void this.scan();
+      return;
+    }
+    if (this.debounceTimer) return;
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = null;
+      void this.scan();
+    }, debounceMs);
+    this.debounceTimer.unref();
+  }
+  schedulePump(debounceMs) {
+    if (this.stopped) return;
+    if (debounceMs <= 0) {
+      void this.pumpAll();
+      return;
+    }
+    if (this.pumpDebounce) return;
+    this.pumpDebounce = setTimeout(() => {
+      this.pumpDebounce = null;
+      void this.pumpAll();
+    }, debounceMs);
+    this.pumpDebounce.unref();
+  }
+  /** One serialized, chunked scan pass over the whole sessions tree. */
+  async scan() {
+    if (this.scanning) {
+      this.scanAgain = true;
+      return;
+    }
+    this.scanning = true;
+    const started = Date.now();
+    try {
+      let ops = 0;
+      const tick = async () => {
+        if (++ops % SCAN_YIELD_EVERY === 0) await yieldNow();
+      };
+      let sessions = 0;
+      const live = { state: /* @__PURE__ */ new Set(), tasks: /* @__PURE__ */ new Set(), tails: /* @__PURE__ */ new Set() };
+      for (const wd of await readdirSafe(this.root)) {
+        if (this.stopped) return;
+        if (!wd.isDirectory()) continue;
+        const wdPath = path.join(this.root, wd.name);
+        this.watchDir(wdPath);
+        for (const s of await readdirSafe(wdPath)) {
+          if (this.stopped) return;
+          if (!s.isDirectory()) continue;
+          sessions++;
+          await this.scanSession(wd.name, s.name, path.join(wdPath, s.name), tick, live);
+          await yieldNow();
+        }
+      }
+      for (const f of this.tails.keys()) if (!live.tails.has(f)) this.tails.delete(f);
+      for (const f of this.stateMtimes.keys()) if (!live.state.has(f)) this.stateMtimes.delete(f);
+      for (const f of this.taskMtimes.keys()) if (!live.tasks.has(f)) this.taskMtimes.delete(f);
+      this.sessionCount = sessions;
+    } finally {
+      this.lastScanMs = Date.now() - started;
+      this.scanning = false;
+      if (this.scanAgain && !this.stopped) {
+        this.scanAgain = false;
+        this.scheduleScan(50);
+      }
+      this.schedulePump(0);
+    }
+  }
+  async scanSession(workDirHash, sessionId, sessionPath, tick, live) {
+    this.watchDir(sessionPath);
+    const stateFile = path.join(sessionPath, "state.json");
+    const stateStat = await statSafe(stateFile);
+    await tick();
+    if (stateStat) {
+      live.state.add(stateFile);
+      const stateKey = `${stateStat.mtimeMs}:${stateStat.size}`;
+      if (this.stateMtimes.get(stateFile) !== stateKey) {
+        this.stateMtimes.set(stateFile, stateKey);
+        try {
+          const raw = await fs.promises.readFile(stateFile, "utf8");
+          const state = JSON.parse(raw);
+          this.opts.onSessionState?.({ home: this.opts.home, workDirHash, sessionId }, state);
+        } catch {
+        }
+      }
+    }
+    const agentsPath = path.join(sessionPath, "agents");
+    this.watchDir(agentsPath);
+    for (const a of await readdirSafe(agentsPath)) {
+      if (this.stopped) return;
+      if (!a.isDirectory()) continue;
+      await tick();
+      const agentPath = path.join(agentsPath, a.name);
+      this.watchDir(agentPath);
+      const ref = { home: this.opts.home, workDirHash, sessionId, agentId: a.name };
+      const wireFile = path.join(agentPath, "wire.jsonl");
+      live.tails.add(wireFile);
+      if (!this.tails.has(wireFile)) {
+        this.tails.set(wireFile, { ref, file: wireFile, offset: 0, pending: "", size: 0 });
+      }
+      const tasksPath = path.join(agentPath, "tasks");
+      this.watchDir(tasksPath);
+      for (const t of await readdirSafe(tasksPath)) {
+        if (!t.isFile() || !t.name.endsWith(".json")) continue;
+        await tick();
+        const taskFile = path.join(tasksPath, t.name);
+        const taskStat = await statSafe(taskFile);
+        if (!taskStat) continue;
+        live.tasks.add(taskFile);
+        const taskKey = `${taskStat.mtimeMs}:${taskStat.size}`;
+        if (this.taskMtimes.get(taskFile) === taskKey) continue;
+        this.taskMtimes.set(taskFile, taskKey);
+        try {
+          const raw = await fs.promises.readFile(taskFile, "utf8");
+          const task = JSON.parse(raw);
+          this.opts.onTask?.({ ...ref, taskId: t.name.slice(0, -5) }, task);
+        } catch {
+        }
+      }
+    }
+  }
+  watchDir(dir) {
+    if (this.stopped) return;
+    if (this.dirWatchers.has(dir)) return;
+    try {
+      const w = fs.watch(dir, () => {
+        this.scheduleScan(500);
+        this.schedulePump(100);
+      });
+      w.on("error", () => {
+        w.close();
+        this.dirWatchers.delete(dir);
+      });
+      this.dirWatchers.set(dir, w);
+    } catch {
+    }
+  }
+  /** Pump every tail sequentially, yielding between files. */
+  async pumpAll() {
+    if (this.pumping) return;
+    this.pumping = true;
+    try {
+      for (const tail of this.tails.values()) {
+        if (this.stopped) return;
+        await this.pump(tail);
+        await yieldNow();
+      }
+    } finally {
+      this.pumping = false;
+    }
+  }
+  /**
+   * Read new content of one wire file in bounded chunks, yielding to the
+   * event loop after every chunk, so a 20MB initial catch-up never blocks.
+   */
+  async pump(tail) {
+    const st = await statSafe(tail.file);
+    if (!st) return;
+    if (st.size < tail.offset) {
+      tail.offset = 0;
+      tail.pending = "";
+    }
+    tail.size = Number(st.size);
+    if (tail.size === tail.offset) return;
+    let fd;
+    try {
+      fd = await fs.promises.open(tail.file, "r");
+    } catch {
+      return;
+    }
+    try {
+      while (tail.offset < tail.size && !this.stopped) {
+        const len = Math.min(PUMP_CHUNK, tail.size - tail.offset);
+        const buf = Buffer.alloc(len);
+        const { bytesRead } = await fd.read(buf, 0, len, tail.offset);
+        if (bytesRead <= 0) break;
+        tail.offset += bytesRead;
+        const text = tail.pending + buf.toString("utf8", 0, bytesRead);
+        const lines = text.split("\n");
+        tail.pending = lines.pop() ?? "";
+        for (const line of lines) {
+          const raw = line.trim();
+          if (!raw) continue;
+          let parsed = null;
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+          }
+          this.records++;
+          this.opts.onRecord(tail.ref, raw, parsed);
+        }
+        await yieldNow();
+      }
+    } finally {
+      await fd.close().catch(() => void 0);
+    }
+  }
+};
+
+// src/modules/status/index.ts
+var HOME_RECHECK_MS = 3e4;
+var SWEEP_MS = 5e3;
+var AGENTS_CAP = 100;
+function createStatusController(opts = {}) {
+  const fold = new StateFold({ staleMs: opts.staleMs });
+  const watchers = /* @__PURE__ */ new Map();
+  let started = false;
+  let homeRecheck = null;
+  let sweepTimer = null;
+  function attachHome(spec) {
+    if (watchers.has(spec.home)) return;
+    const root = sessionsRoot(spec.home);
+    const watcher = new WireWatcher({
+      home: spec.label,
+      root,
+      scanIntervalMs: opts.scanIntervalMs,
+      pollIntervalMs: opts.pollIntervalMs,
+      onRecord: (ref, _raw, record2) => {
+        fold.applyWire(ref, record2);
+      },
+      onSessionState: (ref, state) => {
+        fold.applySessionState(ref, state);
+      },
+      onTask: (ref, task) => {
+        fold.applyTask(ref, task);
+      }
+    });
+    watcher.start();
+    watchers.set(spec.home, watcher);
+  }
+  return {
+    start() {
+      if (started) return;
+      started = true;
+      for (const w of watchers.values()) w.start();
+      for (const spec of resolveHomes(opts.env)) {
+        if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
+      }
+      if (!homeRecheck) {
+        homeRecheck = setInterval(() => {
+          for (const spec of resolveHomes(opts.env)) {
+            if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
+          }
+        }, HOME_RECHECK_MS);
+        homeRecheck.unref();
+      }
+      if (!sweepTimer) {
+        sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
+        sweepTimer.unref();
+      }
+    },
+    stop() {
+      if (!started) return;
+      started = false;
+      for (const w of watchers.values()) w.stop();
+      if (homeRecheck) {
+        clearInterval(homeRecheck);
+        homeRecheck = null;
+      }
+      if (sweepTimer) {
+        clearInterval(sweepTimer);
+        sweepTimer = null;
+      }
+    },
+    isStarted: () => started,
+    getFold: () => fold,
+    scanStatus: () => {
+      const perHome = [...watchers.entries()].map(([home, w]) => ({
+        home,
+        ...w.getProgress()
+      }));
+      return {
+        scanning: perHome.some((p) => p.scanning || p.catchingUp > 0),
+        homes: perHome
+      };
+    }
+  };
+}
+function statusAgentsTool(controller) {
+  return {
+    name: "moa_status_agents",
+    description: `Live agent/session status folded from the CLI homes' session trees (wire.jsonl / state.json / tasks/*.json). Returns aggregate counts plus per-agent snapshots ordered by lastSeen (most recent first), capped at 100 by default (pass limit or sessionId to filter). started is false until the status controller is running \u2014 agents is then empty by design; the state is always explicit, never silently stale.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Only return agents of this sessionId" },
+        limit: { type: "number", description: `Max agents to return (default ${AGENTS_CAP})` }
+      },
+      additionalProperties: false
+    },
+    handler: (args) => {
+      const started = controller.isStarted();
+      const fold = controller.getFold();
+      const sessionId = typeof args.sessionId === "string" && args.sessionId.length > 0 ? args.sessionId : void 0;
+      const rawLimit = typeof args.limit === "number" ? args.limit : AGENTS_CAP;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
+      let agents = started ? fold.snapshotAgents() : [];
+      if (sessionId) agents = agents.filter((a) => a.sessionId === sessionId);
+      agents.sort((a, b) => b.lastSeen - a.lastSeen);
+      return {
+        started,
+        scanning: started ? controller.scanStatus().scanning : false,
+        sessionCount: started ? fold.sessionCount : 0,
+        agentCount: started ? fold.agentCount : 0,
+        sessions: started ? fold.snapshotSessions() : [],
+        agents: agents.slice(0, limit),
+        agentsTruncated: agents.length
+      };
+    }
+  };
+}
+function createStatusModule(controller) {
+  return {
+    id: "status",
+    tier: "experimental",
+    tools: [statusAgentsTool(controller)]
+  };
+}
+
 // src/server.ts
 var REUSE_PUBLISH_TIMEOUT_MS = 2e3;
 function cardUrl(port, taskId) {
@@ -36704,6 +37446,8 @@ async function main() {
     throw err;
   }
   const startResult = bus.startResult;
+  const statusController = createStatusController();
+  if (startResult.mode === "own") statusController.start();
   bus.onRelease = () => {
     spawnBusDaemon({ port: bus.startResult.port, cwd: process.cwd() });
   };
@@ -36729,7 +37473,7 @@ async function main() {
     board
   });
   const tips = new TipStore(board);
-  const server = createServer(hub, bus, board, tips);
+  const server = createServer(hub, bus, board, tips, createStatusModule(statusController));
   await server.connect(new StdioServerTransport());
   if (startResult.mode === "reuse") {
     console.error(
@@ -36745,6 +37489,7 @@ async function main() {
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    statusController.stop();
     void bus.stop().finally(() => process.exit(0));
   };
   server.onclose = () => shutdown();

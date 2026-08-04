@@ -17,6 +17,7 @@ import { Bus } from './core/bus/bus.js';
 import { spawnBusDaemon } from './core/bus/daemon-spawn.js';
 import { BoardStore } from './core/store/board.js';
 import { DebateHub, defaultLogsDir, type DomainEvent } from './modules/debate/state.js';
+import { createStatusController, createStatusModule } from './modules/status/index.js';
 import { TipStore } from './modules/tips/tips.js';
 
 // Public entry surface: tests and embedders import createServer from here.
@@ -103,6 +104,12 @@ async function main(): Promise<void> {
     throw err;
   }
   const startResult = bus.startResult;
+  // Status module (batch 1a): watch the CLI session trees only when this
+  // process owns the Bus. In reuse mode another process's watchers already
+  // cover the homes — starting a second set here would double-tail every
+  // wire. Takeover-time dynamic rebuild is left to a later batch.
+  const statusController = createStatusController();
+  if (startResult.mode === 'own') statusController.start();
   // Controlled restart (task D): once this owner releases the port, spawn the
   // headless bus daemon from the current disk build so the panel recovers on
   // the new code without waiting for a fresh session. Evaluated at release
@@ -152,7 +159,7 @@ async function main(): Promise<void> {
     board,
   });
   const tips = new TipStore(board);
-  const server = createServer(hub, bus, board, tips);
+  const server = createServer(hub, bus, board, tips, createStatusModule(statusController));
   await server.connect(new StdioServerTransport());
   if (startResult.mode === 'reuse') {
     console.error(
@@ -171,6 +178,7 @@ async function main(): Promise<void> {
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    statusController.stop();
     void bus.stop().finally(() => process.exit(0));
   };
   // Shutdown when the MCP transport closes (parent exited / stdin closed).

@@ -41,7 +41,13 @@ function statusTool(bus?: Bus): MoaToolDef {
   };
 }
 
-export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?: BoardStore, tipStore?: TipStore): Server {
+export function createServer(
+  hub: DebateHub = new DebateHub(),
+  bus?: Bus,
+  board?: BoardStore,
+  tipStore?: TipStore,
+  statusModule?: MoaModule,
+): Server {
   const boardStore = board ?? new BoardStore();
   const tips = tipStore ?? new TipStore(boardStore);
   const handoffs = new HandoffStore(boardStore);
@@ -52,6 +58,7 @@ export function createServer(hub: DebateHub = new DebateHub(), bus?: Bus, board?
     createTipsModule(tips),
     createHandoffModule(handoffs, boardStore),
   ];
+  if (statusModule) modules.push(statusModule); // appended last (status module, batch 1a)
   const tools: MoaToolDef[] = [
     ...modules.flatMap((module) => module.tools ?? []),
     statusTool(bus),
