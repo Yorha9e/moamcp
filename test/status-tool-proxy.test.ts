@@ -166,6 +166,78 @@ describe('moa_status_agents reuse proxy (batch 1c)', () => {
     }
   });
 
+  it('falls back to local-empty when the owner answers 200 with a JSON null body (0.7.1 P1)', async () => {
+    // A 200 with `null` used to pass the `remote !== undefined` guard and blow
+    // up dereferencing `remote.agents` — the null/non-object guard must route
+    // it to local-empty instead.
+    const fake = createHttpServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('null');
+    });
+    const port = await listen(fake);
+    const ctrl = makeController();
+    ctrl.setPort(port);
+    await makeClient(ctrl);
+    try {
+      const result = await callAgents();
+      expect(result.source).toBe('local-empty');
+      expect(result.started).toBe(false);
+      expect(result.agents).toEqual([]);
+      expect(result.agentsTruncated).toBe(0);
+    } finally {
+      fake.close();
+    }
+  });
+
+  it('falls back to local-empty when the owner answers 200 with a non-object body (0.7.1 P1)', async () => {
+    const fake = createHttpServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('"just a string"');
+    });
+    const port = await listen(fake);
+    const ctrl = makeController();
+    ctrl.setPort(port);
+    await makeClient(ctrl);
+    try {
+      const result = await callAgents();
+      expect(result.source).toBe('local-empty');
+      expect(result.started).toBe(false);
+      expect(result.agents).toEqual([]);
+    } finally {
+      fake.close();
+    }
+  });
+
+  it('settles within ~timeoutMs on a trickle owner and falls back to local-empty (0.7.1 P2)', async () => {
+    // The owner trickles 1 byte every 150ms forever: each byte resets the
+    // socket inactivity clock, so `timeout: 200` alone never fires and the
+    // proxy would hang. The wall-clock deadline must settle it at ~200ms.
+    const fake = createHttpServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      const trickle = setInterval(() => res.write('x'), 150);
+      res.on('error', () => clearInterval(trickle));
+      res.on('close', () => clearInterval(trickle));
+    });
+    const port = await listen(fake);
+    const ctrl = makeController();
+    ctrl.setPort(port);
+    await makeClient(ctrl); // remoteStatusTimeoutMs: 200
+    const startedAt = Date.now();
+    try {
+      const result = await callAgents();
+      const elapsedMs = Date.now() - startedAt;
+      expect(result.source).toBe('local-empty');
+      expect(result.started).toBe(false);
+      expect(result.agents).toEqual([]);
+      // Settled on the absolute deadline (~200ms), not early and not never.
+      expect(elapsedMs).toBeGreaterThanOrEqual(180);
+      expect(elapsedMs).toBeLessThan(1500);
+    } finally {
+      fake.closeAllConnections();
+      fake.close();
+    }
+  });
+
   it('keeps the local snapshot with source local once started (own-mode unchanged)', async () => {
     const ctrl = makeController();
     ctrl.start();

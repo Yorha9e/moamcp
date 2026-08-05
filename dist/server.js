@@ -28945,6 +28945,11 @@ var AGENTS_CAP = 100;
 var REMOTE_STATUS_TIMEOUT_MS = 1500;
 async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
   return new Promise((resolve5) => {
+    let deadline;
+    const settle = (value) => {
+      clearTimeout(deadline);
+      resolve5(value);
+    };
     const req = get(
       { host: "127.0.0.1", port, path: "/status", timeout: timeoutMs },
       (res) => {
@@ -28955,25 +28960,32 @@ async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
         });
         res.on("end", () => {
           if (res.statusCode !== 200) {
-            resolve5(void 0);
+            settle(void 0);
             return;
           }
           try {
-            resolve5(JSON.parse(body));
+            const parsed = JSON.parse(body);
+            settle(
+              parsed !== null && typeof parsed === "object" ? parsed : void 0
+            );
           } catch {
-            resolve5(void 0);
+            settle(void 0);
           }
         });
-        res.on("error", () => resolve5(void 0));
-        res.on("aborted", () => resolve5(void 0));
+        res.on("error", () => settle(void 0));
+        res.on("aborted", () => settle(void 0));
       }
     );
+    deadline = setTimeout(() => {
+      req.destroy();
+      settle(void 0);
+    }, timeoutMs);
     req.on("timeout", () => {
       req.destroy();
-      resolve5(void 0);
+      settle(void 0);
     });
-    req.on("error", () => resolve5(void 0));
-    req.on("close", () => resolve5(void 0));
+    req.on("error", () => settle(void 0));
+    req.on("close", () => settle(void 0));
   });
 }
 function statusSnapshot(controller) {
@@ -29142,7 +29154,7 @@ function statusAgentsTool(controller, remoteStatusTimeoutMs) {
       const ownerPort = controller?.getPort();
       if (ownerPort !== void 0) {
         const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
-        if (remote !== void 0) {
+        if (remote !== void 0 && remote !== null && typeof remote === "object") {
           const sessionId = typeof args.sessionId === "string" && args.sessionId.length > 0 ? args.sessionId : void 0;
           const rawLimit = typeof args.limit === "number" ? args.limit : AGENTS_CAP;
           const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
@@ -35821,6 +35833,7 @@ function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule)
 // src/core/bus/bus.ts
 import { createServer as createServer2, get as get2 } from "node:http";
 import { writeFile as writeFile3, readFile as readFile8, rm } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import { join as join9, resolve as resolve4 } from "node:path";
 
 // src/core/store/run-read-model.ts
@@ -37213,6 +37226,8 @@ var Bus = class {
   startMode = "own";
   registration;
   wrotePortFile = false;
+  /** Set once releaseAndReattach() hands the port to a replacement owner (P3). */
+  released = false;
   requestedPort;
   cwd;
   replayLimit;
@@ -37283,6 +37298,28 @@ var Bus = class {
   /** Structured start outcome for callers wiring reuse mode (design §3.3). */
   get startResult() {
     return { mode: this.startMode, port: this.port };
+  }
+  /**
+   * P3: true only while THIS process wrote bus.port and still owns it. After
+   * `releaseAndReattach()` hands the port to a replacement owner the file
+   * belongs to that process — a released (or reuse-mode, which never wrote)
+   * process must not delete it on exit or teardown.
+   */
+  get ownsPortFile() {
+    return this.wrotePortFile && !this.released;
+  }
+  /**
+   * P3: sync port-file removal for process 'exit' handlers (rmSync is the only
+   * fs call that is safe there). No-op unless `ownsPortFile` — so an exit after
+   * a controlled release preserves the replacement owner's file, and a reuse
+   * process (which never wrote it) never deletes the owner's file.
+   */
+  removePortFileIfOwnedSync() {
+    if (this.ownsPortFile) rmSync(join9(this.cwd, "bus.port"), { force: true });
+  }
+  /** P3: async twin used by stop()/releaseAndReattach() teardown. */
+  async removePortFileIfOwned() {
+    if (this.ownsPortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
   }
   /** Mount the BoardStore/TipStore authority used by Control Plane API routes. */
   mountControlPlane(board, tips) {
@@ -37397,7 +37434,7 @@ var Bus = class {
     this.server.closeAllConnections();
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
+    await this.removePortFileIfOwned();
   }
   /**
    * Controlled release (BUS_VERSION_RESTART.md task C): the owner gives up the
@@ -37421,7 +37458,8 @@ var Bus = class {
     this.server.closeAllConnections();
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
+    await this.removePortFileIfOwned();
+    this.released = true;
     try {
       this.onRelease?.();
     } catch (err) {
@@ -37503,6 +37541,7 @@ var Bus = class {
   async writePortFile() {
     await writeFile3(join9(this.cwd, "bus.port"), String(this.port));
     this.wrotePortFile = true;
+    this.released = false;
   }
   async releaseRegistration() {
     const registration = this.registration;
@@ -37849,9 +37888,7 @@ async function main() {
   } else {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
-  const { rmSync } = await import("node:fs");
-  const { join: join10 } = await import("node:path");
-  process.on("exit", () => rmSync(join10(process.cwd(), "bus.port"), { force: true }));
+  process.on("exit", () => bus.removePortFileIfOwnedSync());
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;

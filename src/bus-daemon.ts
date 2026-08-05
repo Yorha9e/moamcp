@@ -13,8 +13,6 @@
  * with mode 'reuse'). There is deliberately no stdin/parent watchdog: the whole
  * point is surviving the spawning process.
  */
-import { rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { Bus } from './core/bus/bus.js';
 import { spawnBusDaemon } from './core/bus/daemon-spawn.js';
 import { DAEMON_VERSION_CHECK_MS, diskVersionMismatch } from './core/bus/daemon-version-check.js';
@@ -78,7 +76,10 @@ async function main(): Promise<void> {
   bus.onTakeover = (result) => {
     if (result.mode === 'reuse') process.exit(0);
   };
-  process.on('exit', () => rmSync(join(cwd, 'bus.port'), { force: true }));
+  // P3: remove bus.port only while this daemon wrote and still owns it — after
+  // a controlled release the replacement daemon owns the file and must keep it,
+  // and a reuse-mode exit never touched it in the first place.
+  process.on('exit', () => bus.removePortFileIfOwnedSync());
   console.error(`[moamcp] bus daemon: owns http://127.0.0.1:${port}/ (pid ${process.pid})`);
 }
 

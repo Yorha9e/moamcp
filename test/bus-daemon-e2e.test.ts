@@ -17,7 +17,7 @@
 import { buildSync } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -29,6 +29,9 @@ const DAEMON_SCRIPT = join(root, 'dist', 'bus-daemon.js');
 
 const spawned: ChildProcess[] = [];
 const cleanupDirs: string[] = [];
+/** Pids of detached replacement daemons (spawned by a released daemon, so we
+ *  hold no ChildProcess handle) that must be SIGKILL'd on teardown. */
+const leakedPids: number[] = [];
 
 // Safety net: never leak daemon children if the worker dies mid-test.
 process.on('exit', () => {
@@ -39,12 +42,26 @@ process.on('exit', () => {
       // already gone
     }
   }
+  for (const pid of leakedPids) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // already gone
+    }
+  }
 });
 
 afterAll(async () => {
   for (const child of spawned) {
     try {
       child.kill('SIGKILL');
+    } catch {
+      // already gone
+    }
+  }
+  for (const pid of leakedPids) {
+    try {
+      process.kill(pid, 'SIGKILL');
     } catch {
       // already gone
     }
@@ -61,6 +78,17 @@ function freePort(): Promise<number> {
       probe.close(() => resolve(port));
     });
   });
+}
+
+/** Poll until `fn` returns a value; rejects after `timeoutMs` (convergent). */
+async function poll<T>(fn: () => Promise<T | undefined>, what: string, timeoutMs = 20000): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const v = await fn();
+    if (v !== undefined) return v;
+    if (Date.now() > deadline) throw new Error(`timeout waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
 }
 
 interface DaemonChild {
@@ -239,6 +267,8 @@ describe('bus daemon e2e (batch 1c)', () => {
     // the 10s bound is 10x the expected worst case, never a flake source.
     expect(elapsedMs).toBeLessThan(10000);
     expect(daemon.stderr()).not.toContain('bus daemon failed');
+    // 0.7.1 P3: a graceful own-mode exit cleans up its own bus.port file.
+    await expect(readFile(join(cwd, 'bus.port'), 'utf8')).rejects.toThrow();
   }, 30000);
 
   it('exits without owning when a live owner already holds the port (reuse mode)', async () => {
@@ -270,4 +300,55 @@ describe('bus daemon e2e (batch 1c)', () => {
     expect(res.status).toBe(200);
     owner.kill();
   }, 40000);
+
+  it('released daemon\'s exit preserves the replacement owner\'s bus.port (0.7.1 P3)', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'moamcp-daemon-release-home-'));
+    const logs = await mkdtemp(join(tmpdir(), 'moamcp-daemon-release-logs-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'moamcp-daemon-release-cwd-'));
+    cleanupDirs.push(home, logs, cwd);
+    const port = await freePort();
+    const daemonA = spawnDaemon({
+      cwd,
+      env: daemonEnv({ MOAMCP_HOME: home, MOAMCP_LOGS_DIR: logs, MOAMCP_BUS_PORT: String(port) }),
+    });
+    await daemonA.waitStderr('[moamcp] bus daemon: owns', 20000);
+    expect(await readFile(join(cwd, 'bus.port'), 'utf8')).toBe(String(port));
+
+    // Controlled restart: A releases, and its onRelease hook spawns a
+    // replacement daemon (detached, stdio ignored — no handle from here) that
+    // takes the port over and rewrites bus.port in the SAME cwd.
+    const restart = await fetch(`http://127.0.0.1:${port}/api/bus/restart`, { method: 'POST' });
+    expect(restart.status).toBe(202);
+
+    // The replacement answers /health once it owns the port (A no longer listens).
+    await poll(async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/health`);
+        return res.status === 200 ? true : undefined;
+      } catch {
+        return undefined; // port free / not yet up
+      }
+    }, 'replacement daemon on the port', 20000);
+
+    // Track the detached replacement for teardown BEFORE any later assertion
+    // can fail: A unregistered on release, so the sole instance entry is B's.
+    const instancesDir = join(home, 'instances');
+    const entry = (await readdir(instancesDir)).find((f) => f.endsWith('.json'));
+    expect(entry).toBeDefined();
+    const bPid = Number((entry as string).replace(/\.json$/, ''));
+    expect(Number.isInteger(bPid) && bPid > 0).toBe(true);
+    leakedPids.push(bPid);
+
+    // A passively re-attaches to the new owner and exits 0 (reuse → no purpose).
+    const { code } = await daemonA.waitExit(20000);
+    expect(code).toBe(0);
+    // P3: A's exit handler must NOT delete the file the replacement now owns.
+    expect(await readFile(join(cwd, 'bus.port'), 'utf8')).toBe(String(port));
+
+    try {
+      process.kill(bPid, 'SIGKILL');
+    } catch {
+      // already gone
+    }
+  }, 45000);
 });

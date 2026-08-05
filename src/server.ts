@@ -202,12 +202,13 @@ async function main(): Promise<void> {
   } else {
     console.error(`[moamcp] bus: http://127.0.0.1:${actualPort}/?task_id=<id> (port file: bus.port)`);
   }
-  // Best-effort bus.port cleanup. Note: Windows does not deliver SIGTERM to
-  // Node processes, so when the host CLI kills us the file may survive —
-  // harmless, since it is overwritten on every start.
-  const { rmSync } = await import('node:fs');
-  const { join } = await import('node:path');
-  process.on('exit', () => rmSync(join(process.cwd(), 'bus.port'), { force: true }));
+  // Best-effort bus.port cleanup (0.7.1 P3): only while this process wrote and
+  // still owns it — after a controlled release the replacement owner's file
+  // must survive our exit, and a reuse-mode process never wrote it at all.
+  // Note: Windows does not deliver SIGTERM to Node processes, so when the host
+  // CLI kills us the file may survive — harmless, since it is overwritten on
+  // every start.
+  process.on('exit', () => bus.removePortFileIfOwnedSync());
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) return;

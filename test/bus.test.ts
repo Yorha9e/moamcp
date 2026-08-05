@@ -648,6 +648,36 @@ it('deletes bus.port on clean shutdown', async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
+it('exit cleanup: own-but-not-released removes bus.port (0.7.1 P3)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'moamcp-bus-exit-own-'));
+  const b = new Bus({ port: 0, cwd: dir });
+  await b.start();
+  expect(b.ownsPortFile).toBe(true);
+  // Exactly what the process 'exit' handlers in server.ts / bus-daemon.ts run.
+  b.removePortFileIfOwnedSync();
+  await expect(readFile(join(dir, 'bus.port'), 'utf8')).rejects.toThrow();
+  await b.stop();
+  await rm(dir, { recursive: true, force: true });
+});
+
+it('exit cleanup: a released bus preserves the replacement owner\'s bus.port (0.7.1 P3)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'moamcp-bus-exit-release-'));
+  const b = new Bus({ port: 0, cwd: dir });
+  const port = await b.start();
+  expect(b.ownsPortFile).toBe(true);
+  await b.releaseAndReattach(); // hands the port away; removes its own file
+  expect(b.ownsPortFile).toBe(false);
+  // The replacement owner (spawned by onRelease) rewrites the file.
+  await writeFile(join(dir, 'bus.port'), String(port));
+  // The released process's exit handler must NOT delete the new owner's file…
+  b.removePortFileIfOwnedSync();
+  expect(await readFile(join(dir, 'bus.port'), 'utf8')).toBe(String(port));
+  // …and neither must its stop() teardown.
+  await b.stop();
+  expect(await readFile(join(dir, 'bus.port'), 'utf8')).toBe(String(port));
+  await rm(dir, { recursive: true, force: true });
+});
+
 // ---- port discovery: instance registry + port rules (design §3.2/§3.3) ----
 
 function listenOn(server: HttpServer, port: number): Promise<number> {

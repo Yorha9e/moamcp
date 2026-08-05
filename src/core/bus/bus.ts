@@ -44,6 +44,7 @@
  */
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { writeFile, readFile, rm } from 'node:fs/promises';
+import { rmSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { join, resolve } from 'node:path';
 import { ArchiveIndex, isValidTaskId } from '../store/archive-index.js';
@@ -151,6 +152,8 @@ export class Bus {
   private startMode: BusMode = 'own';
   private registration?: InstanceRegistration;
   private wrotePortFile = false;
+  /** Set once releaseAndReattach() hands the port to a replacement owner (P3). */
+  private released = false;
   private readonly requestedPort: number;
   private readonly cwd: string;
   private readonly replayLimit: number;
@@ -227,6 +230,31 @@ export class Bus {
   /** Structured start outcome for callers wiring reuse mode (design §3.3). */
   get startResult(): BusStartResult {
     return { mode: this.startMode, port: this.port };
+  }
+
+  /**
+   * P3: true only while THIS process wrote bus.port and still owns it. After
+   * `releaseAndReattach()` hands the port to a replacement owner the file
+   * belongs to that process — a released (or reuse-mode, which never wrote)
+   * process must not delete it on exit or teardown.
+   */
+  get ownsPortFile(): boolean {
+    return this.wrotePortFile && !this.released;
+  }
+
+  /**
+   * P3: sync port-file removal for process 'exit' handlers (rmSync is the only
+   * fs call that is safe there). No-op unless `ownsPortFile` — so an exit after
+   * a controlled release preserves the replacement owner's file, and a reuse
+   * process (which never wrote it) never deletes the owner's file.
+   */
+  removePortFileIfOwnedSync(): void {
+    if (this.ownsPortFile) rmSync(join(this.cwd, 'bus.port'), { force: true });
+  }
+
+  /** P3: async twin used by stop()/releaseAndReattach() teardown. */
+  private async removePortFileIfOwned(): Promise<void> {
+    if (this.ownsPortFile) await rm(join(this.cwd, 'bus.port'), { force: true });
   }
 
   /** Mount the BoardStore/TipStore authority used by Control Plane API routes. */
@@ -372,7 +400,9 @@ export class Bus {
     this.server.closeAllConnections();
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join(this.cwd, 'bus.port'), { force: true });
+    // P3: only this process's own, still-owned file — after a release the file
+    // belongs to the replacement owner and must survive our teardown.
+    await this.removePortFileIfOwned();
   }
 
   /**
@@ -397,7 +427,12 @@ export class Bus {
     this.server.closeAllConnections();
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
     await this.releaseRegistration();
-    if (this.wrotePortFile) await rm(join(this.cwd, 'bus.port'), { force: true });
+    // Our own file is gone before the handoff below.
+    await this.removePortFileIfOwned();
+    // P3: the port (and bus.port) now belongs to the replacement owner spawned
+    // below — this process must never delete it again (stop() and the process
+    // exit handlers consult `ownsPortFile`, which this flag flips to false).
+    this.released = true;
     // The port is free now — let the entry layer spawn a headless replacement
     // (bus-daemon) from the current disk build before we settle into the
     // passive watch. A spawn failure just keeps the old "wait for a fresh
@@ -494,6 +529,9 @@ export class Bus {
   private async writePortFile(): Promise<void> {
     await writeFile(join(this.cwd, 'bus.port'), String(this.port));
     this.wrotePortFile = true;
+    // P3: writing the file (re-)establishes ownership — a process that released
+    // and later won a takeover owns its exit cleanup again.
+    this.released = false;
   }
 
   private async releaseRegistration(): Promise<void> {

@@ -76,9 +76,10 @@ export const REMOTE_STATUS_TIMEOUT_MS = 1500;
 
 /**
  * Reuse-session proxy (batch 1c): fetch the owning Bus's read-only /status
- * snapshot. Resolves with the parsed body on HTTP 200 (a JSON object);
- * undefined on any other status, an unparseable body, a timeout, or a
- * connection error — the caller falls back to an explicit local-empty state.
+ * snapshot. Resolves with the parsed body on HTTP 200 when it is a JSON
+ * object; undefined on any other status, a null/non-object or unparseable
+ * body, a timeout, or a connection error — the caller falls back to an
+ * explicit local-empty state.
  *
  * Every teardown path settles the promise: a peer that resets/aborts the
  * response mid-body emits neither 'end' nor 'timeout' nor an error — only
@@ -90,6 +91,11 @@ export async function fetchRemoteStatus(
   timeoutMs: number = REMOTE_STATUS_TIMEOUT_MS,
 ): Promise<Record<string, unknown> | undefined> {
   return new Promise((resolve) => {
+    let deadline: NodeJS.Timeout;
+    const settle = (value: Record<string, unknown> | undefined) => {
+      clearTimeout(deadline);
+      resolve(value);
+    };
     const req = get(
       { host: '127.0.0.1', port, path: '/status', timeout: timeoutMs },
       (res) => {
@@ -100,29 +106,47 @@ export async function fetchRemoteStatus(
         });
         res.on('end', () => {
           if (res.statusCode !== 200) {
-            resolve(undefined);
+            settle(undefined);
             return;
           }
           try {
-            resolve(JSON.parse(body) as Record<string, unknown>);
+            const parsed: unknown = JSON.parse(body);
+            // 0.7.1 P1: a 200 whose body is JSON `null` (or any non-object)
+            // is not a snapshot — resolve undefined so the caller falls back
+            // to local-empty instead of dereferencing `remote.agents` below.
+            settle(
+              parsed !== null && typeof parsed === 'object'
+                ? (parsed as Record<string, unknown>)
+                : undefined,
+            );
           } catch {
-            resolve(undefined);
+            settle(undefined);
           }
         });
         // A response that dies before 'end' (abort / stream error) must settle
         // too; an unhandled 'error' here would also crash the process.
-        res.on('error', () => resolve(undefined));
-        res.on('aborted', () => resolve(undefined));
+        res.on('error', () => settle(undefined));
+        res.on('aborted', () => settle(undefined));
       },
     );
+    // 0.7.1 P2: `timeout: timeoutMs` is a socket *inactivity* timeout, so a
+    // trickle owner (1 byte every 150ms) can stretch the call past timeoutMs
+    // indefinitely. This wall-clock deadline destroys the request at
+    // timeoutMs no matter what the socket has seen; `settle` clears it on
+    // every path above, so it never fires after the promise resolved. The
+    // socket timeout stays as the inner inactivity protection.
+    deadline = setTimeout(() => {
+      req.destroy();
+      settle(undefined);
+    }, timeoutMs);
     req.on('timeout', () => {
       req.destroy();
-      resolve(undefined);
+      settle(undefined);
     });
-    req.on('error', () => resolve(undefined));
+    req.on('error', () => settle(undefined));
     // Idempotent: after a normal 'end' (or any path above) this is a no-op;
     // it only fires first when the connection closes without a response end.
-    req.on('close', () => resolve(undefined));
+    req.on('close', () => settle(undefined));
   });
 }
 
@@ -346,7 +370,10 @@ function statusAgentsTool(
       const ownerPort = controller?.getPort();
       if (ownerPort !== undefined) {
         const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
-        if (remote !== undefined) {
+        // 0.7.1 P1: a 200 with a JSON `null`/non-object body must not reach
+        // `remote.agents` — non-objects resolve undefined above, and this
+        // explicit guard keeps the dereference crash-proof regardless.
+        if (remote !== undefined && remote !== null && typeof remote === 'object') {
           // The owner's snapshot passes through verbatim EXCEPT the per-agent
           // list, which honors the same limit/sessionId contract as the local
           // fold: the /status snapshot is uncapped, and letting it through
