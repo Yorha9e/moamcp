@@ -113,6 +113,11 @@ ${COMPONENTS_CSS}
   -webkit-backdrop-filter: none !important;
 }
 .sb-session {
+  /* flex-shrink: 0 — .sb-list is a capped-height flex column; with many
+     sessions the default shrink would squeeze every group to ~2px stripes
+     (overflow:hidden makes min-height:auto resolve to 0), rendering the
+     board as thin lines. Groups keep natural height; the list scrolls. */
+  flex-shrink: 0;
   background: var(--solid);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
