@@ -16,6 +16,7 @@ import { BoardStore, BOARD_VALUE_MAX_BYTES, WORKSPACE_NAME_MAX_CHARS, workspaceI
 import { ProjectRegistry, newProjectId } from '../src/core/store/project-registry.js';
 import { migrateWorkspaceToProject } from '../src/core/store/project-migration.js';
 import { DebateHub } from '../src/modules/debate/state.js';
+import { collectProjectsList } from '../src/modules/board/index.js';
 import { createServer } from '../src/server.js';
 
 let home: string;
@@ -1010,4 +1011,74 @@ it('concurrent repairProjectMeta from two instances never tears the meta (append
   expect(typeof meta.created_at).toBe('string');
   await first.close();
   await second.close();
+});
+
+// ---- moa_projects_list: cross-harness project discovery (0.12.0) ----
+
+it('collectProjectsList aggregates workspaces and registry projects (read-only)', async () => {
+  const cwdA = join(home, 'project-a');
+  const cwdB = join(home, 'project-b');
+  const b = store({ cwd: cwdA });
+
+  // Touch both workspaces so their sidecars register.
+  await b.write('k', 'v', undefined, 'tester', 'workspace', cwdA);
+  await b.write('k', 'v', undefined, 'tester', 'workspace', cwdB);
+
+  const projA = await b.registry.createProject('alpha');
+  await b.registry.addAlias(projA, workspaceIdForPath(cwdA));
+  await b.registry.createProject();
+
+  const result = await collectProjectsList(b);
+
+  // Named project: alias hash resolves to the registered cwd via sidecar.
+  const rowA = result.projects.find((p) => p.projectId === projA)!;
+  expect(rowA).toMatchObject({ name: 'alpha', aliases: [workspaceIdForPath(cwdA)] });
+  expect(rowA.cwds).toEqual([cwdA]);
+
+  // Unnamed project has no name key; unknown aliases simply lack cwds.
+  const rowUnnamed = result.projects.find((p) => p.projectId !== projA)!;
+  expect(rowUnnamed).not.toHaveProperty('name');
+  expect(rowUnnamed).not.toHaveProperty('cwds');
+
+  expect(result.workspaces.map((w) => w.cwd).sort()).toEqual([cwdA, cwdB].sort());
+  for (const w of result.workspaces) {
+    expect(w.id).toMatch(/^[0-9a-f]{16}$/);
+    expect(w.cwd).toBeTruthy();
+    expect(w).not.toHaveProperty('name'); // never renamed
+  }
+});
+
+it('moa_projects_list MCP tool: registered, read-only, MOAMCP_HOME warning in description', async () => {
+  const cwd = join(home, 'mcp-ws');
+  const board = new BoardStore({ homeDir: home, workspaceCwd: cwd, waitCapMs: 400 });
+  const hub = new DebateHub({ logsDir: join(home, 'logs'), board });
+  const server = createServer(hub, undefined, board);
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  const client = new Client({ name: 'board-test', version: '0.0.1' });
+  await client.connect(clientTransport);
+
+  async function call(name: string, args: Record<string, unknown>): Promise<any> {
+    const res = await client.callTool({ name, arguments: args });
+    return JSON.parse((res.content as Array<{ type: string; text: string }>)[0].text);
+  }
+
+  try {
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === 'moa_projects_list');
+    expect(tool).toBeDefined();
+    expect(tool!.description.toLowerCase()).toContain('moamcp_home');
+
+    // Empty home: both lists empty; no workspace was written by the call.
+    expect(await call('moa_projects_list', {})).toEqual({ projects: [], workspaces: [] });
+    let files: string[] = [];
+    try {
+      files = await readdir(join(home, 'boards'));
+    } catch {
+      files = [];
+    }
+    expect(files).toHaveLength(0);
+  } finally {
+    await client.close();
+  }
 });

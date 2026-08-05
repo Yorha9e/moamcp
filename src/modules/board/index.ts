@@ -1,10 +1,55 @@
 /**
  * Board module: the five raw blackboard MCP tools
- * (moa_board_write / read / list / wait / delete). No module-local service —
- * the tools are the core BoardStore directly tooled (design §1).
+ * (moa_board_write / read / list / wait / delete) plus the read-only
+ * cross-harness discovery tool moa_projects_list (0.12.0). No module-local
+ * service — the tools are the core BoardStore directly tooled (design §1).
  */
 import type { BoardStore } from '../../core/store/board.js';
 import type { MoaModule, MoaToolDef } from '../types.js';
+
+/**
+ * Read-only aggregate for cross-harness project discovery (0.12.0): every
+ * registered workspace sidecar plus every registry project in this
+ * MOAMCP_HOME. `cwds` maps each project alias hash to the absolute path of a
+ * registered workspace when one is known (aliases are the same 16-hex path
+ * hashes as workspace sidecar ids).
+ */
+export interface ProjectsListResult {
+  projects: Array<{
+    projectId: string;
+    name?: string;
+    aliases: string[];
+    cwds?: string[];
+  }>;
+  workspaces: Array<{
+    id: string;
+    cwd: string;
+    name?: string;
+  }>;
+}
+
+export async function collectProjectsList(store: BoardStore): Promise<ProjectsListResult> {
+  const [workspaces, projects] = await Promise.all([store.listWorkspaces(), store.registry.listProjects()]);
+  const cwdByHash = new Map(workspaces.map((ws) => [ws.id, ws.cwd]));
+  return {
+    projects: projects.map((project) => {
+      const cwds = project.aliases
+        .map((alias) => cwdByHash.get(alias))
+        .filter((cwd): cwd is string => cwd !== undefined);
+      return {
+        projectId: project.projectId,
+        ...(project.name !== undefined ? { name: project.name } : {}),
+        aliases: project.aliases,
+        ...(cwds.length > 0 ? { cwds } : {}),
+      };
+    }),
+    workspaces: workspaces.map((ws) => ({
+      id: ws.id,
+      cwd: ws.cwd,
+      ...(ws.name !== undefined ? { name: ws.name } : {}),
+    })),
+  };
+}
 
 const BOARD_SCOPE = {
   type: 'string',
@@ -101,6 +146,20 @@ export function boardTools(store: BoardStore): MoaToolDef[] {
         required: ['key'],
       },
       handler: (a) => store.delete(a.key, a.author, a.scope, a.workspace),
+    },
+    {
+      name: 'moa_projects_list',
+      description:
+        'Read-only aggregate for cross-harness project discovery: every registered workspace and registry project in this MOAMCP_HOME. ' +
+        'Use it to look up a target projectId before sending a handoff (workspace = the absolute project path you pass to handoff tools). ' +
+        'WARNING: every harness that mounts moamcp must point MOAMCP_HOME at the SAME directory — otherwise each harness gets its own ' +
+        'blackboard and the coordination chain silently breaks.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+      handler: () => collectProjectsList(store),
     },
   ];
 }
