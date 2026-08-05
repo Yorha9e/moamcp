@@ -52,10 +52,14 @@ describe('Status Board production bundle (F1 regression)', () => {
   });
 
   it('inlined model IIFE survives the esbuild agentKey -> agentKey2 rename', () => {
-    // The collision must actually be exercised, like dist/server.js: the bundle
-    // contains state.ts's `agentKey` and status-model.ts's renamed `agentKey2`.
+    // The collision source must be present, like dist/server.js: state.ts's
+    // `agentKey` export lives in the bundle. Whether esbuild renames
+    // status-model.ts's `agentKey` (agentKey2 in this esbuild generation) is an
+    // implementation detail — the contract is that the served model IIFE runs
+    // regardless, so every assertion below is rename-scheme agnostic (no
+    // hard-coded `agentKey2` suffix that would false-fail if a future esbuild
+    // stops renaming or picks a different name).
     expect(bundleText).toContain('function agentKey(sessionId, agentId)');
-    expect(bundleText).toMatch(/function agentKey2\(sessionId, agentId\)/);
 
     // Extract the page's model IIFE — it starts with the fixed parameter list
     // and is immediately followed by the page IIFE — and run it in a bare vm
@@ -67,6 +71,20 @@ describe('Status Board production bundle (F1 regression)', () => {
     expect(end).toBeGreaterThan(start);
     const modelJs = html.slice(start, end).trim();
     expect(modelJs.endsWith(');')).toBe(true);
+
+    // Rewrite-clean: if esbuild renamed a model function (digit-suffixed in its
+    // scheme), the fixed-name rewrite must have normalized every serialized
+    // declaration back to the source-level name — a partial rewrite would leave
+    // e.g. `function agentKey2(...)` inside the IIFE and the vm run below would
+    // throw. When no rename happened there is nothing to rewrite and this still
+    // passes (no model function legitimately carries a digit in its name).
+    expect(modelJs).not.toMatch(/function\s+[$\w]*\d[$\w]*\s*\(/);
+
+    // HTML-safe: the serialized sources are embedded inside a <script> block;
+    // jsonStringForHtml escapes `<` as \u003C so a future model source cannot
+    // close the script early (`</script>`) or enter the escaped-data state
+    // (`<!--`). No such sequence may survive into the served page.
+    expect(modelJs).not.toMatch(/<\/script|<!--/);
 
     const sandbox: Record<string, unknown> = { console };
     sandbox.window = sandbox;

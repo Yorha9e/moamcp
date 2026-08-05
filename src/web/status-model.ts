@@ -677,10 +677,24 @@ function serializedModelFunction(pair: [string, (...args: any[]) => any]): strin
  * The IIFE must stay sloppy for the eval'd declarations to leak into its
  * scope; the model code does not depend on strict-mode semantics.
  */
+/**
+ * JSON-stringify one serialized model source for embedding in the page's
+ * `<script>` block (F1 review, attack surface d). `JSON.stringify` does not
+ * escape `<`, so a model source containing `</script>` or `<!--` would let the
+ * HTML parser close the script early or enter the escaped-data state. Escaping
+ * `<` as `\u003C` keeps the raw markup inert while evaluating to the identical
+ * string at runtime (`\u003C` is `<`). Model sources today only contain bare
+ * `<` (for-loop conditions), which a classic script tolerates — the escaping
+ * is a hardening so future sources cannot smuggle `</script>` or `<!--` in.
+ */
+function jsonStringForHtml(src: string): string {
+  return JSON.stringify(src).replace(/</g, '\\u003C');
+}
+
 export const STATUS_MODEL_JS = `(function (${MODEL_FUNCTIONS.map((f) => f[0]).join(', ')}) {
 var __srcs = [${MODEL_FUNCTIONS.map((f) => f[0]).join(', ')}];
 for (var __i = 0; __i < __srcs.length; __i++) eval(__srcs[__i]);
 window.__moaStatusModel = {
 ${MODEL_API_EXPORTS.map((n) => `  ${n}: ${n},`).join('\n')}
 };
-})(${MODEL_FUNCTIONS.map((f) => JSON.stringify(serializedModelFunction(f))).join(',\n')});`;
+})(${MODEL_FUNCTIONS.map((f) => jsonStringForHtml(serializedModelFunction(f))).join(',\n')});`;

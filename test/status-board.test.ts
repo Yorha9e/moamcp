@@ -693,21 +693,24 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(order()).toEqual(['s1', 's2', 's3']);
   });
 
-  it('rebuilds fresh rows after a session loses all agents and is revived (F4 rowEls residue)', async () => {
+  it('drops a session group once its last agent is gone and rebuilds fresh rows on revive (F4)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
     page.dispatch('snapshot', snap());
     await flush();
     const mainRowBefore = rowsOf(sessionGroups(page.el('sbList'))[0])[0];
 
     // Gone frames remove both agents incrementally -> the group is dropped.
+    // (handleGone deletes each row's rowEls entry as its agent goes; the F4
+    // empty-branch sweep in resortSession additionally clears entries for
+    // removal paths that never pass through handleGone.)
     page.dispatch('agent', { sessionId: 's1', agentId: 'main', gone: true });
     await flush();
     page.dispatch('agent', { sessionId: 's1', agentId: 'child', gone: true });
     await flush();
     expect(sessionGroups(page.el('sbList')).length).toBe(0);
 
-    // An agent frame revives the session without a snapshot; rows must be
-    // freshly built, not stale nodes resurrected from rowEls.
+    // An agent frame revives the session without a snapshot; the group and its
+    // rows must be freshly built, never stale nodes resurrected from rowEls.
     page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true }));
     await flush();
     const revived = sessionGroups(page.el('sbList'))[0];

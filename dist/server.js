@@ -35660,13 +35660,16 @@ function serializedModelFunction(pair) {
   }
   return src;
 }
+function jsonStringForHtml(src) {
+  return JSON.stringify(src).replace(/</g, "\\u003C");
+}
 var STATUS_MODEL_JS = `(function (${MODEL_FUNCTIONS.map((f) => f[0]).join(", ")}) {
 var __srcs = [${MODEL_FUNCTIONS.map((f) => f[0]).join(", ")}];
 for (var __i = 0; __i < __srcs.length; __i++) eval(__srcs[__i]);
 window.__moaStatusModel = {
 ${MODEL_API_EXPORTS.map((n) => `  ${n}: ${n},`).join("\n")}
 };
-})(${MODEL_FUNCTIONS.map((f) => JSON.stringify(serializedModelFunction(f))).join(",\n")});`;
+})(${MODEL_FUNCTIONS.map((f) => jsonStringForHtml(serializedModelFunction(f))).join(",\n")});`;
 
 // src/web/status-board.ts
 var STATUS_BOARD_HTML = `<!doctype html>
