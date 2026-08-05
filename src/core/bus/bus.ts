@@ -403,6 +403,14 @@ export class Bus {
     // P3: only this process's own, still-owned file — after a release the file
     // belongs to the replacement owner and must survive our teardown.
     await this.removePortFileIfOwned();
+    // P3 (reviewer fix): a stopped Bus owns nothing. Clear the port-file flags
+    // so a later start() — even one that lands in reuse mode — cannot inherit
+    // stale ownership and delete the replacement owner's file on exit. Without
+    // this, stop()→start() left wrotePortFile/released stale and ownsPortFile
+    // reported true for a bus that no longer owns (or may never again own) the
+    // port.
+    this.wrotePortFile = false;
+    this.released = false;
   }
 
   /**

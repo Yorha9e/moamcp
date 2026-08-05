@@ -28966,7 +28966,7 @@ async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
           try {
             const parsed = JSON.parse(body);
             settle(
-              parsed !== null && typeof parsed === "object" ? parsed : void 0
+              parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : void 0
             );
           } catch {
             settle(void 0);
@@ -29154,7 +29154,7 @@ function statusAgentsTool(controller, remoteStatusTimeoutMs) {
       const ownerPort = controller?.getPort();
       if (ownerPort !== void 0) {
         const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
-        if (remote !== void 0 && remote !== null && typeof remote === "object") {
+        if (remote !== void 0 && remote !== null && typeof remote === "object" && !Array.isArray(remote)) {
           const sessionId = typeof args.sessionId === "string" && args.sessionId.length > 0 ? args.sessionId : void 0;
           const rawLimit = typeof args.limit === "number" ? args.limit : AGENTS_CAP;
           const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
@@ -37435,6 +37435,8 @@ var Bus = class {
     await new Promise((resolve5) => this.server.close(() => resolve5()));
     await this.releaseRegistration();
     await this.removePortFileIfOwned();
+    this.wrotePortFile = false;
+    this.released = false;
   }
   /**
    * Controlled release (BUS_VERSION_RESTART.md task C): the owner gives up the

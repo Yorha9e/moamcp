@@ -114,8 +114,11 @@ export async function fetchRemoteStatus(
             // 0.7.1 P1: a 200 whose body is JSON `null` (or any non-object)
             // is not a snapshot — resolve undefined so the caller falls back
             // to local-empty instead of dereferencing `remote.agents` below.
+            // Arrays are `typeof 'object'` but are never a valid snapshot
+            // either, so they are excluded here too (reviewer fix: a `[]`
+            // body used to leak into the remote branch as source:'remote').
             settle(
-              parsed !== null && typeof parsed === 'object'
+              parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
                 ? (parsed as Record<string, unknown>)
                 : undefined,
             );
@@ -372,8 +375,15 @@ function statusAgentsTool(
         const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
         // 0.7.1 P1: a 200 with a JSON `null`/non-object body must not reach
         // `remote.agents` — non-objects resolve undefined above, and this
-        // explicit guard keeps the dereference crash-proof regardless.
-        if (remote !== undefined && remote !== null && typeof remote === 'object') {
+        // explicit guard keeps the dereference crash-proof regardless. Arrays
+        // (`typeof [] === 'object'`) are excluded too, mirroring the fetch
+        // guard above.
+        if (
+          remote !== undefined &&
+          remote !== null &&
+          typeof remote === 'object' &&
+          !Array.isArray(remote)
+        ) {
           // The owner's snapshot passes through verbatim EXCEPT the per-agent
           // list, which honors the same limit/sessionId contract as the local
           // fold: the /status snapshot is uncapped, and letting it through
