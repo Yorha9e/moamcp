@@ -46,6 +46,7 @@ export interface RawAgent {
   model?: unknown;
   phase?: unknown;
   home?: unknown;
+  workDir?: unknown;
   workDirHash?: unknown;
   contextTokens?: unknown;
   planMode?: unknown;
@@ -65,6 +66,7 @@ export interface RawSession {
   sessionId?: unknown;
   title?: unknown;
   workDir?: unknown;
+  workDirHash?: unknown;
   home?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -90,6 +92,7 @@ export interface ModelEntry {
   model?: string;
   phase?: string;
   home?: string;
+  workDir?: string;
   workDirHash?: string;
   contextTokens?: number;
   planMode?: boolean;
@@ -120,6 +123,7 @@ export interface SessionRow {
   sessionId: string;
   title?: string;
   workDir?: string;
+  workDirHash?: string;
   home?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -136,6 +140,15 @@ export interface StatusModel {
   pending: Record<string, string[]>;
   /** orphan key -> parent key (dedup registry). */
   orphans: Record<string, string>;
+  /**
+   * F1 (0.10.0 review): per-session resolved directory cache. Pure derived
+   * data — sessionDirKey's result (dirKey) plus the first agent-workDir label
+   * fallback that dirLabel used to discover by a full byKey scan. Invalidated
+   * on every write path that can change either value (upsertSession /
+   * upsertAgent / removeAgent / removeSession / pruneEmptySession /
+   * applySnapshot), so reads are O(1) and the cache never goes stale.
+   */
+  dirCache: Record<string, { dirKey: string; agentWorkDir?: string }>;
   seq: number;
 }
 
@@ -150,17 +163,28 @@ export function agentKey(sessionId: string, agentId: string): string {
   return `${sessionId}:${agentId}`;
 }
 
-/** Fresh empty model. */
+/**
+ * Fresh empty model. F3 (0.10.0 review): every sessionId/dirKey-keyed map is
+ * null-prototype so a sessionId/workDirHash of exactly '__proto__' /
+ * 'constructor' cannot pollute the prototype chain (a plain-object __proto__
+ * store would re-point the map's prototype and crash pushRoot/groups).
+ */
 export function newModel(): StatusModel {
   return {
     byKey: {},
-    roots: {},
-    sessions: {},
+    roots: Object.create(null),
+    sessions: Object.create(null),
     sessionOrder: [],
-    pending: {},
-    orphans: {},
+    pending: Object.create(null),
+    orphans: Object.create(null),
+    dirCache: Object.create(null),
     seq: 0,
   };
+}
+
+/** F1: drop a session's resolved directory cache entry (recomputed lazily). */
+function invalidateDirCache(model: StatusModel, sessionId: string): void {
+  delete model.dirCache[sessionId];
 }
 
 function removeFromArray(arr: unknown[], value: string): void {
@@ -182,8 +206,16 @@ function ensureSession(model: StatusModel, sessionId: string, info?: RawAgent | 
     row.gone = false;
   }
   if (info) {
+    // Session metadata follows the title/workDir/home copy pattern. workDir and
+    // workDirHash are taken from the SESSION record only: an agent frame
+    // (info.agentId present) carries them merely as per-agent display data, and
+    // sessionDirKey/listDirectories read agent fields as their own fallback
+    // levels ('hash:' prefix / label chain) — letting an agent frame write the
+    // row would shadow those fallbacks (the session record is the row's writer).
+    const isAgentInfo = typeof (info as RawAgent).agentId === 'string';
     if (typeof info.title === 'string') row.title = info.title;
-    if (typeof info.workDir === 'string') row.workDir = info.workDir;
+    if (!isAgentInfo && typeof info.workDir === 'string') row.workDir = info.workDir;
+    if (!isAgentInfo && typeof info.workDirHash === 'string') row.workDirHash = info.workDirHash;
     if (typeof info.home === 'string') row.home = info.home;
   }
   return row;
@@ -194,6 +226,8 @@ export function upsertSession(model: StatusModel, session: RawSession): void {
   const row = ensureSession(model, session.sessionId, session);
   if (typeof session.createdAt === 'string') row.createdAt = session.createdAt;
   if (typeof session.updatedAt === 'string') row.updatedAt = session.updatedAt;
+  // The session row's workDir/workDirHash may have changed -> dir cache stale.
+  invalidateDirCache(model, session.sessionId);
 }
 
 function pushRoot(model: StatusModel, entry: ModelEntry): void {
@@ -341,6 +375,7 @@ function normalizeEntry(model: StatusModel, agent: RawAgent, existing: ModelEntr
   if (typeof agent.model === 'string') entry.model = agent.model;
   if (typeof agent.phase === 'string' && agent.phase) entry.phase = agent.phase;
   if (typeof agent.home === 'string') entry.home = agent.home;
+  if (typeof agent.workDir === 'string') entry.workDir = agent.workDir;
   if (typeof agent.workDirHash === 'string') entry.workDirHash = agent.workDirHash;
   if (typeof agent.contextTokens === 'number') entry.contextTokens = agent.contextTokens;
   if (typeof agent.planMode === 'boolean') entry.planMode = agent.planMode;
@@ -368,6 +403,7 @@ function pruneEmptySession(model: StatusModel, sessionId: string): void {
   }
   delete model.sessions[sessionId];
   delete model.roots[sessionId];
+  delete model.dirCache[sessionId];
   removeFromArray(model.sessionOrder, sessionId);
 }
 
@@ -384,6 +420,9 @@ export function upsertAgent(model: StatusModel, agent: RawAgent): { key: string;
   const key = agentKey(sessionId, agentId);
   const existing = model.byKey[key];
   ensureSession(model, sessionId, agent);
+  // A new/changed agent can supply the workDirHash/workDir fallbacks that
+  // sessionDirKey/dirLabel read -> the session's dir cache is stale.
+  invalidateDirCache(model, sessionId);
 
   // Orphan promotion: a real entry supersedes an orphan copy placed earlier.
   if (existing && existing.orphan) {
@@ -414,6 +453,8 @@ export function removeAgent(model: StatusModel, sessionId: string, agentId: stri
   const key = agentKey(sessionId, agentId);
   const entry = model.byKey[key];
   if (!entry) return { removed: [] };
+  // The removed agent may have been the session's workDirHash/workDir fallback.
+  invalidateDirCache(model, sessionId);
 
   if (entry.orphan) {
     delete model.byKey[key];
@@ -471,6 +512,8 @@ export function removeAgent(model: StatusModel, sessionId: string, agentId: stri
 export function removeSession(model: StatusModel, sessionId: string): { removed: boolean; kept: string[] } {
   const row = model.sessions[sessionId];
   if (!row) return { removed: false, kept: [] };
+  // The session row itself may be deleted below (dir cache stale either way).
+  invalidateDirCache(model, sessionId);
   const keys = Object.keys(model.byKey);
   const live: string[] = [];
   for (let i = 0; i < keys.length; i++) {
@@ -479,6 +522,7 @@ export function removeSession(model: StatusModel, sessionId: string): { removed:
   if (live.length === 0) {
     delete model.sessions[sessionId];
     delete model.roots[sessionId];
+    delete model.dirCache[sessionId];
     removeFromArray(model.sessionOrder, sessionId);
     return { removed: true, kept: [] };
   }
@@ -489,11 +533,12 @@ export function removeSession(model: StatusModel, sessionId: string): { removed:
 /** Reset and rebuild the whole model from a /status snapshot. */
 export function applySnapshot(model: StatusModel, snapshot: RawSnapshot): StatusModel {
   model.byKey = {};
-  model.roots = {};
-  model.sessions = {};
+  model.roots = Object.create(null);
+  model.sessions = Object.create(null);
   model.sessionOrder = [];
-  model.pending = {};
-  model.orphans = {};
+  model.pending = Object.create(null);
+  model.orphans = Object.create(null);
+  model.dirCache = Object.create(null);
   model.seq = 0;
   const sessions = Array.isArray(snapshot?.sessions) ? (snapshot.sessions as RawSession[]) : [];
   const agents = Array.isArray(snapshot?.agents) ? (snapshot.agents as RawAgent[]) : [];
@@ -505,7 +550,8 @@ export function applySnapshot(model: StatusModel, snapshot: RawSnapshot): Status
 /** { agents, sessions } counts over entries actually in the model. */
 export function modelCounts(model: StatusModel): { agents: number; sessions: number } {
   const keys = Object.keys(model.byKey);
-  const seen: Record<string, boolean> = {};
+  // F3: null-proto — a sessionId of exactly '__proto__' must count as a session.
+  const seen: Record<string, boolean> = Object.create(null);
   let sessions = 0;
   for (let i = 0; i < keys.length; i++) {
     const s = model.byKey[keys[i]].sessionId;
@@ -587,6 +633,181 @@ export function deriveStatus(entry: ModelEntry | undefined | null): StatusDeriva
   return { key: 'idle', tone: 'idle' };
 }
 
+/**
+ * 活跃判定：busy && !stale，页顶活跃分区的成员资格。
+ * 已知边界：
+ * ① orphan 叶 busy 恒 false，即使 subStatus=running 也不进活跃分区（与 deriveStatus 的显示语义有意区分）；
+ * ② stale 只随 snapshot/agent 帧更新（后端 sweep 不推 stale 翻转帧），连接期内静音 busy agent
+ *    会留在活跃区直到下次快照/gone。
+ */
+export function isActiveAgent(entry: ModelEntry | null | undefined): boolean {
+  return !!entry && entry.busy === true && entry.stale !== true;
+}
+
+/**
+ * 目录 key 四级兜底链：SessionRow.workDir → SessionRow.workDirHash →
+ * 该 session 下任一 agent 的 workDirHash（加 'hash:' 前缀）→ '__unknown__'。
+ *
+ * F1 (0.10.0 review): the resolved result is cached on the model (dirCache),
+ * keyed by sessionId, and invalidated on every write path that can change it
+ * (upsertSession/upsertAgent/removeAgent/removeSession/pruneEmptySession/
+ * applySnapshot). Reads are O(1) after the first computation — the old
+ * implementation re-scanned all of byKey for every session lacking row-level
+ * directory info (313/323 real sessions, ~550K iterations per listDirectories).
+ * The cache also records the first agent-workDir label fallback (dirLabel's old
+ * byKey scan) so listDirectories never walks byKey either.
+ */
+export function sessionDirKey(model: StatusModel, sessionId: string): string {
+  const cached = model.dirCache[sessionId];
+  if (cached) return cached.dirKey;
+  const row = model.sessions[sessionId];
+  if (row && typeof row.workDir === 'string' && row.workDir) {
+    // Level 1: the row workDir is both the key and the label (dirLabel reads
+    // the row directly), so no fallback scan is needed.
+    model.dirCache[sessionId] = { dirKey: row.workDir };
+    return row.workDir;
+  }
+  let dirKey: string | undefined;
+  if (row && typeof row.workDirHash === 'string' && row.workDirHash) {
+    dirKey = row.workDirHash; // Level 2
+  }
+  // Level 3 fallback + the label's agent-workDir fallback: one scan, only when
+  // the row does not already answer the key (and only until the first hit).
+  let agentWorkDir: string | undefined;
+  const keys = Object.keys(model.byKey);
+  for (let i = 0; i < keys.length; i++) {
+    const e = model.byKey[keys[i]];
+    if (e.sessionId !== sessionId) continue;
+    if (!agentWorkDir && typeof e.workDir === 'string' && e.workDir) agentWorkDir = e.workDir;
+    if (!dirKey && typeof e.workDirHash === 'string' && e.workDirHash) dirKey = 'hash:' + e.workDirHash;
+  }
+  if (!dirKey) dirKey = '__unknown__'; // Level 4
+  model.dirCache[sessionId] = { dirKey, agentWorkDir };
+  return dirKey;
+}
+
+/**
+ * 单 session 分区：按 model.roots[sessionId] DFS（visited 防环，与页面 resortSession 的遍历序
+ * 一致），活跃/不活跃各自保持 DFS 序返回 key 数组。
+ */
+export function partitionSession(model: StatusModel, sessionId: string): { active: string[]; inactive: string[] } {
+  const active: string[] = [];
+  const inactive: string[] = [];
+  const visited: Record<string, boolean> = {};
+  const stack: string[] = [];
+  const rs = model.roots[sessionId] || [];
+  for (let i = rs.length - 1; i >= 0; i--) stack.push(rs[i]);
+  while (stack.length) {
+    const key = stack.pop();
+    if (key === undefined) continue;
+    if (visited[key]) continue;
+    visited[key] = true;
+    const e = model.byKey[key];
+    if (!e) continue;
+    if (isActiveAgent(e)) active.push(key);
+    else inactive.push(key);
+    const children = e.children;
+    for (let j = children.length - 1; j >= 0; j--) {
+      if (!visited[children[j]]) stack.push(children[j]);
+    }
+  }
+  return { active, inactive };
+}
+
+/** 一个目录分组的渲染数据（页顶活跃分区 + 目录树共用的分组源）。 */
+export interface DirGroup {
+  dirKey: string;
+  label: string;
+  sessionIds: string[];
+  activeAgents: number;
+  hiddenSessions: number;
+  hasActive: boolean;
+}
+
+/**
+ * 目录分组：sessionIds 按 model.sessionOrder 序；label 链 = SessionRow.workDir →
+ * 该 session 任一 agent 的 workDir → dirKey('hash:xxx' 取 hash 前 8 位) → '__unknown__' 原样；
+ * hiddenSessions = 该目录内 partition.active.length===0 的 session 数；
+ * activeAgents = 该目录所有 session 的 active 总数；
+ * 排序：hasActive 降序 → activeAgents 降序 → dirKey 升序（稳定 tie-break，防跨 flush 抖动）。
+ * F1: sessionDirKey/dirLabel both read the model dir cache (see sessionDirKey),
+ * so this never scans byKey; the groups map is null-proto (F3, dirKey can be
+ * exactly '__proto__').
+ */
+export function listDirectories(model: StatusModel): DirGroup[] {
+  function dirLabel(model: StatusModel, dirKey: string, sessionId: string): string {
+    const row = model.sessions[sessionId];
+    if (row && typeof row.workDir === 'string' && row.workDir) return row.workDir;
+    // Agent-workDir fallback: cached by sessionDirKey (first agent with a
+    // workDir, byKey insertion order — identical to the old O(n) scan).
+    const cached = model.dirCache[sessionId];
+    if (cached && typeof cached.agentWorkDir === 'string' && cached.agentWorkDir) return cached.agentWorkDir;
+    if (dirKey.indexOf('hash:') === 0 && dirKey.length > 5) return dirKey.slice(5, 13);
+    // Bare hash (SessionRow.workDirHash — the dir-key chain's level 2): label it
+    // like the 'hash:'-prefixed form, first 8 chars (plan: hash 兜底 label 统一前 8 位).
+    if (row && typeof row.workDirHash === 'string' && row.workDirHash === dirKey && dirKey.length > 8) {
+      return dirKey.slice(0, 8);
+    }
+    return dirKey;
+  }
+  const groups: Record<string, DirGroup> = Object.create(null);
+  const order: string[] = [];
+  for (let i = 0; i < model.sessionOrder.length; i++) {
+    const sid = model.sessionOrder[i];
+    const key = sessionDirKey(model, sid);
+    let g = groups[key];
+    if (!g) {
+      g = {
+        dirKey: key,
+        label: dirLabel(model, key, sid),
+        sessionIds: [],
+        activeAgents: 0,
+        hiddenSessions: 0,
+        hasActive: false,
+      };
+      groups[key] = g;
+      order.push(key);
+    }
+    g.sessionIds.push(sid);
+    const part = partitionSession(model, sid);
+    if (part.active.length > 0) {
+      g.activeAgents += part.active.length;
+      g.hasActive = true;
+    } else {
+      g.hiddenSessions += 1;
+    }
+  }
+  order.sort(function (a: string, b: string) {
+    const ga = groups[a];
+    const gb = groups[b];
+    if (ga.hasActive !== gb.hasActive) return ga.hasActive ? -1 : 1;
+    if (ga.activeAgents !== gb.activeAgents) return gb.activeAgents - ga.activeAgents;
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
+  const out: DirGroup[] = [];
+  for (let i = 0; i < order.length; i++) out.push(groups[order[i]]);
+  return out;
+}
+
+/**
+ * 页顶活跃分区的 key 序：listDirectories 序 → 目录内 sessionIds 序 → partition.active DFS 序
+ * （稳定序，明确不用"最新置顶"）。
+ */
+export function activeAgentKeys(model: StatusModel): string[] {
+  const out: string[] = [];
+  const dirs = listDirectories(model);
+  for (let i = 0; i < dirs.length; i++) {
+    const ids = dirs[i].sessionIds;
+    for (let j = 0; j < ids.length; j++) {
+      const part = partitionSession(model, ids[j]);
+      for (let k = 0; k < part.active.length; k++) out.push(part.active[k]);
+    }
+  }
+  return out;
+}
+
 /** (source-level name, function) pairs serialized into the page (F1). The IIFE
  *  binds each serialized source positionally to its fixed name below, so
  *  esbuild's cross-module renames (agentKey -> agentKey2 in the production
@@ -603,6 +824,7 @@ const MODEL_FUNCTIONS: Array<[string, (...args: any[]) => any]> = [
   ['deriveStatus', deriveStatus],
   ['removeFromArray', removeFromArray],
   ['ensureSession', ensureSession],
+  ['invalidateDirCache', invalidateDirCache],
   ['pushRoot', pushRoot],
   ['registerPending', registerPending],
   ['wouldCycle', wouldCycle],
@@ -614,6 +836,11 @@ const MODEL_FUNCTIONS: Array<[string, (...args: any[]) => any]> = [
   ['pruneEmptySession', pruneEmptySession],
   ['statusOf', statusOf],
   ['phaseOf', phaseOf],
+  ['isActiveAgent', isActiveAgent],
+  ['sessionDirKey', sessionDirKey],
+  ['partitionSession', partitionSession],
+  ['listDirectories', listDirectories],
+  ['activeAgentKeys', activeAgentKeys],
 ];
 
 /** Public API surface the page consumes (subset of MODEL_FUNCTIONS). */
@@ -627,6 +854,11 @@ const MODEL_API_EXPORTS = [
   'applySnapshot',
   'modelCounts',
   'deriveStatus',
+  'isActiveAgent',
+  'sessionDirKey',
+  'partitionSession',
+  'listDirectories',
+  'activeAgentKeys',
 ];
 
 /** The name the function actually carries in this build (its `toString()`

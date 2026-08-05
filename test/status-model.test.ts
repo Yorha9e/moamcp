@@ -8,13 +8,18 @@
 import { describe, expect, it } from 'vitest';
 import vm from 'node:vm';
 import {
+  activeAgentKeys,
   agentKey,
   applySnapshot,
   deriveStatus,
+  isActiveAgent,
+  listDirectories,
   modelCounts,
   newModel,
+  partitionSession,
   removeAgent,
   removeSession,
+  sessionDirKey,
   STATUS_MODEL_JS,
   upsertAgent,
   type RawAgent,
@@ -374,6 +379,333 @@ describe('status-model: status derivation', () => {
   });
 });
 
+describe('status-model: active partition derivation (0.10.0)', () => {
+  it('isActiveAgent: busy && !stale', () => {
+    expect(isActiveAgent(agent('s1', 'a', { busy: true, stale: false }) as never)).toBe(true);
+    expect(isActiveAgent(agent('s1', 'a', { busy: true }) as never)).toBe(true);
+    expect(isActiveAgent(agent('s1', 'a', { busy: false, stale: false }) as never)).toBe(false);
+    expect(isActiveAgent(agent('s1', 'a', { busy: false }) as never)).toBe(false);
+  });
+
+  it('isActiveAgent: stale overrides busy', () => {
+    expect(isActiveAgent(agent('s1', 'a', { busy: true, stale: true }) as never)).toBe(false);
+  });
+
+  it('isActiveAgent: null / undefined are inactive', () => {
+    expect(isActiveAgent(null)).toBe(false);
+    expect(isActiveAgent(undefined)).toBe(false);
+  });
+
+  it('isActiveAgent: orphan leaves stay inactive even with subStatus=running (boundary ①)', () => {
+    // fillOrphans synthesizes leaves with busy=false, so a running subagent leaf
+    // never joins the active partition even though deriveStatus would display it
+    // as busy — an intentional split between partition and display semantics.
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'main', { subagents: [{ subagentId: 'leaf', status: 'running', ts: 1 }] }),
+    ]));
+    const leaf = model.byKey[agentKey('s1', 'leaf')];
+    expect(leaf.orphan).toBe(true);
+    expect(leaf.busy).toBe(false);
+    expect(isActiveAgent(leaf)).toBe(false);
+  });
+});
+
+describe('status-model: sessionDirKey fallback chain', () => {
+  it('prefers SessionRow.workDir over workDirHash', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1', workDir: '/repo/app', workDirHash: 'h1hashh1hash' }], []));
+    expect(sessionDirKey(model, 's1')).toBe('/repo/app');
+  });
+
+  it('uses SessionRow.workDirHash raw when workDir is absent', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1', workDirHash: 'h1hashh1hash' }], []));
+    expect(sessionDirKey(model, 's1')).toBe('h1hashh1hash');
+  });
+
+  it('falls back to an agent workDirHash with hash: prefix when the session row has none', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1' }], [agent('s1', 'main', { workDirHash: 'abc123hash' })]));
+    expect(sessionDirKey(model, 's1')).toBe('hash:abc123hash');
+  });
+
+  it('falls back to an agent workDirHash when there is no session record at all', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [agent('s1', 'main', { workDirHash: 'abc123hash' })]));
+    expect(sessionDirKey(model, 's1')).toBe('hash:abc123hash');
+  });
+
+  it('returns __unknown__ when nothing is available', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1' }], [agent('s1', 'main')]));
+    expect(sessionDirKey(model, 's1')).toBe('__unknown__');
+    expect(sessionDirKey(model, 'missing')).toBe('__unknown__');
+  });
+});
+
+describe('status-model: partitionSession DFS', () => {
+  it('partitions roots + children in DFS order, active/inactive each ordered', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'main', { busy: true }),
+      agent('s1', 'sub1', { parentAgentId: 'main', busy: true }),
+      agent('s1', 'sub2', { parentAgentId: 'main' }),
+      agent('s1', 'lone'),
+    ]));
+    // roots = [main, lone]; DFS: main -> sub1 -> sub2 -> lone
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([agentKey('s1', 'main'), agentKey('s1', 'sub1')]);
+    expect(part.inactive).toEqual([agentKey('s1', 'sub2'), agentKey('s1', 'lone')]);
+  });
+
+  it('keeps DFS order across nested levels', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'a', { busy: true }),
+      agent('s1', 'b', { parentAgentId: 'a' }),
+      agent('s1', 'c', { parentAgentId: 'b', busy: true }),
+      agent('s1', 'd', { parentAgentId: 'b' }),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([agentKey('s1', 'a'), agentKey('s1', 'c')]);
+    expect(part.inactive).toEqual([agentKey('s1', 'b'), agentKey('s1', 'd')]);
+  });
+
+  it('returns empty sides for a session with no roots', () => {
+    const model = newModel();
+    expect(partitionSession(model, 'nope')).toEqual({ active: [], inactive: [] });
+    applySnapshot(model, snapshot([{ sessionId: 's1' }], []));
+    expect(partitionSession(model, 's1')).toEqual({ active: [], inactive: [] });
+  });
+
+  it('keeps orphan leaves on the inactive side even when subStatus=running', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'main', { busy: true, subagents: [{ subagentId: 'leaf', status: 'running', ts: 1 }] }),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([agentKey('s1', 'main')]);
+    expect(part.inactive).toEqual([agentKey('s1', 'leaf')]);
+  });
+});
+
+describe('status-model: listDirectories grouping', () => {
+  it('groups sessions by dirKey in sessionOrder, computing counts', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([
+      { sessionId: 's1', workDir: '/repo/app', workDirHash: 'h1' },
+      { sessionId: 's2', workDir: '/repo/app', workDirHash: 'h1' },
+      { sessionId: 's3', workDir: '/other/lib', workDirHash: 'h2' },
+    ], [
+      agent('s1', 'main', { busy: true }),
+      agent('s1', 'sub', { parentAgentId: 'main' }),
+      agent('s2', 'lone'),
+      agent('s3', 'busy1', { busy: true }),
+      agent('s3', 'busy2', { busy: true }),
+    ]));
+    const dirs = listDirectories(model);
+    expect(dirs).toHaveLength(2);
+    const app = dirs.find((d) => d.dirKey === '/repo/app');
+    expect(app).toBeDefined();
+    expect(app!.label).toBe('/repo/app');
+    expect(app!.sessionIds).toEqual(['s1', 's2']); // model.sessionOrder order
+    expect(app!.activeAgents).toBe(1); // only s1:main
+    expect(app!.hiddenSessions).toBe(1); // s2 has no active
+    expect(app!.hasActive).toBe(true);
+    const lib = dirs.find((d) => d.dirKey === '/other/lib');
+    expect(lib!.sessionIds).toEqual(['s3']);
+    expect(lib!.activeAgents).toBe(2);
+    expect(lib!.hiddenSessions).toBe(0);
+    expect(lib!.hasActive).toBe(true);
+  });
+
+  it('sorts dirs by hasActive desc, then activeAgents desc, then dirKey asc', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([
+      { sessionId: 'z', workDir: '/z' },
+      { sessionId: 'a', workDir: '/a' },
+      { sessionId: 'b', workDir: '/b' },
+      { sessionId: 'c', workDir: '/c' },
+    ], [
+      agent('z', 'z1'),
+      agent('a', 'a1', { busy: true }),
+      agent('b', 'b1', { busy: true }),
+      agent('b', 'b2', { busy: true }),
+      agent('c', 'c1', { busy: true }),
+    ]));
+    const dirs = listDirectories(model).map((d) => d.dirKey);
+    // /b (2 active) first; /a and /c tie on hasActive+count -> dirKey asc; /z inactive last
+    expect(dirs).toEqual(['/b', '/a', '/c', '/z']);
+  });
+
+  it('aggregates unknown sessions into one __unknown__ dir with label as-is', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([
+      { sessionId: 'u1' },
+      { sessionId: 'u2' },
+    ], [
+      agent('u1', 'a', { busy: true }),
+      agent('u2', 'b'),
+    ]));
+    const dirs = listDirectories(model);
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0].dirKey).toBe('__unknown__');
+    expect(dirs[0].label).toBe('__unknown__');
+    expect(dirs[0].sessionIds).toEqual(['u1', 'u2']);
+    expect(dirs[0].activeAgents).toBe(1);
+    expect(dirs[0].hiddenSessions).toBe(1);
+    expect(dirs[0].hasActive).toBe(true);
+  });
+
+  it('label fallback chain: session workDir -> agent workDir -> short hash -> dirKey as-is', () => {
+    // level 1: SessionRow.workDir is the label (and the dirKey)
+    const m1 = newModel();
+    applySnapshot(m1, snapshot([{ sessionId: 's1', workDir: '/path/sess' }], [agent('s1', 'main')]));
+    expect(listDirectories(m1)[0].label).toBe('/path/sess');
+
+    // level 2: an agent workDir supplies the label when the session row has none
+    // (the dirKey chain never uses agent workDir, so it stays __unknown__ here)
+    const m2 = newModel();
+    applySnapshot(m2, snapshot([{ sessionId: 's1' }], [agent('s1', 'main', { workDir: '/path/agent' })]));
+    const d2 = listDirectories(m2)[0];
+    expect(d2.dirKey).toBe('__unknown__');
+    expect(d2.label).toBe('/path/agent');
+
+    // level 3: a hash: dirKey shortens to the first 8 hash chars
+    const m3 = newModel();
+    applySnapshot(m3, snapshot([], [agent('s1', 'main', { workDirHash: '0123456789abcdef' })]));
+    const d3 = listDirectories(m3)[0];
+    expect(d3.dirKey).toBe('hash:0123456789abcdef');
+    expect(d3.label).toBe('01234567');
+
+    // level 4: __unknown__ stays as-is
+    const m4 = newModel();
+    applySnapshot(m4, snapshot([{ sessionId: 's1' }], [agent('s1', 'main')]));
+    expect(listDirectories(m4)[0].label).toBe('__unknown__');
+  });
+
+  it('label shortens a bare SessionRow.workDirHash dirKey to 8 chars too', () => {
+    // level 2 of the dir-key chain (session hash, no workDir, no agent workDir):
+    // the label must follow the same "hash 前 8 位" rule as the 'hash:'-prefixed form.
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1', workDirHash: '0123456789abcdef' }], [agent('s1', 'main')]));
+    const d = listDirectories(model)[0];
+    expect(d.dirKey).toBe('0123456789abcdef');
+    expect(d.label).toBe('01234567');
+  });
+});
+
+describe('status-model: activeAgentKeys stable order', () => {
+  it('orders cross-dir as dirs -> sessionIds -> DFS (no latest-first)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([
+      { sessionId: 's1', workDir: '/a' },
+      { sessionId: 's2', workDir: '/b' },
+      { sessionId: 's3', workDir: '/a' },
+    ], [
+      agent('s1', 'main', { busy: true }),
+      agent('s1', 'sub', { parentAgentId: 'main', busy: true }),
+      agent('s1', 'idle', { parentAgentId: 'main' }),
+      agent('s2', 'b1', { busy: true }),
+      agent('s3', 'a3', { busy: true }),
+    ]));
+    // dir /a (s1: main+sub active, s3: a3 active) has 2 active, dir /b (s2: b1) has 1
+    expect(activeAgentKeys(model)).toEqual([
+      agentKey('s1', 'main'),
+      agentKey('s1', 'sub'),
+      agentKey('s3', 'a3'),
+      agentKey('s2', 'b1'),
+    ]);
+  });
+
+  it('excludes inactive, stale and orphan-leaf agents', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'main', { busy: true, subagents: [{ subagentId: 'leaf', status: 'running', ts: 1 }] }),
+      agent('s1', 'idle'),
+      agent('s1', 'stale', { busy: true, stale: true }),
+    ]));
+    expect(activeAgentKeys(model)).toEqual([agentKey('s1', 'main')]);
+  });
+});
+
+describe('status-model: workDirHash wiring', () => {
+  it('carries workDirHash from snapshot sessions into SessionRow', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1', workDir: '/w', workDirHash: 'h1hashh1hash' }], []));
+    expect(model.sessions['s1'].workDirHash).toBe('h1hashh1hash');
+    expect(model.sessions['s1'].workDir).toBe('/w');
+  });
+
+  it('agent frames do not write the session row hash (fallback stays in sessionDirKey)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1' }], []));
+    expect(model.sessions['s1'].workDirHash).toBeUndefined();
+    // The agent hash is a sessionDirKey fallback ('hash:' prefix), not a row write.
+    upsertAgent(model, agent('s1', 'main', { workDirHash: 'backfillhash' }));
+    expect(model.sessions['s1'].workDirHash).toBeUndefined();
+    expect(sessionDirKey(model, 's1')).toBe('hash:backfillhash');
+  });
+
+  it('the session-record hash wins over agent-frame hashes', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1', workDirHash: 'original' }], [agent('s1', 'main', { workDirHash: 'other' })]));
+    expect(model.sessions['s1'].workDirHash).toBe('original');
+    // a later frame without the field never clears it either
+    upsertAgent(model, agent('s1', 'main'));
+    expect(model.sessions['s1'].workDirHash).toBe('original');
+  });
+});
+
+describe('status-model: __proto__/constructor key defense (F3)', () => {
+  it('a snapshot with sessionId="__proto__" builds without throwing and resolves its dir', () => {
+    const model = newModel();
+    expect(() =>
+      applySnapshot(model, snapshot([
+        { sessionId: '__proto__', title: 'P', workDir: '/wd/p', workDirHash: 'hp' },
+        { sessionId: 'constructor', title: 'C', workDir: '/wd/c', workDirHash: 'hc' },
+      ], [
+        agent('__proto__', 'main', { kind: 'main', busy: true }),
+        agent('constructor', 'main', { kind: 'main', busy: false }),
+      ])),
+    ).not.toThrow();
+    // null-proto key tables: the rows are real own properties, not proto hits
+    expect(Object.getPrototypeOf(model.sessions)).toBeNull();
+    expect(Object.getPrototypeOf(model.roots)).toBeNull();
+    expect(Object.getPrototypeOf(model.pending)).toBeNull();
+    expect(Object.getPrototypeOf(model.dirCache)).toBeNull();
+    expect(model.sessions['__proto__']?.title).toBe('P');
+    expect(model.roots['__proto__']).toEqual([agentKey('__proto__', 'main')]);
+    expect(modelCounts(model)).toEqual({ agents: 2, sessions: 2 });
+    expect(sessionDirKey(model, '__proto__')).toBe('/wd/p');
+    expect(listDirectories(model)[0]).toBeDefined();
+  });
+
+  it('workDirHash="__proto__" groups into its own dir without throwing', () => {
+    const model = newModel();
+    expect(() =>
+      applySnapshot(model, snapshot([
+        { sessionId: 's1', workDirHash: '__proto__' },
+        { sessionId: 's2', workDirHash: 'normal' },
+      ], [
+        agent('s1', 'main', { kind: 'main', busy: true }),
+        agent('s2', 'lone', { kind: 'main', busy: false }),
+      ])),
+    ).not.toThrow();
+    const dirs = listDirectories(model);
+    const keys = dirs.map((d) => d.dirKey);
+    expect(keys).toContain('__proto__');
+    expect(keys).toContain('normal');
+    const proto = dirs.find((d) => d.dirKey === '__proto__')!;
+    expect(proto.sessionIds).toEqual(['s1']);
+    // the label follows the existing bare-hash shortening rule (first 8 chars),
+    // so '__proto__' (9 chars) labels '__proto_' — the dirKey grouping is what
+    // matters for the F3 defense
+    expect(activeAgentKeys(model)).toEqual([agentKey('s1', 'main')]);
+  });
+});
+
 describe('status-model: drift protection (D2)', () => {
   /** Load the serialized model source in a bare vm and return its API. */
   function vmModel() {
@@ -420,28 +752,46 @@ describe('status-model: drift protection (D2)', () => {
       }
       return { sessionId: sid, gone: !!row.gone, agents: flatten };
     });
-    return JSON.stringify({ groups, counts: api.modelCounts(model) });
+    // Project the 0.10.0 directory/partition derivations the page renders from
+    // (dirKey chain, per-session partition, directory grouping, active partition).
+    const dirKeys = model.sessionOrder.map((sid: string) => api.sessionDirKey(model, sid));
+    const partitions = model.sessionOrder.map((sid: string) => {
+      const part = api.partitionSession(model, sid);
+      return { sessionId: sid, active: part.active, inactive: part.inactive };
+    });
+    return JSON.stringify({
+      groups,
+      counts: api.modelCounts(model),
+      dirKeys,
+      partitions,
+      dirs: api.listDirectories(model),
+      active: api.activeAgentKeys(model),
+    });
   }
 
   const fullScript: Array<Record<string, unknown>> = [
-    { op: 'snapshot', snap: snapshot([{ sessionId: 's1', title: 'S' }], [
-      agent('s1', 'main', { kind: 'main', busy: true, lastToolCall: { name: 'read', ts: 5, isError: false }, subagents: [{ subagentId: 'leaf', status: 'running', ts: 5 }] }),
+    { op: 'snapshot', snap: snapshot([
+      { sessionId: 's1', title: 'S', workDir: '/repo/app', workDirHash: 'h1hash1hash1' },
+      { sessionId: 's2', workDir: '/repo/app' },
+    ], [
+      agent('s1', 'main', { kind: 'main', busy: true, workDirHash: 'h1hash1hash1', lastToolCall: { name: 'read', ts: 5, isError: false }, subagents: [{ subagentId: 'leaf', status: 'running', ts: 5 }] }),
       agent('s1', 'child', { parentAgentId: 'main', phase: 'thinking', lastToolCall: { name: 'grep', ts: 3, isError: true } }),
-      agent('s2', 'lone', { stale: true }),
+      agent('s2', 'lone', { stale: true, workDirHash: 'h2hash2hash2' }),
+      agent('s3', 'late-child', { parentAgentId: 'late-parent', workDirHash: 'h3hash3hash3' }),
+      agent('s4', 'ghost', { busy: true }),
     ]) },
     { op: 'agent', agent: agent('s1', 'child', { parentAgentId: 'main', busy: false, lastTurnReason: 'completed' }) },
     { op: 'agent', agent: agent('s1', 'main', { parentAgentId: 'other', busy: false, lastFinishReason: 'end_turn', lastToolCall: { name: 'write', ts: 7, isError: false } }) },
-    { op: 'agent', agent: agent('s3', 'late-child', { parentAgentId: 'late-parent' }) },
     { op: 'agent', agent: agent('s3', 'late-parent', {}) },
     { op: 'gone', sessionId: 's1', agentId: 'main' },
     { op: 'gone', sessionId: 's1', agentId: 'leaf' },
     { op: 'session', sessionId: 's2' },
-    { op: 'agent', agent: agent('s2', 'lone', { busy: true }) },
+    { op: 'agent', agent: agent('s2', 'lone', { busy: true, stale: false }) },
     { op: 'gone', sessionId: 's3', agentId: 'late-parent' },
   ];
 
   it('serialized source reproduces the real functions for a full op script', () => {
-    const real = runScript({ newModel, applySnapshot, upsertAgent, removeAgent, removeSession, deriveStatus, modelCounts }, fullScript);
+    const real = runScript({ newModel, applySnapshot, upsertAgent, removeAgent, removeSession, deriveStatus, modelCounts, sessionDirKey, partitionSession, listDirectories, activeAgentKeys }, fullScript);
     const fake = runScript(vmModel(), fullScript);
     expect(fake).toBe(real);
   });

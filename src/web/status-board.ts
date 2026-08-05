@@ -1,6 +1,9 @@
 /**
- * Status Board page (0.9.0): cross-home agent monitoring at GET /status-board.
- * Session groups + main→subagent tree + status column, SSE-live via /status/events.
+ * Status Board page (0.10.0): cross-home agent monitoring at GET /status-board.
+ * Directory tree (workDir-keyed) -> session groups -> main→subagent tree rows,
+ * an SSE-live top active section, and a three-level lazy render state machine:
+ * folded dir = zero session DOM; expanded dir + pure-inactive session = head
+ * row only; head click -> fold bar; fold bar click -> inactive agent rows.
  * Shares the app chrome with every other page (renderAppHeader, tokens,
  * components, lib, i18n) and inlines the pure status model source (D2).
  */
@@ -113,10 +116,11 @@ ${COMPONENTS_CSS}
   -webkit-backdrop-filter: none !important;
 }
 .sb-session {
-  /* flex-shrink: 0 — .sb-list is a capped-height flex column; with many
-     sessions the default shrink would squeeze every group to ~2px stripes
-     (overflow:hidden makes min-height:auto resolve to 0), rendering the
-     board as thin lines. Groups keep natural height; the list scrolls. */
+  /* flex-shrink: 0 — .sb-list / .sb-dir-sessions are capped-height flex
+     columns; with many sessions the default shrink would squeeze every group
+     to ~2px stripes (overflow:hidden makes min-height:auto resolve to 0),
+     rendering the board as thin lines (0.9.1 fix). Groups keep natural height;
+     the list scrolls. */
   flex-shrink: 0;
   background: var(--solid);
   border: 1px solid var(--border);
@@ -135,6 +139,7 @@ ${COMPONENTS_CSS}
   padding: 9px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  cursor: pointer;
 }
 .sb-session-title {
   font-weight: 600;
@@ -301,6 +306,133 @@ ${COMPONENTS_CSS}
 .sb-empty[hidden] {
   display: none;
 }
+
+/* ── 0.10.0: active section (sticky top) ─────────────────────────────────── */
+.sb-active {
+  /* flex-shrink: 0 — the active section sits in the document flow above the
+     capped-height sb-list; both itself and its rows column must resist the
+     flex-shrink collapse that squeezed .sb-session groups to 2px stripes. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px 14px 10px;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.sb-active[hidden] {
+  display: none;
+}
+.sb-active-head {
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sb-active-rows {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  max-height: 28vh;
+  overflow-y: auto;
+}
+.sb-active-rows .sb-row {
+  border-bottom: none;
+}
+.sb-active-rows .sb-row + .sb-row {
+  border-top: 1px solid var(--border);
+}
+
+/* ── 0.10.0: directory groups (workDir-keyed tree) ───────────────────────── */
+.sb-dir {
+  flex-shrink: 0;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.sb-dir-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  cursor: pointer;
+  background: var(--surface);
+  user-select: none;
+}
+.sb-dir-title {
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.sb-dir-sub {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-dir-count {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.sb-dir-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+/* Chevron: SELECT_CHEVRON-style data-uri inlined here (components.ts keeps the
+   shared const private). Collapsed dirs / closed fold bars rotate it -90deg. */
+.sb-chevron {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.sb-dir.collapsed .sb-chevron,
+.sb-fold:not(.open) .sb-chevron {
+  transform: rotate(-90deg);
+}
+/* "N inactive" fold bar (pill, sb-ended/sb-session-count style) */
+.sb-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  flex-shrink: 0;
+  margin: 6px 14px 8px;
+  padding: 1px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.sb-fold[hidden] {
+  display: none;
+}
+.sb-rows-inactive {
+  border-top: 1px dashed var(--border);
+}
 </style>
 ${THEME_BOOTSTRAP}
 ${I18N_BOOTSTRAP}
@@ -313,6 +445,9 @@ ${I18N_BOOTSTRAP}
     <span class="sb-live" id="sbLive"></span>
     <span class="sb-conn" id="sbConn" data-i18n="status.connecting">connecting</span>
     <span class="sb-counts" id="sbCounts"></span>
+  </div>
+  <div class="sb-active" id="sbActive" hidden>
+    <div class="sb-active-rows" id="sbActiveRows"></div>
   </div>
   <div class="sb-notready" id="sbNotReady" hidden data-i18n="status.notReady">Status controller is not running. Start or reuse a session to begin monitoring.</div>
   <div class="sb-scan" id="sbScan" hidden><span class="spin"></span><span data-i18n="status.scanning">Scanning workspaces…</span></div>
@@ -335,10 +470,50 @@ ${STATUS_MODEL_JS}
   var scanEl = document.getElementById('sbScan');
   var notReadyEl = document.getElementById('sbNotReady');
   var emptyEl = document.getElementById('sbEmpty');
-  var rowEls = {};
-  var sessionEls = {};
+  var activeEl = document.getElementById('sbActive');
+  var activeRowsEl = document.getElementById('sbActiveRows');
+  var activeHeadEl = null;
+  // F3 (0.10.0 review): all sessionId/dirKey-keyed maps are null-prototype so
+  // a sessionId/workDirHash of exactly '__proto__'/'constructor' cannot hit the
+  // prototype chain (e.g. userExpandedSessions['__proto__'] = true would be a
+  // silent no-op on a plain object).
+  var rowEls = Object.create(null);
+  var sessionEls = Object.create(null);
+  var dirEls = Object.create(null);
+  var activeRowEls = Object.create(null);
+  var userExpandedSessions = Object.create(null);
   var pendingFrames = [];
   var flushScheduled = false;
+  var FOLDS_KEY = 'moamcp-status-folds';
+  var FOLDS_MAX = 500;
+  var folds = loadFolds();
+  // F1: one listDirectories result shared by the whole flush /
+  // localechange / rebuild (refreshActiveSection, resortDirectory,
+  // updateDirEl, dirGroupByKey) — the old code recomputed listDirectories up
+  // to 4× per flush, each O(sessions × agents).
+  var latestDirs = [];
+  var latestDirById = Object.create(null);
+  function computeDirState() {
+    latestDirs = M.listDirectories(model);
+    latestDirById = Object.create(null);
+    for (var i = 0; i < latestDirs.length; i++) latestDirById[latestDirs[i].dirKey] = latestDirs[i];
+  }
+
+  // ── Active section chrome (title row is JS-created so fake-DOM tests can
+  //    drive localechange; the static shell only carries the rows container).
+  if (activeEl) {
+    activeHeadEl = activeEl.querySelector('.sb-active-head');
+    if (!activeHeadEl) {
+      activeHeadEl = document.createElement('div');
+      activeHeadEl.className = 'sb-active-head';
+      activeHeadEl.textContent = tr('status.activeSection');
+      activeEl.insertBefore(activeHeadEl, activeRowsEl);
+    }
+    if (activeRowsEl) {
+      activeRowsEl.className = 'sb-active-rows';
+      if (activeRowsEl.parentNode !== activeEl) activeEl.appendChild(activeRowsEl);
+    }
+  }
 
   function setConn(state, msg) {
     if (connEl) {
@@ -359,6 +534,44 @@ ${STATUS_MODEL_JS}
     if (emptyEl) emptyEl.hidden = M.modelCounts(model).agents > 0;
   }
 
+  // ── Dir fold persistence (only stores states opposite the default, FIFO 500)
+  function loadFolds() {
+    var out = { dirs: Object.create(null) };
+    try {
+      var raw = localStorage.getItem(FOLDS_KEY);
+      if (!raw) return out;
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.dirs && typeof parsed.dirs === 'object') {
+        var keys = Object.keys(parsed.dirs);
+        for (var i = 0; i < keys.length; i++) {
+          var v = parsed.dirs[keys[i]];
+          if (keys[i] && (v === 0 || v === 1)) out.dirs[keys[i]] = v;
+        }
+      }
+    } catch (_) {}
+    return out;
+  }
+  function persistFolds() {
+    try {
+      localStorage.setItem(FOLDS_KEY, JSON.stringify({ dirs: folds.dirs }));
+    } catch (_) {}
+  }
+  function hasFoldRecord(dirKey) {
+    return Object.prototype.hasOwnProperty.call(folds.dirs, dirKey);
+  }
+  function saveDirFold(dirKey, collapsed, hasActive) {
+    var def = !hasActive;
+    if (collapsed === def) {
+      delete folds.dirs[dirKey];
+    } else {
+      folds.dirs[dirKey] = collapsed ? 1 : 0;
+      var keys = Object.keys(folds.dirs);
+      if (keys.length > FOLDS_MAX) delete folds.dirs[keys[0]];
+    }
+    persistFolds();
+  }
+
+  // ── Agent rows (shared by the tree and the active section) ────────────────
   function depthOf(entry) {
     var depth = 0;
     var seen = {};
@@ -423,8 +636,9 @@ ${STATUS_MODEL_JS}
     return row;
   }
 
-  function updateRowEl(key) {
-    var row = rowEls[key];
+  /** In-place refresh of one row inside the given keyed map (tree vs active). */
+  function updateRowEl(map, key) {
+    var row = map[key];
     var entry = model.byKey[key];
     if (!row || !entry || !row.__cells) return;
     var cells = row.__cells;
@@ -446,6 +660,7 @@ ${STATUS_MODEL_JS}
     row.classList.toggle('orphan', !!entry.orphan);
   }
 
+  // ── Session groups (three-level lazy state machine, plan §2/§3) ───────────
   var COLS = ['status.colAgent', 'status.colKind', 'status.colModel', 'status.colStatus', 'status.colTool', 'status.colSeen'];
 
   function ensureSessionEl(sessionId) {
@@ -470,6 +685,8 @@ ${STATUS_MODEL_JS}
     head.appendChild(sub);
     head.appendChild(ended);
     head.appendChild(count);
+    // Head-only (pure-inactive) sessions: click upgrades to the full render.
+    head.addEventListener('click', function () { toggleSessionExpand(sessionId); });
     var colhead = document.createElement('div');
     colhead.className = 'sb-colhead';
     var colCells = [];
@@ -481,103 +698,404 @@ ${STATUS_MODEL_JS}
     }
     var rows = document.createElement('div');
     rows.className = 'sb-rows';
-    group.appendChild(head);
-    group.appendChild(colhead);
-    group.appendChild(rows);
-    var info = { group: group, head: head, title: title, sub: sub, ended: ended, count: count, rows: rows, colCells: colCells };
+    var foldBar = document.createElement('div');
+    foldBar.className = 'sb-fold';
+    var foldChevron = document.createElement('span');
+    foldChevron.className = 'sb-chevron';
+    var foldLabel = document.createElement('span');
+    foldLabel.className = 'sb-fold-label';
+    foldBar.appendChild(foldChevron);
+    foldBar.appendChild(foldLabel);
+    foldBar.addEventListener('click', function () { toggleInactive(sessionId); });
+    var inactiveRows = document.createElement('div');
+    inactiveRows.className = 'sb-rows sb-rows-inactive';
+    var info = {
+      group: group, head: head, title: title, sub: sub, ended: ended, count: count,
+      colhead: colhead, colCells: colCells, rows: rows, foldBar: foldBar,
+      foldLabel: foldLabel, inactiveRows: inactiveRows, inactiveOpen: false, mode: 'head',
+    };
     sessionEls[sessionId] = info;
+    // mode 'head' starts with just the head row in the group; applySessionMode
+    // only re-parents on a mode change, so the initial head must be appended
+    // here (a head-only group is exactly one head element, zero agent rows).
+    group.appendChild(head);
     return info;
   }
 
-  function updateSessionEl(sessionId) {
-    var info = ensureSessionEl(sessionId);
+  /** 'head' = head row only; 'full' = head + colhead + rows + fold bar + inactive rows. */
+  function applySessionMode(info, mode) {
+    if (info.mode === mode) return;
+    info.mode = mode;
+    var desired = [info.head];
+    if (mode === 'full') desired.push(info.colhead, info.rows, info.foldBar, info.inactiveRows);
+    var cur = info.group.children;
+    while (cur.length) info.group.removeChild(cur[0]);
+    for (var i = 0; i < desired.length; i++) info.group.appendChild(desired[i]);
+  }
+
+  /** Max lastSeen over the session's own partition (O(subtree), not a global
+   *  byKey scan — the 0.9.1 O(n) per-frame full scan the plan §3 removes). */
+  function sessionLastSeen(part) {
+    var max = 0;
+    var keys = part.active.concat(part.inactive);
+    for (var i = 0; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e && e.lastSeen > max) max = e.lastSeen;
+    }
+    return window.__moaLib ? window.__moaLib.fmtClock(max) : '';
+  }
+
+  function updateFoldBar(info, inactiveCount) {
+    if (!info.foldLabel) return;
+    if (inactiveCount > 0) {
+      info.foldBar.hidden = false;
+      info.foldLabel.textContent = tr('status.inactiveCount', { count: inactiveCount });
+      info.foldBar.classList.toggle('open', !!info.inactiveOpen);
+    } else {
+      info.foldBar.hidden = true;
+    }
+  }
+
+  function updateSessionEl(sessionId, part) {
+    var info = sessionEls[sessionId];
     if (!info) return;
     var row = model.sessions[sessionId] || {};
     info.title.textContent = row.title || sessionId;
     info.sub.textContent = row.workDir || (row.home || '');
+    // F2 (0.10.0 review): the .sb-ended badge is translated here (not only at
+    // creation) so the localechange re-render refreshes it like the column
+    // headers; ensureSessionEl only sets it once at build time.
+    info.ended.textContent = tr('status.ended');
     info.ended.hidden = !row.gone;
     info.group.classList.toggle('gone', !!row.gone);
-    var n = 0;
-    var keys = Object.keys(model.byKey);
-    for (var i = 0; i < keys.length; i++) {
-      if (model.byKey[keys[i]].sessionId === sessionId) n++;
+    var n = part.active.length + part.inactive.length;
+    if (info.mode === 'head') {
+      info.count.textContent = tr('status.sessionCount', { count: n }) + ' · ' + tr('status.lastSeen') + ' ' + sessionLastSeen(part);
+    } else {
+      info.count.textContent = tr('status.sessionCount', { count: n });
     }
-    info.count.textContent = tr('status.sessionCount', { count: n });
+    updateFoldBar(info, part.inactive.length);
   }
 
-  /** Re-append this session's rows in DFS tree order (visited-guarded). */
-  function resortSession(sessionId, container) {
-    container = container || board;
-    if (!container) return;
-    var order = [];
-    var visited = {};
-    var stack = [];
-    var roots = model.roots[sessionId] || [];
-    for (var i = roots.length - 1; i >= 0; i--) stack.push(roots[i]);
-    while (stack.length) {
-      var key = stack.pop();
-      if (visited[key]) continue;
-      visited[key] = true;
-      order.push(key);
-      var entry = model.byKey[key];
-      if (!entry) continue;
-      var children = entry.children;
-      for (var j = children.length - 1; j >= 0; j--) {
-        if (!visited[children[j]]) stack.push(children[j]);
-      }
+  /** Remove the group + all of this session's rowEls (extracted from the old
+   *  empty-tree branch: no ghost DOM, no stale keyed entries). */
+  function teardownSession(sessionId) {
+    var info = sessionEls[sessionId];
+    if (!info) return;
+    if (info.group.parentNode) info.group.parentNode.removeChild(info.group);
+    delete sessionEls[sessionId];
+    for (var key in rowEls) {
+      if (key.indexOf(sessionId + ':') === 0) delete rowEls[key];
     }
-    if (order.length === 0) {
-      var info0 = sessionEls[sessionId];
-      if (info0) {
-        if (info0.group.parentNode) info0.group.parentNode.removeChild(info0.group);
-        delete sessionEls[sessionId];
+  }
+
+  function renderFullSession(sessionId, dirInfo) {
+    var part = M.partitionSession(model, sessionId);
+    var info = ensureSessionEl(sessionId);
+    applySessionMode(info, 'full');
+    updateSessionEl(sessionId, part);
+    var active = part.active;
+    for (var i = 0; i < active.length; i++) {
+      var rk = active[i];
+      if (!rowEls[rk]) rowEls[rk] = createRowEl(rk);
+      else updateRowEl(rowEls, rk);
+    }
+    // Clear + rebuild the active rows container every pass (no ghost rows when
+    // an agent flips active -> inactive or the partition order changes).
+    while (info.rows.firstChild) info.rows.removeChild(info.rows.firstChild);
+    for (var i = 0; i < active.length; i++) {
+      if (rowEls[active[i]]) info.rows.appendChild(rowEls[active[i]]);
+    }
+    var inactive = part.inactive;
+    updateFoldBar(info, inactive.length);
+    if (info.inactiveOpen) {
+      for (var i = 0; i < inactive.length; i++) {
+        var ik = inactive[i];
+        if (!rowEls[ik]) rowEls[ik] = createRowEl(ik);
+        else updateRowEl(rowEls, ik);
       }
-      // F4 (0.9.0 review): the group's rows are gone from the DOM with it —
-      // drop their rowEls entries too so removed nodes are not retained by the
-      // keyed map (a later frame for the session must build fresh rows).
-      for (var staleKey in rowEls) {
-        if (staleKey.indexOf(sessionId + ':') === 0) delete rowEls[staleKey];
+      while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
+      for (var i = 0; i < inactive.length; i++) {
+        if (rowEls[inactive[i]]) info.inactiveRows.appendChild(rowEls[inactive[i]]);
       }
+    } else {
+      // Fold bar closed: the inactive container holds no DOM and the keys are
+      // dropped from rowEls — the next open lazily rebuilds them (no ghosts).
+      while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
+      for (var i = 0; i < inactive.length; i++) delete rowEls[inactive[i]];
+    }
+    if (dirInfo) dirInfo.sessionsBox.appendChild(info.group);
+  }
+
+  function renderHeadOnly(sessionId, dirInfo) {
+    var part = M.partitionSession(model, sessionId);
+    var info = ensureSessionEl(sessionId);
+    applySessionMode(info, 'head');
+    updateSessionEl(sessionId, part);
+    if (dirInfo) dirInfo.sessionsBox.appendChild(info.group);
+  }
+
+  /** Rebuild-path renderer (snapshot / dir expand): inactive sessions get a
+   *  head row only, zero agent DOM. */
+  function renderSessionAtRebuild(sessionId, dirInfo) {
+    var part = M.partitionSession(model, sessionId);
+    var n = part.active.length + part.inactive.length;
+    if (dirInfo.fold || n === 0) return;
+    if (part.active.length > 0 || userExpandedSessions[sessionId] === true) {
+      renderFullSession(sessionId, dirInfo);
+    } else {
+      renderHeadOnly(sessionId, dirInfo);
+    }
+  }
+
+  /** Incremental-path renderer (flush). Keeps a full render full once built
+   *  (E1 reuse / F4 no-drift regressions), keeps head-only head-only, and a
+   *  session first seen via a frame renders full — the lazy head-only path is
+   *  the snapshot/rebuild one. */
+  function resortSession(sessionId) {
+    var dirKey = M.sessionDirKey(model, sessionId);
+    var dirInfo = ensureDirEl(dirKey);
+    if (!dirInfo) return;
+    var part = M.partitionSession(model, sessionId);
+    var n = part.active.length + part.inactive.length;
+    if (dirInfo.fold || n === 0) {
+      if (sessionEls[sessionId]) teardownSession(sessionId);
       return;
     }
-    var info = ensureSessionEl(sessionId);
-    updateSessionEl(sessionId);
-    for (var m = 0; m < order.length; m++) {
-      var rk = order[m];
-      if (!rowEls[rk]) rowEls[rk] = createRowEl(rk);
-      else updateRowEl(rk); // refresh content on every flush (E1 reuse, no rebuild)
-    }
-    for (var n = 0; n < order.length; n++) {
-      var rk2 = order[n];
-      if (rowEls[rk2]) info.rows.appendChild(rowEls[rk2]);
-    }
-    container.appendChild(info.group);
+    var existing = sessionEls[sessionId];
+    var full;
+    if (existing && existing.mode === 'full') full = true;
+    else if (part.active.length > 0 || userExpandedSessions[sessionId] === true) full = true;
+    else if (existing && existing.mode === 'head') full = false;
+    else full = true;
+    if (full) renderFullSession(sessionId, dirInfo);
+    else renderHeadOnly(sessionId, dirInfo);
   }
 
-  function resortBoardGroups(container) {
-    container = container || board;
-    if (!container) return;
-    for (var i = 0; i < model.sessionOrder.length; i++) {
-      var info = sessionEls[model.sessionOrder[i]];
-      if (info) container.appendChild(info.group);
+  function toggleSessionExpand(sessionId) {
+    var info = sessionEls[sessionId];
+    if (!info) return;
+    var part = M.partitionSession(model, sessionId);
+    if (part.active.length > 0) return; // full sessions are not collapsible via the head
+    var dirInfo = dirEls[M.sessionDirKey(model, sessionId)];
+    if (!dirInfo) return;
+    if (info.mode === 'full') {
+      // A full render of an all-inactive session (previously active, or
+      // user-expanded): the head click collapses it back to head-only. Without
+      // this branch the first click only set userExpandedSessions=true (a
+      // visual no-op on an already-full group) and the user needed two clicks.
+      userExpandedSessions[sessionId] = false;
+      renderHeadOnly(sessionId, dirInfo);
+      return;
+    }
+    userExpandedSessions[sessionId] = !userExpandedSessions[sessionId];
+    if (userExpandedSessions[sessionId]) renderFullSession(sessionId, dirInfo);
+    else renderHeadOnly(sessionId, dirInfo);
+  }
+
+  function toggleInactive(sessionId) {
+    var info = sessionEls[sessionId];
+    if (!info) return;
+    info.inactiveOpen = !info.inactiveOpen;
+    var dirInfo = dirEls[M.sessionDirKey(model, sessionId)];
+    if (dirInfo) renderFullSession(sessionId, dirInfo);
+  }
+
+  // ── Directory layer (plan §2) ─────────────────────────────────────────────
+  // F1: group lookup is an O(1) index into the single per-flush listDirectories
+  // result (computeDirState) — the old code recomputed listDirectories for
+  // every call, e.g. once per dir inside updateDirEl/resortDirSessions.
+  function dirGroupByKey(dirKey) {
+    return latestDirById[dirKey] || null;
+  }
+
+  function ensureDirEl(dirKey) {
+    if (dirEls[dirKey]) return dirEls[dirKey];
+    if (!board) return null;
+    var group = document.createElement('div');
+    group.className = 'sb-dir';
+    group.setAttribute('data-dir', dirKey);
+    var head = document.createElement('div');
+    head.className = 'sb-dir-head';
+    var chevron = document.createElement('span');
+    chevron.className = 'sb-chevron';
+    var title = document.createElement('span');
+    title.className = 'sb-dir-title';
+    var sub = document.createElement('span');
+    sub.className = 'sb-dir-sub';
+    var count = document.createElement('span');
+    count.className = 'sb-dir-count';
+    head.appendChild(chevron);
+    head.appendChild(title);
+    head.appendChild(sub);
+    head.appendChild(count);
+    var sessionsBox = document.createElement('div');
+    sessionsBox.className = 'sb-dir-sessions';
+    group.appendChild(head);
+    group.appendChild(sessionsBox);
+    head.addEventListener('click', function () {
+      var info = dirEls[dirKey];
+      if (!info) return;
+      info.fold = !info.fold;
+      var g = dirGroupByKey(dirKey);
+      applyDirFold(info);
+      saveDirFold(dirKey, info.fold, !!(g && g.hasActive));
+    });
+    var info = { group: group, head: head, chevron: chevron, title: title, sub: sub, count: count, sessionsBox: sessionsBox, dirKey: dirKey, fold: true };
+    dirEls[dirKey] = info;
+    var g = dirGroupByKey(dirKey);
+    if (g) info.fold = hasFoldRecord(dirKey) ? folds.dirs[dirKey] === 1 : !g.hasActive;
+    info.group.classList.toggle('collapsed', !!info.fold);
+    return info;
+  }
+
+  function applyDirFold(info) {
+    info.group.classList.toggle('collapsed', !!info.fold);
+    if (info.fold) {
+      // Folded dir: internal session groups are torn down (zero session DOM);
+      // active agents stay visible in the top active section.
+      var kids = [].slice.call(info.sessionsBox.children);
+      for (var i = 0; i < kids.length; i++) {
+        var sid = kids[i].getAttribute ? kids[i].getAttribute('data-session') : null;
+        if (sid) teardownSession(sid);
+      }
+    } else {
+      var g = dirGroupByKey(info.dirKey);
+      if (g) {
+        for (var j = 0; j < g.sessionIds.length; j++) {
+          renderSessionAtRebuild(g.sessionIds[j], info);
+        }
+      }
     }
   }
 
-  /** Full rebuild from a snapshot (D5: DocumentFragment batch build). */
+  function updateDirEl(dirKey) {
+    var info = dirEls[dirKey];
+    if (!info) return;
+    var g = dirGroupByKey(dirKey);
+    if (!g) {
+      if (info.group.parentNode) info.group.parentNode.removeChild(info.group);
+      delete dirEls[dirKey];
+      return;
+    }
+    var last = g.label.split('/').filter(Boolean).pop();
+    info.title.textContent = g.dirKey === '__unknown__' ? tr('status.unknownDir') : (last || g.label);
+    info.sub.textContent = g.label;
+    info.count.textContent = tr('status.hiddenSessions', { count: g.hiddenSessions }) + ' · ' + tr('status.dirAgents', { count: g.activeAgents });
+    if (!hasFoldRecord(dirKey)) {
+      // No user preference: follow the default (hasActive ? expanded : folded).
+      var def = !g.hasActive;
+      if (info.fold !== def) {
+        info.fold = def;
+        applyDirFold(info);
+      }
+    }
+  }
+
+  function resortDirSessions(dirKey) {
+    var info = dirEls[dirKey];
+    if (!info || info.fold) return;
+    var g = dirGroupByKey(dirKey);
+    if (!g) return;
+    for (var i = 0; i < g.sessionIds.length; i++) {
+      var si = sessionEls[g.sessionIds[i]];
+      if (si) info.sessionsBox.appendChild(si.group);
+    }
+  }
+
+  /** Re-append dir groups in listDirectories order (move semantics, no drift). */
+  function resortDirectory() {
+    if (!board) return;
+    var dirs = latestDirs;
+    var present = Object.create(null);
+    for (var i = 0; i < dirs.length; i++) present[dirs[i].dirKey] = true;
+    for (var d in dirEls) {
+      if (!present[d]) {
+        var di = dirEls[d];
+        if (di.group.parentNode) di.group.parentNode.removeChild(di.group);
+        delete dirEls[d];
+      }
+    }
+    for (var i = 0; i < dirs.length; i++) {
+      var info = dirEls[dirs[i].dirKey];
+      if (info) board.appendChild(info.group);
+    }
+  }
+
+  // ── Top active section (plan §4) ──────────────────────────────────────────
+  // F1: derive the active partition directly from the shared listDirectories
+  // result (dirs order -> sessionIds order -> partition DFS), so the section
+  // never triggers a second listDirectories (M.activeAgentKeys would).
+  function activeKeysFromDirs(dirs) {
+    var out = [];
+    for (var i = 0; i < dirs.length; i++) {
+      var ids = dirs[i].sessionIds;
+      for (var j = 0; j < ids.length; j++) {
+        var part = M.partitionSession(model, ids[j]);
+        for (var k = 0; k < part.active.length; k++) out.push(part.active[k]);
+      }
+    }
+    return out;
+  }
+  function refreshActiveSection() {
+    if (!activeEl || !activeRowsEl) return;
+    var keys = activeKeysFromDirs(latestDirs);
+    var present = Object.create(null);
+    for (var i = 0; i < keys.length; i++) present[keys[i]] = true;
+    for (var key in activeRowEls) {
+      if (!present[key]) {
+        var stale = activeRowEls[key];
+        if (stale.parentNode) stale.parentNode.removeChild(stale);
+        delete activeRowEls[key];
+      }
+    }
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (!activeRowEls[k]) activeRowEls[k] = createRowEl(k);
+      else updateRowEl(activeRowEls, k);
+      if (activeRowEls[k]) activeRowsEl.appendChild(activeRowEls[k]);
+    }
+    activeEl.hidden = keys.length === 0;
+  }
+
+  // ── Full rebuild from a snapshot (D5: DocumentFragment batch build; F2:
+  //    fragment moves use the firstChild loop, never an indexed loop). ──────
   function rebuildAll() {
     if (!board) return;
-    rowEls = {};
-    sessionEls = {};
+    rowEls = Object.create(null);
+    sessionEls = Object.create(null);
+    dirEls = Object.create(null);
+    // NOTE: activeRowEls is deliberately NOT reset. Its DOM nodes live in the
+    // persistent sbActiveRows container; refreshActiveSection() at the end runs
+    // the same reconciliation (drop keys not active, reuse/update the rest) that
+    // incremental flushes use. Resetting the map here would orphan the old rows
+    // in the container — every snapshot rebuild would stack a second copy of
+    // each active row (ghost rows in the top section).
     var frag = document.createDocumentFragment();
-    for (var i = 0; i < model.sessionOrder.length; i++) resortSession(model.sessionOrder[i], frag);
+    // F1: one listDirectories for the whole rebuild (dirs + dirGroupByKey +
+    // refreshActiveSection all read latestDirs/latestDirById).
+    computeDirState();
+    var dirs = latestDirs;
+    for (var i = 0; i < dirs.length; i++) {
+      var g = dirs[i];
+      var dirInfo = ensureDirEl(g.dirKey);
+      if (hasFoldRecord(g.dirKey)) dirInfo.fold = folds.dirs[g.dirKey] === 1;
+      else dirInfo.fold = !g.hasActive;
+      updateDirEl(g.dirKey);
+      if (dirInfo.fold) {
+        frag.appendChild(dirInfo.group);
+        continue;
+      }
+      for (var j = 0; j < g.sessionIds.length; j++) {
+        renderSessionAtRebuild(g.sessionIds[j], dirInfo);
+      }
+      frag.appendChild(dirInfo.group);
+    }
     board.textContent = '';
-    // F2 (0.9.0 review): frag.children is a LIVE HTMLCollection — appending a
-    // child moves it out and shrinks the collection, so an indexed loop over it
-    // skipped every other group (a 323-session snapshot rendered 162 groups).
-    // Snapshot-style moves via firstChild are immune.
     while (frag.firstChild) board.appendChild(frag.firstChild);
     updateCounts();
     updateEmpty();
+    refreshActiveSection();
   }
 
   function handleSnapshot(snap) {
@@ -596,6 +1114,11 @@ ${STATUS_MODEL_JS}
       if (row) {
         if (row.parentNode) row.parentNode.removeChild(row);
         delete rowEls[rk];
+      }
+      var arow = activeRowEls[rk];
+      if (arow) {
+        if (arow.parentNode) arow.parentNode.removeChild(arow);
+        delete activeRowEls[rk];
       }
     }
   }
@@ -616,7 +1139,8 @@ ${STATUS_MODEL_JS}
     flushScheduled = false;
     var frames = pendingFrames;
     pendingFrames = [];
-    var touched = {};
+    var touched = Object.create(null);
+    var touchedDirs = Object.create(null);
     for (var i = 0; i < frames.length; i++) {
       var f = frames[i];
       var type = f.type;
@@ -627,28 +1151,49 @@ ${STATUS_MODEL_JS}
       }
       if (type === 'session') {
         if (data && data.gone === true && typeof data.sessionId === 'string') {
-          M.removeSession(model, data.sessionId);
-          touched[data.sessionId] = true;
+          var sd = data.sessionId;
+          var sdOld = M.sessionDirKey(model, sd);
+          M.removeSession(model, sd);
+          touched[sd] = true;
+          touchedDirs[sdOld] = true;
         }
         continue;
       }
       if (type === 'agent' && data) {
         var sid = typeof data.sessionId === 'string' ? data.sessionId : null;
-        if (data.gone === true) handleGone(data);
-        else M.upsertAgent(model, data);
-        if (sid) touched[sid] = true;
+        if (sid) {
+          var oldDir = M.sessionDirKey(model, sid);
+          if (data.gone === true) {
+            handleGone(data);
+            touched[sid] = true;
+            touchedDirs[oldDir] = true;
+            // A gone frame can flip the session's dirKey (e.g. the only agent
+            // carrying a workDirHash fallback is removed): the NEW dir must be
+            // refreshed too, or a freshly created dir group keeps an empty
+            // title/count (ensureDirEl never fills them).
+            touchedDirs[M.sessionDirKey(model, sid)] = true;
+          } else {
+            M.upsertAgent(model, data);
+            touched[sid] = true;
+            touchedDirs[oldDir] = true;
+            touchedDirs[M.sessionDirKey(model, sid)] = true;
+          }
+        }
       }
     }
-    // F3 (0.9.0 review): agent/session frames queued after a snapshot in the
-    // same batch used to be skipped (the old 'rebuilt' flag short-circuited
-    // the resort), so their model updates only rendered on the next flush.
-    // Resort every touched session unconditionally — after a snapshot,
-    // rebuildAll has already rendered the base state and resort applies the
-    // later frames.
+    // F3 (0.9.0 review): resort every touched session unconditionally — after a
+    // snapshot rebuildAll has rendered the base state and resort applies the
+    // later frames in the same batch.
+    // F1: ONE listDirectories for the whole flush tail; refreshActiveSection /
+    // updateDirEl / resortDirSessions / resortDirectory all read it.
+    computeDirState();
+    refreshActiveSection();
     for (var s in touched) resortSession(s);
-    // F4 (0.9.0 review): resortSession appends each touched group to the board
-    // end, which drifts group order away from sessionOrder — reorder after.
-    resortBoardGroups();
+    for (var d in touchedDirs) {
+      updateDirEl(d);
+      resortDirSessions(d);
+    }
+    resortDirectory();
     updateCounts();
     updateEmpty();
   }
@@ -693,12 +1238,18 @@ ${STATUS_MODEL_JS}
       var label = scanEl.children && scanEl.children[1] ? scanEl.children[1] : null;
       if (label) label.textContent = tr('status.scanning');
     }
+    if (activeHeadEl) activeHeadEl.textContent = tr('status.activeSection');
+    // F1: one listDirectories for the whole localechange re-render (the critic
+    // measured ~1s switching 35 dirs with the old per-dir recomputation).
+    computeDirState();
+    for (var d in dirEls) updateDirEl(d);
     for (var sid in sessionEls) {
-      updateSessionEl(sid);
       var info = sessionEls[sid];
       for (var i = 0; i < COLS.length && info.colCells; i++) info.colCells[i].textContent = tr(COLS[i]);
+      updateSessionEl(sid, M.partitionSession(model, sid));
     }
-    for (var key in rowEls) updateRowEl(key);
+    for (var key in rowEls) updateRowEl(rowEls, key);
+    for (var key2 in activeRowEls) updateRowEl(activeRowEls, key2);
     updateCounts();
   });
 

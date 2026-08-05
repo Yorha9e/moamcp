@@ -1,10 +1,13 @@
 /**
- * Status Board page tests (0.9.0):
+ * Status Board page tests (0.10.0):
  *  - backend: GET /status-board serves the page (200 + text/html + markers);
  *  - page behavior: run the page's inline <script> in a vm with a fake DOM +
  *    FakeEventSource (bus.test.ts runCardScript pattern) and drive
  *    snapshot/agent/session frames, gone re-roots, session-gone, the SSE
- *    error + /status 503 probe first-class state, and reconnect-keeps-rows.
+ *    error + /status 503 probe first-class state, and reconnect-keeps-rows;
+ *  - 0.10.0: directory tree (workDir-keyed), top active section, three-level
+ *    lazy rendering (folded dir / head-only session / fold-bar inactive rows),
+ *    dir-fold localStorage persistence, and the localechange re-render path.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -203,11 +206,23 @@ class FakeEventSource {
 }
 
 const PAGE_IDS = [
-  'sbList', 'sbConn', 'sbLive', 'sbCounts', 'sbScan', 'sbNotReady', 'sbEmpty',
+  'sbList', 'sbActive', 'sbActiveRows', 'sbConn', 'sbLive', 'sbCounts', 'sbScan', 'sbNotReady', 'sbEmpty',
   'appVersionValue', 'themePicker', 'localePicker',
 ];
 
-function runStatusPage(html: string, fetchImpl: (url: string, init?: any) => Promise<any>) {
+interface StatusPage {
+  el: (id: string) => El;
+  sse: FakeEventSource;
+  dispatch: (type: string, data: unknown) => void;
+  failSse: () => void;
+  openSse: () => void;
+  docListeners: Record<string, Array<(ev: any) => void>>;
+  sandbox: Record<string, unknown>;
+  getStored: (k: string) => string | null;
+}
+
+/** localStorage seed seam: pre-populate persisted state (e.g. dir folds). */
+function runStatusPage(html: string, fetchImpl: (url: string, init?: any) => Promise<any>, storedSeed?: Record<string, string>): StatusPage {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n');
   expect(scripts.length).toBeGreaterThan(0);
 
@@ -244,7 +259,7 @@ function runStatusPage(html: string, fetchImpl: (url: string, init?: any) => Pro
     },
   };
   FakeEventSource.instances = [];
-  const stored = new Map<string, string>();
+  const stored = new Map<string, string>(Object.entries(storedSeed ?? {}));
   const sandbox: Record<string, unknown> = {
     document,
     location: { search: '', href: 'http://127.0.0.1/status-board' },
@@ -293,6 +308,8 @@ function runStatusPage(html: string, fetchImpl: (url: string, init?: any) => Pro
     failSse: () => sse.fail(),
     openSse: () => sse.open(),
     docListeners,
+    sandbox,
+    getStored: (k: string) => stored.get(k) ?? null,
   };
 }
 
@@ -309,7 +326,7 @@ function snap(over: Record<string, unknown> = {}) {
     scan: { scanning: false, homes: [] },
     sources: { wire: { sessions: 1, agents: 3 }, omkc: { connected: false } },
     sessions: [
-      { sessionId: 's1', title: 'Session One', workDir: '/wd/s1', home: 'omkc' },
+      { sessionId: 's1', title: 'Session One', workDir: '/wd/s1', workDirHash: 'h1', home: 'omkc' },
     ],
     agents: [
       {
@@ -333,17 +350,57 @@ function agentFrame(sessionId: string, agentId: string, over: Record<string, unk
   };
 }
 
-function sessionGroups(board: El): El[] {
-  return board.children.filter((c) => c.className.split(' ').includes('sb-session'));
+/** Click the first registered click listener (fake DOM has no dispatchEvent). */
+function click(el: El | null): void {
+  expect(el).not.toBeNull();
+  const h = el!.listeners['click']?.[0];
+  expect(h).toBeDefined();
+  h!({});
 }
 
+/** Switch the i18n runtime locale, then fire every localechange listener
+ *  (the page's re-render handler plus lib's theme-label sync). */
+function setLocale(page: StatusPage, locale: string): void {
+  (page.sandbox as { __moaI18n: { setLocale: (l: string, persist?: boolean) => void } }).__moaI18n.setLocale(locale, false);
+  for (const h of page.docListeners['moamcp:localechange'] ?? []) h({ detail: { locale } });
+}
+
+/** Directory groups under the board (top-level children with .sb-dir). */
+function dirGroups(board: El): El[] {
+  return board.children.filter((c) => c.className.split(' ').includes('sb-dir'));
+}
+
+/** Session groups anywhere under a container (dirs nest session groups). */
+function sessionGroups(container: El): El[] {
+  const out: El[] = [];
+  const walk = (el: El) => {
+    for (const c of el.children) {
+      if (c.className.split(' ').includes('sb-session')) out.push(c);
+      walk(c);
+    }
+  };
+  walk(container);
+  return out;
+}
+
+/** Every rendered row in a session group: active container rows + (when the
+ *  fold bar is open) inactive container rows, in DOM order. */
 function rowsOf(group: El): El[] {
-  const rows = group.children.find((c) => c.className.split(' ').includes('sb-rows'));
-  return rows ? rows.children : [];
+  const out: El[] = [];
+  for (const c of group.children) {
+    if (c.className.split(' ').includes('sb-rows')) out.push(...c.children);
+  }
+  return out;
 }
 
 function rowIds(group: El): string[] {
   return rowsOf(group).map((r) => r.getAttribute('data-key') ?? '');
+}
+
+/** Rows rendered in the top active section container. */
+function activeRows(activeEl: El): El[] {
+  const rows = activeEl.children.find((c) => c.className.split(' ').includes('sb-active-rows'));
+  return rows ? rows.children : [];
 }
 
 const offlineFetch = () => Promise.reject(new Error('offline'));
@@ -393,15 +450,18 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     page.dispatch('snapshot', snap());
     await flush();
 
-    const groups = sessionGroups(page.el('sbList'));
+    const dir = dirGroups(page.el('sbList'))[0];
+    expect(dir.getAttribute('data-dir')).toBe('/wd/s1');
+    const groups = sessionGroups(dir);
     expect(groups.length).toBe(1);
     const group = groups[0];
     expect(group.getAttribute('data-session')).toBe('s1');
     expect(group.textContent).toContain('Session One');
+    // Active rows are built; the inactive child is behind the fold bar (lazy).
+    expect(rowIds(group)).toEqual(['s1:main']);
+    click(group.querySelector('.sb-fold')!);
+    expect(rowIds(group)).toEqual(['s1:main', 's1:child']);
     // DFS order: main (root) then child.
-    const ids = rowIds(group);
-    expect(ids).toEqual(['s1:main', 's1:child']);
-    // status column: busy main -> st-busy pill + busy row; child completed -> st-done.
     const mainRow = rowsOf(group)[0];
     expect(mainRow.querySelector('.sb-status')!.className).toContain('st-busy');
     expect(mainRow.classList.contains('busy')).toBe(true);
@@ -422,16 +482,33 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
 
   it('upserts an agent frame reusing the row element (E1 keyed map)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
-    page.dispatch('snapshot', snap());
+    // Two sessions share one workDir: when s1:main goes idle the dir stays
+    // expanded because s2 is still active — otherwise the dir would auto-fold
+    // (default: hasActive ? expanded : folded) and the group would vanish
+    // before the reuse assertion.
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'Session One', workDir: '/wd/shared', workDirHash: 'h1', home: 'omkc' },
+        { sessionId: 's2', title: 'Session Two', workDir: '/wd/shared', workDirHash: 'h2', home: 'omkc' },
+      ],
+      agents: [
+        { sessionId: 's1', agentId: 'main', kind: 'main', busy: true, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'child', kind: 'sub', parentAgentId: 'main', busy: false, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2', lastTurnReason: 'completed' },
+        agentFrame('s2', 'other', { kind: 'main', busy: true }),
+      ],
+    }));
     await flush();
     const group = sessionGroups(page.el('sbList'))[0];
     const mainRowBefore = rowsOf(group)[0];
+    // open the fold bar so the inactive child row exists (lazy rendering)
+    click(group.querySelector('.sb-fold')!);
+    expect(rowIds(group)).toEqual(['s1:main', 's1:child']);
 
     page.dispatch('agent', agentFrame('s1', 'main', { busy: false, stale: false, lastSeen: 2000, model: 'kimi-k3' }));
     await flush();
     const groupAfter = sessionGroups(page.el('sbList'))[0];
     const mainRowAfter = rowsOf(groupAfter)[0];
-    expect(mainRowAfter).toBe(mainRowBefore); // same node reused
+    expect(mainRowAfter).toBe(mainRowBefore); // same node reused (moved to the inactive side)
     expect(mainRowAfter.querySelector('.sb-model')!.textContent).toBe('kimi-k3');
     expect(mainRowAfter.querySelector('.sb-status')!.textContent).toBe('idle');
     expect(mainRowAfter.classList.contains('busy')).toBe(false);
@@ -439,13 +516,15 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
 
   it('renders the last tool column from the model (reviewer fix)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
-    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', lastToolCall: { name: 'read_file', ts: 5, isError: false } }));
+    // keep the agent busy so the session renders without manual expansion
+    // (inactive sessions are lazily folded / head-only)
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true, lastToolCall: { name: 'read_file', ts: 5, isError: false } }));
     await flush();
     const group = sessionGroups(page.el('sbList'))[0];
     const mainRow = rowsOf(group)[0];
     expect(mainRow.querySelector('.sb-tool')!.textContent).toBe('read_file');
     // isError marks the cell
-    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', lastToolCall: { name: 'run', ts: 6, isError: true } }));
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true, lastToolCall: { name: 'run', ts: 6, isError: true } }));
     await flush();
     const rowAfter = rowsOf(sessionGroups(page.el('sbList'))[0])[0];
     expect(rowAfter.querySelector('.sb-tool')!.textContent).toBe('run');
@@ -457,17 +536,25 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     page.dispatch('snapshot', snap());
     await flush();
     let group = sessionGroups(page.el('sbList'))[0];
+    // open the fold bar: the inactive child row is lazy-rendered
+    click(group.querySelector('.sb-fold')!);
     expect(rowIds(group)).toEqual(['s1:main', 's1:child']);
 
     // Empty snapshot -> board cleared, no groups.
     page.dispatch('snapshot', snap({ agents: [] }));
     await flush();
     expect(sessionGroups(page.el('sbList')).length).toBe(0);
+    // The dir defaults to folded for an inactive session: expand it so the
+    // incremental frames below render (folded dir = zero session DOM).
+    const dir = dirGroups(page.el('sbList'))[0];
+    click(dir.querySelector('.sb-dir-head')!);
+    expect(dir.classList.contains('collapsed')).toBe(false);
 
     // Child frame arrives while its parent is absent -> pending root.
     page.dispatch('agent', agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub' }));
     await flush();
     group = sessionGroups(page.el('sbList'))[0];
+    click(group.querySelector('.sb-fold')!);
     expect(rowIds(group)).toEqual(['s1:child']);
 
     // Parent frame arrives later -> child row moves under the parent.
@@ -486,7 +573,13 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
       ],
     }));
     await flush();
+    // All agents inactive -> the dir defaults to folded and the session is
+    // head-only. Expand, then upgrade to the full render to inspect rows.
+    const dir = dirGroups(page.el('sbList'))[0];
+    click(dir.querySelector('.sb-dir-head')!);
     let group = sessionGroups(page.el('sbList'))[0];
+    click(group.querySelector('.sb-session-head')!); // head-only -> full (fold bar)
+    click(group.querySelector('.sb-fold')!);         // build the inactive rows
     expect(rowIds(group).sort()).toEqual(['s1:child', 's1:leaf', 's1:main']);
     const leafRow = rowsOf(group).find((r) => r.getAttribute('data-key') === 's1:leaf')!;
 
@@ -504,6 +597,7 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     await flush();
     let group = sessionGroups(page.el('sbList'))[0];
     expect(group.classList.contains('gone')).toBe(false);
+    click(group.querySelector('.sb-fold')!);
     expect(rowIds(group).length).toBe(2);
 
     page.dispatch('session', { sessionId: 's1', gone: true });
@@ -523,7 +617,11 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
     page.dispatch('snapshot', snap({ agents: [] }));
     await flush();
-    // empty snapshot -> no group at all; add one agent then remove it via gone
+    // empty snapshot -> no group at all; the dir is folded (no active agents),
+    // so expand it before incremental frames (folded dir = zero session DOM)
+    const dir = dirGroups(page.el('sbList'))[0];
+    click(dir.querySelector('.sb-dir-head')!);
+    expect(sessionGroups(page.el('sbList')).length).toBe(0);
     page.dispatch('agent', agentFrame('s1', 'only', {}));
     await flush();
     expect(sessionGroups(page.el('sbList')).length).toBe(1);
@@ -595,12 +693,13 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     page.failSse();
     await flush();
     group = sessionGroups(page.el('sbList'))[0];
-    expect(rowsOf(group).length).toBe(2); // rows kept across the drop
+    expect(rowsOf(group).length).toBe(1); // active row kept; the child is lazy
     page.openSse();
     await flush();
 
-    // new snapshot arrives -> wholesale replace
-    page.dispatch('snapshot', snap({ agents: [agentFrame('s1', 'main', { kind: 'main', busy: false })] }));
+    // new snapshot arrives -> wholesale replace. The agent stays busy so the
+    // dir stays expanded (inactive sessions are lazily folded / head-only).
+    page.dispatch('snapshot', snap({ agents: [agentFrame('s1', 'main', { kind: 'main', busy: true })] }));
     await flush();
     group = sessionGroups(page.el('sbList'))[0];
     expect(rowIds(group)).toEqual(['s1:main']);
@@ -628,9 +727,9 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     // every other group (a 323-session snapshot rendered 162 groups).
     page.dispatch('snapshot', snap({
       sessions: [
-        { sessionId: 's1', title: 'One', workDir: '/wd/s1', home: 'omkc' },
-        { sessionId: 's2', title: 'Two', workDir: '/wd/s2', home: 'omkc' },
-        { sessionId: 's3', title: 'Three', workDir: '/wd/s3', home: 'omkc' },
+        { sessionId: 's1', title: 'One', workDir: '/wd/s1', workDirHash: 'h1', home: 'omkc' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/s2', workDirHash: 'h2', home: 'omkc' },
+        { sessionId: 's3', title: 'Three', workDir: '/wd/s3', workDirHash: 'h3', home: 'omkc' },
       ],
       agents: [
         agentFrame('s1', 'a1', { kind: 'main', busy: true }),
@@ -665,11 +764,16 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
 
   it('keeps session group order aligned with sessionOrder across incremental frames (F4)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
+    // All three sessions share one workDir: with dir grouping an individual
+    // session losing activity no longer reorders the tree (the dir stays
+    // expanded while any session in it is active). This still exercises the F4
+    // regression — resortSession appends a touched group to its dir's end,
+    // which used to drift the board order to s1,s3,s2.
     page.dispatch('snapshot', snap({
       sessions: [
-        { sessionId: 's1', title: 'One', workDir: '/wd/s1', home: 'omkc' },
-        { sessionId: 's2', title: 'Two', workDir: '/wd/s2', home: 'omkc' },
-        { sessionId: 's3', title: 'Three', workDir: '/wd/s3', home: 'omkc' },
+        { sessionId: 's1', title: 'One', workDir: '/wd/shared', workDirHash: 'h1', home: 'omkc' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/shared', workDirHash: 'h2', home: 'omkc' },
+        { sessionId: 's3', title: 'Three', workDir: '/wd/shared', workDirHash: 'h3', home: 'omkc' },
       ],
       agents: [
         agentFrame('s1', 'a1', { kind: 'main', busy: true }),
@@ -681,8 +785,7 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     const order = () => sessionGroups(page.el('sbList')).map((g) => g.getAttribute('data-session'));
     expect(order()).toEqual(['s1', 's2', 's3']);
 
-    // Touch the middle group incrementally: resortSession appends it to the
-    // board end, which used to drift the order to s1,s3,s2.
+    // Touch the middle group incrementally.
     page.dispatch('agent', agentFrame('s2', 'b1', { kind: 'main', busy: false, lastTurnReason: 'completed' }));
     await flush();
     expect(order()).toEqual(['s1', 's2', 's3']);
@@ -722,10 +825,10 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
 
   it('first render marks error tool calls red (F5 createRowEl)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
-    // Snapshot full render (first frame) with an error tool call: the old
-    // createRowEl omitted the `err` class (only updateRowEl applied it).
+    // main stays busy so the session renders fully; the inactive child is
+    // revealed by opening the fold bar
     page.dispatch('snapshot', snap({ agents: [
-      agentFrame('s1', 'main', { kind: 'main', lastToolCall: { name: 'run', ts: 6, isError: true } }),
+      agentFrame('s1', 'main', { kind: 'main', busy: true, lastToolCall: { name: 'run', ts: 6, isError: true } }),
       agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', lastToolCall: { name: 'grep', ts: 4, isError: false } }),
     ] }));
     await flush();
@@ -734,6 +837,7 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(mainRow.querySelector('.sb-tool')!.textContent).toBe('run');
     expect(mainRow.querySelector('.sb-tool')!.className).toContain('err');
     // Non-error tool stays unstyled; incremental updates still work after.
+    click(group.querySelector('.sb-fold')!);
     const childRow = rowsOf(group)[1];
     expect(childRow.querySelector('.sb-tool')!.textContent).toBe('grep');
     expect(childRow.querySelector('.sb-tool')!.className).not.toContain('err');
@@ -741,6 +845,452 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     await flush();
     const childAfter = rowsOf(sessionGroups(page.el('sbList'))[0])[1];
     expect(childAfter.querySelector('.sb-tool')!.className).toContain('err');
+  });
+});
+
+describe('Status Board 0.10.0: directory tree, active section and lazy rendering', () => {
+  it('renders snapshot into dir groups -> session groups -> agent rows, active dirs first', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'Active Sess', workDir: '/wd/active', workDirHash: 'h1' },
+        { sessionId: 's2', title: 'Idle Sess', workDir: '/wd/idle', workDirHash: 'h2' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s2', 'lone', { kind: 'main', busy: false, lastSeen: 700 }),
+      ],
+    }));
+    await flush();
+    const dirs = dirGroups(page.el('sbList'));
+    // active dir first, then the inactive one (default folded)
+    expect(dirs.map((d) => d.getAttribute('data-dir'))).toEqual(['/wd/active', '/wd/idle']);
+    const dActive = dirs[0];
+    expect(dActive.classList.contains('collapsed')).toBe(false);
+    expect(dActive.querySelector('.sb-dir-count')!.textContent).toContain('1 active');
+    const activeGroups = sessionGroups(dActive);
+    expect(activeGroups.map((g) => g.getAttribute('data-session'))).toEqual(['s1']);
+    expect(rowIds(activeGroups[0])).toEqual(['s1:main']);
+    const dIdle = dirs[1];
+    expect(dIdle.classList.contains('collapsed')).toBe(true);
+    expect(dIdle.querySelector('.sb-dir-count')!.textContent).toContain('1 past session');
+    expect(sessionGroups(dIdle)).toEqual([]); // folded dir: zero session DOM
+  });
+
+  it('lazy rendering: inactive session builds only a head; folded dir builds zero session DOM', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'Busy', workDir: '/wd/mixed', workDirHash: 'h1' },
+        { sessionId: 's2', title: 'Quiet', workDir: '/wd/mixed', workDirHash: 'h2' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s2', 'lone', { kind: 'main', busy: false, lastSeen: 500 }),
+      ],
+    }));
+    await flush();
+    const dirs = dirGroups(page.el('sbList'));
+    expect(dirs.length).toBe(1); // both sessions share /wd/mixed
+    const dir = dirs[0];
+    expect(dir.classList.contains('collapsed')).toBe(false); // s1 is active
+    const groups = sessionGroups(dir);
+    expect(groups.length).toBe(2);
+    const s1 = groups.find((g) => g.getAttribute('data-session') === 's1')!;
+    const s2 = groups.find((g) => g.getAttribute('data-session') === 's2')!;
+    // s2 is pure-inactive -> head only, zero agent DOM
+    expect(rowIds(s2)).toEqual([]);
+    expect(s2.querySelector('.sb-session-head')).not.toBeNull();
+    expect(s2.querySelector('.sb-rows')).toBeNull();
+    // s1 is full: head + colhead + rows
+    expect(rowIds(s1)).toEqual(['s1:main']);
+    expect(s1.querySelector('.sb-rows')).not.toBeNull();
+    // fold the dir -> internal session DOM is torn down
+    click(dir.querySelector('.sb-dir-head')!);
+    expect(dir.classList.contains('collapsed')).toBe(true);
+    expect(sessionGroups(dir)).toEqual([]);
+  });
+
+  it('first build: a hidden session renders fully + joins the active section on its first busy frame', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // s1 is inactive -> its dir defaults to folded -> zero session DOM
+    page.dispatch('snapshot', snap({
+      sessions: [{ sessionId: 's1', title: 'Dormant', workDir: '/wd/dormant', workDirHash: 'h1' }],
+      agents: [agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 100 })],
+    }));
+    await flush();
+    expect(page.el('sbActive').hidden).toBe(true);
+    expect(sessionGroups(page.el('sbList'))).toEqual([]);
+    expect(dirGroups(page.el('sbList'))[0].classList.contains('collapsed')).toBe(true);
+
+    // busy frame -> dir auto-expands (default follows hasActive), the session
+    // is fully built, and the agent joins the top active section
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true, lastSeen: 200 }));
+    await flush();
+    const dir = dirGroups(page.el('sbList'))[0];
+    expect(dir.classList.contains('collapsed')).toBe(false);
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(group.getAttribute('data-session')).toBe('s1');
+    expect(rowIds(group)).toEqual(['s1:main']);
+    expect(page.el('sbActive').hidden).toBe(false);
+    expect(activeRows(page.el('sbActive')).map((r) => r.getAttribute('data-key'))).toEqual(['s1:main']);
+  });
+
+  it('teardown: an active session losing every agent removes group + rows without ghosts', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap());
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(group)).toEqual(['s1:main']);
+    expect(page.el('sbActive').hidden).toBe(false);
+    expect(activeRows(page.el('sbActive')).map((r) => r.getAttribute('data-key'))).toEqual(['s1:main']);
+
+    page.dispatch('agent', { sessionId: 's1', agentId: 'child', gone: true });
+    await flush();
+    page.dispatch('agent', { sessionId: 's1', agentId: 'main', gone: true });
+    await flush();
+    // no session group remains and no ghost rows survive under the board
+    expect(sessionGroups(page.el('sbList'))).toEqual([]);
+    expect(page.el('sbList').querySelector('.sb-row')).toBeNull();
+    expect(dirGroups(page.el('sbList'))).toEqual([]);
+    expect(page.el('sbActive').hidden).toBe(true);
+    expect(activeRows(page.el('sbActive'))).toEqual([]);
+  });
+
+  it('active section mirrors tree row content; an agent going idle leaves the section', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true, model: 'kimi-k2', lastSeen: 1000, phase: 'thinking' }),
+        agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', busy: true, model: 'kimi-k2', lastSeen: 900 }),
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    const activeEl = page.el('sbActive');
+    expect(activeEl.hidden).toBe(false);
+    const activeKeys = () => activeRows(activeEl).map((r) => r.getAttribute('data-key'));
+    expect(activeKeys()).toEqual(['s1:main', 's1:child']);
+    // tree rows (active) and active-section rows share content
+    const treeMain = rowsOf(group)[0];
+    const activeMain = activeRows(activeEl)[0];
+    expect(activeMain.querySelector('.sb-agent')!.textContent).toBe(treeMain.querySelector('.sb-agent')!.textContent);
+    expect(activeMain.querySelector('.sb-model')!.textContent).toBe('kimi-k2');
+    // incremental frame updates BOTH DOMs (same content, two keyed maps)
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true, model: 'kimi-k9', lastSeen: 1100 }));
+    await flush();
+    const treeMain2 = rowsOf(sessionGroups(page.el('sbList'))[0])[0];
+    const activeMain2 = activeRows(activeEl)[0];
+    expect(treeMain2.querySelector('.sb-model')!.textContent).toBe('kimi-k9');
+    expect(activeMain2.querySelector('.sb-model')!.textContent).toBe('kimi-k9');
+    // child goes idle -> leaves the active section (stays in the tree inactive)
+    page.dispatch('agent', agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 910 }));
+    await flush();
+    expect(activeKeys()).toEqual(['s1:main']);
+    // the tree still shows the child once the fold bar is opened
+    click(sessionGroups(page.el('sbList'))[0].querySelector('.sb-fold')!);
+    expect(rowIds(sessionGroups(page.el('sbList'))[0])).toEqual(['s1:main', 's1:child']);
+  });
+
+  it('a gone frame for a never-rendered session does not crash and updates dir counts', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/wd/x', workDirHash: 'h1' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/x', workDirHash: 'h2' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s2', 'other', { kind: 'main', busy: false, lastSeen: 2 }),
+      ],
+    }));
+    await flush();
+    // dir defaults to folded (no active) -> zero session DOM
+    expect(sessionGroups(page.el('sbList'))).toEqual([]);
+    const dir = dirGroups(page.el('sbList'))[0];
+    expect(dir.getAttribute('data-dir')).toBe('/wd/x');
+    expect(dir.querySelector('.sb-dir-count')!.textContent).toContain('2 past sessions');
+
+    // gone frame for a session that was never rendered
+    page.dispatch('agent', { sessionId: 's2', agentId: 'other', gone: true });
+    await flush();
+    expect(sessionGroups(page.el('sbList'))).toEqual([]);
+    expect(dirGroups(page.el('sbList'))[0].querySelector('.sb-dir-count')!.textContent).toContain('1 past session');
+    expect(page.el('sbActive').hidden).toBe(true);
+  });
+
+  it('dir ordering is stable across flushes and unknown sessions aggregate into __unknown__', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/a', workDirHash: 'ha' },
+        { sessionId: 's2', title: 'Two', workDir: '/b', workDirHash: 'hb' },
+        { sessionId: 'u1', title: 'Uno' },
+        { sessionId: 'u2', title: 'Due' },
+      ],
+      agents: [
+        agentFrame('s1', 'a1', { kind: 'main', busy: true }),
+        agentFrame('s2', 'b1', { kind: 'main', busy: true }),
+        agentFrame('s2', 'b2', { kind: 'main', busy: true }),
+        agentFrame('u1', 'x1', { kind: 'main', busy: true }),
+        agentFrame('u2', 'x2', { kind: 'main', busy: false }),
+      ],
+    }));
+    await flush();
+    const keys = () => dirGroups(page.el('sbList')).map((d) => d.getAttribute('data-dir'));
+    // /b (2 active) first, then /a and __unknown__ (1 active each, dirKey asc)
+    expect(keys()).toEqual(['/b', '/a', '__unknown__']);
+    // u1 (active) + u2 (inactive) aggregate into the __unknown__ dir
+    const unknown = dirGroups(page.el('sbList'))[2];
+    expect(unknown.classList.contains('collapsed')).toBe(false); // hasActive -> expanded
+    expect(sessionGroups(unknown).map((g) => g.getAttribute('data-session')).sort()).toEqual(['u1', 'u2']);
+    // touch s1 (still active) -> order unchanged across flush
+    page.dispatch('agent', agentFrame('s1', 'a1', { kind: 'main', busy: true, model: 'k2' }));
+    await flush();
+    expect(keys()).toEqual(['/b', '/a', '__unknown__']);
+  });
+
+  it('a session moving dirs (hash backfill) relocates its group and updates both dir counts', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/two', workDirHash: 'h2' },
+      ],
+      agents: [
+        agentFrame('s2', 'other', { kind: 'main', busy: true }),
+        agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 100 }),
+      ],
+    }));
+    await flush();
+    expect(dirGroups(page.el('sbList')).map((d) => d.getAttribute('data-dir'))).toEqual(['/wd/two', '__unknown__']);
+    // expand the __unknown__ dir so s1's head-only group exists before the move
+    const unknownDir = dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === '__unknown__')!;
+    click(unknownDir.querySelector('.sb-dir-head')!);
+    const s1Group = sessionGroups(unknownDir)[0];
+    expect(s1Group.getAttribute('data-session')).toBe('s1');
+
+    // s1's agent frame backfills its workDirHash -> the dirKey flips to hash:...
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true, workDirHash: '0123456789abcdef' }));
+    await flush();
+    const dirKeys = dirGroups(page.el('sbList')).map((d) => d.getAttribute('data-dir'));
+    expect(dirKeys).toContain('hash:0123456789abcdef');
+    expect(dirKeys).not.toContain('__unknown__');
+    const hashDir = dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === 'hash:0123456789abcdef')!;
+    const moved = sessionGroups(hashDir);
+    expect(moved.length).toBe(1);
+    expect(moved[0]).toBe(s1Group); // the same DOM node moved across dirs
+    expect(rowIds(moved[0])).toEqual(['s1:main']);
+    // both dirs' counts updated: /wd/two unchanged, hash dir 1 active
+    expect(dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === '/wd/two')!.querySelector('.sb-dir-count')!.textContent).toContain('1 active');
+    expect(hashDir.querySelector('.sb-dir-count')!.textContent).toContain('1 active');
+  });
+
+  it('localechange refreshes dir rows, fold bars, active section and inactive session heads', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/wd/one', workDirHash: 'h1' },
+        { sessionId: 's2', title: 'Two' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 4 }),
+        agentFrame('s2', 'lone', { kind: 'main', busy: false, lastSeen: 5 }),
+      ],
+    }));
+    await flush();
+    // expand the unknown dir (default folded) so s2's head-only group exists
+    const unknownDir = dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === '__unknown__')!;
+    click(unknownDir.querySelector('.sb-dir-head')!);
+    // open s1's fold bar so the inactive-count pill exists
+    const s1Group = sessionGroups(page.el('sbList')).find((g) => g.getAttribute('data-session') === 's1')!;
+    click(s1Group.querySelector('.sb-fold')!);
+
+    // English baseline
+    expect(unknownDir.querySelector('.sb-dir-title')!.textContent).toBe('Unknown directory');
+    expect(s1Group.querySelector('.sb-fold')!.textContent).toContain('1 inactive');
+    expect(page.el('sbActive').children[0].textContent).toBe('Active');
+
+    // switch to zh-CN and fire the page's localechange listener
+    setLocale(page, 'zh-CN');
+    expect(dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === '/wd/one')!.querySelector('.sb-dir-count')!.textContent).toContain('1 个活跃');
+    const unknownDir2 = dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === '__unknown__')!;
+    expect(unknownDir2.querySelector('.sb-dir-title')!.textContent).toBe('未知目录');
+    const s1Group2 = sessionGroups(page.el('sbList')).find((g) => g.getAttribute('data-session') === 's1')!;
+    expect(s1Group2.querySelector('.sb-fold')!.textContent).toContain('1 个不活跃');
+    expect(page.el('sbActive').children[0].textContent).toBe('活跃');
+    const s2Group = sessionGroups(page.el('sbList')).find((g) => g.getAttribute('data-session') === 's2')!;
+    expect(s2Group.querySelector('.sb-session-count')!.textContent).toContain('最后活跃');
+  });
+
+  it('localechange re-translates the .sb-ended badge (F2)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap());
+    await flush();
+    // session-gone keeps the live rows and marks the group ended -> badge visible
+    page.dispatch('session', { sessionId: 's1', gone: true });
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    const ended = group.querySelector('.sb-ended')!;
+    expect(ended.hidden).toBe(false);
+    expect(ended.textContent).toBe('session ended');
+    // the localechange re-render must retranslate the badge (it was set only
+    // once at element creation before the F2 fix)
+    setLocale(page, 'zh-CN');
+    expect(ended.textContent).toBe('会话已结束');
+    expect(ended.hidden).toBe(false);
+  });
+
+  it('fold interactions: dir head toggles + persists, fold bar lazily builds inactive rows, session head upgrades', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap());
+    await flush();
+    const dir = dirGroups(page.el('sbList'))[0];
+    const dirHead = dir.querySelector('.sb-dir-head')!;
+    expect(dir.getAttribute('data-dir')).toBe('/wd/s1');
+    // default: expanded (hasActive)
+    expect(dir.classList.contains('collapsed')).toBe(false);
+    expect(sessionGroups(dir).length).toBe(1);
+    // collapse -> sessions torn down, persisted as the opposite of default
+    click(dirHead);
+    expect(dir.classList.contains('collapsed')).toBe(true);
+    expect(sessionGroups(dir)).toEqual([]);
+    const stored = JSON.parse(page.getStored('moamcp-status-folds')!);
+    expect(stored.dirs['/wd/s1']).toBe(1);
+    // expand again -> sessions restored, record removed (matches default)
+    click(dirHead);
+    expect(dir.classList.contains('collapsed')).toBe(false);
+    expect(sessionGroups(dir).length).toBe(1);
+    const stored2 = JSON.parse(page.getStored('moamcp-status-folds')!);
+    expect(stored2.dirs['/wd/s1']).toBeUndefined();
+
+    // fold bar: inactive rows are lazily built on click, removed on collapse
+    let s1Group = sessionGroups(dir)[0];
+    expect(rowIds(s1Group)).toEqual(['s1:main']);
+    click(s1Group.querySelector('.sb-fold')!);
+    expect(rowIds(s1Group)).toEqual(['s1:main', 's1:child']);
+    click(s1Group.querySelector('.sb-fold')!);
+    expect(rowIds(s1Group)).toEqual(['s1:main']);
+
+    // head-only upgrade: a pure-inactive session shows just a head; clicking
+    // it builds the fold bar; clicking the fold bar builds the inactive rows
+    page.dispatch('snapshot', snap({
+      sessions: [{ sessionId: 's9', title: 'Idle', workDir: '/wd/idle', workDirHash: 'h9' }],
+      agents: [agentFrame('s9', 'lone', { kind: 'main', busy: false, lastSeen: 1 })],
+    }));
+    await flush();
+    const idleDir = dirGroups(page.el('sbList'))[0];
+    expect(idleDir.classList.contains('collapsed')).toBe(true); // default folded
+    click(idleDir.querySelector('.sb-dir-head')!);
+    const idleGroup = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(idleGroup)).toEqual([]);
+    expect(idleGroup.querySelector('.sb-rows')).toBeNull(); // head only
+    click(idleGroup.querySelector('.sb-session-head')!);    // upgrade to full
+    expect(idleGroup.querySelector('.sb-fold')).not.toBeNull();
+    expect(idleGroup.querySelector('.sb-fold')!.textContent).toContain('1 inactive');
+    expect(rowIds(idleGroup)).toEqual([]);                  // still no active rows
+    click(idleGroup.querySelector('.sb-fold')!);
+    expect(rowIds(idleGroup)).toEqual(['s9:lone']);
+  });
+
+  it('persists dir folds across page rebuilds; user state overrides the default auto-expand', async () => {
+    const seed = { 'moamcp-status-folds': JSON.stringify({ dirs: { '/wd/active': 1, '/wd/idle': 0 } }) };
+    const page = runStatusPage(await fetchPage(), offlineFetch, seed);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'Active', workDir: '/wd/active', workDirHash: 'h1' },
+        { sessionId: 's2', title: 'Idle', workDir: '/wd/idle', workDirHash: 'h2' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s2', 'lone', { kind: 'main', busy: false, lastSeen: 1 }),
+      ],
+    }));
+    await flush();
+    const dirs = dirGroups(page.el('sbList'));
+    const active = dirs.find((d) => d.getAttribute('data-dir') === '/wd/active')!;
+    const idle = dirs.find((d) => d.getAttribute('data-dir') === '/wd/idle')!;
+    // seeded user state wins over the defaults (active -> expanded, idle -> folded)
+    expect(active.classList.contains('collapsed')).toBe(true);
+    expect(sessionGroups(active)).toEqual([]);
+    expect(idle.classList.contains('collapsed')).toBe(false);
+    const idleGroup = sessionGroups(idle)[0];
+    expect(idleGroup.getAttribute('data-session')).toBe('s2');
+    expect(rowIds(idleGroup)).toEqual([]); // head-only
+    // untouched: the persisted record is exactly what was injected
+    expect(JSON.parse(page.getStored('moamcp-status-folds')!).dirs).toEqual({ '/wd/active': 1, '/wd/idle': 0 });
+  });
+
+  it('a gone frame that flips the session dirKey updates the NEW dir label/count (reviewer fix)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // s1 has no session workDir; its dirKey comes from main's workDirHash fallback
+    page.dispatch('snapshot', snap({
+      sessions: [{ sessionId: 's1', title: 'One' }],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', workDirHash: '0123456789abcdef', lastSeen: 1 }),
+        agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', lastSeen: 2 }),
+      ],
+    }));
+    await flush();
+    expect(dirGroups(page.el('sbList'))[0].getAttribute('data-dir')).toBe('hash:0123456789abcdef');
+    // main gone -> child remains -> dirKey flips to __unknown__; the new dir must
+    // show its label + count (a freshly created dir group has empty title/count)
+    page.dispatch('agent', { sessionId: 's1', agentId: 'main', gone: true });
+    await flush();
+    const dirs = dirGroups(page.el('sbList'));
+    expect(dirs.map((d) => d.getAttribute('data-dir'))).toEqual(['__unknown__']);
+    expect(dirs[0].querySelector('.sb-dir-title')!.textContent).toBe('Unknown directory');
+    expect(dirs[0].querySelector('.sb-dir-count')!.textContent).toContain('1 past session');
+  });
+
+  it('a head click collapses a full all-inactive session in one click (reviewer fix)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/wd/shared', workDirHash: 'h1' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/shared', workDirHash: 'h2' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 1 }),
+        agentFrame('s2', 'other', { kind: 'main', busy: true }),
+      ],
+    }));
+    await flush();
+    const dir = dirGroups(page.el('sbList'))[0];
+    // s1 goes all-inactive; the dir stays expanded (s2 is still active), so the
+    // incremental path keeps s1's full render (coder deviation 1 is accepted)
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 2 }));
+    await flush();
+    const s1 = sessionGroups(dir).find((g) => g.getAttribute('data-session') === 's1')!;
+    expect(s1.querySelector('.sb-rows')).not.toBeNull();
+    // ONE head click collapses to head-only (previously this needed two clicks:
+    // the first only set userExpandedSessions=true, a no-op on an already-full group)
+    click(s1.querySelector('.sb-session-head')!);
+    const collapsed = sessionGroups(dir).find((g) => g.getAttribute('data-session') === 's1')!;
+    expect(collapsed.querySelector('.sb-rows')).toBeNull();
+    // and it expands again on the next click
+    click(collapsed.querySelector('.sb-session-head')!);
+    expect(sessionGroups(dir).find((g) => g.getAttribute('data-session') === 's1')!.querySelector('.sb-rows')).not.toBeNull();
+  });
+
+  it('a snapshot rebuild does not duplicate the active-section rows (reviewer fix)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap());
+    await flush();
+    expect(activeRows(page.el('sbActive')).length).toBe(1);
+    // fresh snapshot, same content -> wholesale rebuild must not stack a second row
+    page.dispatch('snapshot', snap());
+    await flush();
+    const rows = activeRows(page.el('sbActive'));
+    expect(rows.map((r) => r.getAttribute('data-key'))).toEqual(['s1:main']);
+    expect(rows.length).toBe(1);
+    // an agent leaving the active set on the next snapshot is dropped too
+    page.dispatch('snapshot', snap({ agents: [agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', busy: false })] }));
+    await flush();
+    expect(page.el('sbActive').hidden).toBe(true);
+    expect(activeRows(page.el('sbActive'))).toEqual([]);
   });
 });
 
