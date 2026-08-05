@@ -13,6 +13,10 @@
  *     BoardStore scope) or `user-global` (the global board's `handoff/`
  *     namespace). The sender's identity (`fromProject`) is its workspace's
  *     project alias when registered, otherwise `ws:<pathHash>`.
+ *   - v2 (0.12.0) adds optional `toAgent`/`fromAgent` — opaque agent
+ *     addresses `<label>:<sessionId>:<agentId>`, shape-checked only, never
+ *     registry-resolved. Delivery still routes via `toProject`; the agent
+ *     address is a delivery tag (`agent:<toAgent>`) plus an inbox filter.
  *   - inbox/read/consume/archive take the same target designator: an
  *     absolute workspace path (alias-aware, exactly like the workspace
  *     scope), a projectId, or `user-global`. Recipients read their own
@@ -47,9 +51,17 @@ export const HANDOFF_STATES = ['pending', 'consumed', 'archived'] as const;
 
 export type HandoffState = (typeof HANDOFF_STATES)[number];
 
-/** One directed handoff entry as persisted (JSON) under `handoff/<id>`. */
+/**
+ * One directed handoff entry as persisted (JSON) under `handoff/<id>`.
+ *
+ * v1 = project-level addressing only. v2 (0.12.0) adds optional agent-level
+ * addressing: `toAgent`/`fromAgent` are OPAQUE address strings of the shape
+ * `<label>:<sessionId>:<agentId>` — shape-checked only, never resolved
+ * against a registry (the delivery target stays `toProject`). Old v1 entries
+ * simply lack the two fields and decode unchanged.
+ */
 export interface Handoff {
-  v: 1;
+  v: 1 | 2;
   id: string;
   title: string;
   summary: string;
@@ -58,6 +70,10 @@ export interface Handoff {
   fromProject: string;
   /** Target designator: projectId or `user-global`. */
   toProject: string;
+  /** v2: sender agent address `<label>:<sessionId>:<agentId>` (opaque, shape-checked only). */
+  fromAgent?: string;
+  /** v2: recipient agent address `<label>:<sessionId>:<agentId>` (opaque, shape-checked only). */
+  toAgent?: string;
   state: HandoffState;
   createdAt: string;
   updatedAt: string;
@@ -75,12 +91,22 @@ export type HandoffSendInput = {
   summary: string;
   context?: string;
   author?: string;
+  /** v2: sender agent address `<label>:<sessionId>:<agentId>` (opaque, shape-checked only). */
+  fromAgent?: string;
+  /** v2: recipient agent address `<label>:<sessionId>:<agentId>` (opaque, shape-checked only). */
+  toAgent?: string;
 };
 
 export interface HandoffListOptions {
   /** Filter exact state(s); default hides archived (pending + consumed). */
   state?: HandoffState | HandoffState[];
   limit?: number;
+  /**
+   * v2: exact string filter on `toAgent`. The caller self-reports its own
+   * address, so a misspelled address yields an empty inbox rather than an
+   * error — the known no-registry compromise (align via fromAgent echo).
+   */
+  agent?: string;
 }
 
 export class HandoffValidationError extends Error {
@@ -128,6 +154,13 @@ const HANDOFF_LIST_MAX_LIMIT = 1000;
 /** Per-scope scan cap for outbox (BoardStore's own hard read limit). */
 const HANDOFF_SCAN_MAX = 1000;
 
+/**
+ * v2 agent address shape: `<label>:<sessionId>:<agentId>` with label a free
+ * `[a-z0-9-]+` harness tag and the two remaining segments non-empty without
+ * colons/whitespace. Shape-only validation — no registry resolution.
+ */
+const AGENT_ADDRESS_PATTERN = /^[a-z0-9-]+:[^:\s]+:[^:\s]+$/;
+
 /** A BoardStore scope designator plus the workspace path it needs (if any). */
 interface TargetScope {
   scope: string;
@@ -173,16 +206,28 @@ function validateDate(value: unknown, field: string): string {
   return result;
 }
 
+/** v2 optional agent address: shape-checked only (`<label>:<sessionId>:<agentId>`). */
+function validateAgentAddress(value: unknown, field: string): string {
+  const address = requireString(value, field);
+  if (!AGENT_ADDRESS_PATTERN.test(address)) {
+    throw new HandoffValidationError(
+      `${field} must match the agent address shape <label>:<sessionId>:<agentId> ` +
+        `(label is [a-z0-9-]+; the other two parts must be non-empty and free of colons/whitespace)`,
+    );
+  }
+  return address;
+}
+
 function validateHandoff(value: unknown): Handoff {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new HandoffValidationError('handoff value must be an object');
   }
   const raw = value as Record<string, unknown>;
-  if (raw.v !== 1) throw new HandoffValidationError('v must be 1');
+  if (raw.v !== 1 && raw.v !== 2) throw new HandoffValidationError('v must be 1 or 2');
   const id = requireString(raw.id, 'id');
   if (!HANDOFF_ID_PATTERN.test(id)) throw new HandoffValidationError('id must match ho_<12 hex chars>');
   const handoff: Handoff = {
-    v: 1,
+    v: raw.v,
     id,
     title: requireString(raw.title, 'title'),
     summary: requireString(raw.summary, 'summary'),
@@ -197,6 +242,8 @@ function validateHandoff(value: unknown): Handoff {
         : validateDate(raw.consumedAt, 'consumedAt'),
     author: requireString(raw.author, 'author'),
   };
+  if (raw.toAgent !== undefined) handoff.toAgent = validateAgentAddress(raw.toAgent, 'toAgent');
+  if (raw.fromAgent !== undefined) handoff.fromAgent = validateAgentAddress(raw.fromAgent, 'fromAgent');
   if (raw.context !== undefined) handoff.context = requireString(raw.context, 'context', false);
   return handoff;
 }
@@ -212,11 +259,14 @@ function summaryOf(handoff: Handoff): HandoffSummary {
 }
 
 function handoffTags(handoff: Handoff): string[] {
-  return [HANDOFF_TAG, `${HANDOFF_TAG}:state:${handoff.state}`];
+  const tags = [HANDOFF_TAG, `${HANDOFF_TAG}:state:${handoff.state}`];
+  if (handoff.toAgent !== undefined) tags.push(`agent:${handoff.toAgent}`);
+  return tags;
 }
 
 function encodeHandoff(handoff: Handoff): string {
-  // Field order mirrors the documented on-disk schema (MAILBOX_IMPL.md §3a).
+  // Field order mirrors the documented on-disk schema (MAILBOX_IMPL.md §3a),
+  // with the v2 agent-address keys appended after toProject.
   const ordered: Record<string, unknown> = {
     v: handoff.v,
     id: handoff.id,
@@ -226,6 +276,8 @@ function encodeHandoff(handoff: Handoff): string {
   if (handoff.context !== undefined) ordered.context = handoff.context;
   ordered.fromProject = handoff.fromProject;
   ordered.toProject = handoff.toProject;
+  if (handoff.fromAgent !== undefined) ordered.fromAgent = handoff.fromAgent;
+  if (handoff.toAgent !== undefined) ordered.toAgent = handoff.toAgent;
   ordered.state = handoff.state;
   ordered.createdAt = handoff.createdAt;
   ordered.updatedAt = handoff.updatedAt;
@@ -280,14 +332,19 @@ export class HandoffStore {
     const summary = requireString(raw.summary, 'summary');
     const context = raw.context === undefined ? undefined : requireString(raw.context, 'context', false);
     const author = normalizeActor(raw.author);
+    const toAgent = raw.toAgent === undefined ? undefined : validateAgentAddress(raw.toAgent, 'toAgent');
+    const fromAgent = raw.fromAgent === undefined ? undefined : validateAgentAddress(raw.fromAgent, 'fromAgent');
     const fromProject = await this.senderIdentity(from);
     const id = newHandoffId();
     const key = handoffKey(id);
     const target = this.scopeFor(toProject);
+    // Agent-level addressing is a v2 feature; entries without either agent
+    // field stay v1 so the on-disk schema (and old readers) are untouched.
+    const v = toAgent !== undefined || fromAgent !== undefined ? 2 : 1;
     return this.board.mutate(target.scope, (entries, commitTs) => {
       if (entries.has(key)) throw new HandoffValidationError(`handoff id collision: ${id}`);
       const handoff: Handoff = {
-        v: 1,
+        v,
         id,
         title,
         summary,
@@ -299,6 +356,8 @@ export class HandoffStore {
         consumedAt: null,
         author,
       };
+      if (toAgent !== undefined) handoff.toAgent = toAgent;
+      if (fromAgent !== undefined) handoff.fromAgent = fromAgent;
       if (context !== undefined) handoff.context = context;
       entries.set(key, {
         key,
@@ -320,9 +379,10 @@ export class HandoffStore {
     const opts = options ?? {};
     const wanted = normalizeStateFilter(opts.state);
     const limit = normalizeLimit(opts.limit);
+    const agent = opts.agent === undefined ? undefined : requireString(opts.agent, 'agent');
     const scope = await this.resolveTarget(target);
     const rows = await this.board.readNamespace(HANDOFF_PREFIX, undefined, scope.scope, HANDOFF_SCAN_MAX, scope.workspace);
-    return this.collect(rows, wanted, limit);
+    return this.collect(rows, wanted, limit, agent);
   }
 
   /** Read one complete handoff (including context) from `target`'s board. */
@@ -398,13 +458,15 @@ export class HandoffStore {
     }, scope.workspace);
   }
 
-  private collect(rows: BoardEntry[], wanted: HandoffState[], limit: number): HandoffSummary[] {
+  private collect(rows: BoardEntry[], wanted: HandoffState[], limit: number, agent?: string): HandoffSummary[] {
     const handoffs: Handoff[] = [];
     for (const row of rows) {
       if (!row.key.startsWith(HANDOFF_PREFIX)) continue;
       handoffs.push(this.decodeEntry(row.key.slice(HANDOFF_PREFIX.length), row));
     }
-    const filtered = handoffs.filter((handoff) => wanted.includes(handoff.state));
+    const filtered = handoffs.filter(
+      (handoff) => wanted.includes(handoff.state) && (agent === undefined || handoff.toAgent === agent),
+    );
     filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     return filtered.slice(0, limit).map(summaryOf);
   }

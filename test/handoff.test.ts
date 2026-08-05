@@ -4,7 +4,9 @@
  * archive chain, the pending-only state machine, cross-workspace delivery
  * (two BoardStore instances sharing one home, like two sessions), user-global
  * targeting, outbox scans, state filtering, reopen persistence, concurrency,
- * and the minimal direct `project:<id>` BoardStore scope.
+ * the minimal direct `project:<id>` BoardStore scope, and handoff v2
+ * (0.12.0): toAgent/fromAgent addressing, agent:<toAgent> tags, inbox agent
+ * filtering, shape validation, and v1 compatibility.
  */
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -371,6 +373,115 @@ it('corrupt handoff payloads fail closed with HandoffCorruptError', async () => 
   await expect(handoffs.read('ho_deadbeef0001', wsB)).rejects.toThrow(/corrupt handoff/);
 });
 
+// ---- handoff v2: agent-level addressing (0.12.0) ----
+
+it('v2 send: toAgent/fromAgent round-trip, agent:<toAgent> tag, v2 field order', async () => {
+  const { board, handoffs } = stores();
+  const projB = await aliasProject(board, wsB, 'project-b');
+  const toAgent = 'claude-code:session-b:sub-1';
+  const fromAgent = 'kimi:session-a:arch-1';
+
+  const handoff = await handoffs.send(
+    { toProject: projB, title: 'V2', summary: 'agent addressed', context: 'ctx', toAgent, fromAgent, author: 'agent-a' },
+    wsA,
+  );
+
+  expect(handoff).toMatchObject({ v: 2, toAgent, fromAgent, toProject: projB, state: 'pending', context: 'ctx' });
+
+  // The entry carries the agent delivery tag alongside the base handoff tags.
+  const rows = await board.read(`handoff/${handoff.id}`, undefined, `project:${projB}`, 1);
+  expect(rows[0].tags).toEqual(['handoff', 'handoff:state:pending', `agent:${toAgent}`]);
+
+  // On-disk field order: the two v2 address keys slot in after toProject.
+  const lines = await jsonlLines(projectFile(projB));
+  const write = lines.find((record) => record.op === 'write')!;
+  expect(Object.keys(JSON.parse(write.value as string))).toEqual([
+    'v', 'id', 'title', 'summary', 'context', 'fromProject', 'toProject',
+    'fromAgent', 'toAgent', 'state', 'createdAt', 'updatedAt', 'consumedAt', 'author',
+  ]);
+
+  // read and consume round-trips preserve the agent fields.
+  expect(await handoffs.read(handoff.id, wsB)).toMatchObject({ v: 2, toAgent, fromAgent });
+  const consumed = await handoffs.consume(handoff.id, wsB, 'agent-b');
+  expect(consumed).toMatchObject({ v: 2, toAgent, fromAgent, state: 'consumed' });
+});
+
+it('v2 inbox: agent filter is an exact toAgent match; v1 entries never match', async () => {
+  const { handoffs } = stores();
+  const projB = await aliasProject(handoffs.board, wsB, 'project-b');
+  const a1 = 'claude-code:sess-b:sub-1';
+  const a2 = 'claude-code:sess-b:sub-2';
+  const fromAgent = 'kimi:sess-a:main';
+
+  const for1 = await handoffs.send({ toProject: projB, title: 'for 1', summary: 's', toAgent: a1, fromAgent }, wsA);
+  const for2 = await handoffs.send({ toProject: projB, title: 'for 2', summary: 's', toAgent: a2, fromAgent }, wsA);
+  const unaddressed = await handoffs.send({ toProject: projB, title: 'v1', summary: 's' }, wsA); // v1, no toAgent
+
+  expect((await handoffs.inbox(wsB, { agent: a1 })).map((row) => row.id)).toEqual([for1.id]);
+  expect((await handoffs.inbox(wsB, { agent: a2 })).map((row) => row.id)).toEqual([for2.id]);
+
+  // v1 entries carry no toAgent, so they never match an agent filter, yet
+  // still show up in the unfiltered inbox alongside v2 rows.
+  expect((await handoffs.inbox(wsB, { agent: a1 })).map((row) => row.id)).not.toContain(unaddressed.id);
+  expect(new Set((await handoffs.inbox(wsB)).map((row) => row.id))).toEqual(new Set([for1.id, for2.id, unaddressed.id]));
+
+  // Unknown/misspelled address: empty inbox, not an error (no-registry compromise).
+  expect(await handoffs.inbox(wsB, { agent: 'claude-code:sess-b:nobody' })).toEqual([]);
+  // Non-string agent filter is rejected.
+  await expect(handoffs.inbox(wsB, { agent: 42 } as never)).rejects.toBeInstanceOf(HandoffValidationError);
+});
+
+it('v2 shape validation: malformed agent addresses are rejected with HANDOFF_INVALID', async () => {
+  const { handoffs } = stores();
+  const badAddresses = [
+    'not-an-address',             // no colons
+    'kimi:only-two',              // missing agentId segment
+    ':sess:agent',                // empty label
+    'KIMI:sess:agent',            // label must be [a-z0-9-]+
+    'claude-code:sess:ag ent',    // whitespace in agentId
+    'kimi:sess a:agent',          // whitespace in sessionId
+    'kimi:sess:agent:extra',      // too many segments
+  ];
+  for (const bad of badAddresses) {
+    await expect(handoffs.send({ toProject: 'user-global', title: 't', summary: 's', toAgent: bad }, wsA))
+      .rejects.toBeInstanceOf(HandoffValidationError);
+    await expect(handoffs.send({ toProject: 'user-global', title: 't', summary: 's', fromAgent: bad }, wsA))
+      .rejects.toThrow(/agent address shape/);
+  }
+  // v1 sends (no agent fields) remain unaffected.
+  const plain = await handoffs.send({ toProject: 'user-global', title: 't', summary: 's' }, wsA);
+  expect(plain.v).toBe(1);
+});
+
+it('v1 compat: sending without agent fields stays v1; v2 rows read alongside v1', async () => {
+  const { handoffs } = stores();
+  const projB = await aliasProject(handoffs.board, wsB, 'project-b');
+  const v1 = await handoffs.send({ toProject: projB, title: 'v1', summary: 's' }, wsA);
+  expect(v1.v).toBe(1);
+  expect(v1).not.toHaveProperty('toAgent');
+  expect(v1).not.toHaveProperty('fromAgent');
+
+  const v2 = await handoffs.send(
+    { toProject: projB, title: 'v2', summary: 's', toAgent: 'claude-code:s:b', fromAgent: 'kimi:s:a' },
+    wsA,
+  );
+  expect(v2.v).toBe(2);
+
+  // Both decode through the same inbox, each with its own schema.
+  const inbox = await handoffs.inbox(wsB);
+  const byId = new Map(inbox.map((row) => [row.id, row]));
+  expect(byId.get(v1.id)).toMatchObject({ v: 1 });
+  expect(byId.get(v1.id)).not.toHaveProperty('toAgent');
+  expect(byId.get(v2.id)).toMatchObject({ v: 2, toAgent: 'claude-code:s:b', fromAgent: 'kimi:s:a' });
+
+  // A persisted v1 entry with no agent fields still round-trips through
+  // consume/archive without gaining any v2 fields.
+  const archived = await handoffs.archive(v1.id, wsB);
+  expect(archived).toMatchObject({ v: 1, state: 'archived' });
+  expect(archived).not.toHaveProperty('toAgent');
+  expect(archived).not.toHaveProperty('fromAgent');
+});
+
 // ---- BoardStore minimal extension: direct project:<id> scope ----
 
 it('board.write accepts a direct project:<id> scope without a cwd sidecar entry', async () => {
@@ -463,6 +574,39 @@ it('MCP end-to-end: send → inbox → read → consume → archive across works
     // Tool-level validation surfaces as MCP errors too.
     await expect(call(client, 'moa_handoff_send', { workspace: wsA, toProject: 'bogus', title: 't', summary: 's' }))
       .rejects.toThrow(/toProject/);
+  } finally {
+    await close();
+  }
+});
+
+it('MCP v2: send with toAgent/fromAgent and inbox agent filtering work over the tool surface', async () => {
+  const { board } = stores();
+  const projB = await aliasProject(board, wsB, 'project-b');
+  const { client, close } = await mcpClient(board);
+  try {
+    const toAgent = 'claude-code:sess-b:sub-9';
+    const fromAgent = 'kimi:sess-a:main';
+    const sent = await call(client, 'moa_handoff_send', {
+      workspace: wsA,
+      toProject: projB,
+      title: 'V2 over MCP',
+      summary: 's',
+      toAgent,
+      fromAgent,
+    });
+    expect(sent).toMatchObject({ v: 2, toAgent, fromAgent });
+
+    // Self-reported address filter returns exactly the addressed rows.
+    const filtered = await call(client, 'moa_handoff_inbox', { workspace: wsB, agent: toAgent });
+    expect(filtered.map((row: any) => row.id)).toEqual([sent.id]);
+
+    // A different (or misspelled) address returns an empty inbox, no error.
+    expect(await call(client, 'moa_handoff_inbox', { workspace: wsB, agent: 'claude-code:sess-b:other' })).toEqual([]);
+
+    // Malformed addresses are rejected by the send tool.
+    await expect(
+      call(client, 'moa_handoff_send', { workspace: wsA, toProject: projB, title: 't', summary: 's', toAgent: 'nope' }),
+    ).rejects.toThrow(/agent address shape/);
   } finally {
     await close();
   }

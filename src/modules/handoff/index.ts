@@ -3,6 +3,8 @@
  * (moa_handoff_send / inbox / read / consume / archive) over HandoffStore
  * (mailbox task 3). Handoffs are delivered into the TARGET project's board;
  * they never participate in recall/indexing and never merge projects.
+ * v2 (0.12.0): optional toAgent/fromAgent agent addresses
+ * (`<label>:<sessionId>:<agentId>`, shape-checked only) for inbox filtering.
  */
 import type { BoardStore } from '../../core/store/board.js';
 import type { MoaModule, MoaToolDef } from '../types.js';
@@ -31,6 +33,12 @@ const HANDOFF_ACTOR = {
   type: 'string',
   description: 'Who performs this transition (recorded in BoardEntry.author; default "anonymous").',
 } as const;
+const HANDOFF_AGENT_ADDRESS = {
+  type: 'string',
+  description:
+    'Agent address in v2 shape `<label>:<sessionId>:<agentId>` (label is free text `[a-z0-9-]+`; e.g. `claude-code:sess-a:sub-1`). ' +
+    'Opaque — shape-checked only, never resolved against a registry.',
+} as const;
 
 export function handoffTools(store: HandoffStore): MoaToolDef[] {
   return [
@@ -39,6 +47,8 @@ export function handoffTools(store: HandoffStore): MoaToolDef[] {
       description:
         'Send a directed handoff (title/summary/optional context) into the TARGET project\'s inbox (toProject: projectId or "user-global"). ' +
         'The entry is written to the target project\'s board under handoff/<id> with fromProject = the current workspace\'s project alias (or ws:<pathHash>). ' +
+        'v2 (optional): pass toAgent/fromAgent as `<label>:<sessionId>:<agentId>` for agent-level addressing — the entry is tagged agent:<toAgent> and the ' +
+        'recipient filters its inbox by self-reported agent. Compromise: a misspelled address is silently missed (no registry to catch it) — align via fromAgent echo. ' +
         'Handoffs never participate in recall/indexing and never merge projects — they are pull-on-demand messages the target session consumes explicitly.',
       inputSchema: {
         type: 'object',
@@ -49,6 +59,14 @@ export function handoffTools(store: HandoffStore): MoaToolDef[] {
           summary: { type: 'string', description: 'What the target session needs to know/do' },
           context: { type: 'string', description: 'Optional longer context (the whole entry is capped at 32KB)' },
           author: { type: 'string', description: 'Sender identity recorded on the entry (default "anonymous")' },
+          toAgent: {
+            ...HANDOFF_AGENT_ADDRESS,
+            description: HANDOFF_AGENT_ADDRESS.description + ' Recipient agent address (delivery still routes via toProject).',
+          },
+          fromAgent: {
+            ...HANDOFF_AGENT_ADDRESS,
+            description: HANDOFF_AGENT_ADDRESS.description + ' Sender agent address; lets the recipient reply by echoing it.',
+          },
         },
         required: ['workspace', 'toProject', 'title', 'summary'],
         additionalProperties: false,
@@ -62,13 +80,21 @@ export function handoffTools(store: HandoffStore): MoaToolDef[] {
       name: 'moa_handoff_inbox',
       description:
         'List handoffs addressed to the current project (newest first; id/title/summary/state/fromProject metadata, no context). ' +
-        'Archived rows are hidden by default — pass state to filter exactly (pending/consumed/archived). Handoffs never participate in recall/indexing.',
+        'Archived rows are hidden by default — pass state to filter exactly (pending/consumed/archived). ' +
+        'v2: pass agent (your self-reported `<label>:<sessionId>:<agentId>` address) to filter exactly on toAgent — ' +
+        'a misspelled address returns an empty inbox rather than an error, so echo the sender\'s fromAgent when replying. ' +
+        'Handoffs never participate in recall/indexing.',
       inputSchema: {
         type: 'object',
         properties: {
           workspace: HANDOFF_WORKSPACE,
           state: HANDOFF_STATE,
           limit: { type: 'number', description: 'Max rows to return (default 100, hard cap 1000)' },
+          agent: {
+            ...HANDOFF_AGENT_ADDRESS,
+            description:
+              HANDOFF_AGENT_ADDRESS.description + ' Exact filter on toAgent (only entries addressed to this agent address are returned).',
+          },
         },
         required: ['workspace'],
         additionalProperties: false,
@@ -77,6 +103,7 @@ export function handoffTools(store: HandoffStore): MoaToolDef[] {
         const options: HandoffListOptions = {};
         if (a.state !== undefined) options.state = a.state as HandoffState;
         if (a.limit !== undefined) options.limit = a.limit as number;
+        if (a.agent !== undefined) options.agent = a.agent as string;
         return store.inbox(a.workspace as string, options);
       },
     },
