@@ -482,6 +482,69 @@ it('v1 compat: sending without agent fields stays v1; v2 rows read alongside v1'
   expect(archived).not.toHaveProperty('fromAgent');
 });
 
+it('v2 address shape: uuid sessionId and hyphenated agentId are legal; padded/tabbed/multi-colon shapes are not', async () => {
+  const { board, handoffs } = stores();
+  const uuid = '550e8400-e29b-41d4-a716-446655440000';
+  const h = await handoffs.send(
+    { toProject: 'user-global', title: 't', summary: 's', toAgent: `claude-code:${uuid}:my-agent-7`, fromAgent: 'kimi:abc-123:main' },
+    wsA,
+  );
+  expect(h).toMatchObject({ v: 2, toAgent: `claude-code:${uuid}:my-agent-7`, fromAgent: 'kimi:abc-123:main' });
+  const rows = await board.read(`handoff/${h.id}`, undefined, 'global', 1);
+  expect(rows[0].tags).toEqual(['handoff', 'handoff:state:pending', `agent:claude-code:${uuid}:my-agent-7`]);
+
+  const bad = [
+    'kimi:sess:agent ',
+    ' kimi:sess:agent',
+    'kimi:sess:agent\t',
+    'kimi:sess\t:agent',
+    'kimi:a:b:c',
+    'kimi::sess:agent',
+    'kimi:sess::agent',
+    'kimi:sess:agent:',
+    ':sess:agent',
+    'kimi::agent',
+    'kimi:sess:',
+    'kimi:only-two',
+    'not-an-address',
+    'KIMI:sess:agent',
+  ];
+  for (const b of bad) {
+    await expect(handoffs.send({ toProject: 'user-global', title: 't', summary: 's', toAgent: b }, wsA))
+      .rejects.toBeInstanceOf(HandoffValidationError);
+  }
+});
+
+it('v2: fromAgent-only stays v2 without a delivery tag; toAgent-only carries the agent tag', async () => {
+  const { board, handoffs } = stores();
+  const fromOnly = await handoffs.send(
+    { toProject: 'user-global', title: 't', summary: 's', fromAgent: 'kimi:s:a' },
+    wsA,
+  );
+  expect(fromOnly.v).toBe(2);
+  const fromRows = await board.read(`handoff/${fromOnly.id}`, undefined, 'global', 1);
+  expect(fromRows[0].tags).toEqual(['handoff', 'handoff:state:pending']);
+
+  const toOnly = await handoffs.send(
+    { toProject: 'user-global', title: 't', summary: 's', toAgent: 'codex:s:b' },
+    wsA,
+  );
+  expect(toOnly.v).toBe(2);
+  const toRows = await board.read(`handoff/${toOnly.id}`, undefined, 'global', 1);
+  expect(toRows[0].tags).toEqual(['handoff', 'handoff:state:pending', 'agent:codex:s:b']);
+});
+
+it('v2 inbox: agent filter is exact and case-sensitive; whitespace-padded addresses never match', async () => {
+  const { handoffs } = stores();
+  const projB = await aliasProject(handoffs.board, wsB, 'project-b');
+  const toAgent = 'claude-code:Sess-B:Sub-1';
+  const sent = await handoffs.send({ toProject: projB, title: 't', summary: 's', toAgent, fromAgent: 'kimi:s:a' }, wsA);
+  expect((await handoffs.inbox(wsB, { agent: toAgent })).map((r) => r.id)).toEqual([sent.id]);
+  expect(await handoffs.inbox(wsB, { agent: toAgent.toLowerCase() })).toEqual([]);
+  expect(await handoffs.inbox(wsB, { agent: ` ${toAgent}` })).toEqual([]);
+  expect(await handoffs.inbox(wsB, { agent: `${toAgent} ` })).toEqual([]);
+});
+
 // ---- BoardStore minimal extension: direct project:<id> scope ----
 
 it('board.write accepts a direct project:<id> scope without a cwd sidecar entry', async () => {
