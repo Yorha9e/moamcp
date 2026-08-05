@@ -82,7 +82,7 @@ takeover** 自动处理（端口被占则复用、转发事件；宿主进程死
 | --- | --- | --- |
 | `moa_projects_list` | 只读聚合本项目库所有项目 + workspace（发 handoff 前查目标 `projectId`） | 无 |
 | `moa_board_write` / `read` / `list` / `wait` / `delete` | 共享黑板：契约、决定、状态、指针（key 级 last-write-wins，≤32KB） | 仅 workspace scope 时传 |
-| `moa_tip_create` / `read` / `list` / `update` / `archive` | 项目级跨会话上下文卡片 | 是（除 `list` 外的工具均需） |
+| `moa_tip_create` / `read` / `list` / `update` / `archive` | 项目级跨会话上下文卡片 | 是（create/read/list/update/archive 全部需传） |
 | `moa_handoff_send` | 向目标项目发定向交接（`toProject`：projectId 或 `user-global`） | 是（发送方身份） |
 | `moa_handoff_inbox` | 列出本项目收件；v2 可传 `agent` 按 toAgent 精确过滤 | 是 |
 | `moa_handoff_read` / `consume` / `archive` | 读全文 / 消费 / 归档一条交接 | 是 |
