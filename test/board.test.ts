@@ -1082,3 +1082,36 @@ it('moa_projects_list MCP tool: registered, read-only, MOAMCP_HOME warning in de
     await client.close();
   }
 });
+
+it('moa_projects_list: orphan alias (no sidecar) is dropped from cwds while real aliases resolve', async () => {
+  const b = store();
+  const cwdA = join(home, 'real-a');
+  await b.write('k', 'v', undefined, 't', 'workspace', cwdA);
+  const proj = await b.registry.createProject('orphan-test');
+  await b.registry.addAlias(proj, workspaceIdForPath(cwdA));
+  // Orphan: aliased hash with no workspace sidecar (a never-written directory).
+  const orphanHash = createHash('sha1').update(join(home, 'ghost')).digest('hex').slice(0, 16);
+  await b.registry.addAlias(proj, orphanHash);
+
+  const result = await collectProjectsList(b);
+  const row = result.projects.find((p) => p.projectId === proj)!;
+  expect(row.aliases).toContain(orphanHash);
+  expect(row.cwds).toEqual([cwdA]); // orphan filtered out, real one resolves
+});
+
+it('moa_projects_list: a renamed workspace surfaces its name; unnamed ones omit the key', async () => {
+  const b = store();
+  const cwd = join(home, 'named-ws');
+  await b.write('k', 'v', undefined, 't', 'workspace', cwd);
+  const infos = await b.listWorkspaces();
+  await b.renameWorkspace(infos[0].id, 'My Workspace');
+
+  const result = await collectProjectsList(b);
+  expect(result.workspaces).toEqual([
+    { id: infos[0].id, cwd, name: 'My Workspace' },
+  ]);
+  // Read-only: no registry file was created by listing.
+  expect(result.projects).toEqual([]);
+  const homeFiles = await readdir(home);
+  expect(homeFiles.filter((f) => f !== 'boards')).not.toContain('registry.jsonl');
+});
