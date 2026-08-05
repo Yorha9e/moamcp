@@ -175,4 +175,70 @@ describe('moa_status_agents reuse proxy (batch 1c)', () => {
     expect(result.started).toBe(true);
     expect(result.scanning).toBe(false);
   });
+
+  it('falls back to local-empty when the owner resets the connection mid-body (never hangs)', async () => {
+    // The owner sends headers + a partial body, then dies. The client sees
+    // neither 'end' nor 'timeout' nor an error — only 'close' — so the proxy
+    // must settle from that, or the tool call would hang forever.
+    const fake = createHttpServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json', 'content-length': '1000' });
+      res.write('{"par');
+      res.on('error', () => {}); // teardown noise is expected on this socket
+      setTimeout(() => res.destroy(), 20);
+    });
+    const port = await listen(fake);
+    const ctrl = makeController();
+    ctrl.setPort(port);
+    await makeClient(ctrl);
+    try {
+      const result = await callAgents();
+      expect(result.source).toBe('local-empty');
+      expect(result.started).toBe(false);
+      expect(result.agents).toEqual([]);
+    } finally {
+      fake.closeAllConnections();
+      fake.close();
+    }
+  });
+
+  it('remote path honors limit/sessionId and reports agentsTruncated (AGENTS_CAP contract)', async () => {
+    const threeAgents = {
+      ...REMOTE_SNAPSHOT,
+      agents: [
+        { ...REMOTE_SNAPSHOT.agents[0], sessionId: 's-a', agentId: 'main', lastSeen: 3 },
+        { ...REMOTE_SNAPSHOT.agents[0], sessionId: 's-b', agentId: 'main', lastSeen: 10 },
+        { ...REMOTE_SNAPSHOT.agents[0], sessionId: 's-a', agentId: 'sub', lastSeen: 1 },
+      ],
+    };
+    const fake = createHttpServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(threeAgents));
+    });
+    const port = await listen(fake);
+    const ctrl = makeController();
+    ctrl.setPort(port);
+    await makeClient(ctrl);
+    try {
+      // limit caps the remote list; the snapshot's server/sources stay verbatim
+      const capped = await callAgents({ limit: 2 });
+      expect(capped.source).toBe('remote');
+      expect(capped.agents).toHaveLength(2);
+      expect(capped.agents.map((a: any) => a.lastSeen)).toEqual([10, 3]); // lastSeen desc
+      expect(capped.agentsTruncated).toBe(3);
+      expect(capped.server).toEqual({ pid: 999, port: 12345, started_at: '2026-07-22T00:00:00.000Z', uptime: 42 });
+      expect(capped.sources.wire).toEqual({ sessions: 2, agents: 3 });
+      // sessionId filters before the cap
+      const filtered = await callAgents({ sessionId: 's-a' });
+      expect(filtered.agents).toHaveLength(2);
+      expect(filtered.agents.every((a: any) => a.sessionId === 's-a')).toBe(true);
+      expect(filtered.agentsTruncated).toBe(2);
+      // both together: filter first, then cap
+      const both = await callAgents({ sessionId: 's-a', limit: 1 });
+      expect(both.agents).toHaveLength(1);
+      expect(both.agents[0].sessionId).toBe('s-a');
+      expect(both.agentsTruncated).toBe(2);
+    } finally {
+      fake.close();
+    }
+  });
 });

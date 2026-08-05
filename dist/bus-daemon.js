@@ -10307,6 +10307,8 @@ async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
             resolve5(void 0);
           }
         });
+        res.on("error", () => resolve5(void 0));
+        res.on("aborted", () => resolve5(void 0));
       }
     );
     req.on("timeout", () => {
@@ -10314,6 +10316,7 @@ async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
       resolve5(void 0);
     });
     req.on("error", () => resolve5(void 0));
+    req.on("close", () => resolve5(void 0));
   });
 }
 function statusSnapshot(controller) {
@@ -10482,7 +10485,20 @@ function statusAgentsTool(controller, remoteStatusTimeoutMs) {
       const ownerPort = controller?.getPort();
       if (ownerPort !== void 0) {
         const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
-        if (remote !== void 0) return { ...remote, source: "remote" };
+        if (remote !== void 0) {
+          const sessionId = typeof args.sessionId === "string" && args.sessionId.length > 0 ? args.sessionId : void 0;
+          const rawLimit = typeof args.limit === "number" ? args.limit : AGENTS_CAP;
+          const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
+          const remoteAgents = Array.isArray(remote.agents) ? remote.agents : [];
+          const filtered = sessionId ? remoteAgents.filter((a) => a.sessionId === sessionId) : remoteAgents;
+          filtered.sort((a, b) => b.lastSeen - a.lastSeen);
+          return {
+            ...remote,
+            agents: filtered.slice(0, limit),
+            agentsTruncated: filtered.length,
+            source: "remote"
+          };
+        }
       }
       return { ...localStatusPayload(controller, args), source: "local-empty" };
     }

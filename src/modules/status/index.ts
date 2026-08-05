@@ -79,6 +79,11 @@ export const REMOTE_STATUS_TIMEOUT_MS = 1500;
  * snapshot. Resolves with the parsed body on HTTP 200 (a JSON object);
  * undefined on any other status, an unparseable body, a timeout, or a
  * connection error — the caller falls back to an explicit local-empty state.
+ *
+ * Every teardown path settles the promise: a peer that resets/aborts the
+ * response mid-body emits neither 'end' nor 'timeout' nor an error — only
+ * 'close' on the request — so the 'close' listener below is what keeps the
+ * tool from hanging on an owner that dies while answering.
  */
 export async function fetchRemoteStatus(
   port: number,
@@ -104,6 +109,10 @@ export async function fetchRemoteStatus(
             resolve(undefined);
           }
         });
+        // A response that dies before 'end' (abort / stream error) must settle
+        // too; an unhandled 'error' here would also crash the process.
+        res.on('error', () => resolve(undefined));
+        res.on('aborted', () => resolve(undefined));
       },
     );
     req.on('timeout', () => {
@@ -111,6 +120,9 @@ export async function fetchRemoteStatus(
       resolve(undefined);
     });
     req.on('error', () => resolve(undefined));
+    // Idempotent: after a normal 'end' (or any path above) this is a no-op;
+    // it only fires first when the connection closes without a response end.
+    req.on('close', () => resolve(undefined));
   });
 }
 
@@ -329,12 +341,32 @@ function statusAgentsTool(
         return { ...localStatusPayload(controller, args), source: 'local' };
       }
       // Reuse session with a known owner port: proxy the owner's read-only
-      // /status. Any failure (503 not-ready, timeout, connection refused)
+      // /status. Any failure (503 not-ready, timeout, connection reset)
       // falls back to an explicit local-empty state — never a stale guess.
       const ownerPort = controller?.getPort();
       if (ownerPort !== undefined) {
         const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
-        if (remote !== undefined) return { ...remote, source: 'remote' };
+        if (remote !== undefined) {
+          // The owner's snapshot passes through verbatim EXCEPT the per-agent
+          // list, which honors the same limit/sessionId contract as the local
+          // fold: the /status snapshot is uncapped, and letting it through
+          // would flood context (the very thing AGENTS_CAP exists to prevent).
+          const sessionId =
+            typeof args.sessionId === 'string' && args.sessionId.length > 0 ? args.sessionId : undefined;
+          const rawLimit = typeof args.limit === 'number' ? args.limit : AGENTS_CAP;
+          const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
+          const remoteAgents = Array.isArray(remote.agents) ? (remote.agents as AgentState[]) : [];
+          const filtered = sessionId
+            ? remoteAgents.filter((a) => a.sessionId === sessionId)
+            : remoteAgents;
+          filtered.sort((a, b) => b.lastSeen - a.lastSeen);
+          return {
+            ...remote,
+            agents: filtered.slice(0, limit),
+            agentsTruncated: filtered.length,
+            source: 'remote',
+          };
+        }
       }
       return { ...localStatusPayload(controller, args), source: 'local-empty' };
     },
