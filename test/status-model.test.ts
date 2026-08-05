@@ -136,6 +136,27 @@ describe('status-model: buildIndex / tree building', () => {
     expect(childKeys(model, 's1', 'p')).toEqual([agentKey('s1', 'y')]);
   });
 
+  it('carries lastToolCall through snapshots and incremental frames (reviewer fix)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'main', { lastToolCall: { name: 'read', ts: 5, isError: false } }),
+    ]));
+    expect(model.byKey[agentKey('s1', 'main')].lastToolCall).toEqual({ name: 'read', ts: 5, isError: false });
+    // a frame without lastToolCall keeps the previous value (consistent with
+    // model/kind/phase — the fold never clears it)
+    upsertAgent(model, agent('s1', 'main', { busy: true }));
+    expect(model.byKey[agentKey('s1', 'main')].lastToolCall).toEqual({ name: 'read', ts: 5, isError: false });
+    // a frame with a new tool call replaces it
+    upsertAgent(model, agent('s1', 'main', { lastToolCall: { name: 'write', ts: 9, isError: true } }));
+    expect(model.byKey[agentKey('s1', 'main')].lastToolCall).toEqual({ name: 'write', ts: 9, isError: true });
+    // orphan leaves never carry a tool call
+    const model2 = newModel();
+    applySnapshot(model2, snapshot([], [
+      agent('s1', 'p', { subagents: [{ subagentId: 'leaf', status: 'running', ts: 1 }] }),
+    ]));
+    expect(model2.byKey[agentKey('s1', 'leaf')].lastToolCall).toBeUndefined();
+  });
+
   it('breaks composite cycles without stack overflow (incremental guard blocks the closing link)', () => {
     const model = newModel();
     applySnapshot(model, snapshot([], [
@@ -391,6 +412,7 @@ describe('status-model: drift protection (D2)', () => {
           orphan: !!e.orphan,
           pending: !!e.pendingParent,
           status: api.deriveStatus(e),
+          tool: e.lastToolCall && e.lastToolCall.name ? e.lastToolCall.name : null,
         });
         for (let j = (e.children || []).length - 1; j >= 0; j--) {
           if (!visited[e.children[j]]) stack.push(e.children[j]);
@@ -403,12 +425,12 @@ describe('status-model: drift protection (D2)', () => {
 
   const fullScript: Array<Record<string, unknown>> = [
     { op: 'snapshot', snap: snapshot([{ sessionId: 's1', title: 'S' }], [
-      agent('s1', 'main', { kind: 'main', busy: true, subagents: [{ subagentId: 'leaf', status: 'running', ts: 5 }] }),
-      agent('s1', 'child', { parentAgentId: 'main', phase: 'thinking' }),
+      agent('s1', 'main', { kind: 'main', busy: true, lastToolCall: { name: 'read', ts: 5, isError: false }, subagents: [{ subagentId: 'leaf', status: 'running', ts: 5 }] }),
+      agent('s1', 'child', { parentAgentId: 'main', phase: 'thinking', lastToolCall: { name: 'grep', ts: 3, isError: true } }),
       agent('s2', 'lone', { stale: true }),
     ]) },
     { op: 'agent', agent: agent('s1', 'child', { parentAgentId: 'main', busy: false, lastTurnReason: 'completed' }) },
-    { op: 'agent', agent: agent('s1', 'main', { parentAgentId: 'other', busy: false, lastFinishReason: 'end_turn' }) },
+    { op: 'agent', agent: agent('s1', 'main', { parentAgentId: 'other', busy: false, lastFinishReason: 'end_turn', lastToolCall: { name: 'write', ts: 7, isError: false } }) },
     { op: 'agent', agent: agent('s3', 'late-child', { parentAgentId: 'late-parent' }) },
     { op: 'agent', agent: agent('s3', 'late-parent', {}) },
     { op: 'gone', sessionId: 's1', agentId: 'main' },

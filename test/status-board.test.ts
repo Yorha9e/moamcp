@@ -437,6 +437,21 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(mainRowAfter.classList.contains('busy')).toBe(false);
   });
 
+  it('renders the last tool column from the model (reviewer fix)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', lastToolCall: { name: 'read_file', ts: 5, isError: false } }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    const mainRow = rowsOf(group)[0];
+    expect(mainRow.querySelector('.sb-tool')!.textContent).toBe('read_file');
+    // isError marks the cell
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', lastToolCall: { name: 'run', ts: 6, isError: true } }));
+    await flush();
+    const rowAfter = rowsOf(sessionGroups(page.el('sbList'))[0])[0];
+    expect(rowAfter.querySelector('.sb-tool')!.textContent).toBe('run');
+    expect(rowAfter.querySelector('.sb-tool')!.className).toContain('err');
+  });
+
   it('adopts a late parent frame: pending child row moves under the parent (reparent)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
     page.dispatch('snapshot', snap());
@@ -532,6 +547,32 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     await flush();
     expect(page.el('sbNotReady').hidden).toBe(false);
     expect(page.el('sbConn').textContent).toContain('interruption');
+  });
+
+  it('a slow 503 probe resolving after SSE recovery must not re-show the banner (D4 race)', async () => {
+    let resolveProbe: (r: any) => void = () => {};
+    const probePromise = new Promise((r) => { resolveProbe = r; });
+    const fetchImpl = (url: string) =>
+      url === '/status'
+        ? probePromise
+        : Promise.reject(new Error('offline'));
+    const page = runStatusPage(await fetchPage(), fetchImpl);
+    page.dispatch('snapshot', snap());
+    await flush();
+    expect(page.el('sbNotReady').hidden).toBe(true);
+
+    // SSE drops -> probe fires and hangs; SSE recovers before it answers.
+    page.failSse();
+    await flush();
+    page.openSse();
+    await flush();
+    expect(page.el('sbNotReady').hidden).toBe(true);
+
+    // The in-flight probe finally answers 503 — it must be ignored now.
+    resolveProbe({ status: 503, ok: false, json: () => Promise.resolve({ error: 'status_not_ready', started: false }), text: () => Promise.resolve('') });
+    await flush();
+    await flush();
+    expect(page.el('sbNotReady').hidden).toBe(true);
   });
 
   it('connection failure (non-503 probe) shows the backoff state, not the not-ready banner', async () => {

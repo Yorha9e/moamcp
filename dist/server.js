@@ -35407,6 +35407,9 @@ function normalizeEntry(model, agent, existing) {
   if (typeof agent.stale === "boolean") entry.stale = agent.stale;
   if (typeof agent.lastFinishReason === "string") entry.lastFinishReason = agent.lastFinishReason;
   if (typeof agent.lastTurnReason === "string") entry.lastTurnReason = agent.lastTurnReason;
+  if (agent.lastToolCall && typeof agent.lastToolCall === "object") {
+    entry.lastToolCall = agent.lastToolCall;
+  }
   if (typeof agent.lastSeen === "number") entry.lastSeen = agent.lastSeen;
   if (typeof agent.firstSeen === "number") entry.firstSeen = agent.firstSeen;
   if (typeof agent.source === "string") entry.source = agent.source;
@@ -36264,24 +36267,31 @@ ${STATUS_MODEL_JS}
     updateEmpty();
   }
 
+  var sseUp = false; // last known SSE connection state (guards the probe race)
+
   function probeStatus() {
     try {
       fetch('/status').then(function (res) {
         var code = res.status;
         var p = typeof res.json === 'function' ? res.json() : Promise.resolve(null);
         return p.catch(function () { return null; }).then(function (data) {
+          // D4 race guard: if the SSE recovered while the probe was in flight
+          // (open already hid the banner), a late 503 must not re-show it.
+          if (sseUp) return;
           if (code === 503 && data && data.error === 'status_not_ready') showNotReady();
           else hideNotReady();
         });
-      }).catch(function () { hideNotReady(); });
-    } catch (_) { hideNotReady(); }
+      }).catch(function () { if (!sseUp) hideNotReady(); });
+    } catch (_) { if (!sseUp) hideNotReady(); }
   }
 
   function onSseState(state, msg) {
     setConn(state, msg);
     if (state === 'open') {
+      sseUp = true;
       hideNotReady();
     } else if (state === 'error') {
+      sseUp = false;
       // EventSource never exposes the HTTP status: probe /status to classify
       // 503 status_not_ready (controller not started / reuse session) from a
       // plain connection failure (D4 E7).

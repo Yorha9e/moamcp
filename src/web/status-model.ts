@@ -42,6 +42,7 @@ export interface RawAgent {
   stale?: unknown;
   lastFinishReason?: unknown;
   lastTurnReason?: unknown;
+  lastToolCall?: unknown;
   lastSeen?: unknown;
   firstSeen?: unknown;
   source?: unknown;
@@ -85,6 +86,10 @@ export interface ModelEntry {
   stale: boolean;
   lastFinishReason?: string;
   lastTurnReason?: string;
+  /** Latest tool call from the wire (fold's ToolCallInfo shape); drives the
+   *  "Last tool" column + error marker in the page (reviewer fix: the model
+   *  used to drop it, so the column was always '–'). */
+  lastToolCall?: { name?: string; ts?: number; description?: string; isError?: boolean };
   lastSeen: number;
   firstSeen: number;
   source?: string;
@@ -332,6 +337,11 @@ function normalizeEntry(model: StatusModel, agent: RawAgent, existing: ModelEntr
   if (typeof agent.stale === 'boolean') entry.stale = agent.stale;
   if (typeof agent.lastFinishReason === 'string') entry.lastFinishReason = agent.lastFinishReason;
   if (typeof agent.lastTurnReason === 'string') entry.lastTurnReason = agent.lastTurnReason;
+  // Keep the latest tool call (fold never clears it; a frame without the field
+  // leaves the previous value in place, consistent with model/kind/phase).
+  if (agent.lastToolCall && typeof agent.lastToolCall === 'object') {
+    entry.lastToolCall = agent.lastToolCall as ModelEntry['lastToolCall'];
+  }
   if (typeof agent.lastSeen === 'number') entry.lastSeen = agent.lastSeen;
   if (typeof agent.firstSeen === 'number') entry.firstSeen = agent.firstSeen;
   if (typeof agent.source === 'string') entry.source = agent.source;
