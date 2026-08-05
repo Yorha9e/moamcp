@@ -2,7 +2,7 @@
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, it } from 'vitest';
+import { expect, it, describe } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
@@ -289,6 +289,85 @@ it('marks agents with no events for >staleMs as stale and keeps them', () => {
   expect(agents.find((a) => a.agentId === 'main')!.stale).toBe(true);
   expect(agents.find((a) => a.agentId === 'agent-1')!.stale).toBe(false);
   expect(fold.agentCount).toBe(2); // kept, not deleted
+});
+
+// ---------------------------------------------------- eviction (0.8.0)
+
+describe('fold eviction (0.8.0)', () => {
+  it('evicts agents idle beyond evictStaleMs, audits the count, and rebuilds on a new event', () => {
+    const fold = new StateFold({ staleMs: 1000, evictStaleMs: 1000 });
+    const now = Date.now();
+    fold.applyWire(ref, wire('turn.prompt', {}, now - 5000)); // 'main' is 5s idle
+    fold.applyWire({ ...ref, agentId: 'agent-1' }, wire('turn.prompt', {}, now));
+    expect(fold.agentCount).toBe(2);
+    fold.sweepStale(now);
+    expect(fold.agentCount).toBe(1); // 'main' evicted, 'agent-1' kept
+    expect(fold.evictedAgents).toBe(1);
+    expect(fold.snapshotAgents().map((a) => a.agentId)).toEqual(['agent-1']);
+    // a new event rebuilds the evicted agent from scratch (it came back alive)
+    fold.applyWire(ref, wire('turn.prompt', {}, now));
+    expect(fold.agentCount).toBe(2);
+    const rebuilt = fold.snapshotAgents().find((a) => a.agentId === 'main')!;
+    expect(rebuilt.busy).toBe(true);
+    expect(rebuilt.firstSeen).toBe(now); // fresh entry, not the old firstSeen
+    expect(fold.evictedAgents).toBe(1); // audit count stays cumulative
+  });
+
+  it('keeps agents idle longer than staleMs but shorter than evictStaleMs', () => {
+    const fold = new StateFold({ staleMs: 100, evictStaleMs: 1000 });
+    const now = Date.now();
+    fold.applyWire(ref, wire('turn.prompt', {}, now - 500));
+    fold.sweepStale(now);
+    expect(fold.agentCount).toBe(1); // stale-marked but still folded
+    expect(fold.snapshotAgents()[0].stale).toBe(true);
+    expect(fold.evictedAgents).toBe(0);
+  });
+
+  it('evicts sessions idle beyond evictStaleMs (updatedAt-based) and audits the count', () => {
+    const fold = new StateFold({ evictStaleMs: 1000 });
+    const now = Date.now();
+    fold.applySessionState(
+      { home: 'omkc', workDirHash: 'wd_evict', sessionId: 's-old' },
+      { updatedAt: new Date(now - 5000).toISOString(), agents: { main: { type: 'main' } } },
+    );
+    fold.applySessionState(
+      { home: 'omkc', workDirHash: 'wd_evict', sessionId: 's-new' },
+      { updatedAt: new Date(now).toISOString(), agents: { main: { type: 'main' } } },
+    );
+    expect(fold.sessionCount).toBe(2);
+    fold.sweepStale(now);
+    expect(fold.sessionCount).toBe(1);
+    expect(fold.snapshotSessions().map((s) => s.sessionId)).toEqual(['s-new']);
+    expect(fold.evictedSessions).toBe(1);
+  });
+
+  it('does not evict sessions with a missing/garbage updatedAt (finiteTime fallback)', () => {
+    const fold = new StateFold({ evictStaleMs: 1000 });
+    fold.applySessionState(
+      { home: 'omkc', workDirHash: 'wd_evict', sessionId: 's-no-date' },
+      { agents: { main: { type: 'main' } } }, // no updatedAt -> Date.now() fallback
+    );
+    // without the finiteTime guard, sessionSeen would be NaN and the
+    // comparison `now - NaN > evictStaleMs` is always false — the session
+    // would be immortal. The fallback makes it evictable but not immediately.
+    fold.sweepStale(Date.now());
+    expect(fold.sessionCount).toBe(1);
+    expect(fold.evictedSessions).toBe(0);
+  });
+
+  it('eviction does not touch agents evicted-then-rebuilt inside the same sweep', () => {
+    const fold = new StateFold({ staleMs: 1000, evictStaleMs: 1000 });
+    const now = Date.now();
+    fold.applyWire(ref, wire('turn.prompt', {}, now - 5000));
+    fold.sweepStale(now);
+    expect(fold.agentCount).toBe(0);
+    // rebuild right after the sweep: the new lastSeen is fresh, so a second
+    // sweep in the same instant must not evict it again
+    fold.applyWire(ref, wire('turn.prompt', {}, now));
+    fold.sweepStale(now);
+    expect(fold.agentCount).toBe(1);
+    expect(fold.evictedAgents).toBe(1); // counted once
+  });
 });
 
 // ------------------------------------------------------------ MCP assembly

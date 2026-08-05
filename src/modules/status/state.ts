@@ -84,6 +84,13 @@ export interface SessionInfo {
 const OMKC_PRIORITY_MS = 30_000;
 /** No events for this long -> agent marked stale (kept, not deleted). */
 export const STALE_MS = 60_000;
+/**
+ * Fold eviction threshold (0.8.0): an agent/session with no events for this
+ * long is dropped from the fold entirely (audited via evictedAgents/
+ * evictedSessions) — not just marked stale. The dropped entry is rebuilt from
+ * scratch if a new event arrives later, which proves it came back to life.
+ */
+export const EVICT_STALE_MS = 24 * 60 * 60 * 1000;
 
 function asRecord(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -120,6 +127,19 @@ function finiteTime(value: number): number {
 }
 
 /**
+ * Public key form for one agent in the fold: `${sessionId}:${agentId}`.
+ *
+ * Agents are keyed by sessionId + agentId only — deliberately no home and
+ * no workDirHash. 1b's OmkcEvent carries neither, so applyOmkcEvent's
+ * ensure() cannot fill them; "completing the symmetry" (e.g. keying on home
+ * too) would make omkc events unable to override their wire counterparts.
+ * Do not change this key.
+ */
+export function agentKey(sessionId: string, agentId: string): string {
+  return `${sessionId}:${agentId}`;
+}
+
+/**
  * In-memory fold of both sources into per-(sessionId, agentId) agent state.
  *
  * Source priority: omkc SSE events (source ②) are authoritative for the
@@ -131,23 +151,29 @@ function finiteTime(value: number): number {
 export class StateFold {
   private readonly agents = new Map<string, AgentState>();
   private readonly sessions = new Map<string, SessionInfo>();
+  /** Fold-internal session liveness (derived from state.json updatedAt); not
+   *  exposed in SessionInfo — the eviction sweep keys on it instead. */
+  private readonly sessionSeen = new Map<string, number>();
   private readonly omkcPriorityMs: number;
   private readonly staleMs: number;
+  private readonly evictStaleMs: number;
+  private evictedAgentsCount = 0;
+  private evictedSessionsCount = 0;
 
-  constructor(opts?: { omkcPriorityMs?: number; staleMs?: number }) {
+  constructor(opts?: { omkcPriorityMs?: number; staleMs?: number; evictStaleMs?: number }) {
     this.omkcPriorityMs = opts?.omkcPriorityMs ?? OMKC_PRIORITY_MS;
     this.staleMs = opts?.staleMs ?? STALE_MS;
+    this.evictStaleMs = opts?.evictStaleMs ?? EVICT_STALE_MS;
   }
 
-  /**
-   * Agents are keyed by sessionId + agentId only — deliberately no home and
-   * no workDirHash. 1b's OmkcEvent carries neither, so applyOmkcEvent's
-   * ensure() cannot fill them; "completing the symmetry" (e.g. keying on home
-   * too) would make omkc events unable to override their wire counterparts.
-   * Do not change this key.
-   */
-  private static key(sessionId: string, agentId: string): string {
-    return `${sessionId}:${agentId}`;
+  /** Number of agents dropped by sweepStale for >evictStaleMs inactivity. */
+  get evictedAgents(): number {
+    return this.evictedAgentsCount;
+  }
+
+  /** Number of sessions dropped by sweepStale for >evictStaleMs inactivity. */
+  get evictedSessions(): number {
+    return this.evictedSessionsCount;
   }
 
   private ensure(
@@ -157,7 +183,7 @@ export class StateFold {
     workDirHash?: string,
     home?: string,
   ): AgentState {
-    const key = StateFold.key(sessionId, agentId);
+    const key = agentKey(sessionId, agentId);
     let agent = this.agents.get(key);
     if (!agent) {
       agent = {
@@ -305,6 +331,10 @@ export class StateFold {
     });
     const parsed = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
     const ts = finiteTime(parsed); // NaN guard (see finiteTime)
+    // Session liveness for the eviction sweep: derived from updatedAt. A
+    // session whose state.json has not been touched for >evictStaleMs is
+    // dropped like an agent would be.
+    this.sessionSeen.set(skey, ts);
     for (const [agentId, info] of Object.entries(state.agents ?? {})) {
       const agent = this.ensure(ref.sessionId, agentId, ts, ref.workDirHash, ref.home);
       agent.kind = info.type;
@@ -437,10 +467,31 @@ export class StateFold {
 
   // ---------------------------------------------------------------- sweep
 
-  /** Mark agents with no events for >STALE_MS as stale (kept, not deleted). */
+  /**
+   * Mark agents with no events for >STALE_MS as stale (kept, not deleted),
+   * then evict anything idle for >EVICT_STALE_MS on the same tick: the agent
+   * is removed from the fold and counted in evictedAgents, the session in
+   * evictedSessions. A dropped entry is rebuilt by the next event (ensure()
+   * re-creates it), which is what proves it came back to life. Eviction is
+   * deliberately silent on the SSE fan-out — the next full snapshot reflects
+   * it, and the audit counters ride on the snapshot.
+   */
   sweepStale(now = Date.now()): void {
     for (const agent of this.agents.values()) {
       agent.stale = now - agent.lastSeen > this.staleMs;
+    }
+    for (const [key, agent] of this.agents) {
+      if (now - agent.lastSeen > this.evictStaleMs) {
+        this.agents.delete(key);
+        this.evictedAgentsCount++;
+      }
+    }
+    for (const [skey, seen] of this.sessionSeen) {
+      if (now - seen > this.evictStaleMs) {
+        this.sessions.delete(skey);
+        this.sessionSeen.delete(skey);
+        this.evictedSessionsCount++;
+      }
     }
   }
 
@@ -456,14 +507,25 @@ export class StateFold {
     return [...this.sessions.values()].map((s) => ({ ...s }));
   }
 
-  snapshotAgents(): AgentState[] {
-    return [...this.agents.values()].map((a) => ({
-      ...a,
+  /** Deep clone ONE agent (0.8.0): the /status/events fan-out serializes
+   *  single agents per flush — never a full snapshotAgents() deep copy. */
+  snapshotAgentByKey(key: string): AgentState | undefined {
+    const agent = this.agents.get(key);
+    return agent === undefined ? undefined : this.cloneAgent(agent);
+  }
+
+  private cloneAgent(agent: AgentState): AgentState {
+    return {
+      ...agent,
       // usage is deep-copied too: it can nest, and sharing the reference
       // would leak fold-internal state to snapshot consumers.
-      usage: cloneJson(a.usage),
-      subagents: a.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
-      lastToolCall: a.lastToolCall ? { ...a.lastToolCall } : undefined,
-    }));
+      usage: cloneJson(agent.usage),
+      subagents: agent.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
+      lastToolCall: agent.lastToolCall ? { ...agent.lastToolCall } : undefined,
+    };
+  }
+
+  snapshotAgents(): AgentState[] {
+    return [...this.agents.values()].map((a) => this.cloneAgent(a));
   }
 }

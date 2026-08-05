@@ -15,7 +15,8 @@ import { get } from 'node:http';
 import fs from 'node:fs';
 import type { MoaModule, MoaRouteDef, MoaToolArgs, MoaToolDef } from '../types.js';
 import type { AgentState, SessionInfo } from './state.js';
-import { StateFold } from './state.js';
+import { StateFold, agentKey } from './state.js';
+import { StatusBroadcaster } from './broadcast.js';
 import { OmkcSource, type OmkcSourceStatus } from './sse-source.js';
 import {
   resolveHomes,
@@ -41,12 +42,20 @@ export interface StatusControllerOptions {
   omkcProbeTimeoutMs?: number;
   /** /events read-idle timeout (default READ_IDLE_TIMEOUT_MS = 45s). */
   omkcReadIdleTimeoutMs?: number;
+  /** Broadcast merge cadence (default 50ms). */
+  broadcastIntervalMs?: number;
+  /** Broadcast clock (test seam; default Date.now). */
+  broadcastNow?: () => number;
 }
 
 export interface StatusScanStatus {
   scanning: boolean;
   homes: Array<{ home: string } & WatchProgress>;
 }
+
+/** One per-flush batch of changed agents for the /status/events fan-out
+ *  (single-agent snapshots, already cloned at flush time). */
+export type StatusChangeListener = (agents: readonly AgentState[]) => void;
 
 export interface StatusController {
   /** Start watching (idempotent); also starts the 5s stale sweep. */
@@ -63,6 +72,11 @@ export interface StatusController {
   setPort(port: number | undefined): void;
   /** Embedded omkc SSE source connection status (source ②). */
   omkcStatus(): OmkcSourceStatus;
+  /** Subscribe to per-flush agent state changes (the /status/events fan-out). */
+  subscribeStatus(listener: StatusChangeListener): void;
+  unsubscribe(listener: StatusChangeListener): void;
+  /** Active /status/events subscriber count (audit + test seam). */
+  statusSubscriberCount(): number;
 }
 
 /** Watcher dirs are re-checked every 30s (homes may appear later). */
@@ -160,6 +174,11 @@ export interface StatusSnapshot {
     port: number | null;
     started_at: string | null;
     uptime: number;
+    /** Fold eviction audit (0.8.0): agents/sessions dropped by sweepStale
+     *  after >EVICT_STALE_MS (24h) of inactivity. moamcp-specific additive
+     *  fields under `server` — omkc-status consumers ignore unknown keys. */
+    evictedAgents: number;
+    evictedSessions: number;
   };
   scan: StatusScanStatus;
   sources: {
@@ -180,6 +199,8 @@ export function statusSnapshot(controller: StatusController): StatusSnapshot {
       port: controller.getPort() ?? null,
       started_at: startedAtMs === null ? null : new Date(startedAtMs).toISOString(),
       uptime: startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
+      evictedAgents: fold.evictedAgents,
+      evictedSessions: fold.evictedSessions,
     },
     scan: controller.scanStatus(),
     sources: {
@@ -194,12 +215,54 @@ export function statusSnapshot(controller: StatusController): StatusSnapshot {
 export function createStatusController(opts: StatusControllerOptions = {}): StatusController {
   const fold = new StateFold({ staleMs: opts.staleMs });
   const watchers = new Map<string, WireWatcher>();
+  const statusListeners = new Set<StatusChangeListener>();
   let started = false;
   let startedAtMs: number | null = null;
   /** Known Bus/owner port (reuse proxy seam; set after bus.start()). */
   let ownerPort: number | undefined;
   let homeRecheck: NodeJS.Timeout | null = null;
   let sweepTimer: NodeJS.Timeout | null = null;
+
+  // 0.8.0 broadcast pipeline: every fold mutation goes through the hook
+  // points below into this dirty-set merger; the /status/events fan-out
+  // resolves the drained keys to single-agent snapshots at flush time.
+  // Suppression is driven by watcher catch-up: while any tail is still
+  // reading its initial bulk (the scan at start()), marks and flushes are
+  // dropped so the full snapshot that opens every SSE connection is the only
+  // word on those agents.
+  function watchersCatchingUp(): boolean {
+    for (const w of watchers.values()) {
+      if (w.getProgress().catchingUp > 0) return true;
+    }
+    return false;
+  }
+
+  const broadcaster = new StatusBroadcaster({
+    intervalMs: opts.broadcastIntervalMs,
+    now: opts.broadcastNow,
+    isSuppressed: () => watchersCatchingUp(),
+    onChange: (keys) => {
+      if (statusListeners.size === 0) return; // nobody to fan out to
+      const agents: AgentState[] = [];
+      for (const key of keys) {
+        const agent = fold.snapshotAgentByKey(key);
+        if (agent !== undefined) agents.push(agent);
+      }
+      if (agents.length === 0) return;
+      for (const listener of statusListeners) {
+        try {
+          listener(agents);
+        } catch (err) {
+          // A broken subscriber must never break the broadcast loop.
+          console.warn(`[moamcp] status broadcast listener error: ${(err as Error).message}`);
+        }
+      }
+    },
+  });
+
+  const dirty = (key: string): void => {
+    broadcaster.markDirty(key);
+  };
 
   // Batch 1b: the omkc embedded SSE source (source ②) feeds the same fold.
   // Parseable events fold in; raw frames (unparseable JSON) have no landing
@@ -212,7 +275,10 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
     probeTimeoutMs: opts.omkcProbeTimeoutMs,
     readIdleTimeoutMs: opts.omkcReadIdleTimeoutMs,
     onEvent: (_raw, ev) => {
-      if (ev) fold.applyOmkcEvent(ev);
+      const agent = fold.applyOmkcEvent(ev);
+      // subagent.* events are filed under the parent — the returned agent is
+      // the one whose state actually changed, so dirty that one.
+      if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
     },
   });
 
@@ -227,13 +293,22 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
       scanIntervalMs: opts.scanIntervalMs,
       pollIntervalMs: opts.pollIntervalMs,
       onRecord: (ref, _raw, record) => {
-        fold.applyWire(ref, record);
+        const agent = fold.applyWire(ref, record);
+        if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
       },
       onSessionState: (ref, state) => {
         fold.applySessionState(ref, state);
+        // A session read can change several agents (agents table + parent
+        // subagent links); mark every table entry so the next flush covers
+        // them all.
+        for (const agentId of Object.keys(state.agents ?? {})) {
+          dirty(agentKey(ref.sessionId, agentId));
+        }
       },
       onTask: (ref, task) => {
         fold.applyTask(ref, task);
+        // tasks/*.json mutations land on the owning agent's subagents list.
+        dirty(agentKey(ref.sessionId, ref.agentId));
       },
     });
     watcher.start();
@@ -245,6 +320,9 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
       if (started) return;
       started = true;
       startedAtMs = Date.now();
+      // Arm the broadcast flush loop first so no fold mutation can slip past
+      // it; the timer is unref'd (never holds the process open on its own).
+      broadcaster.start();
       // Re-start watchers kept from a previous run (tail offsets survive
       // stop/start), then attach any home that exists on disk.
       for (const w of watchers.values()) w.start();
@@ -261,6 +339,8 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
         homeRecheck.unref();
       }
       if (!sweepTimer) {
+        // 0.8.0: sweepStale also runs the fold eviction (>EVICT_STALE_MS) on
+        // the same tick.
         sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
         sweepTimer.unref();
       }
@@ -272,6 +352,7 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
       if (!started) return;
       started = false;
       startedAtMs = null;
+      broadcaster.stop();
       for (const w of watchers.values()) w.stop();
       if (homeRecheck) {
         clearInterval(homeRecheck);
@@ -305,6 +386,13 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
       ownerPort = port;
     },
     omkcStatus: () => omkc.status,
+    subscribeStatus: (listener) => {
+      statusListeners.add(listener);
+    },
+    unsubscribe: (listener) => {
+      statusListeners.delete(listener);
+    },
+    statusSubscriberCount: () => statusListeners.size,
   };
 }
 
@@ -411,12 +499,129 @@ function statusAgentsTool(
 }
 
 /**
+ * Slow-client guard (0.8.0): a /status/events subscriber with more than this
+ * many agent frames buffered undrained is destroyed — the kimi CLI
+ * status-export precedent. ~100 agent frames/50ms worst case means a stuck
+ * reader hits 1000 queued frames in well under a second of silence.
+ */
+export const MAX_BACKLOG_FRAMES = 1000;
+/** SSE heartbeat comment cadence (mirrors the omkc source's 15s heartbeat). */
+export const SSE_HEARTBEAT_MS = 15_000;
+
+export interface StatusEventsOptions {
+  /** Frames buffered without a drain before the connection is destroyed (default 1000). */
+  maxBacklog?: number;
+  /** Heartbeat comment cadence (default SSE_HEARTBEAT_MS = 15s). */
+  heartbeatMs?: number;
+}
+
+/**
+ * /status/events SSE stream (0.8.0): the push face of the status fold.
+ *
+ * Contract:
+ *  - not started -> 503 status_not_ready, same as GET /status (ACAO *);
+ *  - started -> the first frame is `event: snapshot` carrying the full
+ *    snapshot (identical shape to GET /status), then one `event: agent`
+ *    frame per changed agent per broadcast flush (single-agent JSON, never a
+ *    full snapshot clone);
+ *  - a `: heartbeat` comment every heartbeatMs keeps proxies alive;
+ *  - a subscriber that stops draining (backlog > maxBacklog frames) is
+ *    destroyed rather than buffered forever;
+ *  - ACAO *; closing the request unsubscribes and clears the heartbeat timer.
+ */
+function statusEventsRoute(controller: StatusController | undefined, opts: StatusEventsOptions): MoaRouteDef {
+  const maxBacklog = opts.maxBacklog ?? MAX_BACKLOG_FRAMES;
+  const heartbeatMs = opts.heartbeatMs ?? SSE_HEARTBEAT_MS;
+  return {
+    method: 'GET',
+    path: '/status/events',
+    handler: (ctx) => {
+      ctx.res.setHeader('access-control-allow-origin', '*');
+      if (controller === undefined || !controller.isStarted()) {
+        ctx.res.setHeader('retry-after', '2');
+        ctx.sendJson(503, { error: 'status_not_ready', started: false });
+        return;
+      }
+      const res = ctx.res;
+      let destroyed = false;
+      /** Agent/snapshot frames handed to res.write since the last drain. */
+      let bufferedFrames = 0;
+      const destroy = (): void => {
+        if (destroyed) return;
+        destroyed = true;
+        res.destroy();
+      };
+      const sendFrame = (frame: string): void => {
+        if (destroyed) return;
+        bufferedFrames += 1;
+        if (bufferedFrames > maxBacklog) {
+          // Stuck reader: it stopped draining; kill the connection instead of
+          // buffering without bound (kimi CLI status-export precedent).
+          destroy();
+          return;
+        }
+        let accepted = false;
+        try {
+          accepted = res.write(frame);
+        } catch {
+          destroy();
+          return;
+        }
+        if (accepted) {
+          // Socket buffer absorbed the frame: prior queued frames drained.
+          bufferedFrames = 0;
+        } else {
+          // Backpressure: the buffer is full; the count grows until 'drain'.
+          res.once('drain', () => {
+            bufferedFrames = 0;
+          });
+        }
+      };
+      res.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        connection: 'keep-alive',
+        'access-control-allow-origin': '*',
+      });
+      // First frame: the full snapshot, identical shape to GET /status.
+      sendFrame(`event: snapshot\ndata: ${JSON.stringify(statusSnapshot(controller))}\n\n`);
+
+      const listener: StatusChangeListener = (agents) => {
+        for (const agent of agents) {
+          sendFrame(`event: agent\ndata: ${JSON.stringify(agent)}\n\n`);
+        }
+      };
+      controller.subscribeStatus(listener);
+      // Socket errors after a client disconnect are expected — never crash.
+      res.on('error', () => undefined);
+      const heartbeat = setInterval(() => {
+        if (destroyed) return;
+        try {
+          res.write(': heartbeat\n\n');
+        } catch {
+          destroy();
+        }
+      }, heartbeatMs);
+      heartbeat.unref();
+      // Cleanup on client close: unsubscribe + stop the heartbeat. The
+      // connection itself is destroyed by res.destroy() in destroy().
+      ctx.req.on('close', () => {
+        destroy();
+        clearInterval(heartbeat);
+        controller.unsubscribe(listener);
+      });
+    },
+  };
+}
+
+/**
  * Read-only /status route (batch 1c): the full snapshot once the controller
  * is running; 503 + Retry-After: 2 while it is missing or not yet started
  * (cold start / reuse session). The endpoint is CORS-open (omkc-status
- * precedent) — the write endpoints keep their checkOrigin policy.
+ * precedent) — the write endpoints keep their checkOrigin policy. 0.8.0 adds
+ * the /status/events SSE push face alongside it.
  */
-export function statusRoutes(controller: StatusController | undefined): MoaRouteDef[] {
+export function statusRoutes(controller: StatusController | undefined, opts: StatusEventsOptions = {}): MoaRouteDef[] {
   return [
     {
       method: 'GET',
@@ -431,18 +636,19 @@ export function statusRoutes(controller: StatusController | undefined): MoaRoute
         ctx.sendJson(200, statusSnapshot(controller));
       },
     },
+    statusEventsRoute(controller, opts),
   ];
 }
 
 /** Create the status module (id 'status', tier 'experimental'). */
 export function createStatusModule(
   controller: StatusController | undefined,
-  opts: { remoteStatusTimeoutMs?: number } = {},
+  opts: { remoteStatusTimeoutMs?: number; maxBacklog?: number; heartbeatMs?: number } = {},
 ): MoaModule {
   return {
     id: 'status',
     tier: 'experimental',
     tools: [statusAgentsTool(controller, opts.remoteStatusTimeoutMs ?? REMOTE_STATUS_TIMEOUT_MS)],
-    routes: statusRoutes(controller),
+    routes: statusRoutes(controller, { maxBacklog: opts.maxBacklog, heartbeatMs: opts.heartbeatMs }),
   };
 }

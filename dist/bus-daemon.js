@@ -9479,6 +9479,7 @@ import fs2 from "node:fs";
 // src/modules/status/state.ts
 var OMKC_PRIORITY_MS = 3e4;
 var STALE_MS = 6e4;
+var EVICT_STALE_MS = 24 * 60 * 60 * 1e3;
 function asRecord2(v) {
   return v ?? {};
 }
@@ -9497,27 +9498,35 @@ function laterOf(a, b) {
 function finiteTime(value) {
   return Number.isFinite(value) ? value : Date.now();
 }
-var StateFold = class _StateFold {
+function agentKey(sessionId, agentId) {
+  return `${sessionId}:${agentId}`;
+}
+var StateFold = class {
   agents = /* @__PURE__ */ new Map();
   sessions = /* @__PURE__ */ new Map();
+  /** Fold-internal session liveness (derived from state.json updatedAt); not
+   *  exposed in SessionInfo — the eviction sweep keys on it instead. */
+  sessionSeen = /* @__PURE__ */ new Map();
   omkcPriorityMs;
   staleMs;
+  evictStaleMs;
+  evictedAgentsCount = 0;
+  evictedSessionsCount = 0;
   constructor(opts) {
     this.omkcPriorityMs = opts?.omkcPriorityMs ?? OMKC_PRIORITY_MS;
     this.staleMs = opts?.staleMs ?? STALE_MS;
+    this.evictStaleMs = opts?.evictStaleMs ?? EVICT_STALE_MS;
   }
-  /**
-   * Agents are keyed by sessionId + agentId only — deliberately no home and
-   * no workDirHash. 1b's OmkcEvent carries neither, so applyOmkcEvent's
-   * ensure() cannot fill them; "completing the symmetry" (e.g. keying on home
-   * too) would make omkc events unable to override their wire counterparts.
-   * Do not change this key.
-   */
-  static key(sessionId, agentId) {
-    return `${sessionId}:${agentId}`;
+  /** Number of agents dropped by sweepStale for >evictStaleMs inactivity. */
+  get evictedAgents() {
+    return this.evictedAgentsCount;
+  }
+  /** Number of sessions dropped by sweepStale for >evictStaleMs inactivity. */
+  get evictedSessions() {
+    return this.evictedSessionsCount;
   }
   ensure(sessionId, agentId, ts, workDirHash, home) {
-    const key = _StateFold.key(sessionId, agentId);
+    const key = agentKey(sessionId, agentId);
     let agent = this.agents.get(key);
     if (!agent) {
       agent = {
@@ -9650,6 +9659,7 @@ var StateFold = class _StateFold {
     });
     const parsed = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
     const ts = finiteTime(parsed);
+    this.sessionSeen.set(skey, ts);
     for (const [agentId, info] of Object.entries(state.agents ?? {})) {
       const agent = this.ensure(ref.sessionId, agentId, ts, ref.workDirHash, ref.home);
       agent.kind = info.type;
@@ -9760,10 +9770,31 @@ var StateFold = class _StateFold {
     return agent;
   }
   // ---------------------------------------------------------------- sweep
-  /** Mark agents with no events for >STALE_MS as stale (kept, not deleted). */
+  /**
+   * Mark agents with no events for >STALE_MS as stale (kept, not deleted),
+   * then evict anything idle for >EVICT_STALE_MS on the same tick: the agent
+   * is removed from the fold and counted in evictedAgents, the session in
+   * evictedSessions. A dropped entry is rebuilt by the next event (ensure()
+   * re-creates it), which is what proves it came back to life. Eviction is
+   * deliberately silent on the SSE fan-out — the next full snapshot reflects
+   * it, and the audit counters ride on the snapshot.
+   */
   sweepStale(now = Date.now()) {
     for (const agent of this.agents.values()) {
       agent.stale = now - agent.lastSeen > this.staleMs;
+    }
+    for (const [key, agent] of this.agents) {
+      if (now - agent.lastSeen > this.evictStaleMs) {
+        this.agents.delete(key);
+        this.evictedAgentsCount++;
+      }
+    }
+    for (const [skey, seen] of this.sessionSeen) {
+      if (now - seen > this.evictStaleMs) {
+        this.sessions.delete(skey);
+        this.sessionSeen.delete(skey);
+        this.evictedSessionsCount++;
+      }
     }
   }
   get agentCount() {
@@ -9775,15 +9806,98 @@ var StateFold = class _StateFold {
   snapshotSessions() {
     return [...this.sessions.values()].map((s) => ({ ...s }));
   }
-  snapshotAgents() {
-    return [...this.agents.values()].map((a) => ({
-      ...a,
+  /** Deep clone ONE agent (0.8.0): the /status/events fan-out serializes
+   *  single agents per flush — never a full snapshotAgents() deep copy. */
+  snapshotAgentByKey(key) {
+    const agent = this.agents.get(key);
+    return agent === void 0 ? void 0 : this.cloneAgent(agent);
+  }
+  cloneAgent(agent) {
+    return {
+      ...agent,
       // usage is deep-copied too: it can nest, and sharing the reference
       // would leak fold-internal state to snapshot consumers.
-      usage: cloneJson(a.usage),
-      subagents: a.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
-      lastToolCall: a.lastToolCall ? { ...a.lastToolCall } : void 0
-    }));
+      usage: cloneJson(agent.usage),
+      subagents: agent.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
+      lastToolCall: agent.lastToolCall ? { ...agent.lastToolCall } : void 0
+    };
+  }
+  snapshotAgents() {
+    return [...this.agents.values()].map((a) => this.cloneAgent(a));
+  }
+};
+
+// src/modules/status/broadcast.ts
+var StatusBroadcaster = class {
+  intervalMs;
+  now;
+  onChange;
+  isSuppressed;
+  pending = /* @__PURE__ */ new Set();
+  manualSuppressed = false;
+  timer = null;
+  lastFlush = 0;
+  constructor(opts) {
+    this.intervalMs = opts.intervalMs ?? 50;
+    this.now = opts.now ?? Date.now;
+    this.onChange = opts.onChange;
+    this.isSuppressed = opts.isSuppressed;
+  }
+  suppressed() {
+    if (this.manualSuppressed) return true;
+    return this.isSuppressed?.() ?? false;
+  }
+  /** Arm the flush timer (idempotent). */
+  start() {
+    if (this.timer !== null) return;
+    this.lastFlush = this.now();
+    this.timer = setInterval(() => this.flush(), this.intervalMs);
+    this.timer.unref();
+  }
+  /** Disarm the flush timer and drop any pending dirty keys (idempotent). */
+  stop() {
+    if (this.timer !== null) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    this.pending.clear();
+    this.manualSuppressed = false;
+  }
+  /** Record a change for one agent; no-op while suppressed. */
+  markDirty(agentKey2) {
+    if (this.suppressed()) return;
+    this.pending.add(agentKey2);
+  }
+  /**
+   * Raise (true) / clear (false) the manual suppression flag — the watcher
+   * catch-up gate. Raising it clears pending dirty keys so the end of a bulk
+   * load cannot flush every freshly-scanned agent in one frame storm.
+   */
+  suppress(catchingUp) {
+    this.manualSuppressed = catchingUp;
+    if (catchingUp) this.pending.clear();
+  }
+  /** Pending dirty keys not yet drained (test/audit seam). */
+  get pendingCount() {
+    return this.pending.size;
+  }
+  /**
+   * Drain the dirty set into onChange — at most once per intervalMs, and
+   * never while suppressed. Safe to call directly with an injected clock.
+   */
+  flush() {
+    const now = this.now();
+    if (this.suppressed()) {
+      this.pending.clear();
+      this.lastFlush = now;
+      return;
+    }
+    if (now - this.lastFlush < this.intervalMs) return;
+    this.lastFlush = now;
+    if (this.pending.size === 0) return;
+    const keys = [...this.pending];
+    this.pending.clear();
+    this.onChange(keys);
   }
 };
 
@@ -10336,7 +10450,9 @@ function statusSnapshot(controller) {
       pid: process.pid,
       port: controller.getPort() ?? null,
       started_at: startedAtMs === null ? null : new Date(startedAtMs).toISOString(),
-      uptime: startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1e3))
+      uptime: startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1e3)),
+      evictedAgents: fold.evictedAgents,
+      evictedSessions: fold.evictedSessions
     },
     scan: controller.scanStatus(),
     sources: {
@@ -10350,11 +10466,42 @@ function statusSnapshot(controller) {
 function createStatusController(opts = {}) {
   const fold = new StateFold({ staleMs: opts.staleMs });
   const watchers = /* @__PURE__ */ new Map();
+  const statusListeners = /* @__PURE__ */ new Set();
   let started = false;
   let startedAtMs = null;
   let ownerPort;
   let homeRecheck = null;
   let sweepTimer = null;
+  function watchersCatchingUp() {
+    for (const w of watchers.values()) {
+      if (w.getProgress().catchingUp > 0) return true;
+    }
+    return false;
+  }
+  const broadcaster = new StatusBroadcaster({
+    intervalMs: opts.broadcastIntervalMs,
+    now: opts.broadcastNow,
+    isSuppressed: () => watchersCatchingUp(),
+    onChange: (keys) => {
+      if (statusListeners.size === 0) return;
+      const agents = [];
+      for (const key of keys) {
+        const agent = fold.snapshotAgentByKey(key);
+        if (agent !== void 0) agents.push(agent);
+      }
+      if (agents.length === 0) return;
+      for (const listener of statusListeners) {
+        try {
+          listener(agents);
+        } catch (err) {
+          console.warn(`[moamcp] status broadcast listener error: ${err.message}`);
+        }
+      }
+    }
+  });
+  const dirty = (key) => {
+    broadcaster.markDirty(key);
+  };
   const omkc = new OmkcSource({
     probeMin: opts.omkcProbeMin,
     probeMax: opts.omkcProbeMax,
@@ -10362,7 +10509,8 @@ function createStatusController(opts = {}) {
     probeTimeoutMs: opts.omkcProbeTimeoutMs,
     readIdleTimeoutMs: opts.omkcReadIdleTimeoutMs,
     onEvent: (_raw, ev) => {
-      if (ev) fold.applyOmkcEvent(ev);
+      const agent = fold.applyOmkcEvent(ev);
+      if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
     }
   });
   function attachHome(spec) {
@@ -10374,13 +10522,18 @@ function createStatusController(opts = {}) {
       scanIntervalMs: opts.scanIntervalMs,
       pollIntervalMs: opts.pollIntervalMs,
       onRecord: (ref, _raw, record) => {
-        fold.applyWire(ref, record);
+        const agent = fold.applyWire(ref, record);
+        if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
       },
       onSessionState: (ref, state) => {
         fold.applySessionState(ref, state);
+        for (const agentId of Object.keys(state.agents ?? {})) {
+          dirty(agentKey(ref.sessionId, agentId));
+        }
       },
       onTask: (ref, task) => {
         fold.applyTask(ref, task);
+        dirty(agentKey(ref.sessionId, ref.agentId));
       }
     });
     watcher.start();
@@ -10391,6 +10544,7 @@ function createStatusController(opts = {}) {
       if (started) return;
       started = true;
       startedAtMs = Date.now();
+      broadcaster.start();
       for (const w of watchers.values()) w.start();
       for (const spec of resolveHomes(opts.env)) {
         if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
@@ -10413,6 +10567,7 @@ function createStatusController(opts = {}) {
       if (!started) return;
       started = false;
       startedAtMs = null;
+      broadcaster.stop();
       for (const w of watchers.values()) w.stop();
       if (homeRecheck) {
         clearInterval(homeRecheck);
@@ -10441,7 +10596,14 @@ function createStatusController(opts = {}) {
     setPort: (port) => {
       ownerPort = port;
     },
-    omkcStatus: () => omkc.status
+    omkcStatus: () => omkc.status,
+    subscribeStatus: (listener) => {
+      statusListeners.add(listener);
+    },
+    unsubscribe: (listener) => {
+      statusListeners.delete(listener);
+    },
+    statusSubscriberCount: () => statusListeners.size
   };
 }
 function localStatusPayload(controller, args) {
@@ -10513,7 +10675,89 @@ function statusAgentsTool(controller, remoteStatusTimeoutMs) {
     }
   };
 }
-function statusRoutes(controller) {
+var MAX_BACKLOG_FRAMES = 1e3;
+var SSE_HEARTBEAT_MS = 15e3;
+function statusEventsRoute(controller, opts) {
+  const maxBacklog = opts.maxBacklog ?? MAX_BACKLOG_FRAMES;
+  const heartbeatMs = opts.heartbeatMs ?? SSE_HEARTBEAT_MS;
+  return {
+    method: "GET",
+    path: "/status/events",
+    handler: (ctx) => {
+      ctx.res.setHeader("access-control-allow-origin", "*");
+      if (controller === void 0 || !controller.isStarted()) {
+        ctx.res.setHeader("retry-after", "2");
+        ctx.sendJson(503, { error: "status_not_ready", started: false });
+        return;
+      }
+      const res = ctx.res;
+      let destroyed = false;
+      let bufferedFrames = 0;
+      const destroy = () => {
+        if (destroyed) return;
+        destroyed = true;
+        res.destroy();
+      };
+      const sendFrame = (frame) => {
+        if (destroyed) return;
+        bufferedFrames += 1;
+        if (bufferedFrames > maxBacklog) {
+          destroy();
+          return;
+        }
+        let accepted = false;
+        try {
+          accepted = res.write(frame);
+        } catch {
+          destroy();
+          return;
+        }
+        if (accepted) {
+          bufferedFrames = 0;
+        } else {
+          res.once("drain", () => {
+            bufferedFrames = 0;
+          });
+        }
+      };
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+        "access-control-allow-origin": "*"
+      });
+      sendFrame(`event: snapshot
+data: ${JSON.stringify(statusSnapshot(controller))}
+
+`);
+      const listener = (agents) => {
+        for (const agent of agents) {
+          sendFrame(`event: agent
+data: ${JSON.stringify(agent)}
+
+`);
+        }
+      };
+      controller.subscribeStatus(listener);
+      res.on("error", () => void 0);
+      const heartbeat = setInterval(() => {
+        if (destroyed) return;
+        try {
+          res.write(": heartbeat\n\n");
+        } catch {
+          destroy();
+        }
+      }, heartbeatMs);
+      heartbeat.unref();
+      ctx.req.on("close", () => {
+        destroy();
+        clearInterval(heartbeat);
+        controller.unsubscribe(listener);
+      });
+    }
+  };
+}
+function statusRoutes(controller, opts = {}) {
   return [
     {
       method: "GET",
@@ -10527,7 +10771,8 @@ function statusRoutes(controller) {
         }
         ctx.sendJson(200, statusSnapshot(controller));
       }
-    }
+    },
+    statusEventsRoute(controller, opts)
   ];
 }
 function createStatusModule(controller, opts = {}) {
@@ -10535,7 +10780,7 @@ function createStatusModule(controller, opts = {}) {
     id: "status",
     tier: "experimental",
     tools: [statusAgentsTool(controller, opts.remoteStatusTimeoutMs ?? REMOTE_STATUS_TIMEOUT_MS)],
-    routes: statusRoutes(controller)
+    routes: statusRoutes(controller, { maxBacklog: opts.maxBacklog, heartbeatMs: opts.heartbeatMs })
   };
 }
 
