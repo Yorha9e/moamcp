@@ -433,6 +433,40 @@ ${COMPONENTS_CSS}
 .sb-rows-inactive {
   border-top: 1px dashed var(--border);
 }
+
+/* ── 0.11.0: nested subtree containers (fourth lazy layer) ─────────────── */
+/* .sb-subtree lives INSIDE its parent row (grid-column 1/-1) so a row removal
+   takes the subtree with it; the guide glyphs still carry depth, the container
+   adds a subtle indent + vertical line. */
+.sb-row .sb-subtree {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+/* Parent-row chevron (same 0.10.0 inlined data-uri): rotate when the subtree
+   is collapsed. */
+.sb-row.sb-subtree-parent.collapsed .sb-chevron {
+  transform: rotate(-90deg);
+}
+/* Ancestor rows brought out by a live sub-agent: weak style + badge. */
+.sb-row.sb-active-ancestor {
+  opacity: 0.72;
+}
+.sb-row.sb-active-ancestor .sb-status {
+  background: var(--surface-strong);
+  color: var(--text-faint);
+}
+.sb-ancestor-badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 15px;
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  white-space: nowrap;
+}
 </style>
 ${THEME_BOOTSTRAP}
 ${I18N_BOOTSTRAP}
@@ -482,6 +516,9 @@ ${STATUS_MODEL_JS}
   var dirEls = Object.create(null);
   var activeRowEls = Object.create(null);
   var userExpandedSessions = Object.create(null);
+  // 0.11.0: per-subtree collapse state (fourth lazy layer). Memory-only on
+  // purpose — agent keys churn fast, localStorage persistence is meaningless.
+  var collapsedSubtrees = Object.create(null);
   var pendingFrames = [];
   var flushScheduled = false;
   var FOLDS_KEY = 'moamcp-status-folds';
@@ -595,9 +632,26 @@ ${STATUS_MODEL_JS}
     return cell;
   }
 
-  function createRowEl(key) {
+  /** Same-partition children of an entry (0.11.0): a row's chevron/subtree only
+   *  covers children on its own side (active rows nest active descendants,
+   *  inactive rows nest inactive descendants); the other side lives behind the
+   *  fold bar and is managed by the master inactiveOpen control. */
+  function sameSideChildren(entry, sideActive) {
+    var out = [];
+    if (!entry || !entry.children) return out;
+    for (var i = 0; i < entry.children.length; i++) {
+      var ce = model.byKey[entry.children[i]];
+      if (ce && M.isActiveAgent(ce) === sideActive) out.push(entry.children[i]);
+    }
+    return out;
+  }
+
+  function createRowEl(key, opts) {
     var entry = model.byKey[key];
     if (!entry) return null;
+    // The active section is a flat list (no nesting, no chevrons) — only the
+    // tree render passes opts.tree !== false.
+    var isTree = !opts || opts.tree !== false;
     var row = document.createElement('div');
     row.setAttribute('data-key', key);
     row.className = 'sb-row';
@@ -611,6 +665,21 @@ ${STATUS_MODEL_JS}
     var name = document.createElement('span');
     name.textContent = entry.agentId;
     agentCell.appendChild(name);
+    if (isTree) {
+      // Parent-row chevron (0.10.0 inlined data-uri; components.ts SELECT_CHEVRON
+      // is private — do not touch it). Hidden until the row has same-side
+      // children; click toggles the subtree (fourth lazy layer).
+      var chevron = document.createElement('span');
+      chevron.className = 'sb-chevron';
+      chevron.setAttribute('aria-label', tr('status.subtreeCollapse'));
+      chevron.hidden = true;
+      chevron.addEventListener('click', function (ev) {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        toggleSubtree(key);
+      });
+      agentCell.appendChild(chevron);
+      row.__chevron = chevron;
+    }
     row.appendChild(agentCell);
     var isSub = entry.kind === 'sub' || entry.orphan;
     var kindCell = cellText(row, 'sb-kind ' + (isSub ? 'sub' : 'main'), isSub ? tr('status.sub') : tr('status.main'));
@@ -624,7 +693,24 @@ ${STATUS_MODEL_JS}
     if (entry.stale) row.classList.add('stale');
     if (entry.busy && !entry.stale) row.classList.add('busy');
     if (entry.orphan) row.classList.add('orphan');
+    if (isTree) {
+      // Subtree container INSIDE the row (grid-column 1/-1): removing the row
+      // removes the whole subtree; collapse keeps the container empty + drops
+      // the subtree keys from rowEls (anti-ghost), expand lazily rebuilds.
+      var sideActive = M.isActiveAgent(entry);
+      var kids = sameSideChildren(entry, sideActive);
+      if (kids.length > 0) {
+        chevron.hidden = false;
+        var subtree = document.createElement('div');
+        subtree.className = 'sb-subtree';
+        row.appendChild(subtree);
+        row.__subtree = subtree;
+        row.classList.add('sb-subtree-parent');
+        row.classList.toggle('collapsed', !!collapsedSubtrees[key]);
+      }
+    }
     row.__cells = {
+      agentCell: agentCell,
       guide: guide,
       name: name,
       kind: kindCell,
@@ -658,6 +744,33 @@ ${STATUS_MODEL_JS}
     row.classList.toggle('stale', !!entry.stale);
     row.classList.toggle('busy', !!entry.busy && !entry.stale);
     row.classList.toggle('orphan', !!entry.orphan);
+    // 0.11.0: tree chrome sync (chevron visibility/aria, subtree container,
+    // collapse class). Skipped for active-section rows (flat, no nesting).
+    if (map !== activeRowEls) {
+      var sideActive = M.isActiveAgent(entry);
+      var kids = sameSideChildren(entry, sideActive);
+      var hasKids = kids.length > 0;
+      if (row.__chevron) {
+        row.__chevron.hidden = !hasKids;
+        row.__chevron.setAttribute(
+          'aria-label',
+          collapsedSubtrees[key] ? tr('status.subtreeExpand') : tr('status.subtreeCollapse'),
+        );
+      }
+      row.classList.toggle('sb-subtree-parent', hasKids);
+      row.classList.toggle('collapsed', hasKids && !!collapsedSubtrees[key]);
+      if (hasKids) {
+        if (!row.__subtree) {
+          var st2 = document.createElement('div');
+          st2.className = 'sb-subtree';
+          row.appendChild(st2);
+          row.__subtree = st2;
+        }
+      } else if (row.__subtree) {
+        if (row.__subtree.parentNode) row.__subtree.parentNode.removeChild(row.__subtree);
+        delete row.__subtree;
+      }
+    }
   }
 
   // ── Session groups (three-level lazy state machine, plan §2/§3) ───────────
@@ -789,38 +902,132 @@ ${STATUS_MODEL_JS}
     }
   }
 
+  /** Drop a collapsed subtree's keys from rowEls (anti-ghost, the inactiveRows
+   *  precedent) — only keys on the collapsed root's own side are rendered
+   *  under this container, so only those are removed. */
+  function clearSubtreeRowEls(key) {
+    var keys = M.subtreeKeys(model, key);
+    var sideActive = M.isActiveAgent(model.byKey[key]);
+    for (var i = 1; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e && M.isActiveAgent(e) === sideActive) delete rowEls[keys[i]];
+    }
+  }
+
+  /** True when entry is a root of its partition side's tree — i.e. its model
+   *  parent is missing or on the OTHER side (active parents nest active
+   *  descendants, inactive parents nest inactive ones; the other side lives
+   *  behind the fold bar). Roots are appended top-level; non-roots are nested
+   *  by appendRowTree's recursion. */
+  function isSideRoot(entry, sideActive) {
+    if (!entry || !entry.parentKey) return true;
+    var p = model.byKey[entry.parentKey];
+    return !p || M.isActiveAgent(p) !== sideActive;
+  }
+
+  /** Append key's row into the given container and (when expanded) its
+   *  same-side subtree recursively. Collapsed subtrees keep their container
+   *  empty and drop their keys from rowEls — the next expand lazily rebuilds
+   *  them (fourth lazy layer, C3). */
+  function appendRowTree(container, key, sideActive) {
+    var row = rowEls[key];
+    if (!row) return;
+    container.appendChild(row);
+    var entry = model.byKey[key];
+    if (!entry) return;
+    var kids = sameSideChildren(entry, sideActive);
+    var subtree = row.__subtree;
+    if (kids.length === 0) {
+      // Children vanished (or flipped side): clear any stale container so no
+      // ghost rows survive inside the parent row.
+      if (subtree && subtree.firstChild) {
+        while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+      }
+      return;
+    }
+    if (!subtree) return; // defensive: createRowEl/updateRowEl sync it
+    if (collapsedSubtrees[key]) {
+      if (subtree.firstChild) {
+        while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+        clearSubtreeRowEls(key);
+      }
+      return;
+    }
+    // Expanded: clear + rebuild the container from rowEls (node identity is
+    // reused — the same cost profile as the 0.10.0 clear+reappend of info.rows).
+    while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+    for (var i = 0; i < kids.length; i++) {
+      var ck = kids[i];
+      if (!rowEls[ck]) rowEls[ck] = createRowEl(ck);
+      else updateRowEl(rowEls, ck);
+      appendRowTree(subtree, ck, sideActive);
+    }
+  }
+
+  /** Chevron click: toggle one subtree (fourth lazy layer). Collapse = clear
+   *  the container + drop its keys from rowEls; expand = lazy rebuild. */
+  function toggleSubtree(key) {
+    var entry = model.byKey[key];
+    var row = rowEls[key];
+    if (!entry || !row || !row.__subtree) return;
+    collapsedSubtrees[key] = !collapsedSubtrees[key];
+    row.classList.toggle('collapsed', !!collapsedSubtrees[key]);
+    if (row.__chevron) {
+      row.__chevron.setAttribute(
+        'aria-label',
+        collapsedSubtrees[key] ? tr('status.subtreeExpand') : tr('status.subtreeCollapse'),
+      );
+    }
+    var subtree = row.__subtree;
+    var sideActive = M.isActiveAgent(entry);
+    if (collapsedSubtrees[key]) {
+      while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+      clearSubtreeRowEls(key);
+    } else {
+      while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+      var kids = sameSideChildren(entry, sideActive);
+      for (var i = 0; i < kids.length; i++) {
+        var ck = kids[i];
+        if (!rowEls[ck]) rowEls[ck] = createRowEl(ck);
+        else updateRowEl(rowEls, ck);
+        appendRowTree(subtree, ck, sideActive);
+      }
+    }
+  }
+
   function renderFullSession(sessionId, dirInfo) {
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
     applySessionMode(info, 'full');
     updateSessionEl(sessionId, part);
     var active = part.active;
-    for (var i = 0; i < active.length; i++) {
-      var rk = active[i];
-      if (!rowEls[rk]) rowEls[rk] = createRowEl(rk);
-      else updateRowEl(rowEls, rk);
-    }
-    // Clear + rebuild the active rows container every pass (no ghost rows when
-    // an agent flips active -> inactive or the partition order changes).
+    // Clear + rebuild the active rows container every pass, then re-append the
+    // side roots recursively (nested rows come along via their parent's
+    // subtree; rowEls reuse keeps node identity; DFS order preserved).
     while (info.rows.firstChild) info.rows.removeChild(info.rows.firstChild);
     for (var i = 0; i < active.length; i++) {
-      if (rowEls[active[i]]) info.rows.appendChild(rowEls[active[i]]);
+      var rk = active[i];
+      if (!isSideRoot(model.byKey[rk], true)) continue; // nested under an active ancestor
+      if (!rowEls[rk]) rowEls[rk] = createRowEl(rk);
+      else updateRowEl(rowEls, rk);
+      appendRowTree(info.rows, rk, true);
     }
     var inactive = part.inactive;
     updateFoldBar(info, inactive.length);
     if (info.inactiveOpen) {
-      for (var i = 0; i < inactive.length; i++) {
-        var ik = inactive[i];
-        if (!rowEls[ik]) rowEls[ik] = createRowEl(ik);
-        else updateRowEl(rowEls, ik);
-      }
+      // Master "收起全部不活跃子树": opening lazily builds every inactive row
+      // (each subtree respecting its collapsedSubtrees state).
       while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
       for (var i = 0; i < inactive.length; i++) {
-        if (rowEls[inactive[i]]) info.inactiveRows.appendChild(rowEls[inactive[i]]);
+        var ik = inactive[i];
+        if (!isSideRoot(model.byKey[ik], false)) continue; // nested under an inactive ancestor
+        if (!rowEls[ik]) rowEls[ik] = createRowEl(ik);
+        else updateRowEl(rowEls, ik);
+        appendRowTree(info.inactiveRows, ik, false);
       }
     } else {
-      // Fold bar closed: the inactive container holds no DOM and the keys are
-      // dropped from rowEls — the next open lazily rebuilds them (no ghosts).
+      // Fold bar closed = all inactive subtrees collapsed: the container holds
+      // no DOM and every inactive key is dropped from rowEls (no ghosts).
       while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
       for (var i = 0; i < inactive.length; i++) delete rowEls[inactive[i]];
     }
@@ -1037,11 +1244,66 @@ ${STATUS_MODEL_JS}
     }
     return out;
   }
+  // B1 (0.11.0): ancestor-closure order derived directly from the shared
+  // listDirectories result (dirs order -> sessionIds order -> DFS active list),
+  // inserting each active leaf's ancestor chain before it (reverse chain order
+  // -> leaf). No global reorder — activeAgentKeys is the stable order. The
+  // serialized model function activeAgentKeysWithAncestors is the API twin of
+  // this page-local derivation (kept in sync by tests / D2).
+  function activeKeysWithAncestorsFromDirs(dirs) {
+    var seeds = activeKeysFromDirs(dirs);
+    var out = []; // { key, rollupActive }
+    var seen = Object.create(null);
+    for (var i = 0; i < seeds.length; i++) {
+      var leaf = seeds[i];
+      var ancestors = [];
+      var visited = Object.create(null);
+      var cur = model.byKey[leaf] ? model.byKey[leaf].parentKey || null : null;
+      while (cur && !visited[cur]) {
+        visited[cur] = true;
+        var ae = model.byKey[cur];
+        if (!ae) break; // broken chain: the gap is not rendered as an ancestor
+        ancestors.push(cur);
+        cur = ae.parentKey || null;
+      }
+      for (var j = ancestors.length - 1; j >= 0; j--) {
+        var ak = ancestors[j];
+        if (seen[ak]) continue;
+        seen[ak] = true;
+        out.push({ key: ak, rollupActive: true });
+      }
+      if (!seen[leaf]) {
+        seen[leaf] = true;
+        out.push({ key: leaf, rollupActive: false });
+      }
+    }
+    return out;
+  }
+  /** Ancestor rows get a weak style + a "brought out by sub-agent" badge — the
+   *  row itself is not busy, which would otherwise confuse (B2). */
+  function setAncestorBadge(row, on) {
+    if (!row || !row.__cells) return;
+    row.classList.toggle('sb-active-ancestor', !!on);
+    var cell = row.__cells.agentCell;
+    if (!cell) return;
+    if (on) {
+      if (!cell.__badge) {
+        var badge = document.createElement('span');
+        badge.className = 'sb-ancestor-badge';
+        cell.appendChild(badge);
+        cell.__badge = badge;
+      }
+      cell.__badge.textContent = tr('status.ancestorBadge');
+    } else if (cell.__badge) {
+      if (cell.__badge.parentNode) cell.__badge.parentNode.removeChild(cell.__badge);
+      delete cell.__badge;
+    }
+  }
   function refreshActiveSection() {
     if (!activeEl || !activeRowsEl) return;
-    var keys = activeKeysFromDirs(latestDirs);
+    var entries = activeKeysWithAncestorsFromDirs(latestDirs);
     var present = Object.create(null);
-    for (var i = 0; i < keys.length; i++) present[keys[i]] = true;
+    for (var i = 0; i < entries.length; i++) present[entries[i].key] = true;
     for (var key in activeRowEls) {
       if (!present[key]) {
         var stale = activeRowEls[key];
@@ -1049,13 +1311,16 @@ ${STATUS_MODEL_JS}
         delete activeRowEls[key];
       }
     }
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (!activeRowEls[k]) activeRowEls[k] = createRowEl(k);
+    for (var i = 0; i < entries.length; i++) {
+      var k = entries[i].key;
+      if (!activeRowEls[k]) activeRowEls[k] = createRowEl(k, { tree: false });
       else updateRowEl(activeRowEls, k);
-      if (activeRowEls[k]) activeRowsEl.appendChild(activeRowEls[k]);
+      if (activeRowEls[k]) {
+        setAncestorBadge(activeRowEls[k], !!entries[i].rollupActive);
+        activeRowsEl.appendChild(activeRowEls[k]);
+      }
     }
-    activeEl.hidden = keys.length === 0;
+    activeEl.hidden = entries.length === 0;
   }
 
   // ── Full rebuild from a snapshot (D5: DocumentFragment batch build; F2:
@@ -1198,6 +1463,33 @@ ${STATUS_MODEL_JS}
     updateEmpty();
   }
 
+  // ── Recursive tree refresh (C5, 0.11.0) ──────────────────────────────────
+  // localechange must walk the rendered tree recursively — subtree rows are
+  // nested inside parent rows' .sb-subtree containers, and collapsed subtrees
+  // keep no keys in rowEls, so a flat for-key-in-rowEls loop alone cannot be
+  // trusted to cover every visible row.
+  function refreshTreeRows(container) {
+    if (!container) return;
+    for (var i = 0; i < container.children.length; i++) {
+      var child = container.children[i];
+      if (child.className.split(' ').includes('sb-row')) {
+        var key = child.getAttribute('data-key');
+        if (key && rowEls[key]) updateRowEl(rowEls, key);
+        refreshTreeRows(child.__subtree);
+      } else {
+        refreshTreeRows(child);
+      }
+    }
+  }
+  function refreshVisibleRows() {
+    for (var sid in sessionEls) {
+      var info = sessionEls[sid];
+      if (!info || info.mode !== 'full') continue;
+      refreshTreeRows(info.rows);
+      refreshTreeRows(info.inactiveRows);
+    }
+  }
+
   var sseUp = false; // last known SSE connection state (guards the probe race)
 
   function probeStatus() {
@@ -1248,8 +1540,10 @@ ${STATUS_MODEL_JS}
       for (var i = 0; i < COLS.length && info.colCells; i++) info.colCells[i].textContent = tr(COLS[i]);
       updateSessionEl(sid, M.partitionSession(model, sid));
     }
-    for (var key in rowEls) updateRowEl(rowEls, key);
-    for (var key2 in activeRowEls) updateRowEl(activeRowEls, key2);
+    // C5 (0.11.0): recursive tree refresh (covers nested subtree rows), then
+    // the active section re-applies ancestor badges + row text with the locale.
+    refreshVisibleRows();
+    refreshActiveSection();
     updateCounts();
   });
 

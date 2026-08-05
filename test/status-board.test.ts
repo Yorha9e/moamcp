@@ -384,17 +384,29 @@ function sessionGroups(container: El): El[] {
 }
 
 /** Every rendered row in a session group: active container rows + (when the
- *  fold bar is open) inactive container rows, in DOM order. */
+ *  fold bar is open) inactive container rows, in DOM order. 0.11.0: recursive
+ *  — rows nest inside .sb-subtree containers under their parent row. */
 function rowsOf(group: El): El[] {
   const out: El[] = [];
+  const walk = (el: El) => {
+    for (const c of el.children) {
+      if (c.className.split(' ').includes('sb-row')) out.push(c);
+      walk(c);
+    }
+  };
   for (const c of group.children) {
-    if (c.className.split(' ').includes('sb-rows')) out.push(...c.children);
+    if (c.className.split(' ').includes('sb-rows')) walk(c);
   }
   return out;
 }
 
 function rowIds(group: El): string[] {
   return rowsOf(group).map((r) => r.getAttribute('data-key') ?? '');
+}
+
+/** A row's .sb-subtree container (0.11.0: nested INSIDE the row element). */
+function subtreeOf(row: El): El | null {
+  return row.children.find((c) => c.className.split(' ').includes('sb-subtree')) ?? null;
 }
 
 /** Rows rendered in the top active section container. */
@@ -1291,6 +1303,191 @@ describe('Status Board 0.10.0: directory tree, active section and lazy rendering
     await flush();
     expect(page.el('sbActive').hidden).toBe(true);
     expect(activeRows(page.el('sbActive'))).toEqual([]);
+  });
+});
+
+describe('Status Board 0.11.0: ancestor rollup + tree rendering', () => {
+  it('active section brings out inactive ancestors with the rollup badge and weak style', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s1', 'parent', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 2 }),
+        agentFrame('s1', 'child', { parentAgentId: 'parent', kind: 'sub', busy: true, lastSeen: 3 }),
+      ],
+    }));
+    await flush();
+    const activeEl = page.el('sbActive');
+    expect(activeEl.hidden).toBe(false);
+    const rows = activeRows(activeEl);
+    // ancestor chain (main -> parent) precedes the active leaf child
+    expect(rows.map((r) => r.getAttribute('data-key'))).toEqual(['s1:main', 's1:parent', 's1:child']);
+    // ancestors: weak style + badge; the active leaf itself: neither
+    expect(rows[0].classList.contains('sb-active-ancestor')).toBe(true);
+    expect(rows[1].classList.contains('sb-active-ancestor')).toBe(true);
+    expect(rows[2].classList.contains('sb-active-ancestor')).toBe(false);
+    expect(rows[0].querySelector('.sb-ancestor-badge')).not.toBeNull();
+    expect(rows[1].querySelector('.sb-ancestor-badge')).not.toBeNull();
+    expect(rows[2].querySelector('.sb-ancestor-badge')).toBeNull();
+    expect(rows[0].querySelector('.sb-ancestor-badge')!.textContent).toBe('via sub-agent');
+    // a later frame going idle drops the whole chain from the section
+    page.dispatch('agent', agentFrame('s1', 'child', { parentAgentId: 'parent', kind: 'sub', busy: false, lastSeen: 4 }));
+    await flush();
+    expect(page.el('sbActive').hidden).toBe(true);
+    expect(activeRows(page.el('sbActive'))).toEqual([]);
+  });
+
+  it('active section order stays stable across multiple leaves sharing an ancestor', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s1', 'p1', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 2 }),
+        agentFrame('s1', 'a', { parentAgentId: 'p1', kind: 'sub', busy: true, lastSeen: 3 }),
+        agentFrame('s1', 'p2', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 4 }),
+        agentFrame('s1', 'b', { parentAgentId: 'p2', kind: 'sub', busy: true, lastSeen: 5 }),
+      ],
+    }));
+    await flush();
+    const keys = () => activeRows(page.el('sbActive')).map((r) => r.getAttribute('data-key'));
+    // seeds = [a, b] (DFS); each leaf's chain inserted before it, deduped.
+    expect(keys()).toEqual(['s1:main', 's1:p1', 's1:a', 's1:p2', 's1:b']);
+    // a repeat flush must not reorder (stable across flushes)
+    page.dispatch('agent', agentFrame('s1', 'a', { parentAgentId: 'p1', kind: 'sub', busy: true, lastSeen: 6 }));
+    await flush();
+    expect(keys()).toEqual(['s1:main', 's1:p1', 's1:a', 's1:p2', 's1:b']);
+  });
+
+  it('tree renders nested .sb-subtree containers; a parent chevron folds the subtree lazily', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s1', 'mid', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 2 }),
+        agentFrame('s1', 'leaf', { parentAgentId: 'mid', kind: 'sub', busy: false, lastSeen: 3 }),
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    // main (active) renders; mid+leaf are inactive behind the master fold bar
+    expect(rowIds(group)).toEqual(['s1:main']);
+    click(group.querySelector('.sb-fold')!);
+    expect(rowIds(group)).toEqual(['s1:main', 's1:mid', 's1:leaf']); // DFS nested
+    const midRow = rowsOf(group).find((r) => r.getAttribute('data-key') === 's1:mid')!;
+    const midSubtree = subtreeOf(midRow);
+    expect(midSubtree).not.toBeNull();
+    expect(midSubtree!.children.length).toBe(1); // leaf row nested inside
+    const leafRow = rowsOf(group).find((r) => r.getAttribute('data-key') === 's1:leaf')!;
+    // collapse mid's subtree via its chevron: container cleared + key dropped
+    const chevron = midRow.querySelector('.sb-chevron')!;
+    click(chevron);
+    expect(midSubtree!.children.length).toBe(0);
+    expect(leafRow.parentNode).toBeNull(); // no ghost DOM survives
+    expect(rowIds(group)).toEqual(['s1:main', 's1:mid']);
+    // re-expand lazily rebuilds the subtree rows
+    click(chevron);
+    expect(rowIds(group)).toEqual(['s1:main', 's1:mid', 's1:leaf']);
+    expect(rowsOf(group).find((r) => r.getAttribute('data-key') === 's1:leaf')).toBeDefined();
+  });
+
+  it('the fold bar is the master "collapse all inactive subtrees" control', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: true }),
+        agentFrame('s1', 'mid', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 2 }),
+        agentFrame('s1', 'leaf', { parentAgentId: 'mid', kind: 'sub', busy: false, lastSeen: 3 }),
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    click(group.querySelector('.sb-fold')!); // open: all inactive rows built
+    expect(rowIds(group)).toEqual(['s1:main', 's1:mid', 's1:leaf']);
+    // individual subtree fold survives a master close + reopen
+    const midRow = rowsOf(group).find((r) => r.getAttribute('data-key') === 's1:mid')!;
+    click(midRow.querySelector('.sb-chevron')!);
+    expect(rowIds(group)).toEqual(['s1:main', 's1:mid']);
+    click(group.querySelector('.sb-fold')!); // close: everything inactive gone
+    expect(rowIds(group)).toEqual(['s1:main']);
+    click(group.querySelector('.sb-fold')!); // reopen: lazily rebuilt, fold kept
+    expect(rowIds(group)).toEqual(['s1:main', 's1:mid']);
+  });
+
+  it('a fully-rooted session (no lineage) degrades to flat rows with no subtree containers', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'a1', { kind: 'main', busy: true }),
+        agentFrame('s1', 'a2', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s1', 'a3', { kind: 'main', busy: false, lastSeen: 2 }),
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(group)).toEqual(['s1:a1']);
+    click(group.querySelector('.sb-fold')!);
+    expect(rowIds(group)).toEqual(['s1:a1', 's1:a2', 's1:a3']);
+    expect(page.el('sbList').querySelector('.sb-subtree')).toBeNull();
+  });
+
+  it('a pending-root child (missing parent) renders flat at the session top', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [agentFrame('s1', 'child', { parentAgentId: 'ghost', kind: 'sub', busy: true })],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(group)).toEqual(['s1:child']);
+    expect(page.el('sbList').querySelector('.sb-subtree')).toBeNull();
+  });
+
+  it('a would-be cycle renders every row flat without crashing', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'a', { parentAgentId: 'b', busy: false, lastSeen: 1 }),
+        agentFrame('s1', 'b', { parentAgentId: 'c', busy: false, lastSeen: 2 }),
+        agentFrame('s1', 'c', { parentAgentId: 'a', busy: true, lastSeen: 3 }),
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    click(group.querySelector('.sb-fold')!);
+    expect(rowIds(group).sort()).toEqual(['s1:a', 's1:b', 's1:c']);
+  });
+
+  it('a 1-agent session renders a single flat row', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [agentFrame('s1', 'only', { kind: 'main', busy: true })],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(group)).toEqual(['s1:only']);
+    expect(page.el('sbList').querySelector('.sb-subtree')).toBeNull();
+    expect(page.el('sbActive').hidden).toBe(false);
+  });
+
+  it('localechange re-translates ancestor badges and subtree chevron aria labels recursively', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s1', 'mid', { parentAgentId: 'main', kind: 'sub', busy: false, lastSeen: 2 }),
+        agentFrame('s1', 'leaf', { parentAgentId: 'mid', kind: 'sub', busy: true, lastSeen: 3 }),
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    click(group.querySelector('.sb-fold')!);
+    const midRow = rowsOf(group).find((r) => r.getAttribute('data-key') === 's1:mid')!;
+    const chevron = midRow.querySelector('.sb-chevron')!;
+    expect(chevron.getAttribute('aria-label')).toBe('Collapse subtree');
+    const ancestorBadge = activeRows(page.el('sbActive'))[0].querySelector('.sb-ancestor-badge')!;
+    expect(ancestorBadge.textContent).toBe('via sub-agent');
+    setLocale(page, 'zh-CN');
+    expect(chevron.getAttribute('aria-label')).toBe('收起子树');
+    expect(ancestorBadge.textContent).toBe('经子 agent 带出');
   });
 });
 

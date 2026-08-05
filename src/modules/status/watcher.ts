@@ -104,8 +104,12 @@ export interface WireWatcherOptions {
   scanIntervalMs?: number;
   /** Fallback tail poll interval (default 1000ms). */
   pollIntervalMs?: number;
-  /** Every complete wire.jsonl line, parsed (null when unparseable). */
-  onRecord: (ref: WireRef, raw: string, record: WireRecord | null) => void;
+  /** Every complete wire.jsonl line, parsed (null when unparseable). The
+   *  optional `fallbackTs` is the wire file's mtime (ms) at read time — the
+   *  lastSeen seed for records without a usable `time` field (A2, 0.11.0:
+   *  the first metadata line of every wire.jsonl carries none, and stamping
+   *  Date.now() there froze eviction for 24h after every daemon restart). */
+  onRecord: (ref: WireRef, raw: string, record: WireRecord | null, fallbackTs?: number) => void;
   /** state.json (re-)read: first sight and on every mtime change. */
   onSessionState?: (ref: Omit<WireRef, 'agentId'>, state: SessionState) => void;
   /** tasks/<taskId>.json (re-)read: first sight and on every mtime change. */
@@ -116,7 +120,10 @@ export interface WireWatcherOptions {
 export interface WatchProgress {
   /** A directory scan pass is currently running. */
   scanning: boolean;
-  /** Tails still catching up to EOF (initial bulk read). */
+  /** Tails still catching up to EOF (initial bulk read). New tails are sized
+   *  at registration (see scanSession), so catchingUp is > 0 for the whole
+   *  scan window of any non-empty wire — the sweep guard (0.11.0) reads this
+   *  and never evicts while a tail is pending read. */
   catchingUp: number;
   sessions: number;
   agents: number;
@@ -336,7 +343,57 @@ export class WireWatcher {
     live: { state: Set<string>; tasks: Set<string>; tails: Set<string> },
   ): Promise<void> {
     this.watchDir(sessionPath);
-    // state.json
+    // agents/*/ first — registering + sizing tails establishes catchingUp > 0
+    // BEFORE state.json folds the agents table below, so the sweep guard
+    // (0.11.0 A1) covers the fold itself: an agent folded with an old
+    // lastSeen can no longer be evicted in the gap before its wire is read.
+    const agentsPath = path.join(sessionPath, 'agents');
+    this.watchDir(agentsPath);
+    for (const a of await readdirSafe(agentsPath)) {
+      if (this.stopped) return;
+      if (!a.isDirectory()) continue;
+      await tick();
+      const agentPath = path.join(agentsPath, a.name);
+      this.watchDir(agentPath); // wire.jsonl appends fire here
+      const ref: WireRef = { home: this.opts.home, workDirHash, sessionId, agentId: a.name };
+      const wireFile = path.join(agentPath, 'wire.jsonl');
+      live.tails.add(wireFile);
+      if (!this.tails.has(wireFile)) {
+        // A1 (0.11.0): size the new tail at registration so catchingUp reads
+        // > 0 from the scan window onward (offset 0 < size).
+        const wireStat = await statSafe(wireFile);
+        this.tails.set(wireFile, {
+          ref,
+          file: wireFile,
+          offset: 0,
+          pending: '',
+          size: wireStat ? Number(wireStat.size) : 0,
+        });
+      }
+      // tasks/*.json
+      const tasksPath = path.join(agentPath, 'tasks');
+      this.watchDir(tasksPath);
+      for (const t of await readdirSafe(tasksPath)) {
+        if (!t.isFile() || !t.name.endsWith('.json')) continue;
+        await tick();
+        const taskFile = path.join(tasksPath, t.name);
+        const taskStat = await statSafe(taskFile);
+        if (!taskStat) continue;
+        live.tasks.add(taskFile);
+        // Same dual-key rationale as state.json below.
+        const taskKey = `${taskStat.mtimeMs}:${taskStat.size}`;
+        if (this.taskMtimes.get(taskFile) === taskKey) continue;
+        this.taskMtimes.set(taskFile, taskKey);
+        try {
+          const raw = await fs.promises.readFile(taskFile, 'utf8');
+          const task = JSON.parse(raw) as TaskFile;
+          this.opts.onTask?.({ ...ref, taskId: t.name.slice(0, -5) }, task);
+        } catch {
+          // mid-write: retry next pass
+        }
+      }
+    }
+    // state.json (folded after tails are sized — see the A1 note above).
     const stateFile = path.join(sessionPath, 'state.json');
     const stateStat = await statSafe(stateFile);
     await tick();
@@ -359,43 +416,31 @@ export class WireWatcher {
         }
       }
     }
-    // agents/*/
-    const agentsPath = path.join(sessionPath, 'agents');
-    this.watchDir(agentsPath);
-    for (const a of await readdirSafe(agentsPath)) {
-      if (this.stopped) return;
-      if (!a.isDirectory()) continue;
-      await tick();
-      const agentPath = path.join(agentsPath, a.name);
-      this.watchDir(agentPath); // wire.jsonl appends fire here
-      const ref: WireRef = { home: this.opts.home, workDirHash, sessionId, agentId: a.name };
-      const wireFile = path.join(agentPath, 'wire.jsonl');
-      live.tails.add(wireFile);
-      if (!this.tails.has(wireFile)) {
-        this.tails.set(wireFile, { ref, file: wireFile, offset: 0, pending: '', size: 0 });
-      }
-      // tasks/*.json
-      const tasksPath = path.join(agentPath, 'tasks');
-      this.watchDir(tasksPath);
-      for (const t of await readdirSafe(tasksPath)) {
-        if (!t.isFile() || !t.name.endsWith('.json')) continue;
-        await tick();
-        const taskFile = path.join(tasksPath, t.name);
-        const taskStat = await statSafe(taskFile);
-        if (!taskStat) continue;
-        live.tasks.add(taskFile);
-        // Same dual-key rationale as state.json above.
-        const taskKey = `${taskStat.mtimeMs}:${taskStat.size}`;
-        if (this.taskMtimes.get(taskFile) === taskKey) continue;
-        this.taskMtimes.set(taskFile, taskKey);
-        try {
-          const raw = await fs.promises.readFile(taskFile, 'utf8');
-          const task = JSON.parse(raw) as TaskFile;
-          this.opts.onTask?.({ ...ref, taskId: t.name.slice(0, -5) }, task);
-        } catch {
-          // mid-write: retry next pass
-        }
-      }
+  }
+
+  /**
+   * A3 (0.11.0): invalidate a session's state.json dual key (mtime:size) so the
+   * next scan re-reads it — the self-heal path that rebuilds an evicted session
+   * row and its lineage after new wire activity arrives. The controller calls
+   * this only on new wire/task activity for a session whose fold row is missing;
+   * eviction itself never invalidates (dead sessions stay evicted — no
+   * evict→reread→evict loop).
+   */
+  invalidateSessionState(ref: { workDirHash: string; sessionId: string }): void {
+    const stateFile = path.join(this.root, ref.workDirHash, ref.sessionId, 'state.json');
+    this.stateMtimes.delete(stateFile);
+  }
+
+  /**
+   * A3: sessionId-only variant for omkc events, which carry no workDirHash or
+   * home. Invalidates every tracked state.json whose path matches the session
+   * (across workDirHashes); a re-read is harmless for a row that still exists
+   * and is the only way to reach a row that was evicted.
+   */
+  invalidateSessionStateById(sessionId: string): void {
+    const suffix = path.join(sessionId, 'state.json');
+    for (const file of this.stateMtimes.keys()) {
+      if (file.endsWith(path.sep + suffix)) this.stateMtimes.delete(file);
     }
   }
 
@@ -423,11 +468,22 @@ export class WireWatcher {
 
   /** Pump every tail sequentially, yielding between files. */
   private async pumpAll(): Promise<void> {
+    // A1 (0.11.0): never pump while a scan pass is running. A newly registered
+    // tail is sized at registration (catchingUp > 0) and its session's
+    // state.json is folded at the END of scanSession; a pump firing between
+    // registration and that fold would drain the tail, drop catchingUp to 0
+    // while the fold is still pending, and let the sweep evict a wire-only
+    // agent that the fold is about to re-create (the 0.11.0 A1 race). The
+    // scan's finally schedules the pump right after the pass, so no tail is
+    // starved — the drain just waits for the fold. The loop re-check covers an
+    // in-flight pumpAll when a scan starts mid-drain: it exits promptly so the
+    // scan's finally can resume from the saved offsets.
+    if (this.scanning) return;
     if (this.pumping) return;
     this.pumping = true;
     try {
       for (const tail of this.tails.values()) {
-        if (this.stopped) return;
+        if (this.stopped || this.scanning) return;
         await this.pump(tail);
         await yieldNow();
       }
@@ -476,7 +532,10 @@ export class WireWatcher {
             // skip malformed line, still count the offset
           }
           this.records++;
-          this.opts.onRecord(tail.ref, raw, parsed);
+          // A2: pass the wire file's mtime as the fallback lastSeen seed — a
+          // record without a `time` field (the first metadata line) must not be
+          // stamped with Date.now() (that froze eviction for 24h after restart).
+          this.opts.onRecord(tail.ref, raw, parsed, st.mtimeMs);
         }
         await yieldNow(); // one chunk per slice
       }

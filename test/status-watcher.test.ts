@@ -295,6 +295,68 @@ describe('WireWatcher', () => {
       fs.rmSync(root2, { recursive: true, force: true });
     }
   });
+
+  it('A2: passes the wire file mtime as fallbackTs for no-time records', async () => {
+    const root2 = fs.mkdtempSync(path.join(os.tmpdir(), 'moamcp-status-mtime-'));
+    const sessionPath2 = path.join(root2, 'wd_x', 's1');
+    const agentPath2 = path.join(sessionPath2, 'agents', 'main');
+    fs.mkdirSync(agentPath2, { recursive: true });
+    const wireFile2 = path.join(agentPath2, 'wire.jsonl');
+    // No `time` field on the record — the seed must come from the file mtime.
+    fs.writeFileSync(wireFile2, '{"type":"metadata","protocol_version":"1.4"}\n');
+    const pinned = new Date(Date.now() - 3600_000);
+    fs.utimesSync(wireFile2, pinned, pinned);
+    const fallbacks: number[] = [];
+    const w2 = new WireWatcher({
+      home: 'omkc',
+      root: root2,
+      scanIntervalMs: 40,
+      pollIntervalMs: 15,
+      onRecord: (_ref, _raw, _record, fallbackTs) => {
+        if (fallbackTs !== undefined) fallbacks.push(fallbackTs);
+      },
+    });
+    w2.start();
+    try {
+      await waitFor(() => fallbacks.length >= 1);
+      expect(Math.abs(fallbacks[0] - pinned.getTime())).toBeLessThan(10_000);
+    } finally {
+      w2.stop();
+      fs.rmSync(root2, { recursive: true, force: true });
+    }
+  });
+
+  it('A3: invalidateSessionState forces a state.json re-read without a file change', async () => {
+    const root2 = fs.mkdtempSync(path.join(os.tmpdir(), 'moamcp-status-inval-'));
+    const sessionPath2 = path.join(root2, 'wd_x', 's1');
+    const agentPath2 = path.join(sessionPath2, 'agents', 'main');
+    fs.mkdirSync(agentPath2, { recursive: true });
+    fs.writeFileSync(path.join(agentPath2, 'wire.jsonl'), '{"type":"metadata","time":1}\n');
+    const stateFile2 = path.join(sessionPath2, 'state.json');
+    fs.writeFileSync(stateFile2, JSON.stringify({ title: 'v1', agents: { main: { type: 'main' } } }));
+    const states2: SessionState[] = [];
+    const w2 = new WireWatcher({
+      home: 'omkc',
+      root: root2,
+      scanIntervalMs: 30,
+      pollIntervalMs: 15,
+      onRecord: () => {},
+      onSessionState: (_ref, state) => states2.push(state),
+    });
+    w2.start();
+    try {
+      await waitFor(() => states2.length >= 1);
+      const before = states2.length;
+      // Same mtime + size: without the invalidation the dual key would block
+      // any re-read. This is exactly the A3 self-heal trigger for an evicted
+      // session row (controller calls it on new wire/task activity).
+      w2.invalidateSessionState({ workDirHash: 'wd_x', sessionId: 's1' });
+      await waitFor(() => states2.length > before);
+    } finally {
+      w2.stop();
+      fs.rmSync(root2, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('dual home watching', () => {

@@ -177,6 +177,11 @@ export class StateFold {
   /** Fold-internal session liveness (derived from state.json updatedAt); not
    *  exposed in SessionInfo — the eviction sweep keys on it instead. */
   private readonly sessionSeen = new Map<string, number>();
+  /** sessionId → row count (A3, 0.11.0): O(1) "does a fold session row exist"
+   *  probe for the self-heal path. Reference-counted because the fold keys
+   *  sessions by `${workDirHash}/${sessionId}` and two workDirHashes can share
+   *  a sessionId; a row is "present" while the count is > 0. */
+  private readonly sessionIdRows = new Map<string, number>();
   private readonly omkcPriorityMs: number;
   private readonly staleMs: number;
   private readonly evictStaleMs: number;
@@ -236,11 +241,23 @@ export class StateFold {
 
   // ---------------------------------------------------------------- source ①
 
-  /** Fold one wire.jsonl record (read-only inference). */
-  applyWire(ref: WireRef, record: WireRecord | null): AgentState | null {
+  /** Fold one wire.jsonl record (read-only inference). The optional
+   *  `fallbackTs` (the wire file's mtime, supplied by the watcher) seeds
+   *  lastSeen for records without a usable `time` — A2 (0.11.0): the first
+   *  metadata line of every wire.jsonl carries none, and stamping Date.now()
+   *  there made every historical agent look freshly-written at daemon startup,
+   *  freezing eviction for 24h and batch-flipping stale at t=60s. */
+  applyWire(ref: WireRef, record: WireRecord | null, fallbackTs?: number): AgentState | null {
     if (!record || typeof record.type !== 'string') return null;
     const rawTs = typeof record.time === 'number' ? record.time : NaN;
-    const ts = finiteTime(rawTs); // NaN/Infinity guard (see finiteTime)
+    let ts: number;
+    if (Number.isFinite(rawTs)) {
+      ts = rawTs; // record time wins
+    } else if (Number.isFinite(fallbackTs ?? NaN)) {
+      ts = fallbackTs as number; // file-mtime seed
+    } else {
+      ts = Date.now(); // last resort (finiteTime guard)
+    }
     const agent = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
     agent.lastSeen = Math.max(agent.lastSeen, ts);
     agent.stale = false;
@@ -343,6 +360,11 @@ export class StateFold {
     // later writer overwrite; updatedAt takes the max of both.
     const skey = `${ref.workDirHash}/${ref.sessionId}`;
     const existing = this.sessions.get(skey);
+    if (!existing) {
+      // First sight of this skey -> one more live row for the sessionId
+      // (A3 hasSessionRow reference count; decremented on eviction below).
+      this.sessionIdRows.set(ref.sessionId, (this.sessionIdRows.get(ref.sessionId) ?? 0) + 1);
+    }
     this.sessions.set(skey, {
       workDirHash: ref.workDirHash,
       sessionId: ref.sessionId,
@@ -524,12 +546,23 @@ export class StateFold {
         this.sessions.delete(skey);
         this.sessionSeen.delete(skey);
         this.evictedSessionsCount++;
-        evictedSessions.push({
-          sessionId: session?.sessionId ?? skey.slice(skey.indexOf('/') + 1),
-        });
+        const sessionId = session?.sessionId ?? skey.slice(skey.indexOf('/') + 1);
+        evictedSessions.push({ sessionId });
+        const remaining = (this.sessionIdRows.get(sessionId) ?? 0) - 1;
+        if (remaining <= 0) this.sessionIdRows.delete(sessionId);
+        else this.sessionIdRows.set(sessionId, remaining);
       }
     }
     return { evictedAgents, evictedSessions };
+  }
+
+  /** True while at least one fold session row exists for this sessionId (A3,
+   *  0.11.0): the controller's self-heal probe — new wire/task/omkc activity
+   *  for a row-less session invalidates the watcher's state.json dual key so
+   *  the next scan re-reads it and applySessionState rebuilds the row + its
+   *  parentAgentId lineage. O(1) via the reference-counted sessionIdRows. */
+  hasSessionRow(sessionId: string): boolean {
+    return (this.sessionIdRows.get(sessionId) ?? 0) > 0;
   }
 
   get agentCount(): number {

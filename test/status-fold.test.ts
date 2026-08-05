@@ -1,5 +1,5 @@
 /** StateFold port (omkc-status/src/fold.test.ts) + batch-1a regressions + MCP assembly. */
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, mkdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, describe } from 'vitest';
@@ -390,6 +390,196 @@ describe('fold eviction (0.8.0)', () => {
     expect(fold.evictedSessions).toBe(1);
     // an idle tick still returns empty lists, never null/undefined
     expect(fold.sweepStale(now)).toEqual({ evictedAgents: [], evictedSessions: [] });
+  });
+});
+
+// ------------------------------------------------- 0.11.0 A-group regressions
+
+describe('0.11.0 A: lineage-loss race fixes', () => {
+  it('A2: applyWire seeds lastSeen from the wire-file mtime fallback for no-time records', () => {
+    const fold = new StateFold();
+    const mtime = 1_700_000_000_000;
+    fold.applyWire(ref, { type: 'metadata', protocol_version: '1.4' }, mtime);
+    expect(fold.snapshotAgents()[0].lastSeen).toBe(mtime);
+    // ...and a record with a real (newer) time still wins over the fallback.
+    fold.applyWire(ref, wire('turn.prompt', {}, mtime + 1000), mtime);
+    expect(fold.snapshotAgents()[0].lastSeen).toBe(mtime + 1000);
+  });
+
+  it('A3: hasSessionRow tracks fold session rows across eviction (O(1) probe)', () => {
+    const fold = new StateFold({ evictStaleMs: 1000 });
+    const now = Date.now();
+    expect(fold.hasSessionRow('sess-1')).toBe(false);
+    fold.applySessionState(
+      { home: 'omkc', workDirHash: 'wd_a3', sessionId: 'sess-1' },
+      { updatedAt: new Date(now - 5000).toISOString(), agents: { main: { type: 'main' } } },
+    );
+    expect(fold.hasSessionRow('sess-1')).toBe(true);
+    fold.sweepStale(now);
+    expect(fold.hasSessionRow('sess-1')).toBe(false);
+    // a re-read revives it (the count is reference-counted, not a stale bit)
+    fold.applySessionState(
+      { home: 'omkc', workDirHash: 'wd_a3', sessionId: 'sess-1' },
+      { updatedAt: new Date(now).toISOString(), agents: { main: { type: 'main' } } },
+    );
+    expect(fold.hasSessionRow('sess-1')).toBe(true);
+  });
+
+  it('A1: the sweep never evicts while a tail is catching up (scan+pump guard)', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'moamcp-status-a1-'));
+    const now = Date.now();
+    try {
+      // ONE session whose wire.jsonl is large enough that the initial pump
+      // takes several sweep intervals. The tail is sized at registration, so
+      // catchingUp > 0 runs from the scan window through the whole pump — the
+      // sweep must not evict the agent inside that window even though it is
+      // evictable (>evictStaleMs idle from the state.json fold onward).
+      const agentPath = join(home, 'sessions', 'wd_a1', 's1', 'agents', 'main');
+      await mkdir(agentPath, { recursive: true });
+      const lines: string[] = [];
+      for (let i = 0; i < 40_000; i++) {
+        lines.push(JSON.stringify({ type: 'turn.prompt', time: now - 60_000 - i }));
+      }
+      await writeFile(join(agentPath, 'wire.jsonl'), lines.join('\n') + '\n');
+      await writeFile(
+        join(home, 'sessions', 'wd_a1', 's1', 'state.json'),
+        JSON.stringify({
+          title: 's1',
+          updatedAt: new Date(now - 60_000).toISOString(),
+          agents: { main: { type: 'main' } },
+        }),
+      );
+      const controller = createStatusController({
+        env: { OMKC_HOME: home, KIMI_CODE_HOME: `${home}.missing-kimi` } as NodeJS.ProcessEnv,
+        scanIntervalMs: 30,
+        pollIntervalMs: 5,
+        sweepIntervalMs: 10,
+        evictStaleMs: 40,
+        staleMs: 1000,
+        omkcProbeMin: 40000,
+        omkcProbeMax: 40000,
+      });
+      controller.start();
+      try {
+        // While the tail is still pending read, the agent must not be evicted —
+        // this is the exact window where the pre-fix code lost lineage.
+        await waitFor(() => (controller.scanStatus().homes[0]?.catchingUp ?? 0) > 0);
+        expect(controller.getFold().evictedAgents).toBe(0);
+        // Once catch-up finishes, the (genuinely idle) agent is evicted normally.
+        await waitFor(() => controller.getFold().evictedAgents >= 1, 10_000);
+        expect(controller.getFold().agentCount).toBe(0);
+      } finally {
+        controller.stop();
+      }
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it('A2: a no-time metadata record folds lastSeen = the wire file mtime, not Date.now()', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'moamcp-status-a2-'));
+    try {
+      const agentPath = join(home, 'sessions', 'wd_a2', 's1', 'agents', 'main');
+      await mkdir(agentPath, { recursive: true });
+      const wireFile = join(agentPath, 'wire.jsonl');
+      await writeFile(wireFile, '{"type":"metadata","protocol_version":"1.4"}\n');
+      // Pin the file mtime to a known past instant (the record itself has no
+      // time field, so the pre-fix code stamped Date.now() at fold time).
+      const pinned = new Date(Date.now() - 3600_000);
+      await utimes(wireFile, pinned, pinned);
+      const controller = createStatusController({
+        env: { OMKC_HOME: home, KIMI_CODE_HOME: `${home}.missing-kimi` } as NodeJS.ProcessEnv,
+        scanIntervalMs: 40,
+        pollIntervalMs: 15,
+        omkcProbeMin: 40000,
+        omkcProbeMax: 40000,
+      });
+      controller.start();
+      try {
+        await waitFor(() => controller.getFold().agentCount >= 1);
+        const agent = controller.getFold().snapshotAgents()[0];
+        expect(Math.abs(agent.lastSeen - pinned.getTime())).toBeLessThan(10_000);
+        // The stamping bug made every agent look freshly-written at startup.
+        expect(agent.lastSeen).toBeLessThan(Date.now() - 30 * 60_000);
+      } finally {
+        controller.stop();
+      }
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  it('A3: new wire activity for an evicted session re-reads state.json, rebuilds lineage, no thrash', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'moamcp-status-a3-'));
+    try {
+      const sid = 's1';
+      const agentPath = join(home, 'sessions', 'wd_a3', sid, 'agents', 'main');
+      await mkdir(agentPath, { recursive: true });
+      const wireFile = join(agentPath, 'wire.jsonl');
+      const stateFile = join(home, 'sessions', 'wd_a3', sid, 'state.json');
+      const now = Date.now();
+      // Lineage on disk, but OLD updatedAt -> the session row is evictable while
+      // the main agent stays fresh via its wire record.
+      await writeFile(wireFile, JSON.stringify({ type: 'turn.prompt', time: now }) + '\n');
+      await writeFile(
+        stateFile,
+        JSON.stringify({
+          title: 's1',
+          updatedAt: new Date(now - 10_000).toISOString(),
+          agents: {
+            main: { type: 'main', parentAgentId: null },
+            sub: { type: 'sub', parentAgentId: 'main' },
+          },
+        }),
+      );
+      const controller = createStatusController({
+        env: { OMKC_HOME: home, KIMI_CODE_HOME: `${home}.missing-kimi` } as NodeJS.ProcessEnv,
+        // Wide margins: the self-heal rebuild happens on the next scan (~15ms),
+        // and the rebuilt row must stay visible until the next sweep — a large
+        // sweep interval keeps that window multi-poll even under suite load.
+        scanIntervalMs: 15,
+        pollIntervalMs: 10,
+        sweepIntervalMs: 150,
+        evictStaleMs: 150,
+        staleMs: 1000,
+        omkcProbeMin: 40000,
+        omkcProbeMax: 40000,
+      });
+      controller.start();
+      try {
+        // Fold the session + lineage, then let the sweep evict the session row
+        // (updatedAt is old) while the agent survives (fresh wire time).
+        await waitFor(() => controller.getFold().agentCount >= 2);
+        await waitFor(() => controller.getFold().sessionCount === 0, 5000);
+        expect(controller.getFold().hasSessionRow(sid)).toBe(false);
+        const evictedAfterEvict = controller.getFold().evictedSessions;
+
+        // New wire activity for the row-less session -> A3 invalidates the
+        // state.json dual key -> the next scan re-reads it and rebuilds the
+        // row + parentAgentId lineage (the pre-fix code never re-read because
+        // the mtime:size key was already set).
+        await appendFile(wireFile, JSON.stringify({ type: 'turn.prompt', time: now + 1000 }) + '\n');
+        await waitFor(() => controller.getFold().sessionCount === 1, 5000);
+        const agents = controller.getFold().snapshotAgents();
+        const sub = agents.find((a) => a.agentId === 'sub');
+        expect(sub?.parentAgentId).toBe('main');
+        expect(sub?.kind).toBe('sub');
+
+        // No thrash: the rebuilt row is evicted again (state.json is still old
+        // — a dead session), but the eviction itself never re-arms the dual
+        // key, so without further activity the counters stay put (no
+        // evict->reread->evict loop every sweep).
+        await new Promise((r) => setTimeout(r, 400));
+        const evictedAfter = controller.getFold().evictedSessions;
+        expect(evictedAfter).toBeLessThanOrEqual(evictedAfterEvict + 1);
+        await new Promise((r) => setTimeout(r, 300));
+        expect(controller.getFold().evictedSessions).toBe(evictedAfter);
+      } finally {
+        controller.stop();
+      }
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
   });
 });
 

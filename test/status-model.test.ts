@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import vm from 'node:vm';
 import {
   activeAgentKeys,
+  activeAgentKeysWithAncestors,
   agentKey,
   applySnapshot,
   deriveStatus,
@@ -21,6 +22,7 @@ import {
   removeSession,
   sessionDirKey,
   STATUS_MODEL_JS,
+  subtreeKeys,
   upsertAgent,
   type RawAgent,
   type StatusModel,
@@ -630,6 +632,135 @@ describe('status-model: activeAgentKeys stable order', () => {
   });
 });
 
+describe('status-model: activeAgentKeysWithAncestors (0.11.0)', () => {
+  it('inserts each active leaf\'s ancestor chain before it without reordering the seeds', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([
+      { sessionId: 's1', workDir: '/a' },
+      { sessionId: 's2', workDir: '/b' },
+    ], [
+      agent('s1', 'root', { busy: false }),
+      agent('s1', 'mid', { parentAgentId: 'root', busy: false }),
+      agent('s1', 'leaf', { parentAgentId: 'mid', busy: true }),
+      agent('s1', 'lone', { busy: true }),
+      agent('s2', 'other', { busy: true }),
+    ]));
+    expect(activeAgentKeys(model)).toEqual([
+      agentKey('s1', 'leaf'),
+      agentKey('s1', 'lone'),
+      agentKey('s2', 'other'),
+    ]);
+    const got = activeAgentKeysWithAncestors(model);
+    // leaf's chain (root -> mid) precedes it; lone and other keep their slots.
+    expect(got.map((x) => x.key)).toEqual([
+      agentKey('s1', 'root'),
+      agentKey('s1', 'mid'),
+      agentKey('s1', 'leaf'),
+      agentKey('s1', 'lone'),
+      agentKey('s2', 'other'),
+    ]);
+    const byKey: Record<string, boolean> = {};
+    for (const x of got) byKey[x.key] = x.rollupActive;
+    expect(byKey[agentKey('s1', 'root')]).toBe(true); // rollup, not self-active
+    expect(byKey[agentKey('s1', 'mid')]).toBe(true);
+    expect(byKey[agentKey('s1', 'leaf')]).toBe(false); // own active seed
+    expect(byKey[agentKey('s1', 'lone')]).toBe(false);
+    expect(byKey[agentKey('s2', 'other')]).toBe(false);
+  });
+
+  it('marks a busy ancestor as a seed (rollupActive=false) even when it is also an ancestor', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'root', { busy: true }), // self-active AND ancestor of leaf
+      agent('s1', 'mid', { busy: false }),
+      agent('s1', 'leaf', { parentAgentId: 'mid', busy: true }),
+    ]));
+    // roots: [root, mid]? mid has no parentAgentId -> its own root. DFS: root, mid, leaf.
+    // active = [root, leaf]; leaf's chain = [mid, root].
+    const got = activeAgentKeysWithAncestors(model);
+    const byKey: Record<string, boolean> = {};
+    for (const x of got) byKey[x.key] = x.rollupActive;
+    // root was processed first as a seed -> stays rollupActive=false.
+    expect(byKey[agentKey('s1', 'root')]).toBe(false);
+    expect(byKey[agentKey('s1', 'mid')]).toBe(true);
+    expect(byKey[agentKey('s1', 'leaf')]).toBe(false);
+  });
+
+  it('stops the ancestor walk at a missing parent and at a pending root', () => {
+    // Broken chain: the parent's own parent entry vanished mid-chain (injected
+    // behind the model's invariants — resolveAndAttach would never create it).
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'parent', { busy: false }),
+      agent('s1', 'leaf', { parentAgentId: 'parent', busy: true }),
+    ]));
+    model.byKey[agentKey('s1', 'parent')].parentKey = agentKey('s1', 'ghost');
+    const got = activeAgentKeysWithAncestors(model).map((x) => x.key);
+    // Walk from leaf: parent exists (push), ghost missing -> stop. leaf stays.
+    expect(got).toEqual([agentKey('s1', 'parent'), agentKey('s1', 'leaf')]);
+    const flags: Record<string, boolean> = {};
+    for (const x of activeAgentKeysWithAncestors(model)) flags[x.key] = x.rollupActive;
+    expect(flags[agentKey('s1', 'parent')]).toBe(true);
+    expect(flags[agentKey('s1', 'leaf')]).toBe(false);
+    // Pending root: parent frame never arrived -> parentKey is null.
+    const model2 = newModel();
+    applySnapshot(model2, snapshot([], [
+      agent('s1', 'leaf', { parentAgentId: 'ghost', busy: true }),
+    ]));
+    expect(activeAgentKeysWithAncestors(model2).map((x) => x.key)).toEqual([agentKey('s1', 'leaf')]);
+  });
+
+  it('visited-guards an injected parent cycle (no infinite loop, no duplicates)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'a', { busy: false }),
+      agent('s1', 'b', { parentAgentId: 'a', busy: false }),
+      agent('s1', 'c', { parentAgentId: 'b', busy: true }),
+    ]));
+    // Inject a -> c, closing the a->b->c->a loop behind the model's invariants.
+    model.byKey[agentKey('s1', 'a')].parentKey = agentKey('s1', 'c');
+    const got = activeAgentKeysWithAncestors(model).map((x) => x.key);
+    expect(got.length).toBeLessThanOrEqual(3);
+    expect(new Set(got).size).toBe(got.length); // no duplicate emissions
+    expect(got).toContain(agentKey('s1', 'c'));
+  });
+});
+
+describe('status-model: subtreeKeys (0.11.0)', () => {
+  it('returns a visited-guarded DFS key list including the root', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'a'),
+      agent('s1', 'b', { parentAgentId: 'a' }),
+      agent('s1', 'c', { parentAgentId: 'b' }),
+      agent('s1', 'd', { parentAgentId: 'b' }),
+      agent('s1', 'e'),
+    ]));
+    expect(subtreeKeys(model, agentKey('s1', 'a'))).toEqual([
+      agentKey('s1', 'a'),
+      agentKey('s1', 'b'),
+      agentKey('s1', 'c'),
+      agentKey('s1', 'd'),
+    ]);
+    expect(subtreeKeys(model, agentKey('s1', 'b'))).toEqual([
+      agentKey('s1', 'b'),
+      agentKey('s1', 'c'),
+      agentKey('s1', 'd'),
+    ]);
+    expect(subtreeKeys(model, agentKey('s1', 'e'))).toEqual([agentKey('s1', 'e')]);
+  });
+
+  it('visited-guards an injected child cycle', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'a'),
+      agent('s1', 'b', { parentAgentId: 'a' }),
+    ]));
+    model.byKey[agentKey('s1', 'b')].children.push(agentKey('s1', 'a'));
+    expect(subtreeKeys(model, agentKey('s1', 'a'))).toEqual([agentKey('s1', 'a'), agentKey('s1', 'b')]);
+  });
+});
+
 describe('status-model: workDirHash wiring', () => {
   it('carries workDirHash from snapshot sessions into SessionRow', () => {
     const model = newModel();
@@ -753,7 +884,8 @@ describe('status-model: drift protection (D2)', () => {
       return { sessionId: sid, gone: !!row.gone, agents: flatten };
     });
     // Project the 0.10.0 directory/partition derivations the page renders from
-    // (dirKey chain, per-session partition, directory grouping, active partition).
+    // (dirKey chain, per-session partition, directory grouping, active partition)
+    // plus the 0.11.0 ancestor closure and subtree enumerations.
     const dirKeys = model.sessionOrder.map((sid: string) => api.sessionDirKey(model, sid));
     const partitions = model.sessionOrder.map((sid: string) => {
       const part = api.partitionSession(model, sid);
@@ -766,6 +898,10 @@ describe('status-model: drift protection (D2)', () => {
       partitions,
       dirs: api.listDirectories(model),
       active: api.activeAgentKeys(model),
+      activeWithAncestors: api.activeAgentKeysWithAncestors(model),
+      subtree: model.sessionOrder.map((sid: string) =>
+        (model.roots[sid] || []).map((rk: string) => api.subtreeKeys(model, rk)),
+      ),
     });
   }
 
@@ -791,7 +927,7 @@ describe('status-model: drift protection (D2)', () => {
   ];
 
   it('serialized source reproduces the real functions for a full op script', () => {
-    const real = runScript({ newModel, applySnapshot, upsertAgent, removeAgent, removeSession, deriveStatus, modelCounts, sessionDirKey, partitionSession, listDirectories, activeAgentKeys }, fullScript);
+    const real = runScript({ newModel, applySnapshot, upsertAgent, removeAgent, removeSession, deriveStatus, modelCounts, sessionDirKey, partitionSession, listDirectories, activeAgentKeys, activeAgentKeysWithAncestors, subtreeKeys }, fullScript);
     const fake = runScript(vmModel(), fullScript);
     expect(fake).toBe(real);
   });

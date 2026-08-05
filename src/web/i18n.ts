@@ -180,7 +180,9 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'status.main': 'main', 'status.sub': 'sub', 'status.ended': 'session ended',
     'status.stale': 'stale', 'status.busy': 'busy', 'status.idle': 'idle', 'status.running': 'running',
     'status.completed': 'completed', 'status.failed': 'failed', 'status.killed': 'killed',
-    'status.suspended': 'suspended', 'status.unknown': 'unknown'
+    'status.suspended': 'suspended', 'status.unknown': 'unknown',
+    'status.ancestorBadge': 'via sub-agent',
+    'status.subtreeCollapse': 'Collapse subtree', 'status.subtreeExpand': 'Expand subtree'
   },
   'zh-CN': {
     'app.brand': 'MOA 工作区', 'app.nav': '主导航', 'app.debate': 'MOA 辩论', 'app.memory': '工作区记忆', 'app.runs': 'MoA 运行', 'app.status': 'Agent 状态', 'app.system': '系统健康',
@@ -287,7 +289,9 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'status.main': '主', 'status.sub': '子', 'status.ended': '会话已结束',
     'status.stale': '陈旧', 'status.busy': '忙碌', 'status.idle': '空闲', 'status.running': '运行中',
     'status.completed': '已完成', 'status.failed': '失败', 'status.killed': '已终止',
-    'status.suspended': '已挂起', 'status.unknown': '未知'
+    'status.suspended': '已挂起', 'status.unknown': '未知',
+    'status.ancestorBadge': '经子 agent 带出',
+    'status.subtreeCollapse': '收起子树', 'status.subtreeExpand': '展开子树'
   }
 };
 

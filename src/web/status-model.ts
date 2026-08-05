@@ -808,6 +808,72 @@ export function activeAgentKeys(model: StatusModel): string[] {
   return out;
 }
 
+/**
+ * 活跃分区 + 祖先链闭包（B1，0.11.0）：对 activeAgentKeys 的每个活跃叶，沿 parentKey
+ * 向上收集祖先（visited 防环，复用 wouldCycle 的链遍历基建）；输出序 = **每个活跃叶
+ * 前插其祖先链**（祖先链反向序→叶），禁止全局重排（activeAgentKeys 是稳定序，跨 flush
+ * 不抖动）。祖先项标记 `rollupActive=true`，与"自身活跃"严格区分——isActiveAgent 不动；
+ * 一个既是活跃种子又是他人祖先的 key 保持其种子身份（rollupActive=false），因为 DFS 序
+ * 保证祖先先于后代被处理。
+ */
+export function activeAgentKeysWithAncestors(
+  model: StatusModel,
+): Array<{ key: string; rollupActive: boolean }> {
+  const seeds = activeAgentKeys(model);
+  const out: Array<{ key: string; rollupActive: boolean }> = [];
+  const seen: Record<string, boolean> = {};
+  for (let i = 0; i < seeds.length; i++) {
+    const leaf = seeds[i];
+    const ancestors: string[] = [];
+    const visited: Record<string, boolean> = {};
+    let cur: string | null = model.byKey[leaf] ? model.byKey[leaf].parentKey || null : null;
+    while (cur && !visited[cur]) {
+      visited[cur] = true;
+      const e = model.byKey[cur];
+      if (!e) break; // broken chain: stop here (the missing parent is not rendered)
+      ancestors.push(cur);
+      cur = e.parentKey || null;
+    }
+    // 祖先链反向序（根→叶）→ 叶子；已在前面输出的 key 不重复。
+    for (let j = ancestors.length - 1; j >= 0; j--) {
+      const ak = ancestors[j];
+      if (seen[ak]) continue;
+      seen[ak] = true;
+      out.push({ key: ak, rollupActive: true });
+    }
+    if (!seen[leaf]) {
+      seen[leaf] = true;
+      out.push({ key: leaf, rollupActive: false });
+    }
+  }
+  return out;
+}
+
+/**
+ * 子树 DFS key 列表（C1，0.11.0）：visited 防环，从 rootKey 出发沿 children 前序
+ * 遍历（含 rootKey 自身）。页面用它枚举子树成员以做懒建/拆除（折叠=清容器+从 rowEls
+ * 删子树 key 防幽灵，展开=懒建）。不得用于 session 计数（updateSessionEl 的计数是
+ * partition 数组长度 O(1)，本批不做计数缓存）。
+ */
+export function subtreeKeys(model: StatusModel, rootKey: string): string[] {
+  const out: string[] = [];
+  const visited: Record<string, boolean> = {};
+  const stack: string[] = [rootKey];
+  while (stack.length) {
+    const key = stack.pop();
+    if (key === undefined || visited[key]) continue;
+    visited[key] = true;
+    out.push(key);
+    const e = model.byKey[key];
+    if (!e) continue;
+    const children = e.children;
+    for (let j = children.length - 1; j >= 0; j--) {
+      if (!visited[children[j]]) stack.push(children[j]);
+    }
+  }
+  return out;
+}
+
 /** (source-level name, function) pairs serialized into the page (F1). The IIFE
  *  binds each serialized source positionally to its fixed name below, so
  *  esbuild's cross-module renames (agentKey -> agentKey2 in the production
@@ -841,6 +907,8 @@ const MODEL_FUNCTIONS: Array<[string, (...args: any[]) => any]> = [
   ['partitionSession', partitionSession],
   ['listDirectories', listDirectories],
   ['activeAgentKeys', activeAgentKeys],
+  ['activeAgentKeysWithAncestors', activeAgentKeysWithAncestors],
+  ['subtreeKeys', subtreeKeys],
 ];
 
 /** Public API surface the page consumes (subset of MODEL_FUNCTIONS). */
@@ -859,6 +927,8 @@ const MODEL_API_EXPORTS = [
   'partitionSession',
   'listDirectories',
   'activeAgentKeys',
+  'activeAgentKeysWithAncestors',
+  'subtreeKeys',
 ];
 
 /** The name the function actually carries in this build (its `toString()`

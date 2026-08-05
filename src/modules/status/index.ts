@@ -298,7 +298,16 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
       const agent = fold.applyOmkcEvent(ev);
       // subagent.* events are filed under the parent — the returned agent is
       // the one whose state actually changed, so dirty that one.
-      if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
+      if (agent) {
+        dirty(agentKey(agent.sessionId, agent.agentId));
+        // A3 (0.11.0): omkc events carry no workDirHash/home (applyOmkcEvent's
+        // ensure() takes neither), so the self-heal invalidation goes to every
+        // watcher by sessionId — a row-less session gets its state.json dual
+        // key re-armed and applySessionState rebuilds the row + lineage.
+        if (!fold.hasSessionRow(agent.sessionId)) {
+          for (const w of watchers.values()) w.invalidateSessionStateById(agent.sessionId);
+        }
+      }
     },
   });
 
@@ -307,14 +316,24 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
   function attachHome(spec: HomeSpec): void {
     if (watchers.has(spec.home)) return;
     const root = sessionsRoot(spec.home);
-    const watcher = new WireWatcher({
+    let watcher: WireWatcher;
+    watcher = new WireWatcher({
       home: spec.label,
       root,
       scanIntervalMs: opts.scanIntervalMs,
       pollIntervalMs: opts.pollIntervalMs,
-      onRecord: (ref, _raw, record) => {
-        const agent = fold.applyWire(ref, record);
-        if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
+      onRecord: (ref, _raw, record, fallbackTs) => {
+        const agent = fold.applyWire(ref, record, fallbackTs);
+        if (agent) {
+          dirty(agentKey(agent.sessionId, agent.agentId));
+          // A3 (0.11.0): a wire record landing for a session whose fold row was
+          // evicted means the row + its parentAgentId lineage are gone (there is
+          // no other rebuild path). Invalidate the session's state.json dual key
+          // so the next scan re-reads it and applySessionState rebuilds both.
+          // Only new activity invalidates — eviction itself never does, so a
+          // dead session stays evicted (no evict→reread→evict loop).
+          if (!fold.hasSessionRow(ref.sessionId)) watcher.invalidateSessionState(ref);
+        }
       },
       onSessionState: (ref, state) => {
         fold.applySessionState(ref, state);
@@ -329,6 +348,9 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
         fold.applyTask(ref, task);
         // tasks/*.json mutations land on the owning agent's subagents list.
         dirty(agentKey(ref.sessionId, ref.agentId));
+        // A3: same self-heal as onRecord — a task record for an evicted
+        // session must re-arm the state.json re-read.
+        if (!fold.hasSessionRow(ref.sessionId)) watcher.invalidateSessionState(ref);
       },
     });
     watcher.start();
@@ -368,6 +390,18 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
         // agent frame with fresh state, firstSeen reset included.
         const sweepIntervalMs = opts.sweepIntervalMs ?? SWEEP_MS;
         sweepTimer = setInterval(() => {
+          // A1 (0.11.0): skip this round while any tail is still catching up —
+          // including the scan window itself, because new tails are sized at
+          // registration (watcher.scanSession) so catchingUp reads > 0 from
+          // the moment a non-empty wire is discovered until its pump drains it.
+          // A slow-disk first scan therefore can no longer let the sweep evict
+          // freshly-restored lineage before the pump folds it. NOTE: the guard
+          // deliberately checks ONLY catchingUp, not `scanning` — with equal
+          // sweep/scan intervals (5000ms in production) the two timers are
+          // phase-aligned, and an unconditional `scanning` check would block
+          // every sweep tick against the steady-state rescan and freeze
+          // eviction entirely (caught by the 0.8.1 eviction-gone-frame tests).
+          if (watchersCatchingUp()) return;
           const evicted = fold.sweepStale();
           if (goneListeners.size === 0) return; // nobody to notify
           if (evicted.evictedAgents.length === 0 && evicted.evictedSessions.length === 0) return;
