@@ -32,6 +32,7 @@ import type { RunStatus, RunSummary } from '../core/store/run-read-model.js';
 import type { TipsAuthority } from '../core/store/tips-authority.js';
 import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
 import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
+import { STATUS_BOARD_HTML } from '../web/status-board.js';
 import {
   HANDOFF_ID_PATTERN,
   HANDOFF_STATES,
@@ -586,6 +587,22 @@ export class ControlPlane {
         'content-type': 'text/html; charset=utf-8',
       });
       res.end(CONTROL_PLANE_HTML);
+      return true;
+    }
+
+    // 0.9.0: cross-home agent monitoring board (status-model page). Same
+    // exact-path precedent as /control-plane — a static page, not a module
+    // route, so it needs no controller wiring and always serves.
+    if (path === '/status-board') {
+      if (req.method !== 'GET') {
+        methodNotAllowed(res, 'GET');
+        return true;
+      }
+      res.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'text/html; charset=utf-8',
+      });
+      res.end(STATUS_BOARD_HTML);
       return true;
     }
 

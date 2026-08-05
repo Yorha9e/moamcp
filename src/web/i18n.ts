@@ -8,7 +8,7 @@ type Dictionary = Record<string, string>;
 export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
   en: {
     'app.brand': 'MOA Workspace', 'app.nav': 'Main navigation', 'app.debate': 'MOA Debate',
-    'app.memory': 'Workspace Memory', 'app.runs': 'MoA Runs', 'app.system': 'System Health',
+    'app.memory': 'Workspace Memory', 'app.runs': 'MoA Runs', 'app.status': 'Agent Status', 'app.system': 'System Health',
     'locale.group': 'Language', 'locale.zh': '中文', 'locale.en': 'EN',
     'theme.group': 'Theme', 'theme.option': 'Theme: {name}',
     'debate.title': 'MOA Debate', 'debate.context': 'Current debate context', 'debate.noTask': '(no task_id)',
@@ -163,10 +163,21 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'inbox.from': 'from {from}', 'inbox.to': 'to {to}',
     'inbox.consume': 'Consume', 'inbox.archive': 'Archive',
     'inbox.consumeConfirm': 'Mark this handoff as consumed? This is a terminal state.',
-    'inbox.archiveConfirm': 'Archive this handoff? It will be hidden from the default inbox view.'
+    'inbox.archiveConfirm': 'Archive this handoff? It will be hidden from the default inbox view.',
+    'status.title': 'Agent Status Board', 'status.connecting': 'connecting',
+    'status.notReady': 'Status controller is not running. Start or reuse a session to begin monitoring.',
+    'status.scanning': 'Scanning workspaces…', 'status.empty': 'No agents observed yet.',
+    'status.counts': '{agents} agents · {sessions} sessions',
+    'status.sessionCount': '{count} agents',
+    'status.colAgent': 'Agent', 'status.colKind': 'Kind', 'status.colModel': 'Model',
+    'status.colStatus': 'Status', 'status.colTool': 'Last tool', 'status.colSeen': 'Seen',
+    'status.main': 'main', 'status.sub': 'sub', 'status.ended': 'session ended',
+    'status.stale': 'stale', 'status.busy': 'busy', 'status.idle': 'idle', 'status.running': 'running',
+    'status.completed': 'completed', 'status.failed': 'failed', 'status.killed': 'killed',
+    'status.suspended': 'suspended', 'status.unknown': 'unknown'
   },
   'zh-CN': {
-    'app.brand': 'MOA 工作区', 'app.nav': '主导航', 'app.debate': 'MOA 辩论', 'app.memory': '工作区记忆', 'app.runs': 'MoA 运行', 'app.system': '系统健康',
+    'app.brand': 'MOA 工作区', 'app.nav': '主导航', 'app.debate': 'MOA 辩论', 'app.memory': '工作区记忆', 'app.runs': 'MoA 运行', 'app.status': 'Agent 状态', 'app.system': '系统健康',
     'locale.group': '语言', 'locale.zh': '中文', 'locale.en': 'EN', 'theme.group': '主题', 'theme.option': '主题：{name}',
     'debate.title': 'MOA 辩论', 'debate.context': '当前辩论上下文', 'debate.noTask': '（无 task_id）',
     'debate.activeTasks': '活跃任务', 'debate.loading': '加载中…', 'debate.noActiveTasks': '暂无活跃任务。', 'debate.tasksError': '无法加载 /tasks。', 'debate.pickTask': '选择任务',
@@ -253,7 +264,18 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'inbox.from': '来自 {from}', 'inbox.to': '发给 {to}',
     'inbox.consume': '标记已消费', 'inbox.archive': '归档',
     'inbox.consumeConfirm': '确认将此交接标记为已消费？这是终态。',
-    'inbox.archiveConfirm': '确认归档此交接？归档后将不在默认收件列表显示。'
+    'inbox.archiveConfirm': '确认归档此交接？归档后将不在默认收件列表显示。',
+    'status.title': 'Agent 状态看板', 'status.connecting': '连接中…',
+    'status.notReady': '状态控制器未启动。请启动或复用会话后开始监控。',
+    'status.scanning': '扫描工作区中…', 'status.empty': '尚未观测到任何 agent。',
+    'status.counts': '{agents} 个 agent · {sessions} 个会话',
+    'status.sessionCount': '{count} 个 agent',
+    'status.colAgent': 'Agent', 'status.colKind': '类型', 'status.colModel': '模型',
+    'status.colStatus': '状态', 'status.colTool': '最近工具', 'status.colSeen': '最近活跃',
+    'status.main': '主', 'status.sub': '子', 'status.ended': '会话已结束',
+    'status.stale': '陈旧', 'status.busy': '忙碌', 'status.idle': '空闲', 'status.running': '运行中',
+    'status.completed': '已完成', 'status.failed': '失败', 'status.killed': '已终止',
+    'status.suspended': '已挂起', 'status.unknown': '未知'
   }
 };
 

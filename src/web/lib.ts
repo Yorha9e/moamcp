@@ -168,11 +168,28 @@ export const LIB_JS = `
     });
   }
 
-  function connectSSE(url, onEvent, onState) {
+  /**
+   * SSE helper with 3-fail backoff and close-suppressed native reconnect.
+   * onEvent(data, type) receives every frame: plain messages arrive with
+   * type 'message'; frames carrying an 'event:' line (e.g. /status/events'
+   * snapshot/agent/session) are delivered through addEventListener with their
+   * event type — pass the expected type names as the optional eventTypes
+   * array so they reach the same handler (EventSource routes typed events
+   * away from onmessage).
+   */
+  function connectSSE(url, onEvent, onState, eventTypes) {
     var sse = null;
     var fails = 0;
     var delay = 800;
     var stopped = false;
+
+    function deliver(raw, type) {
+      var data = null;
+      try { data = JSON.parse(raw); } catch (_) { return; }
+      if (onEvent) {
+        try { onEvent(data, type); } catch (_) {}
+      }
+    }
 
     function connect() {
       if (stopped) return;
@@ -187,10 +204,19 @@ export const LIB_JS = `
 
       sse.onmessage = function(ev) {
         fails = 0;
-        if (onEvent) {
-          try { onEvent(JSON.parse(ev.data)); } catch (_) {}
-        }
+        deliver(ev.data, 'message');
       };
+
+      if (eventTypes && eventTypes.length) {
+        for (var i = 0; i < eventTypes.length; i++) {
+          (function (type) {
+            sse.addEventListener(type, function (ev) {
+              fails = 0;
+              deliver(ev.data, type);
+            });
+          })(eventTypes[i]);
+        }
+      }
 
       sse.onerror = function() {
         if (sse) { sse.close(); sse = null; }

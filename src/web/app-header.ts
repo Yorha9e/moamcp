@@ -1,9 +1,10 @@
-export type AppSection = 'debate' | 'memory' | 'runs' | 'system';
+export type AppSection = 'debate' | 'memory' | 'runs' | 'status' | 'system';
 
 const NAV_ITEMS: ReadonlyArray<{ id: string; section: AppSection; label: string; i18n: string; href: string }> = [
   { id: 'debateNav', section: 'debate', label: 'MOA Debate', i18n: 'app.debate', href: '/' },
   { id: 'memoryNav', section: 'memory', label: 'Workspace Memory', i18n: 'app.memory', href: '/control-plane?section=memory' },
   { id: 'runsNav', section: 'runs', label: 'MoA Runs', i18n: 'app.runs', href: '/control-plane?section=runs' },
+  { id: 'statusNav', section: 'status', label: 'Agent Status', i18n: 'app.status', href: '/status-board' },
   { id: 'systemNav', section: 'system', label: 'System Health', i18n: 'app.system', href: '/control-plane?section=system' },
 ];
 

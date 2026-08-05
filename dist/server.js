@@ -28538,9 +28538,9 @@ var StatusBroadcaster = class {
     this.manualSuppressed = false;
   }
   /** Record a change for one agent; no-op while suppressed. */
-  markDirty(agentKey2) {
+  markDirty(agentKey3) {
     if (this.suppressed()) return;
-    this.pending.add(agentKey2);
+    this.pending.add(agentKey3);
   }
   /**
    * Raise (true) / clear (false) the manual suppression flag — the watcher
@@ -31244,11 +31244,28 @@ var LIB_JS = `
     });
   }
 
-  function connectSSE(url, onEvent, onState) {
+  /**
+   * SSE helper with 3-fail backoff and close-suppressed native reconnect.
+   * onEvent(data, type) receives every frame: plain messages arrive with
+   * type 'message'; frames carrying an 'event:' line (e.g. /status/events'
+   * snapshot/agent/session) are delivered through addEventListener with their
+   * event type \u2014 pass the expected type names as the optional eventTypes
+   * array so they reach the same handler (EventSource routes typed events
+   * away from onmessage).
+   */
+  function connectSSE(url, onEvent, onState, eventTypes) {
     var sse = null;
     var fails = 0;
     var delay = 800;
     var stopped = false;
+
+    function deliver(raw, type) {
+      var data = null;
+      try { data = JSON.parse(raw); } catch (_) { return; }
+      if (onEvent) {
+        try { onEvent(data, type); } catch (_) {}
+      }
+    }
 
     function connect() {
       if (stopped) return;
@@ -31263,10 +31280,19 @@ var LIB_JS = `
 
       sse.onmessage = function(ev) {
         fails = 0;
-        if (onEvent) {
-          try { onEvent(JSON.parse(ev.data)); } catch (_) {}
-        }
+        deliver(ev.data, 'message');
       };
+
+      if (eventTypes && eventTypes.length) {
+        for (var i = 0; i < eventTypes.length; i++) {
+          (function (type) {
+            sse.addEventListener(type, function (ev) {
+              fails = 0;
+              deliver(ev.data, type);
+            });
+          })(eventTypes[i]);
+        }
+      }
 
       sse.onerror = function() {
         if (sse) { sse.close(); sse = null; }
@@ -31703,6 +31729,7 @@ var I18N_DICTIONARIES = {
     "app.debate": "MOA Debate",
     "app.memory": "Workspace Memory",
     "app.runs": "MoA Runs",
+    "app.status": "Agent Status",
     "app.system": "System Health",
     "locale.group": "Language",
     "locale.zh": "\u4E2D\u6587",
@@ -32011,7 +32038,32 @@ var I18N_DICTIONARIES = {
     "inbox.consume": "Consume",
     "inbox.archive": "Archive",
     "inbox.consumeConfirm": "Mark this handoff as consumed? This is a terminal state.",
-    "inbox.archiveConfirm": "Archive this handoff? It will be hidden from the default inbox view."
+    "inbox.archiveConfirm": "Archive this handoff? It will be hidden from the default inbox view.",
+    "status.title": "Agent Status Board",
+    "status.connecting": "connecting",
+    "status.notReady": "Status controller is not running. Start or reuse a session to begin monitoring.",
+    "status.scanning": "Scanning workspaces\u2026",
+    "status.empty": "No agents observed yet.",
+    "status.counts": "{agents} agents \xB7 {sessions} sessions",
+    "status.sessionCount": "{count} agents",
+    "status.colAgent": "Agent",
+    "status.colKind": "Kind",
+    "status.colModel": "Model",
+    "status.colStatus": "Status",
+    "status.colTool": "Last tool",
+    "status.colSeen": "Seen",
+    "status.main": "main",
+    "status.sub": "sub",
+    "status.ended": "session ended",
+    "status.stale": "stale",
+    "status.busy": "busy",
+    "status.idle": "idle",
+    "status.running": "running",
+    "status.completed": "completed",
+    "status.failed": "failed",
+    "status.killed": "killed",
+    "status.suspended": "suspended",
+    "status.unknown": "unknown"
   },
   "zh-CN": {
     "app.brand": "MOA \u5DE5\u4F5C\u533A",
@@ -32019,6 +32071,7 @@ var I18N_DICTIONARIES = {
     "app.debate": "MOA \u8FA9\u8BBA",
     "app.memory": "\u5DE5\u4F5C\u533A\u8BB0\u5FC6",
     "app.runs": "MoA \u8FD0\u884C",
+    "app.status": "Agent \u72B6\u6001",
     "app.system": "\u7CFB\u7EDF\u5065\u5EB7",
     "locale.group": "\u8BED\u8A00",
     "locale.zh": "\u4E2D\u6587",
@@ -32327,7 +32380,32 @@ var I18N_DICTIONARIES = {
     "inbox.consume": "\u6807\u8BB0\u5DF2\u6D88\u8D39",
     "inbox.archive": "\u5F52\u6863",
     "inbox.consumeConfirm": "\u786E\u8BA4\u5C06\u6B64\u4EA4\u63A5\u6807\u8BB0\u4E3A\u5DF2\u6D88\u8D39\uFF1F\u8FD9\u662F\u7EC8\u6001\u3002",
-    "inbox.archiveConfirm": "\u786E\u8BA4\u5F52\u6863\u6B64\u4EA4\u63A5\uFF1F\u5F52\u6863\u540E\u5C06\u4E0D\u5728\u9ED8\u8BA4\u6536\u4EF6\u5217\u8868\u663E\u793A\u3002"
+    "inbox.archiveConfirm": "\u786E\u8BA4\u5F52\u6863\u6B64\u4EA4\u63A5\uFF1F\u5F52\u6863\u540E\u5C06\u4E0D\u5728\u9ED8\u8BA4\u6536\u4EF6\u5217\u8868\u663E\u793A\u3002",
+    "status.title": "Agent \u72B6\u6001\u770B\u677F",
+    "status.connecting": "\u8FDE\u63A5\u4E2D\u2026",
+    "status.notReady": "\u72B6\u6001\u63A7\u5236\u5668\u672A\u542F\u52A8\u3002\u8BF7\u542F\u52A8\u6216\u590D\u7528\u4F1A\u8BDD\u540E\u5F00\u59CB\u76D1\u63A7\u3002",
+    "status.scanning": "\u626B\u63CF\u5DE5\u4F5C\u533A\u4E2D\u2026",
+    "status.empty": "\u5C1A\u672A\u89C2\u6D4B\u5230\u4EFB\u4F55 agent\u3002",
+    "status.counts": "{agents} \u4E2A agent \xB7 {sessions} \u4E2A\u4F1A\u8BDD",
+    "status.sessionCount": "{count} \u4E2A agent",
+    "status.colAgent": "Agent",
+    "status.colKind": "\u7C7B\u578B",
+    "status.colModel": "\u6A21\u578B",
+    "status.colStatus": "\u72B6\u6001",
+    "status.colTool": "\u6700\u8FD1\u5DE5\u5177",
+    "status.colSeen": "\u6700\u8FD1\u6D3B\u8DC3",
+    "status.main": "\u4E3B",
+    "status.sub": "\u5B50",
+    "status.ended": "\u4F1A\u8BDD\u5DF2\u7ED3\u675F",
+    "status.stale": "\u9648\u65E7",
+    "status.busy": "\u5FD9\u788C",
+    "status.idle": "\u7A7A\u95F2",
+    "status.running": "\u8FD0\u884C\u4E2D",
+    "status.completed": "\u5DF2\u5B8C\u6210",
+    "status.failed": "\u5931\u8D25",
+    "status.killed": "\u5DF2\u7EC8\u6B62",
+    "status.suspended": "\u5DF2\u6302\u8D77",
+    "status.unknown": "\u672A\u77E5"
   }
 };
 var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
@@ -32418,6 +32496,7 @@ var NAV_ITEMS = [
   { id: "debateNav", section: "debate", label: "MOA Debate", i18n: "app.debate", href: "/" },
   { id: "memoryNav", section: "memory", label: "Workspace Memory", i18n: "app.memory", href: "/control-plane?section=memory" },
   { id: "runsNav", section: "runs", label: "MoA Runs", i18n: "app.runs", href: "/control-plane?section=runs" },
+  { id: "statusNav", section: "status", label: "Agent Status", i18n: "app.status", href: "/status-board" },
   { id: "systemNav", section: "system", label: "System Health", i18n: "app.system", href: "/control-plane?section=system" }
 ];
 function renderAppHeader(active) {
@@ -35148,6 +35227,1094 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
 </html>
 `;
 
+// src/web/status-model.ts
+function agentKey2(sessionId, agentId) {
+  return `${sessionId}:${agentId}`;
+}
+function newModel() {
+  return {
+    byKey: {},
+    roots: {},
+    sessions: {},
+    sessionOrder: [],
+    pending: {},
+    orphans: {},
+    seq: 0
+  };
+}
+function removeFromArray(arr, value) {
+  if (!arr) return;
+  const i = arr.indexOf(value);
+  if (i >= 0) arr.splice(i, 1);
+}
+function ensureSession(model, sessionId, info) {
+  let row = model.sessions[sessionId];
+  if (!row) {
+    row = { sessionId, gone: false };
+    model.sessions[sessionId] = row;
+    model.sessionOrder.push(sessionId);
+    model.roots[sessionId] = model.roots[sessionId] || [];
+  } else if (row.gone) {
+    row.gone = false;
+  }
+  if (info) {
+    if (typeof info.title === "string") row.title = info.title;
+    if (typeof info.workDir === "string") row.workDir = info.workDir;
+    if (typeof info.home === "string") row.home = info.home;
+  }
+  return row;
+}
+function upsertSession(model, session) {
+  if (!session || typeof session.sessionId !== "string") return;
+  const row = ensureSession(model, session.sessionId, session);
+  if (typeof session.createdAt === "string") row.createdAt = session.createdAt;
+  if (typeof session.updatedAt === "string") row.updatedAt = session.updatedAt;
+}
+function pushRoot(model, entry) {
+  const roots = model.roots[entry.sessionId] || (model.roots[entry.sessionId] = []);
+  if (roots.indexOf(entry.key) === -1) roots.push(entry.key);
+}
+function registerPending(model, parentKey, childKey) {
+  const list = model.pending[parentKey] || (model.pending[parentKey] = []);
+  if (list.indexOf(childKey) === -1) list.push(childKey);
+}
+function wouldCycle(model, startKey, targetKey) {
+  const seen = {};
+  let cur = startKey;
+  while (cur) {
+    if (cur === targetKey) return true;
+    if (seen[cur]) return true;
+    seen[cur] = true;
+    const e = model.byKey[cur];
+    cur = e ? e.parentKey || null : null;
+  }
+  return false;
+}
+function detachEntry(model, entry) {
+  if (entry.parentKey) {
+    const parent = model.byKey[entry.parentKey];
+    if (parent) removeFromArray(parent.children, entry.key);
+  } else {
+    const roots = model.roots[entry.sessionId];
+    if (roots) removeFromArray(roots, entry.key);
+  }
+  if (entry.pendingParent) {
+    const pend = model.pending[entry.pendingParent];
+    if (pend) removeFromArray(pend, entry.key);
+  }
+}
+function resolveAndAttach(model, entry) {
+  detachEntry(model, entry);
+  const raw = entry.parentAgentId;
+  let parentKey = null;
+  if (typeof raw === "string" && raw && raw !== entry.agentId) {
+    const candidate = agentKey2(entry.sessionId, raw);
+    const candEntry = model.byKey[candidate];
+    if (candEntry && !candEntry.orphan) {
+      if (!wouldCycle(model, candidate, entry.key)) parentKey = candidate;
+    } else {
+      entry.pendingParent = candidate;
+      registerPending(model, candidate, entry.key);
+      pushRoot(model, entry);
+      entry.parentKey = null;
+      return;
+    }
+  }
+  entry.pendingParent = void 0;
+  entry.parentKey = parentKey;
+  if (parentKey) {
+    model.byKey[parentKey].children.push(entry.key);
+    const roots = model.roots[entry.sessionId];
+    if (roots) removeFromArray(roots, entry.key);
+  } else {
+    pushRoot(model, entry);
+  }
+}
+function fillOrphans(model, entry) {
+  const subs = entry.subagents;
+  if (!Array.isArray(subs) || subs.length === 0) return;
+  for (let i = 0; i < subs.length; i++) {
+    const sub = subs[i];
+    if (!sub || typeof sub !== "object") continue;
+    const subId = typeof sub.subagentId === "string" ? sub.subagentId : void 0;
+    if (!subId) continue;
+    const skey = agentKey2(entry.sessionId, subId);
+    const existing = model.byKey[skey];
+    if (existing && !existing.orphan) continue;
+    if (model.orphans[skey] !== void 0) continue;
+    const ts = typeof sub.ts === "number" ? sub.ts : 0;
+    const orphan = {
+      key: skey,
+      sessionId: entry.sessionId,
+      agentId: subId,
+      parentKey: entry.key,
+      kind: "sub",
+      orphan: true,
+      subStatus: typeof sub.status === "string" ? sub.status : "unknown",
+      subName: typeof sub.name === "string" ? sub.name : void 0,
+      subDescription: typeof sub.description === "string" ? sub.description : void 0,
+      busy: false,
+      stale: false,
+      lastSeen: ts,
+      firstSeen: ts,
+      subagents: [],
+      children: [],
+      seq: model.seq++
+    };
+    model.byKey[skey] = orphan;
+    model.orphans[skey] = entry.key;
+    entry.children.push(skey);
+  }
+}
+function drainPending(model, parentKey) {
+  const pend = model.pending[parentKey];
+  if (!pend || pend.length === 0) return;
+  delete model.pending[parentKey];
+  for (let i = 0; i < pend.length; i++) {
+    const childKey = pend[i];
+    const child = model.byKey[childKey];
+    if (!child || child.orphan) continue;
+    if (child.pendingParent !== parentKey) continue;
+    resolveAndAttach(model, child);
+  }
+}
+function normalizeEntry(model, agent, existing) {
+  const entry = existing || {
+    key: agentKey2(agent.sessionId, agent.agentId),
+    sessionId: agent.sessionId,
+    agentId: agent.agentId,
+    parentKey: null,
+    busy: false,
+    stale: false,
+    lastSeen: 0,
+    firstSeen: 0,
+    orphan: false,
+    subagents: [],
+    children: [],
+    seq: model.seq++
+  };
+  entry.sessionId = agent.sessionId;
+  entry.agentId = agent.agentId;
+  entry.parentAgentId = typeof agent.parentAgentId === "string" ? agent.parentAgentId : null;
+  if (typeof agent.kind === "string") entry.kind = agent.kind;
+  if (typeof agent.model === "string") entry.model = agent.model;
+  if (typeof agent.phase === "string" && agent.phase) entry.phase = agent.phase;
+  if (typeof agent.home === "string") entry.home = agent.home;
+  if (typeof agent.workDirHash === "string") entry.workDirHash = agent.workDirHash;
+  if (typeof agent.contextTokens === "number") entry.contextTokens = agent.contextTokens;
+  if (typeof agent.planMode === "boolean") entry.planMode = agent.planMode;
+  if (typeof agent.busy === "boolean") entry.busy = agent.busy;
+  if (typeof agent.stale === "boolean") entry.stale = agent.stale;
+  if (typeof agent.lastFinishReason === "string") entry.lastFinishReason = agent.lastFinishReason;
+  if (typeof agent.lastTurnReason === "string") entry.lastTurnReason = agent.lastTurnReason;
+  if (typeof agent.lastSeen === "number") entry.lastSeen = agent.lastSeen;
+  if (typeof agent.firstSeen === "number") entry.firstSeen = agent.firstSeen;
+  if (typeof agent.source === "string") entry.source = agent.source;
+  entry.subagents = Array.isArray(agent.subagents) ? agent.subagents : [];
+  return entry;
+}
+function pruneEmptySession(model, sessionId) {
+  const keys = Object.keys(model.byKey);
+  for (let i = 0; i < keys.length; i++) {
+    if (model.byKey[keys[i]].sessionId === sessionId) return;
+  }
+  delete model.sessions[sessionId];
+  delete model.roots[sessionId];
+  removeFromArray(model.sessionOrder, sessionId);
+}
+function upsertAgent(model, agent) {
+  const sessionId = agent?.sessionId;
+  const agentId = agent?.agentId;
+  if (typeof sessionId !== "string" || typeof agentId !== "string") {
+    return { key: "", sessionId: "", created: false };
+  }
+  const key = agentKey2(sessionId, agentId);
+  const existing = model.byKey[key];
+  ensureSession(model, sessionId, agent);
+  if (existing && existing.orphan) {
+    const orphanParentKey = model.orphans[key];
+    if (orphanParentKey !== void 0) {
+      delete model.orphans[key];
+      const parent = model.byKey[orphanParentKey];
+      if (parent) removeFromArray(parent.children, key);
+    }
+    delete model.byKey[key];
+  }
+  const entry = normalizeEntry(model, agent, existing && !existing.orphan ? existing : void 0);
+  model.byKey[key] = entry;
+  resolveAndAttach(model, entry);
+  fillOrphans(model, entry);
+  drainPending(model, key);
+  return { key, sessionId, created: !existing || existing.orphan };
+}
+function removeAgent(model, sessionId, agentId) {
+  const key = agentKey2(sessionId, agentId);
+  const entry = model.byKey[key];
+  if (!entry) return { removed: [] };
+  if (entry.orphan) {
+    delete model.byKey[key];
+    delete model.orphans[key];
+    if (entry.parentKey) {
+      const parent = model.byKey[entry.parentKey];
+      if (parent) removeFromArray(parent.children, key);
+    }
+    if (entry.pendingParent) {
+      const pend = model.pending[entry.pendingParent];
+      if (pend) removeFromArray(pend, key);
+    }
+    return { removed: [key] };
+  }
+  const children = entry.children.slice();
+  const removed = [];
+  for (let i = 0; i < children.length; i++) {
+    const ck = children[i];
+    const child = model.byKey[ck];
+    if (child && child.orphan) {
+      delete model.byKey[ck];
+      delete model.orphans[ck];
+      removed.push(ck);
+    }
+  }
+  removed.push(key);
+  delete model.byKey[key];
+  detachEntry(model, entry);
+  for (let i = 0; i < children.length; i++) {
+    const ck = children[i];
+    const child = model.byKey[ck];
+    if (!child || child.orphan) continue;
+    if (child.pendingParent && child.pendingParent !== key) {
+      const oldPend = model.pending[child.pendingParent];
+      if (oldPend) removeFromArray(oldPend, ck);
+    }
+    child.parentKey = null;
+    child.pendingParent = key;
+    pushRoot(model, child);
+    registerPending(model, key, ck);
+  }
+  pruneEmptySession(model, sessionId);
+  return { removed };
+}
+function removeSession(model, sessionId) {
+  const row = model.sessions[sessionId];
+  if (!row) return { removed: false, kept: [] };
+  const keys = Object.keys(model.byKey);
+  const live = [];
+  for (let i = 0; i < keys.length; i++) {
+    if (model.byKey[keys[i]].sessionId === sessionId) live.push(keys[i]);
+  }
+  if (live.length === 0) {
+    delete model.sessions[sessionId];
+    delete model.roots[sessionId];
+    removeFromArray(model.sessionOrder, sessionId);
+    return { removed: true, kept: [] };
+  }
+  row.gone = true;
+  return { removed: false, kept: live };
+}
+function applySnapshot(model, snapshot) {
+  model.byKey = {};
+  model.roots = {};
+  model.sessions = {};
+  model.sessionOrder = [];
+  model.pending = {};
+  model.orphans = {};
+  model.seq = 0;
+  const sessions = Array.isArray(snapshot?.sessions) ? snapshot.sessions : [];
+  const agents = Array.isArray(snapshot?.agents) ? snapshot.agents : [];
+  for (let i = 0; i < sessions.length; i++) upsertSession(model, sessions[i]);
+  for (let i = 0; i < agents.length; i++) upsertAgent(model, agents[i]);
+  return model;
+}
+function modelCounts(model) {
+  const keys = Object.keys(model.byKey);
+  const seen = {};
+  let sessions = 0;
+  for (let i = 0; i < keys.length; i++) {
+    const s = model.byKey[keys[i]].sessionId;
+    if (!seen[s]) {
+      seen[s] = true;
+      sessions++;
+    }
+  }
+  return { agents: keys.length, sessions };
+}
+function statusOf(st) {
+  switch (st) {
+    case "busy":
+      return { key: "busy", tone: "busy" };
+    case "running":
+    case "started":
+      return { key: "running", tone: "busy" };
+    case "completed":
+      return { key: "completed", tone: "done" };
+    case "killed":
+      return { key: "killed", tone: "err" };
+    case "failed":
+      return { key: "failed", tone: "err" };
+    case "suspended":
+      return { key: "suspended", tone: "warn" };
+    case "idle":
+      return { key: "idle", tone: "idle" };
+    default:
+      return { key: "unknown", tone: "idle" };
+  }
+}
+function phaseOf(phase, busy) {
+  switch (phase) {
+    case "idle":
+      return { key: "idle", tone: "idle" };
+    case "done":
+    case "complete":
+    case "completed":
+      return { key: "completed", tone: "done" };
+    case "failed":
+      return { key: "failed", tone: "err" };
+    case "suspended":
+    case "blocked":
+    case "waiting":
+    case "cancelled":
+      return { key: "suspended", tone: "warn" };
+    case "thinking":
+    case "working":
+    case "tool":
+    case "writing":
+    case "reading":
+      return { key: "busy", tone: "busy" };
+    default:
+      return { key: busy ? "busy" : "idle", tone: busy ? "busy" : "idle", label: phase };
+  }
+}
+function deriveStatus(entry) {
+  if (!entry) return { key: "unknown", tone: "idle" };
+  if (entry.stale === true) return { key: "stale", tone: "stale" };
+  if (entry.orphan) {
+    const st = entry.subStatus || "unknown";
+    if (st === "spawned") return { key: "running", tone: "busy" };
+    return statusOf(st);
+  }
+  if (typeof entry.phase === "string" && entry.phase) return phaseOf(entry.phase, entry.busy === true);
+  if (entry.busy === true) return { key: "busy", tone: "busy" };
+  const reason = entry.lastTurnReason || entry.lastFinishReason;
+  if (typeof reason === "string" && reason) {
+    if (reason === "completed" || reason === "end_turn" || reason === "done") return { key: "completed", tone: "done" };
+    if (reason === "failed" || reason === "error") return { key: "failed", tone: "err" };
+    if (reason === "cancelled" || reason === "blocked") return { key: "suspended", tone: "warn" };
+  }
+  return { key: "idle", tone: "idle" };
+}
+var MODEL_FUNCTIONS = [
+  agentKey2,
+  newModel,
+  upsertSession,
+  upsertAgent,
+  removeAgent,
+  removeSession,
+  applySnapshot,
+  modelCounts,
+  deriveStatus,
+  removeFromArray,
+  ensureSession,
+  pushRoot,
+  registerPending,
+  wouldCycle,
+  detachEntry,
+  resolveAndAttach,
+  fillOrphans,
+  drainPending,
+  normalizeEntry,
+  pruneEmptySession,
+  statusOf,
+  phaseOf
+];
+var STATUS_MODEL_JS = `(function () {
+'use strict';
+${MODEL_FUNCTIONS.map((fn) => fn.toString()).join("\n")}
+window.__moaStatusModel = {
+  agentKey: agentKey,
+  newModel: newModel,
+  upsertSession: upsertSession,
+  upsertAgent: upsertAgent,
+  removeAgent: removeAgent,
+  removeSession: removeSession,
+  applySnapshot: applySnapshot,
+  modelCounts: modelCounts,
+  deriveStatus: deriveStatus
+};
+})();`;
+
+// src/web/status-board.ts
+var STATUS_BOARD_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="status.title">Agent Status Board</title>
+<style>
+${TOKENS_CSS}
+${COMPONENTS_CSS}
+
+/* Status Board Specific Styles */
+.sb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+/* The single allowed page-wide animation: the live dot. Busy rows are static. */
+.sb-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+  animation: sbPulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.sb-live.off {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
+@keyframes sbPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+}
+.sb-conn {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.sb-conn.ok {
+  color: var(--accent-green);
+}
+.sb-counts {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.sb-notready {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--tint-amber);
+  border: 1px solid var(--tint-amber-border);
+  border-radius: var(--r-md);
+  color: var(--accent-amber);
+  font-size: 13px;
+}
+.sb-notready[hidden] {
+  display: none;
+}
+.sb-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  margin: 0 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  font-size: 11px;
+}
+.sb-scan[hidden] {
+  display: none;
+}
+.sb-scan .spin {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+}
+/* Long-scroll region: opaque, blur-free (frontend-v3-design.md:72-77 hard rule). */
+.sb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 210px);
+  overflow-y: auto;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.sb-session {
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.sb-session.gone .sb-session-head {
+  opacity: 0.55;
+}
+.sb-session-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.sb-session-title {
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.sb-session-sub {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-ended {
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+}
+.sb-session-count {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.sb-colhead {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) 56px minmax(120px, 1fr) 104px minmax(110px, 1fr) 66px;
+  gap: 10px;
+  padding: 6px 14px;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+.sb-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) 56px minmax(120px, 1fr) 104px minmax(110px, 1fr) 66px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.sb-row:last-child {
+  border-bottom: none;
+}
+.sb-row:hover {
+  background: var(--hover-tint-subtle);
+}
+/* Static busy highlight: no pulse animation (D5 budget). */
+.sb-row.busy {
+  background: var(--tint-green-soft);
+}
+.sb-row.busy .sb-agent {
+  color: var(--accent-green);
+}
+/* E8: stale rows grey out and suppress the busy highlight. */
+.sb-row.stale {
+  opacity: 0.45;
+}
+.sb-row.stale .sb-status {
+  background: var(--surface-strong);
+  color: var(--text-faint);
+}
+.sb-agent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-guide {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.sb-kind {
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  justify-self: start;
+  text-transform: none;
+}
+.sb-kind.main {
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+}
+.sb-kind.sub {
+  background: var(--tint-purple);
+  color: var(--accent-purple);
+}
+.sb-model {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-status {
+  justify-self: start;
+  padding: 1px 9px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  line-height: 18px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+}
+.sb-status.st-busy {
+  background: var(--tint-green);
+  color: var(--accent-green);
+}
+.sb-status.st-done {
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+}
+.sb-status.st-err {
+  background: var(--tint-red);
+  color: var(--accent-red);
+}
+.sb-status.st-warn {
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+}
+.sb-status.st-stale {
+  background: var(--surface-strong);
+  color: var(--text-faint);
+}
+.sb-tool {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-tool.err {
+  color: var(--accent-red);
+}
+.sb-seen {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.sb-empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--text-faint);
+}
+.sb-empty[hidden] {
+  display: none;
+}
+</style>
+${THEME_BOOTSTRAP}
+${I18N_BOOTSTRAP}
+</head>
+<body>
+<div class="aurora-bg"></div>
+<div class="shell">
+  ${renderAppHeader("status")}
+  <div class="sb-toolbar">
+    <span class="sb-live" id="sbLive"></span>
+    <span class="sb-conn" id="sbConn" data-i18n="status.connecting">connecting</span>
+    <span class="sb-counts" id="sbCounts"></span>
+  </div>
+  <div class="sb-notready" id="sbNotReady" hidden data-i18n="status.notReady">Status controller is not running. Start or reuse a session to begin monitoring.</div>
+  <div class="sb-scan" id="sbScan" hidden><span class="spin"></span><span data-i18n="status.scanning">Scanning workspaces\u2026</span></div>
+  <div class="sb-list" id="sbList"></div>
+  <div class="sb-empty" id="sbEmpty" hidden data-i18n="status.empty">No agents observed yet.</div>
+</div>
+<script>
+${I18N_JS}
+${LIB_JS}
+${STATUS_MODEL_JS}
+(function () {
+  'use strict';
+  var M = window.__moaStatusModel;
+  var tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
+  var model = M.newModel();
+  var board = document.getElementById('sbList');
+  var connEl = document.getElementById('sbConn');
+  var liveEl = document.getElementById('sbLive');
+  var countsEl = document.getElementById('sbCounts');
+  var scanEl = document.getElementById('sbScan');
+  var notReadyEl = document.getElementById('sbNotReady');
+  var emptyEl = document.getElementById('sbEmpty');
+  var rowEls = {};
+  var sessionEls = {};
+  var pendingFrames = [];
+  var flushScheduled = false;
+
+  function setConn(state, msg) {
+    if (connEl) {
+      connEl.textContent = msg;
+      connEl.className = 'sb-conn' + (state === 'open' ? ' ok' : '');
+    }
+    if (liveEl) liveEl.className = 'sb-live' + (state === 'open' ? '' : ' off');
+  }
+  function showNotReady() { if (notReadyEl) notReadyEl.hidden = false; }
+  function hideNotReady() { if (notReadyEl) notReadyEl.hidden = true; }
+  function setScan(scanning) { if (scanEl) scanEl.hidden = !scanning; }
+  function updateCounts() {
+    if (!countsEl) return;
+    var c = M.modelCounts(model);
+    countsEl.textContent = tr('status.counts', { agents: c.agents, sessions: c.sessions });
+  }
+  function updateEmpty() {
+    if (emptyEl) emptyEl.hidden = M.modelCounts(model).agents > 0;
+  }
+
+  function depthOf(entry) {
+    var depth = 0;
+    var seen = {};
+    var cur = entry.parentKey;
+    while (cur && depth < 64) {
+      if (seen[cur]) return depth;
+      seen[cur] = true;
+      var p = model.byKey[cur];
+      if (!p) return depth;
+      depth++;
+      cur = p.parentKey;
+    }
+    return depth;
+  }
+
+  function cellText(row, cls, text) {
+    var cell = document.createElement('div');
+    cell.className = cls;
+    cell.textContent = text;
+    row.appendChild(cell);
+    return cell;
+  }
+
+  function createRowEl(key) {
+    var entry = model.byKey[key];
+    if (!entry) return null;
+    var row = document.createElement('div');
+    row.setAttribute('data-key', key);
+    row.className = 'sb-row';
+    var agentCell = document.createElement('div');
+    agentCell.className = 'sb-agent';
+    var guide = document.createElement('span');
+    guide.className = 'sb-guide';
+    var depth = depthOf(entry);
+    guide.textContent = depth > 0 ? (depth > 1 ? new Array(depth).join('\u2506') + '\u2514' : '\u2514') : '';
+    agentCell.appendChild(guide);
+    var name = document.createElement('span');
+    name.textContent = entry.agentId;
+    agentCell.appendChild(name);
+    row.appendChild(agentCell);
+    var isSub = entry.kind === 'sub' || entry.orphan;
+    var kindCell = cellText(row, 'sb-kind ' + (isSub ? 'sub' : 'main'), isSub ? tr('status.sub') : tr('status.main'));
+    var modelCell = cellText(row, 'sb-model', entry.model || '\u2013');
+    var st = M.deriveStatus(entry);
+    var statusCell = cellText(row, 'sb-status st-' + st.tone, st.label ? st.label : tr('status.' + st.key));
+    var toolCell = cellText(row, 'sb-tool', (entry.lastToolCall && entry.lastToolCall.name) ? entry.lastToolCall.name : '\u2013');
+    var seenCell = cellText(row, 'sb-seen', window.__moaLib.fmtClock(entry.lastSeen));
+    if (entry.stale) row.classList.add('stale');
+    if (entry.busy && !entry.stale) row.classList.add('busy');
+    if (entry.orphan) row.classList.add('orphan');
+    row.__cells = {
+      guide: guide,
+      name: name,
+      kind: kindCell,
+      model: modelCell,
+      status: statusCell,
+      tool: toolCell,
+      seen: seenCell,
+    };
+    return row;
+  }
+
+  function updateRowEl(key) {
+    var row = rowEls[key];
+    var entry = model.byKey[key];
+    if (!row || !entry || !row.__cells) return;
+    var cells = row.__cells;
+    var depth = depthOf(entry);
+    cells.guide.textContent = depth > 0 ? (depth > 1 ? new Array(depth).join('\u2506') + '\u2514' : '\u2514') : '';
+    cells.name.textContent = entry.agentId;
+    var isSub = entry.kind === 'sub' || entry.orphan;
+    cells.kind.className = 'sb-kind ' + (isSub ? 'sub' : 'main');
+    cells.kind.textContent = isSub ? tr('status.sub') : tr('status.main');
+    cells.model.textContent = entry.model || '\u2013';
+    var st = M.deriveStatus(entry);
+    cells.status.className = 'sb-status st-' + st.tone;
+    cells.status.textContent = st.label ? st.label : tr('status.' + st.key);
+    cells.tool.className = 'sb-tool' + (entry.lastToolCall && entry.lastToolCall.isError ? ' err' : '');
+    cells.tool.textContent = (entry.lastToolCall && entry.lastToolCall.name) ? entry.lastToolCall.name : '\u2013';
+    cells.seen.textContent = window.__moaLib.fmtClock(entry.lastSeen);
+    row.classList.toggle('stale', !!entry.stale);
+    row.classList.toggle('busy', !!entry.busy && !entry.stale);
+    row.classList.toggle('orphan', !!entry.orphan);
+  }
+
+  var COLS = ['status.colAgent', 'status.colKind', 'status.colModel', 'status.colStatus', 'status.colTool', 'status.colSeen'];
+
+  function ensureSessionEl(sessionId) {
+    if (sessionEls[sessionId]) return sessionEls[sessionId];
+    if (!board) return null;
+    var group = document.createElement('div');
+    group.className = 'sb-session';
+    group.setAttribute('data-session', sessionId);
+    var head = document.createElement('div');
+    head.className = 'sb-session-head';
+    var title = document.createElement('span');
+    title.className = 'sb-session-title';
+    var sub = document.createElement('span');
+    sub.className = 'sb-session-sub';
+    var ended = document.createElement('span');
+    ended.className = 'sb-ended';
+    ended.textContent = tr('status.ended');
+    ended.hidden = true;
+    var count = document.createElement('span');
+    count.className = 'sb-session-count';
+    head.appendChild(title);
+    head.appendChild(sub);
+    head.appendChild(ended);
+    head.appendChild(count);
+    var colhead = document.createElement('div');
+    colhead.className = 'sb-colhead';
+    var colCells = [];
+    for (var i = 0; i < COLS.length; i++) {
+      var c = document.createElement('span');
+      c.textContent = tr(COLS[i]);
+      colhead.appendChild(c);
+      colCells.push(c);
+    }
+    var rows = document.createElement('div');
+    rows.className = 'sb-rows';
+    group.appendChild(head);
+    group.appendChild(colhead);
+    group.appendChild(rows);
+    var info = { group: group, head: head, title: title, sub: sub, ended: ended, count: count, rows: rows, colCells: colCells };
+    sessionEls[sessionId] = info;
+    return info;
+  }
+
+  function updateSessionEl(sessionId) {
+    var info = ensureSessionEl(sessionId);
+    if (!info) return;
+    var row = model.sessions[sessionId] || {};
+    info.title.textContent = row.title || sessionId;
+    info.sub.textContent = row.workDir || (row.home || '');
+    info.ended.hidden = !row.gone;
+    info.group.classList.toggle('gone', !!row.gone);
+    var n = 0;
+    var keys = Object.keys(model.byKey);
+    for (var i = 0; i < keys.length; i++) {
+      if (model.byKey[keys[i]].sessionId === sessionId) n++;
+    }
+    info.count.textContent = tr('status.sessionCount', { count: n });
+  }
+
+  /** Re-append this session's rows in DFS tree order (visited-guarded). */
+  function resortSession(sessionId, container) {
+    container = container || board;
+    if (!container) return;
+    var order = [];
+    var visited = {};
+    var stack = [];
+    var roots = model.roots[sessionId] || [];
+    for (var i = roots.length - 1; i >= 0; i--) stack.push(roots[i]);
+    while (stack.length) {
+      var key = stack.pop();
+      if (visited[key]) continue;
+      visited[key] = true;
+      order.push(key);
+      var entry = model.byKey[key];
+      if (!entry) continue;
+      var children = entry.children;
+      for (var j = children.length - 1; j >= 0; j--) {
+        if (!visited[children[j]]) stack.push(children[j]);
+      }
+    }
+    if (order.length === 0) {
+      var info0 = sessionEls[sessionId];
+      if (info0) {
+        if (info0.group.parentNode) info0.group.parentNode.removeChild(info0.group);
+        delete sessionEls[sessionId];
+      }
+      return;
+    }
+    var info = ensureSessionEl(sessionId);
+    updateSessionEl(sessionId);
+    for (var m = 0; m < order.length; m++) {
+      var rk = order[m];
+      if (!rowEls[rk]) rowEls[rk] = createRowEl(rk);
+      else updateRowEl(rk); // refresh content on every flush (E1 reuse, no rebuild)
+    }
+    for (var n = 0; n < order.length; n++) {
+      var rk2 = order[n];
+      if (rowEls[rk2]) info.rows.appendChild(rowEls[rk2]);
+    }
+    container.appendChild(info.group);
+  }
+
+  function resortBoardGroups(container) {
+    container = container || board;
+    if (!container) return;
+    for (var i = 0; i < model.sessionOrder.length; i++) {
+      var info = sessionEls[model.sessionOrder[i]];
+      if (info) container.appendChild(info.group);
+    }
+  }
+
+  /** Full rebuild from a snapshot (D5: DocumentFragment batch build). */
+  function rebuildAll() {
+    if (!board) return;
+    rowEls = {};
+    sessionEls = {};
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < model.sessionOrder.length; i++) resortSession(model.sessionOrder[i], frag);
+    board.textContent = '';
+    var kids = frag.children;
+    for (var j = 0; j < kids.length; j++) board.appendChild(kids[j]);
+    updateCounts();
+    updateEmpty();
+  }
+
+  function handleSnapshot(snap) {
+    M.applySnapshot(model, snap);
+    rebuildAll();
+    hideNotReady();
+    setScan(!!(snap && snap.scan && snap.scan.scanning === true));
+  }
+
+  function handleGone(data) {
+    var sessionId = data && data.sessionId;
+    var result = M.removeAgent(model, sessionId, data && data.agentId);
+    for (var i = 0; i < result.removed.length; i++) {
+      var rk = result.removed[i];
+      var row = rowEls[rk];
+      if (row) {
+        if (row.parentNode) row.parentNode.removeChild(row);
+        delete rowEls[rk];
+      }
+    }
+  }
+
+  function queueFrame(data, type) {
+    pendingFrames.push({ data: data, type: type });
+    if (!flushScheduled) {
+      flushScheduled = true;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(flushFrames);
+      } else {
+        setTimeout(flushFrames, 0);
+      }
+    }
+  }
+
+  function flushFrames() {
+    flushScheduled = false;
+    var frames = pendingFrames;
+    pendingFrames = [];
+    var touched = {};
+    var rebuilt = false;
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      var type = f.type;
+      var data = f.data;
+      if (type === 'snapshot') {
+        handleSnapshot(data);
+        rebuilt = true;
+        continue;
+      }
+      if (type === 'session') {
+        if (data && data.gone === true && typeof data.sessionId === 'string') {
+          M.removeSession(model, data.sessionId);
+          touched[data.sessionId] = true;
+        }
+        continue;
+      }
+      if (type === 'agent' && data) {
+        var sid = typeof data.sessionId === 'string' ? data.sessionId : null;
+        if (data.gone === true) handleGone(data);
+        else M.upsertAgent(model, data);
+        if (sid) touched[sid] = true;
+      }
+    }
+    if (!rebuilt) {
+      for (var s in touched) resortSession(s);
+    }
+    updateCounts();
+    updateEmpty();
+  }
+
+  function probeStatus() {
+    try {
+      fetch('/status').then(function (res) {
+        var code = res.status;
+        var p = typeof res.json === 'function' ? res.json() : Promise.resolve(null);
+        return p.catch(function () { return null; }).then(function (data) {
+          if (code === 503 && data && data.error === 'status_not_ready') showNotReady();
+          else hideNotReady();
+        });
+      }).catch(function () { hideNotReady(); });
+    } catch (_) { hideNotReady(); }
+  }
+
+  function onSseState(state, msg) {
+    setConn(state, msg);
+    if (state === 'open') {
+      hideNotReady();
+    } else if (state === 'error') {
+      // EventSource never exposes the HTTP status: probe /status to classify
+      // 503 status_not_ready (controller not started / reuse session) from a
+      // plain connection failure (D4 E7).
+      probeStatus();
+    }
+  }
+
+  if (window.addEventListener) window.addEventListener('moamcp:localechange', function () {
+    tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
+    if (emptyEl) emptyEl.textContent = tr('status.empty');
+    if (notReadyEl) notReadyEl.textContent = tr('status.notReady');
+    if (scanEl) {
+      var label = scanEl.children && scanEl.children[1] ? scanEl.children[1] : null;
+      if (label) label.textContent = tr('status.scanning');
+    }
+    for (var sid in sessionEls) {
+      updateSessionEl(sid);
+      var info = sessionEls[sid];
+      for (var i = 0; i < COLS.length && info.colCells; i++) info.colCells[i].textContent = tr(COLS[i]);
+    }
+    for (var key in rowEls) updateRowEl(key);
+    updateCounts();
+  });
+
+  try {
+    window.__moaLib.connectSSE('/status/events', queueFrame, onSseState, ['snapshot', 'agent', 'session']);
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>
+`;
+
 // src/adapters/control-plane.ts
 var CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
 var WORKSPACE_ID = /^[0-9a-f]{16}$/;
@@ -35573,6 +36740,18 @@ var ControlPlane = class {
         "content-type": "text/html; charset=utf-8"
       });
       res.end(CONTROL_PLANE_HTML);
+      return true;
+    }
+    if (path2 === "/status-board") {
+      if (req.method !== "GET") {
+        methodNotAllowed(res, "GET");
+        return true;
+      }
+      res.writeHead(200, {
+        "cache-control": "no-store",
+        "content-type": "text/html; charset=utf-8"
+      });
+      res.end(STATUS_BOARD_HTML);
       return true;
     }
     let route;
