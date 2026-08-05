@@ -18667,44 +18667,67 @@ function deriveStatus(entry) {
   return { key: "idle", tone: "idle" };
 }
 var MODEL_FUNCTIONS = [
-  agentKey2,
-  newModel,
-  upsertSession,
-  upsertAgent,
-  removeAgent,
-  removeSession,
-  applySnapshot,
-  modelCounts,
-  deriveStatus,
-  removeFromArray,
-  ensureSession,
-  pushRoot,
-  registerPending,
-  wouldCycle,
-  detachEntry,
-  resolveAndAttach,
-  fillOrphans,
-  drainPending,
-  normalizeEntry,
-  pruneEmptySession,
-  statusOf,
-  phaseOf
+  ["agentKey", agentKey2],
+  ["newModel", newModel],
+  ["upsertSession", upsertSession],
+  ["upsertAgent", upsertAgent],
+  ["removeAgent", removeAgent],
+  ["removeSession", removeSession],
+  ["applySnapshot", applySnapshot],
+  ["modelCounts", modelCounts],
+  ["deriveStatus", deriveStatus],
+  ["removeFromArray", removeFromArray],
+  ["ensureSession", ensureSession],
+  ["pushRoot", pushRoot],
+  ["registerPending", registerPending],
+  ["wouldCycle", wouldCycle],
+  ["detachEntry", detachEntry],
+  ["resolveAndAttach", resolveAndAttach],
+  ["fillOrphans", fillOrphans],
+  ["drainPending", drainPending],
+  ["normalizeEntry", normalizeEntry],
+  ["pruneEmptySession", pruneEmptySession],
+  ["statusOf", statusOf],
+  ["phaseOf", phaseOf]
 ];
-var STATUS_MODEL_JS = `(function () {
-'use strict';
-${MODEL_FUNCTIONS.map((fn) => fn.toString()).join("\n")}
+var MODEL_API_EXPORTS = [
+  "agentKey",
+  "newModel",
+  "upsertSession",
+  "upsertAgent",
+  "removeAgent",
+  "removeSession",
+  "applySnapshot",
+  "modelCounts",
+  "deriveStatus"
+];
+function serializedName(fn) {
+  const m = /^function\s+([$\w]+)/.exec(fn.toString());
+  return m ? m[1] : "";
+}
+function serializedModelFunction(pair) {
+  const [fixed, fn] = pair;
+  let src = fn.toString();
+  const cur = serializedName(fn);
+  if (cur && cur !== fixed) {
+    src = src.replace(/^function\s+[$\w]+/, "function " + fixed);
+  }
+  for (const [otherFixed, otherFn] of MODEL_FUNCTIONS) {
+    if (otherFn === fn) continue;
+    const otherCur = serializedName(otherFn);
+    if (otherCur && otherCur !== otherFixed) {
+      src = src.split(otherCur).join(otherFixed);
+    }
+  }
+  return src;
+}
+var STATUS_MODEL_JS = `(function (${MODEL_FUNCTIONS.map((f) => f[0]).join(", ")}) {
+var __srcs = [${MODEL_FUNCTIONS.map((f) => f[0]).join(", ")}];
+for (var __i = 0; __i < __srcs.length; __i++) eval(__srcs[__i]);
 window.__moaStatusModel = {
-  agentKey: agentKey,
-  newModel: newModel,
-  upsertSession: upsertSession,
-  upsertAgent: upsertAgent,
-  removeAgent: removeAgent,
-  removeSession: removeSession,
-  applySnapshot: applySnapshot,
-  modelCounts: modelCounts,
-  deriveStatus: deriveStatus
+${MODEL_API_EXPORTS.map((n) => `  ${n}: ${n},`).join("\n")}
 };
-})();`;
+})(${MODEL_FUNCTIONS.map((f) => JSON.stringify(serializedModelFunction(f))).join(",\n")});`;
 
 // src/web/status-board.ts
 var STATUS_BOARD_HTML = `<!doctype html>
@@ -19095,7 +19118,9 @@ ${STATUS_MODEL_JS}
     var modelCell = cellText(row, 'sb-model', entry.model || '\u2013');
     var st = M.deriveStatus(entry);
     var statusCell = cellText(row, 'sb-status st-' + st.tone, st.label ? st.label : tr('status.' + st.key));
-    var toolCell = cellText(row, 'sb-tool', (entry.lastToolCall && entry.lastToolCall.name) ? entry.lastToolCall.name : '\u2013');
+    // F5 (0.9.0 review): first render must mark error tool calls red like
+    // updateRowEl does \u2014 the class was previously only set on incremental updates.
+    var toolCell = cellText(row, 'sb-tool' + (entry.lastToolCall && entry.lastToolCall.isError ? ' err' : ''), (entry.lastToolCall && entry.lastToolCall.name) ? entry.lastToolCall.name : '\u2013');
     var seenCell = cellText(row, 'sb-seen', window.__moaLib.fmtClock(entry.lastSeen));
     if (entry.stale) row.classList.add('stale');
     if (entry.busy && !entry.stale) row.classList.add('busy');
@@ -19221,6 +19246,12 @@ ${STATUS_MODEL_JS}
         if (info0.group.parentNode) info0.group.parentNode.removeChild(info0.group);
         delete sessionEls[sessionId];
       }
+      // F4 (0.9.0 review): the group's rows are gone from the DOM with it \u2014
+      // drop their rowEls entries too so removed nodes are not retained by the
+      // keyed map (a later frame for the session must build fresh rows).
+      for (var staleKey in rowEls) {
+        if (staleKey.indexOf(sessionId + ':') === 0) delete rowEls[staleKey];
+      }
       return;
     }
     var info = ensureSessionEl(sessionId);
@@ -19254,8 +19285,11 @@ ${STATUS_MODEL_JS}
     var frag = document.createDocumentFragment();
     for (var i = 0; i < model.sessionOrder.length; i++) resortSession(model.sessionOrder[i], frag);
     board.textContent = '';
-    var kids = frag.children;
-    for (var j = 0; j < kids.length; j++) board.appendChild(kids[j]);
+    // F2 (0.9.0 review): frag.children is a LIVE HTMLCollection \u2014 appending a
+    // child moves it out and shrinks the collection, so an indexed loop over it
+    // skipped every other group (a 323-session snapshot rendered 162 groups).
+    // Snapshot-style moves via firstChild are immune.
+    while (frag.firstChild) board.appendChild(frag.firstChild);
     updateCounts();
     updateEmpty();
   }
@@ -19297,14 +19331,12 @@ ${STATUS_MODEL_JS}
     var frames = pendingFrames;
     pendingFrames = [];
     var touched = {};
-    var rebuilt = false;
     for (var i = 0; i < frames.length; i++) {
       var f = frames[i];
       var type = f.type;
       var data = f.data;
       if (type === 'snapshot') {
         handleSnapshot(data);
-        rebuilt = true;
         continue;
       }
       if (type === 'session') {
@@ -19321,9 +19353,16 @@ ${STATUS_MODEL_JS}
         if (sid) touched[sid] = true;
       }
     }
-    if (!rebuilt) {
-      for (var s in touched) resortSession(s);
-    }
+    // F3 (0.9.0 review): agent/session frames queued after a snapshot in the
+    // same batch used to be skipped (the old 'rebuilt' flag short-circuited
+    // the resort), so their model updates only rendered on the next flush.
+    // Resort every touched session unconditionally \u2014 after a snapshot,
+    // rebuildAll has already rendered the base state and resort applies the
+    // later frames.
+    for (var s in touched) resortSession(s);
+    // F4 (0.9.0 review): resortSession appends each touched group to the board
+    // end, which drifts group order away from sessionOrder \u2014 reorder after.
+    resortBoardGroups();
     updateCounts();
     updateEmpty();
   }

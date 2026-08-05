@@ -620,6 +620,125 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(page.sse.listeners['session']?.length).toBeGreaterThan(0);
     expect(page.sse.closed).toBe(false);
   });
+
+  it('renders ALL session groups on the first snapshot frame (F2 live HTMLCollection)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // >= 3 groups: the old `for (j...) board.appendChild(frag.children[j])`
+    // loop moved nodes out of the live collection while iterating, dropping
+    // every other group (a 323-session snapshot rendered 162 groups).
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/wd/s1', home: 'omkc' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/s2', home: 'omkc' },
+        { sessionId: 's3', title: 'Three', workDir: '/wd/s3', home: 'omkc' },
+      ],
+      agents: [
+        agentFrame('s1', 'a1', { kind: 'main', busy: true }),
+        agentFrame('s2', 'b1', { kind: 'main', busy: true }),
+        agentFrame('s3', 'c1', { kind: 'main', busy: true }),
+      ],
+    }));
+    await flush();
+    const groups = sessionGroups(page.el('sbList'));
+    expect(groups.map((g) => g.getAttribute('data-session'))).toEqual(['s1', 's2', 's3']);
+    expect(rowIds(groups[0])).toEqual(['s1:a1']);
+    expect(rowIds(groups[1])).toEqual(['s2:b1']);
+    expect(rowIds(groups[2])).toEqual(['s3:c1']);
+    expect(page.el('sbCounts').textContent).toContain('3 agents');
+  });
+
+  it('renders agent frames queued in the same batch as a snapshot (F3 no DOM lag)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // Snapshot + agent frame for the same session land in ONE flush batch.
+    // The old `rebuilt` short-circuit skipped the post-snapshot resort, so the
+    // model update only appeared on the next flush.
+    page.dispatch('snapshot', snap({ agents: [agentFrame('s1', 'main', { kind: 'main', busy: false })] }));
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true, model: 'kimi-k9' }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    const row = rowsOf(group)[0];
+    expect(row.getAttribute('data-key')).toBe('s1:main');
+    expect(row.querySelector('.sb-model')!.textContent).toBe('kimi-k9');
+    expect(row.querySelector('.sb-status')!.textContent).toBe('busy');
+    expect(row.classList.contains('busy')).toBe(true);
+  });
+
+  it('keeps session group order aligned with sessionOrder across incremental frames (F4)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/wd/s1', home: 'omkc' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/s2', home: 'omkc' },
+        { sessionId: 's3', title: 'Three', workDir: '/wd/s3', home: 'omkc' },
+      ],
+      agents: [
+        agentFrame('s1', 'a1', { kind: 'main', busy: true }),
+        agentFrame('s2', 'b1', { kind: 'main', busy: true }),
+        agentFrame('s3', 'c1', { kind: 'main', busy: true }),
+      ],
+    }));
+    await flush();
+    const order = () => sessionGroups(page.el('sbList')).map((g) => g.getAttribute('data-session'));
+    expect(order()).toEqual(['s1', 's2', 's3']);
+
+    // Touch the middle group incrementally: resortSession appends it to the
+    // board end, which used to drift the order to s1,s3,s2.
+    page.dispatch('agent', agentFrame('s2', 'b1', { kind: 'main', busy: false, lastTurnReason: 'completed' }));
+    await flush();
+    expect(order()).toEqual(['s1', 's2', 's3']);
+
+    // Touch the first group too — still aligned.
+    page.dispatch('agent', agentFrame('s1', 'a1', { kind: 'main', busy: false, lastTurnReason: 'completed' }));
+    await flush();
+    expect(order()).toEqual(['s1', 's2', 's3']);
+  });
+
+  it('rebuilds fresh rows after a session loses all agents and is revived (F4 rowEls residue)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap());
+    await flush();
+    const mainRowBefore = rowsOf(sessionGroups(page.el('sbList'))[0])[0];
+
+    // Gone frames remove both agents incrementally -> the group is dropped.
+    page.dispatch('agent', { sessionId: 's1', agentId: 'main', gone: true });
+    await flush();
+    page.dispatch('agent', { sessionId: 's1', agentId: 'child', gone: true });
+    await flush();
+    expect(sessionGroups(page.el('sbList')).length).toBe(0);
+
+    // An agent frame revives the session without a snapshot; rows must be
+    // freshly built, not stale nodes resurrected from rowEls.
+    page.dispatch('agent', agentFrame('s1', 'main', { kind: 'main', busy: true }));
+    await flush();
+    const revived = sessionGroups(page.el('sbList'))[0];
+    const revivedRow = rowsOf(revived)[0];
+    expect(revivedRow.getAttribute('data-key')).toBe('s1:main');
+    expect(revivedRow).not.toBe(mainRowBefore);
+    expect(revivedRow.querySelector('.sb-status')!.textContent).toBe('busy');
+  });
+
+  it('first render marks error tool calls red (F5 createRowEl)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // Snapshot full render (first frame) with an error tool call: the old
+    // createRowEl omitted the `err` class (only updateRowEl applied it).
+    page.dispatch('snapshot', snap({ agents: [
+      agentFrame('s1', 'main', { kind: 'main', lastToolCall: { name: 'run', ts: 6, isError: true } }),
+      agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', lastToolCall: { name: 'grep', ts: 4, isError: false } }),
+    ] }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    const mainRow = rowsOf(group)[0];
+    expect(mainRow.querySelector('.sb-tool')!.textContent).toBe('run');
+    expect(mainRow.querySelector('.sb-tool')!.className).toContain('err');
+    // Non-error tool stays unstyled; incremental updates still work after.
+    const childRow = rowsOf(group)[1];
+    expect(childRow.querySelector('.sb-tool')!.textContent).toBe('grep');
+    expect(childRow.querySelector('.sb-tool')!.className).not.toContain('err');
+    page.dispatch('agent', agentFrame('s1', 'child', { parentAgentId: 'main', kind: 'sub', lastToolCall: { name: 'write', ts: 7, isError: true } }));
+    await flush();
+    const childAfter = rowsOf(sessionGroups(page.el('sbList'))[0])[1];
+    expect(childAfter.querySelector('.sb-tool')!.className).toContain('err');
+  });
 });
 
 let cachedHtml: string | undefined;

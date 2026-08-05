@@ -5,6 +5,17 @@
  * runs unmodified in a bare vm. The page embeds STATUS_MODEL_JS (the same
  * serialized source) so the browser and vitest execute the identical logic.
  *
+ * F1 (0.9.0 review): STATUS_MODEL_JS is a *parameterized* IIFE — every
+ * serialized function source is passed positionally as a string argument,
+ * rewritten to reference the fixed source-level parameter names, and re-created
+ * inside the IIFE with sloppy direct `eval` (function expressions passed as
+ * arguments would close over the caller's scope and could not see the
+ * parameters). esbuild's production bundle renames status-model's exported
+ * `agentKey` to `agentKey2` (src/modules/status/state.ts exports the same
+ * name), and a plain IIFE's static `agentKey: agentKey` text then references
+ * an undefined identifier (whole page dies). Positional binding makes the
+ * inlined model immune to such renames.
+ *
  * Semantics (critic F2/F3/F4, corrected gone):
  *  - key = `${sessionId}:${agentId}`; subagents with their own fold entry are
  *    independent nodes; tasks-only subagents become "orphan leaves" attached
@@ -576,47 +587,100 @@ export function deriveStatus(entry: ModelEntry | undefined | null): StatusDeriva
   return { key: 'idle', tone: 'idle' };
 }
 
-const MODEL_FUNCTIONS: Array<(...args: any[]) => any> = [
-  agentKey,
-  newModel,
-  upsertSession,
-  upsertAgent,
-  removeAgent,
-  removeSession,
-  applySnapshot,
-  modelCounts,
-  deriveStatus,
-  removeFromArray,
-  ensureSession,
-  pushRoot,
-  registerPending,
-  wouldCycle,
-  detachEntry,
-  resolveAndAttach,
-  fillOrphans,
-  drainPending,
-  normalizeEntry,
-  pruneEmptySession,
-  statusOf,
-  phaseOf,
+/** (source-level name, function) pairs serialized into the page (F1). The IIFE
+ *  binds each serialized source positionally to its fixed name below, so
+ *  esbuild's cross-module renames (agentKey -> agentKey2 in the production
+ *  bundle) cannot break the inlined model. */
+const MODEL_FUNCTIONS: Array<[string, (...args: any[]) => any]> = [
+  ['agentKey', agentKey],
+  ['newModel', newModel],
+  ['upsertSession', upsertSession],
+  ['upsertAgent', upsertAgent],
+  ['removeAgent', removeAgent],
+  ['removeSession', removeSession],
+  ['applySnapshot', applySnapshot],
+  ['modelCounts', modelCounts],
+  ['deriveStatus', deriveStatus],
+  ['removeFromArray', removeFromArray],
+  ['ensureSession', ensureSession],
+  ['pushRoot', pushRoot],
+  ['registerPending', registerPending],
+  ['wouldCycle', wouldCycle],
+  ['detachEntry', detachEntry],
+  ['resolveAndAttach', resolveAndAttach],
+  ['fillOrphans', fillOrphans],
+  ['drainPending', drainPending],
+  ['normalizeEntry', normalizeEntry],
+  ['pruneEmptySession', pruneEmptySession],
+  ['statusOf', statusOf],
+  ['phaseOf', phaseOf],
 ];
 
+/** Public API surface the page consumes (subset of MODEL_FUNCTIONS). */
+const MODEL_API_EXPORTS = [
+  'agentKey',
+  'newModel',
+  'upsertSession',
+  'upsertAgent',
+  'removeAgent',
+  'removeSession',
+  'applySnapshot',
+  'modelCounts',
+  'deriveStatus',
+];
+
+/** The name the function actually carries in this build (its `toString()`
+ *  source name — identical to the source-level name when esbuild did not
+ *  rename it, e.g. `agentKey2` in the production bundle). */
+function serializedName(fn: (...args: any[]) => any): string {
+  const m = /^function\s+([$\w]+)/.exec(fn.toString());
+  return m ? m[1] : '';
+}
+
 /**
- * The serialized model source (D2): identical code the browser page inlines
- * and the drift-protection test executes in a bare vm.
+ * Serialize one model function for the page IIFE, rewriting the declaration
+ * name and every cross-reference to other model functions to the FIXED
+ * source-level names. `Function.prototype.toString()` reflects esbuild's
+ * renames (the production bundle renames status-model's `agentKey` to
+ * `agentKey2` because src/modules/status/state.ts exports the same name), so
+ * the rewritten source always binds to the fixed parameter names regardless of
+ * what the bundler chose. The model sources contain no string literals or
+ * comments that embed another model function's identifier, so the identifier
+ * substitution is exact for this codebase.
  */
-export const STATUS_MODEL_JS = `(function () {
-'use strict';
-${MODEL_FUNCTIONS.map((fn) => fn.toString()).join('\n')}
+function serializedModelFunction(pair: [string, (...args: any[]) => any]): string {
+  const [fixed, fn] = pair;
+  let src = fn.toString();
+  const cur = serializedName(fn);
+  if (cur && cur !== fixed) {
+    src = src.replace(/^function\s+[$\w]+/, 'function ' + fixed);
+  }
+  for (const [otherFixed, otherFn] of MODEL_FUNCTIONS) {
+    if (otherFn === fn) continue;
+    const otherCur = serializedName(otherFn);
+    if (otherCur && otherCur !== otherFixed) {
+      src = src.split(otherCur).join(otherFixed);
+    }
+  }
+  return src;
+}
+
+/**
+ * The serialized model source (D2 + F1): a *parameterized* IIFE. Each function
+ * source is passed positionally as a string argument (rewritten to reference
+ * the fixed parameter names) and re-created inside the IIFE via sloppy-mode
+ * direct `eval`, so the declarations land in the IIFE's own scope and their
+ * inter-calls resolve through the fixed names. A naive `(…)(fn.toString()…)`
+ * call would NOT work — a function expression passed as an argument closes
+ * over the caller's scope, where the parameter names do not exist (verified
+ * against the production bundle: `ReferenceError: agentKey is not defined`).
+ * The IIFE must stay sloppy for the eval'd declarations to leak into its
+ * scope; the model code does not depend on strict-mode semantics.
+ */
+export const STATUS_MODEL_JS = `(function (${MODEL_FUNCTIONS.map((f) => f[0]).join(', ')}) {
+var __srcs = [${MODEL_FUNCTIONS.map((f) => f[0]).join(', ')}];
+for (var __i = 0; __i < __srcs.length; __i++) eval(__srcs[__i]);
 window.__moaStatusModel = {
-  agentKey: agentKey,
-  newModel: newModel,
-  upsertSession: upsertSession,
-  upsertAgent: upsertAgent,
-  removeAgent: removeAgent,
-  removeSession: removeSession,
-  applySnapshot: applySnapshot,
-  modelCounts: modelCounts,
-  deriveStatus: deriveStatus
+${MODEL_API_EXPORTS.map((n) => `  ${n}: ${n},`).join('\n')}
 };
-})();`;
+})(${MODEL_FUNCTIONS.map((f) => JSON.stringify(serializedModelFunction(f))).join(',\n')});`;
