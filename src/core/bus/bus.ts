@@ -53,6 +53,7 @@ import { ControlPlane, checkContentType, checkOrigin, type RuntimeSystemInfo } f
 import { createRegistry, pidAlive, VERSION, type InstanceRegistration } from './registry.js';
 import { RunReadModel } from '../store/run-read-model.js';
 import { DEBATE_CARD_HTML } from '../../web/debate-card.js';
+import type { StatusController } from '../../modules/status/index.js';
 
 /** Maximum consecutive `EADDRINUSE` port+1 retries (mirrors kap-server `PORT_RETRY_LIMIT`). */
 export const PORT_RETRY_LIMIT = 100;
@@ -99,6 +100,12 @@ export interface BusOptions {
   /** BoardStore/Tips authority mounted at the Bus's Control Plane routes. */
   board?: BoardStore;
   tipStore?: TipsAuthority;
+  /**
+   * Status controller mounted on the Control Plane's read-only /status route
+   * (batch 1c injection seam). Optional: the route 503s (status_not_ready)
+   * while it is absent or not started.
+   */
+  statusController?: StatusController;
 }
 
 /** Files the /archive endpoint is allowed to serve, with their content types. */
@@ -193,7 +200,7 @@ export class Bus {
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
     this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
     this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
-    this.controlPlane = new ControlPlane(opts.board, opts.tipStore);
+    this.controlPlane = new ControlPlane(opts.board, opts.tipStore, undefined, opts.statusController);
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
     this.controlPlane.mountRuntime({
       listRuns: () => this.runReadModel.list(),
@@ -605,6 +612,23 @@ export class Bus {
       void this.releaseAndReattach().catch((err) =>
         console.warn(`[moamcp] restart: release failed: ${(err as Error).message}`),
       );
+      return;
+    }
+    // Bus-level lightweight health (batch 1c P2): the fast-fail judgement for
+    // consumers (omkc-status /health precedent). Read-only, so it is
+    // CORS-open; write endpoints keep checkOrigin.
+    if (req.method === 'GET' && url.pathname === '/health') {
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'access-control-allow-origin': '*',
+        'cache-control': 'no-store',
+      });
+      res.end(JSON.stringify({
+        ok: true,
+        version: VERSION,
+        uptime: Math.max(0, Math.floor((Date.now() - this.startedAt) / 1000)),
+        mode: this.mode,
+      }));
       return;
     }
     if (await this.controlPlane.handle(req, res, this.actualPort)) return;

@@ -2,14 +2,21 @@
  * Status module: live agent/session view folded from the CLI homes' session
  * trees (wire.jsonl / state.json / tasks/*.json) plus the omkc embedded SSE
  * source. Batch 1a wired the WireWatcher (source ①) into the StateFold;
- * batch 1b adds the omkc SSE source (source ②) to the same fold. The
- * controller owns watcher + SSE lifecycle and the stale sweep; the module
- * exposes the `moa_status_agents` tool over that fold.
+ * batch 1b adds the omkc SSE source (source ②) to the same fold. Batch 1c
+ * adds the read-only REST face: GET /status (snapshot mirroring the omkc
+ * /state shape; 503 until the controller starts) plus a reuse-session proxy
+ * in `moa_status_agents` that fetches the owning Bus's /status instead of
+ * returning a silent empty state.
+ *
+ * The controller owns watcher + SSE lifecycle and the stale sweep; the module
+ * exposes the `moa_status_agents` tool over that fold and the /status route.
  */
+import { get } from 'node:http';
 import fs from 'node:fs';
-import type { MoaModule, MoaToolDef } from '../types.js';
-import { OmkcSource } from './sse-source.js';
+import type { MoaModule, MoaRouteDef, MoaToolArgs, MoaToolDef } from '../types.js';
+import type { AgentState, SessionInfo } from './state.js';
 import { StateFold } from './state.js';
+import { OmkcSource, type OmkcSourceStatus } from './sse-source.js';
 import {
   resolveHomes,
   sessionsRoot,
@@ -49,6 +56,13 @@ export interface StatusController {
   isStarted(): boolean;
   getFold(): StateFold;
   scanStatus(): StatusScanStatus;
+  /** Epoch ms of the most recent start(); null while stopped. */
+  startedAt(): number | null;
+  /** Known Bus/owner port, set by the assembly from startResult.port (reuse proxy seam). */
+  getPort(): number | undefined;
+  setPort(port: number | undefined): void;
+  /** Embedded omkc SSE source connection status (source ②). */
+  omkcStatus(): OmkcSourceStatus;
 }
 
 /** Watcher dirs are re-checked every 30s (homes may appear later). */
@@ -57,11 +71,94 @@ const HOME_RECHECK_MS = 30_000;
 const SWEEP_MS = 5000;
 /** agents payload cap: prevents a ~1.6MB full dump from flooding context. */
 const AGENTS_CAP = 100;
+/** Reuse proxy timeout for GET /status on the owning Bus (loopback, ample). */
+export const REMOTE_STATUS_TIMEOUT_MS = 1500;
+
+/**
+ * Reuse-session proxy (batch 1c): fetch the owning Bus's read-only /status
+ * snapshot. Resolves with the parsed body on HTTP 200 (a JSON object);
+ * undefined on any other status, an unparseable body, a timeout, or a
+ * connection error — the caller falls back to an explicit local-empty state.
+ */
+export async function fetchRemoteStatus(
+  port: number,
+  timeoutMs: number = REMOTE_STATUS_TIMEOUT_MS,
+): Promise<Record<string, unknown> | undefined> {
+  return new Promise((resolve) => {
+    const req = get(
+      { host: '127.0.0.1', port, path: '/status', timeout: timeoutMs },
+      (res) => {
+        res.setEncoding('utf8');
+        let body = '';
+        res.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            resolve(undefined);
+            return;
+          }
+          try {
+            resolve(JSON.parse(body) as Record<string, unknown>);
+          } catch {
+            resolve(undefined);
+          }
+        });
+      },
+    );
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(undefined);
+    });
+    req.on('error', () => resolve(undefined));
+  });
+}
+
+/** /status snapshot shape, mirroring omkc-status's GET /state. */
+export interface StatusSnapshot {
+  server: {
+    pid: number;
+    port: number | null;
+    started_at: string | null;
+    uptime: number;
+  };
+  scan: StatusScanStatus;
+  sources: {
+    wire: { sessions: number; agents: number };
+    omkc: OmkcSourceStatus;
+  };
+  sessions: SessionInfo[];
+  agents: AgentState[];
+}
+
+/** Fold the current controller state into the omkc /state-mirroring shape. */
+export function statusSnapshot(controller: StatusController): StatusSnapshot {
+  const fold = controller.getFold();
+  const startedAtMs = controller.startedAt();
+  return {
+    server: {
+      pid: process.pid,
+      port: controller.getPort() ?? null,
+      started_at: startedAtMs === null ? null : new Date(startedAtMs).toISOString(),
+      uptime: startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
+    },
+    scan: controller.scanStatus(),
+    sources: {
+      wire: { sessions: fold.sessionCount, agents: fold.agentCount },
+      omkc: controller.omkcStatus(),
+    },
+    sessions: fold.snapshotSessions(),
+    agents: fold.snapshotAgents(),
+  };
+}
 
 export function createStatusController(opts: StatusControllerOptions = {}): StatusController {
   const fold = new StateFold({ staleMs: opts.staleMs });
   const watchers = new Map<string, WireWatcher>();
   let started = false;
+  let startedAtMs: number | null = null;
+  /** Known Bus/owner port (reuse proxy seam; set after bus.start()). */
+  let ownerPort: number | undefined;
   let homeRecheck: NodeJS.Timeout | null = null;
   let sweepTimer: NodeJS.Timeout | null = null;
 
@@ -108,6 +205,7 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
     start(): void {
       if (started) return;
       started = true;
+      startedAtMs = Date.now();
       // Re-start watchers kept from a previous run (tail offsets survive
       // stop/start), then attach any home that exists on disk.
       for (const w of watchers.values()) w.start();
@@ -134,6 +232,7 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
     stop(): void {
       if (!started) return;
       started = false;
+      startedAtMs = null;
       for (const w of watchers.values()) w.stop();
       if (homeRecheck) {
         clearInterval(homeRecheck);
@@ -161,17 +260,60 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
         homes: perHome,
       };
     },
+    startedAt: () => startedAtMs,
+    getPort: () => ownerPort,
+    setPort: (port) => {
+      ownerPort = port;
+    },
+    omkcStatus: () => omkc.status,
   };
 }
 
-function statusAgentsTool(controller: StatusController): MoaToolDef {
+/** The local tool payload: explicit empty state until the controller runs. */
+function localStatusPayload(controller: StatusController | undefined, args: MoaToolArgs) {
+  const started = controller !== undefined && controller.isStarted();
+  const sessionId =
+    typeof args.sessionId === 'string' && args.sessionId.length > 0 ? args.sessionId : undefined;
+  const rawLimit = typeof args.limit === 'number' ? args.limit : AGENTS_CAP;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
+  let agents: AgentState[] = [];
+  let sessions: SessionInfo[] = [];
+  let sessionCount = 0;
+  let agentCount = 0;
+  let scanning = false;
+  if (controller !== undefined && controller.isStarted()) {
+    const fold = controller.getFold();
+    sessionCount = fold.sessionCount;
+    agentCount = fold.agentCount;
+    sessions = fold.snapshotSessions();
+    scanning = controller.scanStatus().scanning;
+    agents = fold.snapshotAgents();
+  }
+  if (sessionId) agents = agents.filter((a) => a.sessionId === sessionId);
+  agents.sort((a, b) => b.lastSeen - a.lastSeen);
+  return {
+    started,
+    scanning,
+    sessionCount,
+    agentCount,
+    sessions,
+    agents: agents.slice(0, limit),
+    agentsTruncated: agents.length,
+  };
+}
+
+function statusAgentsTool(
+  controller: StatusController | undefined,
+  remoteStatusTimeoutMs: number,
+): MoaToolDef {
   return {
     name: 'moa_status_agents',
     description:
-      'Live agent/session status folded from the CLI homes\' session trees (wire.jsonl / state.json / tasks/*.json). ' +
-      'Returns aggregate counts plus per-agent snapshots ordered by lastSeen (most recent first), capped at 100 by default ' +
-      `(pass limit or sessionId to filter). started is false until the status controller is running — agents is then empty by design; ` +
-      'the state is always explicit, never silently stale.',
+      'Live agent/session status folded from the CLI homes\' session trees (wire.jsonl / state.json / tasks/*.json) ' +
+      'plus the owning Bus\'s /status snapshot. Returns aggregate counts plus per-agent snapshots ordered by lastSeen ' +
+      '(most recent first), capped at 100 by default (pass limit or sessionId to filter). source is \'local\' when this ' +
+      'process folds the data itself, \'remote\' when a reuse session proxies the owning Bus\'s /status, and ' +
+      '\'local-empty\' when nothing is available yet — the state is always explicit, never silently stale.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -180,34 +322,58 @@ function statusAgentsTool(controller: StatusController): MoaToolDef {
       },
       additionalProperties: false,
     },
-    handler: (args) => {
-      const started = controller.isStarted();
-      const fold = controller.getFold();
-      const sessionId =
-        typeof args.sessionId === 'string' && args.sessionId.length > 0 ? args.sessionId : undefined;
-      const rawLimit = typeof args.limit === 'number' ? args.limit : AGENTS_CAP;
-      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
-      let agents = started ? fold.snapshotAgents() : [];
-      if (sessionId) agents = agents.filter((a) => a.sessionId === sessionId);
-      agents.sort((a, b) => b.lastSeen - a.lastSeen);
-      return {
-        started,
-        scanning: started ? controller.scanStatus().scanning : false,
-        sessionCount: started ? fold.sessionCount : 0,
-        agentCount: started ? fold.agentCount : 0,
-        sessions: started ? fold.snapshotSessions() : [],
-        agents: agents.slice(0, limit),
-        agentsTruncated: agents.length,
-      };
+    handler: async (args) => {
+      const started = controller !== undefined && controller.isStarted();
+      if (started) {
+        // own/started: local fold, unchanged behaviour (batch 1a/1b) + marker.
+        return { ...localStatusPayload(controller, args), source: 'local' };
+      }
+      // Reuse session with a known owner port: proxy the owner's read-only
+      // /status. Any failure (503 not-ready, timeout, connection refused)
+      // falls back to an explicit local-empty state — never a stale guess.
+      const ownerPort = controller?.getPort();
+      if (ownerPort !== undefined) {
+        const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
+        if (remote !== undefined) return { ...remote, source: 'remote' };
+      }
+      return { ...localStatusPayload(controller, args), source: 'local-empty' };
     },
   };
 }
 
+/**
+ * Read-only /status route (batch 1c): the full snapshot once the controller
+ * is running; 503 + Retry-After: 2 while it is missing or not yet started
+ * (cold start / reuse session). The endpoint is CORS-open (omkc-status
+ * precedent) — the write endpoints keep their checkOrigin policy.
+ */
+export function statusRoutes(controller: StatusController | undefined): MoaRouteDef[] {
+  return [
+    {
+      method: 'GET',
+      path: '/status',
+      handler: (ctx) => {
+        ctx.res.setHeader('access-control-allow-origin', '*');
+        if (controller === undefined || !controller.isStarted()) {
+          ctx.res.setHeader('retry-after', '2');
+          ctx.sendJson(503, { error: 'status_not_ready', started: false });
+          return;
+        }
+        ctx.sendJson(200, statusSnapshot(controller));
+      },
+    },
+  ];
+}
+
 /** Create the status module (id 'status', tier 'experimental'). */
-export function createStatusModule(controller: StatusController): MoaModule {
+export function createStatusModule(
+  controller: StatusController | undefined,
+  opts: { remoteStatusTimeoutMs?: number } = {},
+): MoaModule {
   return {
     id: 'status',
     tier: 'experimental',
-    tools: [statusAgentsTool(controller)],
+    tools: [statusAgentsTool(controller, opts.remoteStatusTimeoutMs ?? REMOTE_STATUS_TIMEOUT_MS)],
+    routes: statusRoutes(controller),
   };
 }

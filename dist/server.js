@@ -28132,6 +28132,1045 @@ function createAgentConfigModule(agentConfig = new WorkspaceAgentConfigService()
   };
 }
 
+// src/modules/status/index.ts
+import { get } from "node:http";
+import fs2 from "node:fs";
+
+// src/modules/status/state.ts
+var OMKC_PRIORITY_MS = 3e4;
+var STALE_MS = 6e4;
+function asRecord2(v) {
+  return v ?? {};
+}
+function cloneJson(value) {
+  return value === void 0 ? value : JSON.parse(JSON.stringify(value));
+}
+function laterOf(a, b) {
+  if (a === void 0) return b;
+  if (b === void 0) return a;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (!Number.isFinite(ta)) return b;
+  if (!Number.isFinite(tb)) return a;
+  return ta >= tb ? a : b;
+}
+function finiteTime(value) {
+  return Number.isFinite(value) ? value : Date.now();
+}
+var StateFold = class _StateFold {
+  agents = /* @__PURE__ */ new Map();
+  sessions = /* @__PURE__ */ new Map();
+  omkcPriorityMs;
+  staleMs;
+  constructor(opts) {
+    this.omkcPriorityMs = opts?.omkcPriorityMs ?? OMKC_PRIORITY_MS;
+    this.staleMs = opts?.staleMs ?? STALE_MS;
+  }
+  /**
+   * Agents are keyed by sessionId + agentId only — deliberately no home and
+   * no workDirHash. 1b's OmkcEvent carries neither, so applyOmkcEvent's
+   * ensure() cannot fill them; "completing the symmetry" (e.g. keying on home
+   * too) would make omkc events unable to override their wire counterparts.
+   * Do not change this key.
+   */
+  static key(sessionId, agentId) {
+    return `${sessionId}:${agentId}`;
+  }
+  ensure(sessionId, agentId, ts, workDirHash, home) {
+    const key = _StateFold.key(sessionId, agentId);
+    let agent = this.agents.get(key);
+    if (!agent) {
+      agent = {
+        sessionId,
+        agentId,
+        home,
+        workDirHash,
+        busy: false,
+        subagents: [],
+        lastSeen: ts,
+        firstSeen: ts,
+        source: "wire",
+        omkcTs: 0,
+        stale: false
+      };
+      this.agents.set(key, agent);
+    }
+    if (workDirHash && !agent.workDirHash) agent.workDirHash = workDirHash;
+    if (home && !agent.home) agent.home = home;
+    return agent;
+  }
+  /** True while omkc events for this agent are fresh enough to own its fields. */
+  omkcOwns(agent, now) {
+    return agent.omkcTs > 0 && now - agent.omkcTs < this.omkcPriorityMs;
+  }
+  // ---------------------------------------------------------------- source ①
+  /** Fold one wire.jsonl record (read-only inference). */
+  applyWire(ref, record2) {
+    if (!record2 || typeof record2.type !== "string") return null;
+    const rawTs = typeof record2.time === "number" ? record2.time : NaN;
+    const ts = finiteTime(rawTs);
+    const agent = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
+    agent.lastSeen = Math.max(agent.lastSeen, ts);
+    agent.stale = false;
+    if (this.omkcOwns(agent, Date.now())) return agent;
+    switch (record2.type) {
+      case "metadata":
+        break;
+      case "turn.prompt":
+      case "turn.steer":
+        agent.busy = true;
+        agent.source = "wire";
+        break;
+      case "turn.cancel":
+        agent.busy = false;
+        agent.lastFinishReason = "cancelled";
+        agent.source = "wire";
+        break;
+      case "config.update": {
+        const alias = record2.modelAlias;
+        if (typeof alias === "string") agent.model = alias;
+        break;
+      }
+      case "llm.request": {
+        if (!agent.model) {
+          const alias = record2.modelAlias ?? record2.model;
+          if (typeof alias === "string") agent.model = alias;
+        }
+        break;
+      }
+      case "usage.record": {
+        if (typeof record2.model === "string") agent.model = record2.model;
+        if (record2.usage !== void 0) agent.usage = record2.usage;
+        agent.source = "wire";
+        break;
+      }
+      case "context.update_token_count": {
+        if (typeof record2.tokenCount === "number") agent.contextTokens = record2.tokenCount;
+        break;
+      }
+      case "context.append_loop_event":
+        this.applyLoopEvent(agent, asRecord2(record2.event), ts);
+        break;
+      default:
+        break;
+    }
+    return agent;
+  }
+  applyLoopEvent(agent, ev, ts) {
+    switch (ev.type) {
+      case "step.begin":
+        agent.busy = true;
+        agent.source = "wire";
+        break;
+      case "step.end": {
+        if (ev.usage !== void 0) agent.usage = ev.usage;
+        const reason = ev.finishReason;
+        if (typeof reason === "string" && reason !== "tool_use") {
+          agent.busy = false;
+          agent.lastFinishReason = reason;
+        }
+        agent.source = "wire";
+        break;
+      }
+      case "tool.call": {
+        if (typeof ev.name === "string") {
+          agent.lastToolCall = {
+            name: ev.name,
+            ts,
+            description: typeof ev.description === "string" ? ev.description : void 0
+          };
+        }
+        agent.busy = true;
+        agent.source = "wire";
+        break;
+      }
+      case "tool.result": {
+        const result = asRecord2(ev.result);
+        if (agent.lastToolCall && typeof result.isError === "boolean") {
+          agent.lastToolCall.isError = result.isError;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  /** Fold a (re-)read state.json: session metadata + agents table. */
+  applySessionState(ref, state) {
+    const skey = `${ref.workDirHash}/${ref.sessionId}`;
+    const existing = this.sessions.get(skey);
+    this.sessions.set(skey, {
+      workDirHash: ref.workDirHash,
+      sessionId: ref.sessionId,
+      home: existing?.home ?? ref.home,
+      title: state.title ?? existing?.title,
+      workDir: state.workDir ?? existing?.workDir,
+      createdAt: state.createdAt ?? existing?.createdAt,
+      updatedAt: laterOf(existing?.updatedAt, state.updatedAt)
+    });
+    const parsed = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
+    const ts = finiteTime(parsed);
+    for (const [agentId, info] of Object.entries(state.agents ?? {})) {
+      const agent = this.ensure(ref.sessionId, agentId, ts, ref.workDirHash, ref.home);
+      agent.kind = info.type;
+      agent.parentAgentId = info.parentAgentId ?? null;
+      if (!this.omkcOwns(agent, Date.now())) {
+        agent.lastSeen = Math.max(agent.lastSeen, ts || 0);
+      }
+      const parentId = info.parentAgentId;
+      if (parentId) {
+        const parent = this.ensure(ref.sessionId, parentId, ts, ref.workDirHash, ref.home);
+        if (!parent.subagents.some((s) => s.subagentId === agentId)) {
+          parent.subagents.push({ subagentId: agentId, status: "unknown", ts });
+        }
+      }
+    }
+  }
+  /** Fold a tasks/<taskId>.json snapshot: auxiliary subagent lifecycle. */
+  applyTask(ref, task) {
+    if (task.kind !== "agent" || typeof task.agentId !== "string") return;
+    const rawTs = task.endedAt ?? task.startedAt ?? NaN;
+    const ts = finiteTime(rawTs);
+    const owner = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
+    let sub = owner.subagents.find((s) => s.subagentId === task.agentId);
+    if (!sub) {
+      sub = { subagentId: task.agentId, status: "unknown", ts };
+      owner.subagents.push(sub);
+    }
+    if (this.omkcOwns(owner, Date.now())) return;
+    sub.status = task.status ?? sub.status;
+    sub.ts = ts;
+    if (typeof task.description === "string") sub.description = task.description;
+    if (typeof task.stopReason === "string") sub.resultSummary = task.stopReason;
+    if (typeof task.subagentType === "string") sub.name = task.subagentType;
+  }
+  // ---------------------------------------------------------------- source ②
+  /** Fold one omkc SSE event (authoritative overlay, carries real phase). */
+  applyOmkcEvent(ev) {
+    if (!ev || typeof ev.sessionId !== "string" || typeof ev.agentId !== "string" || typeof ev.type !== "string") {
+      return null;
+    }
+    const payload = asRecord2(ev.payload);
+    const ts = typeof ev.ts === "number" ? finiteTime(ev.ts) : Date.now();
+    let agentId = ev.agentId;
+    if (ev.type.startsWith("subagent.") && typeof payload.parentAgentId === "string") {
+      agentId = payload.parentAgentId;
+    }
+    const agent = this.ensure(ev.sessionId, agentId, ts);
+    agent.lastSeen = Math.max(agent.lastSeen, ts);
+    agent.stale = false;
+    agent.omkcTs = Date.now();
+    agent.source = "omkc";
+    switch (ev.type) {
+      case "agent.status.updated": {
+        if (typeof payload.model === "string") agent.model = payload.model;
+        if (typeof payload.contextTokens === "number") agent.contextTokens = payload.contextTokens;
+        if (typeof payload.maxContextTokens === "number") agent.maxContextTokens = payload.maxContextTokens;
+        if (payload.usage !== void 0) agent.usage = payload.usage;
+        if (typeof payload.planMode === "boolean") agent.planMode = payload.planMode;
+        if (typeof payload.phase === "string") agent.phase = payload.phase;
+        break;
+      }
+      case "turn.started":
+        agent.busy = true;
+        break;
+      case "turn.ended":
+        agent.busy = false;
+        if (typeof payload.reason === "string") agent.lastTurnReason = payload.reason;
+        break;
+      case "tool.call.started":
+        if (typeof payload.name === "string") {
+          agent.lastToolCall = {
+            name: payload.name,
+            ts,
+            description: typeof payload.description === "string" ? payload.description : void 0
+          };
+        }
+        break;
+      case "tool.result":
+        if (agent.lastToolCall && typeof payload.isError === "boolean") {
+          agent.lastToolCall.isError = payload.isError;
+        }
+        break;
+      case "subagent.spawned":
+      case "subagent.started":
+      case "subagent.completed":
+      case "subagent.failed":
+      case "subagent.suspended": {
+        const subId = typeof payload.subagentId === "string" ? payload.subagentId : void 0;
+        if (!subId) break;
+        let sub = agent.subagents.find((s) => s.subagentId === subId);
+        if (!sub) {
+          sub = { subagentId: subId, status: "spawned", ts };
+          agent.subagents.push(sub);
+        }
+        sub.status = ev.type.slice("subagent.".length);
+        sub.ts = ts;
+        if (typeof payload.subagentName === "string") sub.name = payload.subagentName;
+        if (typeof payload.description === "string") sub.description = payload.description;
+        if (typeof payload.resultSummary === "string") sub.resultSummary = payload.resultSummary;
+        if (payload.usage !== void 0) sub.usage = payload.usage;
+        if (typeof payload.contextTokens === "number") sub.contextTokens = payload.contextTokens;
+        if (typeof payload.error === "string") sub.error = payload.error;
+        break;
+      }
+      default:
+        break;
+    }
+    return agent;
+  }
+  // ---------------------------------------------------------------- sweep
+  /** Mark agents with no events for >STALE_MS as stale (kept, not deleted). */
+  sweepStale(now = Date.now()) {
+    for (const agent of this.agents.values()) {
+      agent.stale = now - agent.lastSeen > this.staleMs;
+    }
+  }
+  get agentCount() {
+    return this.agents.size;
+  }
+  get sessionCount() {
+    return this.sessions.size;
+  }
+  snapshotSessions() {
+    return [...this.sessions.values()].map((s) => ({ ...s }));
+  }
+  snapshotAgents() {
+    return [...this.agents.values()].map((a) => ({
+      ...a,
+      // usage is deep-copied too: it can nest, and sharing the reference
+      // would leak fold-internal state to snapshot consumers.
+      usage: cloneJson(a.usage),
+      subagents: a.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
+      lastToolCall: a.lastToolCall ? { ...a.lastToolCall } : void 0
+    }));
+  }
+};
+
+// src/modules/status/sse-source.ts
+var OMKC_PROBE_MIN = 39631;
+var OMKC_PROBE_MAX = 39731;
+var OMKC_PRODUCT = "omkc-status-source";
+var OMKC_PROTOCOL_VERSION_MAX = 1;
+var READ_IDLE_TIMEOUT_MS = 3 * 15e3;
+function classifySourceHealth(body, port) {
+  if (body.ok !== true || body.product !== OMKC_PRODUCT) return null;
+  const protocolVersion = typeof body.protocolVersion === "number" ? body.protocolVersion : void 0;
+  if (protocolVersion !== void 0 && protocolVersion > OMKC_PROTOCOL_VERSION_MAX) return null;
+  return {
+    port,
+    pid: typeof body.pid === "number" ? body.pid : void 0,
+    version: typeof body.version === "string" ? body.version : void 0,
+    protocolVersion,
+    legacy: protocolVersion === void 0
+  };
+}
+function sleep2(ms) {
+  return new Promise((resolve5) => setTimeout(resolve5, ms));
+}
+var OmkcSource = class {
+  constructor(opts) {
+    this.opts = opts;
+    this.probeMin = opts.probeMin ?? OMKC_PROBE_MIN;
+    this.probeMax = opts.probeMax ?? OMKC_PROBE_MAX;
+    this.probeIntervalMs = opts.probeIntervalMs ?? 5e3;
+    this.probeTimeoutMs = opts.probeTimeoutMs ?? 200;
+    this.readIdleTimeoutMs = opts.readIdleTimeoutMs ?? READ_IDLE_TIMEOUT_MS;
+  }
+  opts;
+  probeMin;
+  probeMax;
+  probeIntervalMs;
+  probeTimeoutMs;
+  readIdleTimeoutMs;
+  running = false;
+  loopPromise = null;
+  abort = null;
+  current = null;
+  connectedAt = null;
+  /**
+   * Loop generation (F7, batch 1b): bumped on every start()/stop(). Each
+   * loop() captures its own generation and exits as soon as it no longer
+   * matches, so a stop() → start() without awaiting stop() can never leave
+   * two loops alive and subscribing concurrently.
+   */
+  generation = 0;
+  get status() {
+    return {
+      connected: this.current !== null,
+      port: this.current?.port ?? null,
+      pid: this.current?.pid ?? null,
+      version: this.current?.version ?? null,
+      connectedAt: this.connectedAt,
+      protocolVersion: this.current?.protocolVersion ?? null,
+      legacy: this.current?.legacy ?? false
+    };
+  }
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this.generation += 1;
+    const gen = this.generation;
+    this.loopPromise = this.loop(gen);
+  }
+  async stop() {
+    this.running = false;
+    this.generation += 1;
+    this.abort?.abort();
+    await this.loopPromise?.catch(() => void 0);
+  }
+  async loop(gen) {
+    while (this.running && gen === this.generation) {
+      const found = await this.probe();
+      if (!this.running || gen !== this.generation) break;
+      if (found) {
+        try {
+          await this.subscribe(found);
+        } catch {
+        }
+        if (this.current) {
+          const info = this.current;
+          this.current = null;
+          this.connectedAt = null;
+          this.opts.onDisconnect?.(info);
+        }
+        if (!this.running || gen !== this.generation) break;
+        await sleep2(this.probeIntervalMs);
+      } else {
+        await sleep2(this.probeIntervalMs);
+      }
+    }
+  }
+  /** Probe the whole port window in parallel; first product match wins. */
+  async probe() {
+    const ports = [];
+    for (let p = this.probeMin; p <= this.probeMax; p++) ports.push(p);
+    const results = await Promise.all(ports.map((p) => this.tryHealth(p)));
+    return results.find((r) => r !== null) ?? null;
+  }
+  async tryHealth(port) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), this.probeTimeoutMs);
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: ctrl.signal });
+      if (!res.ok) return null;
+      return classifySourceHealth(await res.json(), port);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  async subscribe(info) {
+    this.abort = new AbortController();
+    const attempt = new AbortController();
+    const linkAbort = () => attempt.abort();
+    this.abort.signal.addEventListener("abort", linkAbort);
+    const headerTimer = setTimeout(() => attempt.abort(), this.readIdleTimeoutMs);
+    try {
+      const res = await fetch(`http://127.0.0.1:${info.port}/events`, {
+        signal: attempt.signal,
+        headers: { Accept: "text/event-stream" }
+      });
+      clearTimeout(headerTimer);
+      if (!res.ok || !res.body) throw new Error(`omkc /events: HTTP ${res.status}`);
+      this.current = info;
+      this.connectedAt = Date.now();
+      this.opts.onConnect?.(info);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let dataLines = [];
+      let idleTimer = null;
+      const flush = () => {
+        if (dataLines.length === 0) return;
+        const raw = dataLines.join("\n");
+        dataLines = [];
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+        }
+        this.opts.onEvent(raw, parsed);
+      };
+      try {
+        for (; ; ) {
+          const idle = new Promise((resolve5) => {
+            idleTimer = setTimeout(() => resolve5("idle"), this.readIdleTimeoutMs);
+          });
+          const chunk = await Promise.race([reader.read(), idle]);
+          if (idleTimer) clearTimeout(idleTimer);
+          if (chunk === "idle") {
+            this.abort?.abort();
+            throw new Error(`omkc /events: no bytes for ${this.readIdleTimeoutMs}ms (read idle timeout)`);
+          }
+          const { done, value } = chunk;
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line === "" || line === "\r") {
+              flush();
+            } else if (line.startsWith("data:")) {
+              dataLines.push(line.slice(5).replace(/^ /, "").replace(/\r$/, ""));
+            }
+          }
+        }
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        flush();
+        reader.releaseLock();
+      }
+    } finally {
+      clearTimeout(headerTimer);
+      this.abort.signal.removeEventListener("abort", linkAbort);
+    }
+  }
+};
+
+// src/modules/status/watcher.ts
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+function omkcHome(env = process.env) {
+  return env.OMKC_HOME ?? env.KIMI_CODE_HOME ?? path.join(os.homedir(), ".omkc");
+}
+function kimiHome(env = process.env) {
+  return env.KIMI_CODE_HOME ?? path.join(os.homedir(), ".kimi-code");
+}
+function resolveHomes(env = process.env) {
+  const specs = [
+    { label: "omkc", home: omkcHome(env) },
+    { label: "kimi-code", home: kimiHome(env) }
+  ];
+  const seen = /* @__PURE__ */ new Set();
+  return specs.filter((s) => {
+    const key = path.resolve(s.home).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function sessionsRoot(home) {
+  return path.join(home, "sessions");
+}
+var PUMP_CHUNK = 256 * 1024;
+var SCAN_YIELD_EVERY = 16;
+function yieldNow() {
+  return new Promise((resolve5) => setImmediate(resolve5));
+}
+async function readdirSafe(dir) {
+  try {
+    return await fs.promises.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+async function statSafe(file) {
+  try {
+    return await fs.promises.stat(file);
+  } catch {
+    return null;
+  }
+}
+var WireWatcher = class {
+  constructor(opts) {
+    this.opts = opts;
+    this.root = opts.root;
+    this.scanMs = opts.scanIntervalMs ?? 5e3;
+    this.pollMs = opts.pollIntervalMs ?? 1e3;
+  }
+  opts;
+  root;
+  scanMs;
+  pollMs;
+  tails = /* @__PURE__ */ new Map();
+  stateMtimes = /* @__PURE__ */ new Map();
+  taskMtimes = /* @__PURE__ */ new Map();
+  dirWatchers = /* @__PURE__ */ new Map();
+  scanTimer = null;
+  pollTimer = null;
+  debounceTimer = null;
+  pumpDebounce = null;
+  scanning = false;
+  scanAgain = false;
+  pumping = false;
+  stopped = false;
+  started = false;
+  records = 0;
+  sessionCount = 0;
+  lastScanMs = 0;
+  start() {
+    if (this.started) return;
+    this.started = true;
+    this.stopped = false;
+    void this.scan();
+    this.scanTimer = setInterval(() => this.scheduleScan(0), this.scanMs);
+    this.scanTimer.unref();
+    this.pollTimer = setInterval(() => this.schedulePump(0), this.pollMs);
+    this.pollTimer.unref();
+  }
+  stop() {
+    this.stopped = true;
+    this.started = false;
+    for (const t of [this.scanTimer, this.pollTimer, this.debounceTimer, this.pumpDebounce]) {
+      if (t) clearInterval(t);
+    }
+    this.scanTimer = this.pollTimer = this.debounceTimer = this.pumpDebounce = null;
+    for (const w of this.dirWatchers.values()) w.close();
+    this.dirWatchers.clear();
+  }
+  get tailCount() {
+    return this.tails.size;
+  }
+  getProgress() {
+    let catchingUp = 0;
+    for (const tail of this.tails.values()) {
+      if (tail.offset < tail.size) catchingUp++;
+    }
+    return {
+      scanning: this.scanning,
+      catchingUp,
+      sessions: this.sessionCount,
+      agents: this.tails.size,
+      records: this.records,
+      lastScanMs: this.lastScanMs
+    };
+  }
+  /** Debounced scan scheduling: collapses fs.watch event bursts. */
+  scheduleScan(debounceMs) {
+    if (this.stopped) return;
+    if (debounceMs <= 0) {
+      void this.scan();
+      return;
+    }
+    if (this.debounceTimer) return;
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = null;
+      void this.scan();
+    }, debounceMs);
+    this.debounceTimer.unref();
+  }
+  schedulePump(debounceMs) {
+    if (this.stopped) return;
+    if (debounceMs <= 0) {
+      void this.pumpAll();
+      return;
+    }
+    if (this.pumpDebounce) return;
+    this.pumpDebounce = setTimeout(() => {
+      this.pumpDebounce = null;
+      void this.pumpAll();
+    }, debounceMs);
+    this.pumpDebounce.unref();
+  }
+  /** One serialized, chunked scan pass over the whole sessions tree. */
+  async scan() {
+    if (this.scanning) {
+      this.scanAgain = true;
+      return;
+    }
+    this.scanning = true;
+    const started = Date.now();
+    try {
+      let ops = 0;
+      const tick = async () => {
+        if (++ops % SCAN_YIELD_EVERY === 0) await yieldNow();
+      };
+      let sessions = 0;
+      const live = { state: /* @__PURE__ */ new Set(), tasks: /* @__PURE__ */ new Set(), tails: /* @__PURE__ */ new Set() };
+      for (const wd of await readdirSafe(this.root)) {
+        if (this.stopped) return;
+        if (!wd.isDirectory()) continue;
+        const wdPath = path.join(this.root, wd.name);
+        this.watchDir(wdPath);
+        for (const s of await readdirSafe(wdPath)) {
+          if (this.stopped) return;
+          if (!s.isDirectory()) continue;
+          sessions++;
+          await this.scanSession(wd.name, s.name, path.join(wdPath, s.name), tick, live);
+          await yieldNow();
+        }
+      }
+      for (const f of this.tails.keys()) if (!live.tails.has(f)) this.tails.delete(f);
+      for (const f of this.stateMtimes.keys()) if (!live.state.has(f)) this.stateMtimes.delete(f);
+      for (const f of this.taskMtimes.keys()) if (!live.tasks.has(f)) this.taskMtimes.delete(f);
+      this.sessionCount = sessions;
+    } finally {
+      this.lastScanMs = Date.now() - started;
+      this.scanning = false;
+      if (this.scanAgain && !this.stopped) {
+        this.scanAgain = false;
+        this.scheduleScan(50);
+      }
+      this.schedulePump(0);
+    }
+  }
+  async scanSession(workDirHash, sessionId, sessionPath, tick, live) {
+    this.watchDir(sessionPath);
+    const stateFile = path.join(sessionPath, "state.json");
+    const stateStat = await statSafe(stateFile);
+    await tick();
+    if (stateStat) {
+      live.state.add(stateFile);
+      const stateKey = `${stateStat.mtimeMs}:${stateStat.size}`;
+      if (this.stateMtimes.get(stateFile) !== stateKey) {
+        this.stateMtimes.set(stateFile, stateKey);
+        try {
+          const raw = await fs.promises.readFile(stateFile, "utf8");
+          const state = JSON.parse(raw);
+          this.opts.onSessionState?.({ home: this.opts.home, workDirHash, sessionId }, state);
+        } catch {
+        }
+      }
+    }
+    const agentsPath = path.join(sessionPath, "agents");
+    this.watchDir(agentsPath);
+    for (const a of await readdirSafe(agentsPath)) {
+      if (this.stopped) return;
+      if (!a.isDirectory()) continue;
+      await tick();
+      const agentPath = path.join(agentsPath, a.name);
+      this.watchDir(agentPath);
+      const ref = { home: this.opts.home, workDirHash, sessionId, agentId: a.name };
+      const wireFile = path.join(agentPath, "wire.jsonl");
+      live.tails.add(wireFile);
+      if (!this.tails.has(wireFile)) {
+        this.tails.set(wireFile, { ref, file: wireFile, offset: 0, pending: "", size: 0 });
+      }
+      const tasksPath = path.join(agentPath, "tasks");
+      this.watchDir(tasksPath);
+      for (const t of await readdirSafe(tasksPath)) {
+        if (!t.isFile() || !t.name.endsWith(".json")) continue;
+        await tick();
+        const taskFile = path.join(tasksPath, t.name);
+        const taskStat = await statSafe(taskFile);
+        if (!taskStat) continue;
+        live.tasks.add(taskFile);
+        const taskKey = `${taskStat.mtimeMs}:${taskStat.size}`;
+        if (this.taskMtimes.get(taskFile) === taskKey) continue;
+        this.taskMtimes.set(taskFile, taskKey);
+        try {
+          const raw = await fs.promises.readFile(taskFile, "utf8");
+          const task = JSON.parse(raw);
+          this.opts.onTask?.({ ...ref, taskId: t.name.slice(0, -5) }, task);
+        } catch {
+        }
+      }
+    }
+  }
+  watchDir(dir) {
+    if (this.stopped) return;
+    if (this.dirWatchers.has(dir)) return;
+    try {
+      const w = fs.watch(dir, () => {
+        this.scheduleScan(500);
+        this.schedulePump(100);
+      });
+      w.on("error", () => {
+        w.close();
+        this.dirWatchers.delete(dir);
+      });
+      this.dirWatchers.set(dir, w);
+    } catch {
+    }
+  }
+  /** Pump every tail sequentially, yielding between files. */
+  async pumpAll() {
+    if (this.pumping) return;
+    this.pumping = true;
+    try {
+      for (const tail of this.tails.values()) {
+        if (this.stopped) return;
+        await this.pump(tail);
+        await yieldNow();
+      }
+    } finally {
+      this.pumping = false;
+    }
+  }
+  /**
+   * Read new content of one wire file in bounded chunks, yielding to the
+   * event loop after every chunk, so a 20MB initial catch-up never blocks.
+   */
+  async pump(tail) {
+    const st = await statSafe(tail.file);
+    if (!st) return;
+    if (st.size < tail.offset) {
+      tail.offset = 0;
+      tail.pending = "";
+    }
+    tail.size = Number(st.size);
+    if (tail.size === tail.offset) return;
+    let fd;
+    try {
+      fd = await fs.promises.open(tail.file, "r");
+    } catch {
+      return;
+    }
+    try {
+      while (tail.offset < tail.size && !this.stopped) {
+        const len = Math.min(PUMP_CHUNK, tail.size - tail.offset);
+        const buf = Buffer.alloc(len);
+        const { bytesRead } = await fd.read(buf, 0, len, tail.offset);
+        if (bytesRead <= 0) break;
+        tail.offset += bytesRead;
+        const text = tail.pending + buf.toString("utf8", 0, bytesRead);
+        const lines = text.split("\n");
+        tail.pending = lines.pop() ?? "";
+        for (const line of lines) {
+          const raw = line.trim();
+          if (!raw) continue;
+          let parsed = null;
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+          }
+          this.records++;
+          this.opts.onRecord(tail.ref, raw, parsed);
+        }
+        await yieldNow();
+      }
+    } finally {
+      await fd.close().catch(() => void 0);
+    }
+  }
+};
+
+// src/modules/status/index.ts
+var HOME_RECHECK_MS = 3e4;
+var SWEEP_MS = 5e3;
+var AGENTS_CAP = 100;
+var REMOTE_STATUS_TIMEOUT_MS = 1500;
+async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
+  return new Promise((resolve5) => {
+    const req = get(
+      { host: "127.0.0.1", port, path: "/status", timeout: timeoutMs },
+      (res) => {
+        res.setEncoding("utf8");
+        let body = "";
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.on("end", () => {
+          if (res.statusCode !== 200) {
+            resolve5(void 0);
+            return;
+          }
+          try {
+            resolve5(JSON.parse(body));
+          } catch {
+            resolve5(void 0);
+          }
+        });
+      }
+    );
+    req.on("timeout", () => {
+      req.destroy();
+      resolve5(void 0);
+    });
+    req.on("error", () => resolve5(void 0));
+  });
+}
+function statusSnapshot(controller) {
+  const fold = controller.getFold();
+  const startedAtMs = controller.startedAt();
+  return {
+    server: {
+      pid: process.pid,
+      port: controller.getPort() ?? null,
+      started_at: startedAtMs === null ? null : new Date(startedAtMs).toISOString(),
+      uptime: startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1e3))
+    },
+    scan: controller.scanStatus(),
+    sources: {
+      wire: { sessions: fold.sessionCount, agents: fold.agentCount },
+      omkc: controller.omkcStatus()
+    },
+    sessions: fold.snapshotSessions(),
+    agents: fold.snapshotAgents()
+  };
+}
+function createStatusController(opts = {}) {
+  const fold = new StateFold({ staleMs: opts.staleMs });
+  const watchers = /* @__PURE__ */ new Map();
+  let started = false;
+  let startedAtMs = null;
+  let ownerPort;
+  let homeRecheck = null;
+  let sweepTimer = null;
+  const omkc = new OmkcSource({
+    probeMin: opts.omkcProbeMin,
+    probeMax: opts.omkcProbeMax,
+    probeIntervalMs: opts.omkcProbeIntervalMs,
+    probeTimeoutMs: opts.omkcProbeTimeoutMs,
+    readIdleTimeoutMs: opts.omkcReadIdleTimeoutMs,
+    onEvent: (_raw, ev) => {
+      if (ev) fold.applyOmkcEvent(ev);
+    }
+  });
+  function attachHome(spec) {
+    if (watchers.has(spec.home)) return;
+    const root = sessionsRoot(spec.home);
+    const watcher = new WireWatcher({
+      home: spec.label,
+      root,
+      scanIntervalMs: opts.scanIntervalMs,
+      pollIntervalMs: opts.pollIntervalMs,
+      onRecord: (ref, _raw, record2) => {
+        fold.applyWire(ref, record2);
+      },
+      onSessionState: (ref, state) => {
+        fold.applySessionState(ref, state);
+      },
+      onTask: (ref, task) => {
+        fold.applyTask(ref, task);
+      }
+    });
+    watcher.start();
+    watchers.set(spec.home, watcher);
+  }
+  return {
+    start() {
+      if (started) return;
+      started = true;
+      startedAtMs = Date.now();
+      for (const w of watchers.values()) w.start();
+      for (const spec of resolveHomes(opts.env)) {
+        if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
+      }
+      if (!homeRecheck) {
+        homeRecheck = setInterval(() => {
+          for (const spec of resolveHomes(opts.env)) {
+            if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
+          }
+        }, HOME_RECHECK_MS);
+        homeRecheck.unref();
+      }
+      if (!sweepTimer) {
+        sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
+        sweepTimer.unref();
+      }
+      omkc.start();
+    },
+    stop() {
+      if (!started) return;
+      started = false;
+      startedAtMs = null;
+      for (const w of watchers.values()) w.stop();
+      if (homeRecheck) {
+        clearInterval(homeRecheck);
+        homeRecheck = null;
+      }
+      if (sweepTimer) {
+        clearInterval(sweepTimer);
+        sweepTimer = null;
+      }
+      void omkc.stop();
+    },
+    isStarted: () => started,
+    getFold: () => fold,
+    scanStatus: () => {
+      const perHome = [...watchers.entries()].map(([home, w]) => ({
+        home,
+        ...w.getProgress()
+      }));
+      return {
+        scanning: perHome.some((p) => p.scanning || p.catchingUp > 0),
+        homes: perHome
+      };
+    },
+    startedAt: () => startedAtMs,
+    getPort: () => ownerPort,
+    setPort: (port) => {
+      ownerPort = port;
+    },
+    omkcStatus: () => omkc.status
+  };
+}
+function localStatusPayload(controller, args) {
+  const started = controller !== void 0 && controller.isStarted();
+  const sessionId = typeof args.sessionId === "string" && args.sessionId.length > 0 ? args.sessionId : void 0;
+  const rawLimit = typeof args.limit === "number" ? args.limit : AGENTS_CAP;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
+  let agents = [];
+  let sessions = [];
+  let sessionCount = 0;
+  let agentCount = 0;
+  let scanning = false;
+  if (controller !== void 0 && controller.isStarted()) {
+    const fold = controller.getFold();
+    sessionCount = fold.sessionCount;
+    agentCount = fold.agentCount;
+    sessions = fold.snapshotSessions();
+    scanning = controller.scanStatus().scanning;
+    agents = fold.snapshotAgents();
+  }
+  if (sessionId) agents = agents.filter((a) => a.sessionId === sessionId);
+  agents.sort((a, b) => b.lastSeen - a.lastSeen);
+  return {
+    started,
+    scanning,
+    sessionCount,
+    agentCount,
+    sessions,
+    agents: agents.slice(0, limit),
+    agentsTruncated: agents.length
+  };
+}
+function statusAgentsTool(controller, remoteStatusTimeoutMs) {
+  return {
+    name: "moa_status_agents",
+    description: "Live agent/session status folded from the CLI homes' session trees (wire.jsonl / state.json / tasks/*.json) plus the owning Bus's /status snapshot. Returns aggregate counts plus per-agent snapshots ordered by lastSeen (most recent first), capped at 100 by default (pass limit or sessionId to filter). source is 'local' when this process folds the data itself, 'remote' when a reuse session proxies the owning Bus's /status, and 'local-empty' when nothing is available yet \u2014 the state is always explicit, never silently stale.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Only return agents of this sessionId" },
+        limit: { type: "number", description: `Max agents to return (default ${AGENTS_CAP})` }
+      },
+      additionalProperties: false
+    },
+    handler: async (args) => {
+      const started = controller !== void 0 && controller.isStarted();
+      if (started) {
+        return { ...localStatusPayload(controller, args), source: "local" };
+      }
+      const ownerPort = controller?.getPort();
+      if (ownerPort !== void 0) {
+        const remote = await fetchRemoteStatus(ownerPort, remoteStatusTimeoutMs);
+        if (remote !== void 0) return { ...remote, source: "remote" };
+      }
+      return { ...localStatusPayload(controller, args), source: "local-empty" };
+    }
+  };
+}
+function statusRoutes(controller) {
+  return [
+    {
+      method: "GET",
+      path: "/status",
+      handler: (ctx) => {
+        ctx.res.setHeader("access-control-allow-origin", "*");
+        if (controller === void 0 || !controller.isStarted()) {
+          ctx.res.setHeader("retry-after", "2");
+          ctx.sendJson(503, { error: "status_not_ready", started: false });
+          return;
+        }
+        ctx.sendJson(200, statusSnapshot(controller));
+      }
+    }
+  ];
+}
+function createStatusModule(controller, opts = {}) {
+  return {
+    id: "status",
+    tier: "experimental",
+    tools: [statusAgentsTool(controller, opts.remoteStatusTimeoutMs ?? REMOTE_STATUS_TIMEOUT_MS)],
+    routes: statusRoutes(controller)
+  };
+}
+
 // src/core/store/project-migration.ts
 import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile5, rename as rename3, stat as stat4, truncate, unlink as unlink5, writeFile as writeFile2 } from "node:fs/promises";
 import { join as join7 } from "node:path";
@@ -34050,10 +35089,12 @@ var ControlPlane = class {
   tips;
   runtime;
   agentConfig;
+  statusController;
   exactRoutes = /* @__PURE__ */ new Map();
   patternRoutes = [];
-  constructor(board, tips, agentConfig = new WorkspaceAgentConfigService()) {
+  constructor(board, tips, agentConfig = new WorkspaceAgentConfigService(), statusController) {
     this.agentConfig = agentConfig;
+    this.statusController = statusController;
     this.registerRoutes();
     if (board !== void 0) this.mount(board, tips);
   }
@@ -34071,7 +35112,10 @@ var ControlPlane = class {
   }
   /** Aggregate module routes and adapter-level routes into the dispatch tables. */
   registerRoutes() {
-    const modules = [createAgentConfigModule(this.agentConfig)];
+    const modules = [
+      createAgentConfigModule(this.agentConfig),
+      createStatusModule(this.statusController)
+    ];
     const routes = [
       ...modules.flatMap((module) => module.routes ?? []),
       ...this.adapterRoutes()
@@ -34759,7 +35803,7 @@ function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule)
 }
 
 // src/core/bus/bus.ts
-import { createServer as createServer2, get } from "node:http";
+import { createServer as createServer2, get as get2 } from "node:http";
 import { writeFile as writeFile3, readFile as readFile8, rm } from "node:fs/promises";
 import { join as join9, resolve as resolve4 } from "node:path";
 
@@ -36133,7 +37177,7 @@ function envBusPort() {
 }
 function busProbe(port, timeoutMs = PROBE_TIMEOUT_MS) {
   return new Promise((done) => {
-    const req = get({ host: "127.0.0.1", port, path: "/tasks", timeout: timeoutMs }, (res) => {
+    const req = get2({ host: "127.0.0.1", port, path: "/tasks", timeout: timeoutMs }, (res) => {
       res.resume();
       done(res.statusCode === 200);
     });
@@ -36199,7 +37243,7 @@ var Bus = class {
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
     this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
     this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
-    this.controlPlane = new ControlPlane(opts.board, opts.tipStore);
+    this.controlPlane = new ControlPlane(opts.board, opts.tipStore, void 0, opts.statusController);
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
     this.controlPlane.mountRuntime({
       listRuns: () => this.runReadModel.list(),
@@ -36550,6 +37594,20 @@ var Bus = class {
       );
       return;
     }
+    if (req.method === "GET" && url.pathname === "/health") {
+      res.writeHead(200, {
+        "content-type": "application/json; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "cache-control": "no-store"
+      });
+      res.end(JSON.stringify({
+        ok: true,
+        version: VERSION,
+        uptime: Math.max(0, Math.floor((Date.now() - this.startedAt) / 1e3)),
+        mode: this.mode
+      }));
+      return;
+    }
     if (await this.controlPlane.handle(req, res, this.actualPort)) return;
     if (req.method === "GET" && url.pathname === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -36673,946 +37731,10 @@ function spawnBusDaemon(opts) {
   }
 }
 
-// src/modules/status/index.ts
-import fs2 from "node:fs";
-
-// src/modules/status/sse-source.ts
-var OMKC_PROBE_MIN = 39631;
-var OMKC_PROBE_MAX = 39731;
-var OMKC_PRODUCT = "omkc-status-source";
-var OMKC_PROTOCOL_VERSION_MAX = 1;
-var READ_IDLE_TIMEOUT_MS = 3 * 15e3;
-function classifySourceHealth(body, port) {
-  if (body.ok !== true || body.product !== OMKC_PRODUCT) return null;
-  const protocolVersion = typeof body.protocolVersion === "number" ? body.protocolVersion : void 0;
-  if (protocolVersion !== void 0 && protocolVersion > OMKC_PROTOCOL_VERSION_MAX) return null;
-  return {
-    port,
-    pid: typeof body.pid === "number" ? body.pid : void 0,
-    version: typeof body.version === "string" ? body.version : void 0,
-    protocolVersion,
-    legacy: protocolVersion === void 0
-  };
-}
-function sleep2(ms) {
-  return new Promise((resolve5) => setTimeout(resolve5, ms));
-}
-var OmkcSource = class {
-  constructor(opts) {
-    this.opts = opts;
-    this.probeMin = opts.probeMin ?? OMKC_PROBE_MIN;
-    this.probeMax = opts.probeMax ?? OMKC_PROBE_MAX;
-    this.probeIntervalMs = opts.probeIntervalMs ?? 5e3;
-    this.probeTimeoutMs = opts.probeTimeoutMs ?? 200;
-    this.readIdleTimeoutMs = opts.readIdleTimeoutMs ?? READ_IDLE_TIMEOUT_MS;
-  }
-  opts;
-  probeMin;
-  probeMax;
-  probeIntervalMs;
-  probeTimeoutMs;
-  readIdleTimeoutMs;
-  running = false;
-  loopPromise = null;
-  abort = null;
-  current = null;
-  connectedAt = null;
-  /**
-   * Loop generation (F7, batch 1b): bumped on every start()/stop(). Each
-   * loop() captures its own generation and exits as soon as it no longer
-   * matches, so a stop() → start() without awaiting stop() can never leave
-   * two loops alive and subscribing concurrently.
-   */
-  generation = 0;
-  get status() {
-    return {
-      connected: this.current !== null,
-      port: this.current?.port ?? null,
-      pid: this.current?.pid ?? null,
-      version: this.current?.version ?? null,
-      connectedAt: this.connectedAt,
-      protocolVersion: this.current?.protocolVersion ?? null,
-      legacy: this.current?.legacy ?? false
-    };
-  }
-  start() {
-    if (this.running) return;
-    this.running = true;
-    this.generation += 1;
-    const gen = this.generation;
-    this.loopPromise = this.loop(gen);
-  }
-  async stop() {
-    this.running = false;
-    this.generation += 1;
-    this.abort?.abort();
-    await this.loopPromise?.catch(() => void 0);
-  }
-  async loop(gen) {
-    while (this.running && gen === this.generation) {
-      const found = await this.probe();
-      if (!this.running || gen !== this.generation) break;
-      if (found) {
-        try {
-          await this.subscribe(found);
-        } catch {
-        }
-        if (this.current) {
-          const info = this.current;
-          this.current = null;
-          this.connectedAt = null;
-          this.opts.onDisconnect?.(info);
-        }
-        if (!this.running || gen !== this.generation) break;
-        await sleep2(this.probeIntervalMs);
-      } else {
-        await sleep2(this.probeIntervalMs);
-      }
-    }
-  }
-  /** Probe the whole port window in parallel; first product match wins. */
-  async probe() {
-    const ports = [];
-    for (let p = this.probeMin; p <= this.probeMax; p++) ports.push(p);
-    const results = await Promise.all(ports.map((p) => this.tryHealth(p)));
-    return results.find((r) => r !== null) ?? null;
-  }
-  async tryHealth(port) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), this.probeTimeoutMs);
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: ctrl.signal });
-      if (!res.ok) return null;
-      return classifySourceHealth(await res.json(), port);
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  async subscribe(info) {
-    this.abort = new AbortController();
-    const attempt = new AbortController();
-    const linkAbort = () => attempt.abort();
-    this.abort.signal.addEventListener("abort", linkAbort);
-    const headerTimer = setTimeout(() => attempt.abort(), this.readIdleTimeoutMs);
-    try {
-      const res = await fetch(`http://127.0.0.1:${info.port}/events`, {
-        signal: attempt.signal,
-        headers: { Accept: "text/event-stream" }
-      });
-      clearTimeout(headerTimer);
-      if (!res.ok || !res.body) throw new Error(`omkc /events: HTTP ${res.status}`);
-      this.current = info;
-      this.connectedAt = Date.now();
-      this.opts.onConnect?.(info);
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let dataLines = [];
-      let idleTimer = null;
-      const flush = () => {
-        if (dataLines.length === 0) return;
-        const raw = dataLines.join("\n");
-        dataLines = [];
-        let parsed = null;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-        }
-        this.opts.onEvent(raw, parsed);
-      };
-      try {
-        for (; ; ) {
-          const idle = new Promise((resolve5) => {
-            idleTimer = setTimeout(() => resolve5("idle"), this.readIdleTimeoutMs);
-          });
-          const chunk = await Promise.race([reader.read(), idle]);
-          if (idleTimer) clearTimeout(idleTimer);
-          if (chunk === "idle") {
-            this.abort?.abort();
-            throw new Error(`omkc /events: no bytes for ${this.readIdleTimeoutMs}ms (read idle timeout)`);
-          }
-          const { done, value } = chunk;
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (line === "" || line === "\r") {
-              flush();
-            } else if (line.startsWith("data:")) {
-              dataLines.push(line.slice(5).replace(/^ /, "").replace(/\r$/, ""));
-            }
-          }
-        }
-      } finally {
-        if (idleTimer) clearTimeout(idleTimer);
-        flush();
-        reader.releaseLock();
-      }
-    } finally {
-      clearTimeout(headerTimer);
-      this.abort.signal.removeEventListener("abort", linkAbort);
-    }
-  }
-};
-
-// src/modules/status/state.ts
-var OMKC_PRIORITY_MS = 3e4;
-var STALE_MS = 6e4;
-function asRecord2(v) {
-  return v ?? {};
-}
-function cloneJson(value) {
-  return value === void 0 ? value : JSON.parse(JSON.stringify(value));
-}
-function laterOf(a, b) {
-  if (a === void 0) return b;
-  if (b === void 0) return a;
-  const ta = Date.parse(a);
-  const tb = Date.parse(b);
-  if (!Number.isFinite(ta)) return b;
-  if (!Number.isFinite(tb)) return a;
-  return ta >= tb ? a : b;
-}
-function finiteTime(value) {
-  return Number.isFinite(value) ? value : Date.now();
-}
-var StateFold = class _StateFold {
-  agents = /* @__PURE__ */ new Map();
-  sessions = /* @__PURE__ */ new Map();
-  omkcPriorityMs;
-  staleMs;
-  constructor(opts) {
-    this.omkcPriorityMs = opts?.omkcPriorityMs ?? OMKC_PRIORITY_MS;
-    this.staleMs = opts?.staleMs ?? STALE_MS;
-  }
-  /**
-   * Agents are keyed by sessionId + agentId only — deliberately no home and
-   * no workDirHash. 1b's OmkcEvent carries neither, so applyOmkcEvent's
-   * ensure() cannot fill them; "completing the symmetry" (e.g. keying on home
-   * too) would make omkc events unable to override their wire counterparts.
-   * Do not change this key.
-   */
-  static key(sessionId, agentId) {
-    return `${sessionId}:${agentId}`;
-  }
-  ensure(sessionId, agentId, ts, workDirHash, home) {
-    const key = _StateFold.key(sessionId, agentId);
-    let agent = this.agents.get(key);
-    if (!agent) {
-      agent = {
-        sessionId,
-        agentId,
-        home,
-        workDirHash,
-        busy: false,
-        subagents: [],
-        lastSeen: ts,
-        firstSeen: ts,
-        source: "wire",
-        omkcTs: 0,
-        stale: false
-      };
-      this.agents.set(key, agent);
-    }
-    if (workDirHash && !agent.workDirHash) agent.workDirHash = workDirHash;
-    if (home && !agent.home) agent.home = home;
-    return agent;
-  }
-  /** True while omkc events for this agent are fresh enough to own its fields. */
-  omkcOwns(agent, now) {
-    return agent.omkcTs > 0 && now - agent.omkcTs < this.omkcPriorityMs;
-  }
-  // ---------------------------------------------------------------- source ①
-  /** Fold one wire.jsonl record (read-only inference). */
-  applyWire(ref, record2) {
-    if (!record2 || typeof record2.type !== "string") return null;
-    const rawTs = typeof record2.time === "number" ? record2.time : NaN;
-    const ts = finiteTime(rawTs);
-    const agent = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
-    agent.lastSeen = Math.max(agent.lastSeen, ts);
-    agent.stale = false;
-    if (this.omkcOwns(agent, Date.now())) return agent;
-    switch (record2.type) {
-      case "metadata":
-        break;
-      case "turn.prompt":
-      case "turn.steer":
-        agent.busy = true;
-        agent.source = "wire";
-        break;
-      case "turn.cancel":
-        agent.busy = false;
-        agent.lastFinishReason = "cancelled";
-        agent.source = "wire";
-        break;
-      case "config.update": {
-        const alias = record2.modelAlias;
-        if (typeof alias === "string") agent.model = alias;
-        break;
-      }
-      case "llm.request": {
-        if (!agent.model) {
-          const alias = record2.modelAlias ?? record2.model;
-          if (typeof alias === "string") agent.model = alias;
-        }
-        break;
-      }
-      case "usage.record": {
-        if (typeof record2.model === "string") agent.model = record2.model;
-        if (record2.usage !== void 0) agent.usage = record2.usage;
-        agent.source = "wire";
-        break;
-      }
-      case "context.update_token_count": {
-        if (typeof record2.tokenCount === "number") agent.contextTokens = record2.tokenCount;
-        break;
-      }
-      case "context.append_loop_event":
-        this.applyLoopEvent(agent, asRecord2(record2.event), ts);
-        break;
-      default:
-        break;
-    }
-    return agent;
-  }
-  applyLoopEvent(agent, ev, ts) {
-    switch (ev.type) {
-      case "step.begin":
-        agent.busy = true;
-        agent.source = "wire";
-        break;
-      case "step.end": {
-        if (ev.usage !== void 0) agent.usage = ev.usage;
-        const reason = ev.finishReason;
-        if (typeof reason === "string" && reason !== "tool_use") {
-          agent.busy = false;
-          agent.lastFinishReason = reason;
-        }
-        agent.source = "wire";
-        break;
-      }
-      case "tool.call": {
-        if (typeof ev.name === "string") {
-          agent.lastToolCall = {
-            name: ev.name,
-            ts,
-            description: typeof ev.description === "string" ? ev.description : void 0
-          };
-        }
-        agent.busy = true;
-        agent.source = "wire";
-        break;
-      }
-      case "tool.result": {
-        const result = asRecord2(ev.result);
-        if (agent.lastToolCall && typeof result.isError === "boolean") {
-          agent.lastToolCall.isError = result.isError;
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  /** Fold a (re-)read state.json: session metadata + agents table. */
-  applySessionState(ref, state) {
-    const skey = `${ref.workDirHash}/${ref.sessionId}`;
-    const existing = this.sessions.get(skey);
-    this.sessions.set(skey, {
-      workDirHash: ref.workDirHash,
-      sessionId: ref.sessionId,
-      home: existing?.home ?? ref.home,
-      title: state.title ?? existing?.title,
-      workDir: state.workDir ?? existing?.workDir,
-      createdAt: state.createdAt ?? existing?.createdAt,
-      updatedAt: laterOf(existing?.updatedAt, state.updatedAt)
-    });
-    const parsed = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
-    const ts = finiteTime(parsed);
-    for (const [agentId, info] of Object.entries(state.agents ?? {})) {
-      const agent = this.ensure(ref.sessionId, agentId, ts, ref.workDirHash, ref.home);
-      agent.kind = info.type;
-      agent.parentAgentId = info.parentAgentId ?? null;
-      if (!this.omkcOwns(agent, Date.now())) {
-        agent.lastSeen = Math.max(agent.lastSeen, ts || 0);
-      }
-      const parentId = info.parentAgentId;
-      if (parentId) {
-        const parent = this.ensure(ref.sessionId, parentId, ts, ref.workDirHash, ref.home);
-        if (!parent.subagents.some((s) => s.subagentId === agentId)) {
-          parent.subagents.push({ subagentId: agentId, status: "unknown", ts });
-        }
-      }
-    }
-  }
-  /** Fold a tasks/<taskId>.json snapshot: auxiliary subagent lifecycle. */
-  applyTask(ref, task) {
-    if (task.kind !== "agent" || typeof task.agentId !== "string") return;
-    const rawTs = task.endedAt ?? task.startedAt ?? NaN;
-    const ts = finiteTime(rawTs);
-    const owner = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
-    let sub = owner.subagents.find((s) => s.subagentId === task.agentId);
-    if (!sub) {
-      sub = { subagentId: task.agentId, status: "unknown", ts };
-      owner.subagents.push(sub);
-    }
-    if (this.omkcOwns(owner, Date.now())) return;
-    sub.status = task.status ?? sub.status;
-    sub.ts = ts;
-    if (typeof task.description === "string") sub.description = task.description;
-    if (typeof task.stopReason === "string") sub.resultSummary = task.stopReason;
-    if (typeof task.subagentType === "string") sub.name = task.subagentType;
-  }
-  // ---------------------------------------------------------------- source ②
-  /** Fold one omkc SSE event (authoritative overlay, carries real phase). */
-  applyOmkcEvent(ev) {
-    if (!ev || typeof ev.sessionId !== "string" || typeof ev.agentId !== "string" || typeof ev.type !== "string") {
-      return null;
-    }
-    const payload = asRecord2(ev.payload);
-    const ts = typeof ev.ts === "number" ? finiteTime(ev.ts) : Date.now();
-    let agentId = ev.agentId;
-    if (ev.type.startsWith("subagent.") && typeof payload.parentAgentId === "string") {
-      agentId = payload.parentAgentId;
-    }
-    const agent = this.ensure(ev.sessionId, agentId, ts);
-    agent.lastSeen = Math.max(agent.lastSeen, ts);
-    agent.stale = false;
-    agent.omkcTs = Date.now();
-    agent.source = "omkc";
-    switch (ev.type) {
-      case "agent.status.updated": {
-        if (typeof payload.model === "string") agent.model = payload.model;
-        if (typeof payload.contextTokens === "number") agent.contextTokens = payload.contextTokens;
-        if (typeof payload.maxContextTokens === "number") agent.maxContextTokens = payload.maxContextTokens;
-        if (payload.usage !== void 0) agent.usage = payload.usage;
-        if (typeof payload.planMode === "boolean") agent.planMode = payload.planMode;
-        if (typeof payload.phase === "string") agent.phase = payload.phase;
-        break;
-      }
-      case "turn.started":
-        agent.busy = true;
-        break;
-      case "turn.ended":
-        agent.busy = false;
-        if (typeof payload.reason === "string") agent.lastTurnReason = payload.reason;
-        break;
-      case "tool.call.started":
-        if (typeof payload.name === "string") {
-          agent.lastToolCall = {
-            name: payload.name,
-            ts,
-            description: typeof payload.description === "string" ? payload.description : void 0
-          };
-        }
-        break;
-      case "tool.result":
-        if (agent.lastToolCall && typeof payload.isError === "boolean") {
-          agent.lastToolCall.isError = payload.isError;
-        }
-        break;
-      case "subagent.spawned":
-      case "subagent.started":
-      case "subagent.completed":
-      case "subagent.failed":
-      case "subagent.suspended": {
-        const subId = typeof payload.subagentId === "string" ? payload.subagentId : void 0;
-        if (!subId) break;
-        let sub = agent.subagents.find((s) => s.subagentId === subId);
-        if (!sub) {
-          sub = { subagentId: subId, status: "spawned", ts };
-          agent.subagents.push(sub);
-        }
-        sub.status = ev.type.slice("subagent.".length);
-        sub.ts = ts;
-        if (typeof payload.subagentName === "string") sub.name = payload.subagentName;
-        if (typeof payload.description === "string") sub.description = payload.description;
-        if (typeof payload.resultSummary === "string") sub.resultSummary = payload.resultSummary;
-        if (payload.usage !== void 0) sub.usage = payload.usage;
-        if (typeof payload.contextTokens === "number") sub.contextTokens = payload.contextTokens;
-        if (typeof payload.error === "string") sub.error = payload.error;
-        break;
-      }
-      default:
-        break;
-    }
-    return agent;
-  }
-  // ---------------------------------------------------------------- sweep
-  /** Mark agents with no events for >STALE_MS as stale (kept, not deleted). */
-  sweepStale(now = Date.now()) {
-    for (const agent of this.agents.values()) {
-      agent.stale = now - agent.lastSeen > this.staleMs;
-    }
-  }
-  get agentCount() {
-    return this.agents.size;
-  }
-  get sessionCount() {
-    return this.sessions.size;
-  }
-  snapshotSessions() {
-    return [...this.sessions.values()].map((s) => ({ ...s }));
-  }
-  snapshotAgents() {
-    return [...this.agents.values()].map((a) => ({
-      ...a,
-      // usage is deep-copied too: it can nest, and sharing the reference
-      // would leak fold-internal state to snapshot consumers.
-      usage: cloneJson(a.usage),
-      subagents: a.subagents.map((s) => ({ ...s, usage: cloneJson(s.usage) })),
-      lastToolCall: a.lastToolCall ? { ...a.lastToolCall } : void 0
-    }));
-  }
-};
-
-// src/modules/status/watcher.ts
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-function omkcHome(env = process.env) {
-  return env.OMKC_HOME ?? env.KIMI_CODE_HOME ?? path.join(os.homedir(), ".omkc");
-}
-function kimiHome(env = process.env) {
-  return env.KIMI_CODE_HOME ?? path.join(os.homedir(), ".kimi-code");
-}
-function resolveHomes(env = process.env) {
-  const specs = [
-    { label: "omkc", home: omkcHome(env) },
-    { label: "kimi-code", home: kimiHome(env) }
-  ];
-  const seen = /* @__PURE__ */ new Set();
-  return specs.filter((s) => {
-    const key = path.resolve(s.home).toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-function sessionsRoot(home) {
-  return path.join(home, "sessions");
-}
-var PUMP_CHUNK = 256 * 1024;
-var SCAN_YIELD_EVERY = 16;
-function yieldNow() {
-  return new Promise((resolve5) => setImmediate(resolve5));
-}
-async function readdirSafe(dir) {
-  try {
-    return await fs.promises.readdir(dir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-}
-async function statSafe(file) {
-  try {
-    return await fs.promises.stat(file);
-  } catch {
-    return null;
-  }
-}
-var WireWatcher = class {
-  constructor(opts) {
-    this.opts = opts;
-    this.root = opts.root;
-    this.scanMs = opts.scanIntervalMs ?? 5e3;
-    this.pollMs = opts.pollIntervalMs ?? 1e3;
-  }
-  opts;
-  root;
-  scanMs;
-  pollMs;
-  tails = /* @__PURE__ */ new Map();
-  stateMtimes = /* @__PURE__ */ new Map();
-  taskMtimes = /* @__PURE__ */ new Map();
-  dirWatchers = /* @__PURE__ */ new Map();
-  scanTimer = null;
-  pollTimer = null;
-  debounceTimer = null;
-  pumpDebounce = null;
-  scanning = false;
-  scanAgain = false;
-  pumping = false;
-  stopped = false;
-  started = false;
-  records = 0;
-  sessionCount = 0;
-  lastScanMs = 0;
-  start() {
-    if (this.started) return;
-    this.started = true;
-    this.stopped = false;
-    void this.scan();
-    this.scanTimer = setInterval(() => this.scheduleScan(0), this.scanMs);
-    this.scanTimer.unref();
-    this.pollTimer = setInterval(() => this.schedulePump(0), this.pollMs);
-    this.pollTimer.unref();
-  }
-  stop() {
-    this.stopped = true;
-    this.started = false;
-    for (const t of [this.scanTimer, this.pollTimer, this.debounceTimer, this.pumpDebounce]) {
-      if (t) clearInterval(t);
-    }
-    this.scanTimer = this.pollTimer = this.debounceTimer = this.pumpDebounce = null;
-    for (const w of this.dirWatchers.values()) w.close();
-    this.dirWatchers.clear();
-  }
-  get tailCount() {
-    return this.tails.size;
-  }
-  getProgress() {
-    let catchingUp = 0;
-    for (const tail of this.tails.values()) {
-      if (tail.offset < tail.size) catchingUp++;
-    }
-    return {
-      scanning: this.scanning,
-      catchingUp,
-      sessions: this.sessionCount,
-      agents: this.tails.size,
-      records: this.records,
-      lastScanMs: this.lastScanMs
-    };
-  }
-  /** Debounced scan scheduling: collapses fs.watch event bursts. */
-  scheduleScan(debounceMs) {
-    if (this.stopped) return;
-    if (debounceMs <= 0) {
-      void this.scan();
-      return;
-    }
-    if (this.debounceTimer) return;
-    this.debounceTimer = setTimeout(() => {
-      this.debounceTimer = null;
-      void this.scan();
-    }, debounceMs);
-    this.debounceTimer.unref();
-  }
-  schedulePump(debounceMs) {
-    if (this.stopped) return;
-    if (debounceMs <= 0) {
-      void this.pumpAll();
-      return;
-    }
-    if (this.pumpDebounce) return;
-    this.pumpDebounce = setTimeout(() => {
-      this.pumpDebounce = null;
-      void this.pumpAll();
-    }, debounceMs);
-    this.pumpDebounce.unref();
-  }
-  /** One serialized, chunked scan pass over the whole sessions tree. */
-  async scan() {
-    if (this.scanning) {
-      this.scanAgain = true;
-      return;
-    }
-    this.scanning = true;
-    const started = Date.now();
-    try {
-      let ops = 0;
-      const tick = async () => {
-        if (++ops % SCAN_YIELD_EVERY === 0) await yieldNow();
-      };
-      let sessions = 0;
-      const live = { state: /* @__PURE__ */ new Set(), tasks: /* @__PURE__ */ new Set(), tails: /* @__PURE__ */ new Set() };
-      for (const wd of await readdirSafe(this.root)) {
-        if (this.stopped) return;
-        if (!wd.isDirectory()) continue;
-        const wdPath = path.join(this.root, wd.name);
-        this.watchDir(wdPath);
-        for (const s of await readdirSafe(wdPath)) {
-          if (this.stopped) return;
-          if (!s.isDirectory()) continue;
-          sessions++;
-          await this.scanSession(wd.name, s.name, path.join(wdPath, s.name), tick, live);
-          await yieldNow();
-        }
-      }
-      for (const f of this.tails.keys()) if (!live.tails.has(f)) this.tails.delete(f);
-      for (const f of this.stateMtimes.keys()) if (!live.state.has(f)) this.stateMtimes.delete(f);
-      for (const f of this.taskMtimes.keys()) if (!live.tasks.has(f)) this.taskMtimes.delete(f);
-      this.sessionCount = sessions;
-    } finally {
-      this.lastScanMs = Date.now() - started;
-      this.scanning = false;
-      if (this.scanAgain && !this.stopped) {
-        this.scanAgain = false;
-        this.scheduleScan(50);
-      }
-      this.schedulePump(0);
-    }
-  }
-  async scanSession(workDirHash, sessionId, sessionPath, tick, live) {
-    this.watchDir(sessionPath);
-    const stateFile = path.join(sessionPath, "state.json");
-    const stateStat = await statSafe(stateFile);
-    await tick();
-    if (stateStat) {
-      live.state.add(stateFile);
-      const stateKey = `${stateStat.mtimeMs}:${stateStat.size}`;
-      if (this.stateMtimes.get(stateFile) !== stateKey) {
-        this.stateMtimes.set(stateFile, stateKey);
-        try {
-          const raw = await fs.promises.readFile(stateFile, "utf8");
-          const state = JSON.parse(raw);
-          this.opts.onSessionState?.({ home: this.opts.home, workDirHash, sessionId }, state);
-        } catch {
-        }
-      }
-    }
-    const agentsPath = path.join(sessionPath, "agents");
-    this.watchDir(agentsPath);
-    for (const a of await readdirSafe(agentsPath)) {
-      if (this.stopped) return;
-      if (!a.isDirectory()) continue;
-      await tick();
-      const agentPath = path.join(agentsPath, a.name);
-      this.watchDir(agentPath);
-      const ref = { home: this.opts.home, workDirHash, sessionId, agentId: a.name };
-      const wireFile = path.join(agentPath, "wire.jsonl");
-      live.tails.add(wireFile);
-      if (!this.tails.has(wireFile)) {
-        this.tails.set(wireFile, { ref, file: wireFile, offset: 0, pending: "", size: 0 });
-      }
-      const tasksPath = path.join(agentPath, "tasks");
-      this.watchDir(tasksPath);
-      for (const t of await readdirSafe(tasksPath)) {
-        if (!t.isFile() || !t.name.endsWith(".json")) continue;
-        await tick();
-        const taskFile = path.join(tasksPath, t.name);
-        const taskStat = await statSafe(taskFile);
-        if (!taskStat) continue;
-        live.tasks.add(taskFile);
-        const taskKey = `${taskStat.mtimeMs}:${taskStat.size}`;
-        if (this.taskMtimes.get(taskFile) === taskKey) continue;
-        this.taskMtimes.set(taskFile, taskKey);
-        try {
-          const raw = await fs.promises.readFile(taskFile, "utf8");
-          const task = JSON.parse(raw);
-          this.opts.onTask?.({ ...ref, taskId: t.name.slice(0, -5) }, task);
-        } catch {
-        }
-      }
-    }
-  }
-  watchDir(dir) {
-    if (this.stopped) return;
-    if (this.dirWatchers.has(dir)) return;
-    try {
-      const w = fs.watch(dir, () => {
-        this.scheduleScan(500);
-        this.schedulePump(100);
-      });
-      w.on("error", () => {
-        w.close();
-        this.dirWatchers.delete(dir);
-      });
-      this.dirWatchers.set(dir, w);
-    } catch {
-    }
-  }
-  /** Pump every tail sequentially, yielding between files. */
-  async pumpAll() {
-    if (this.pumping) return;
-    this.pumping = true;
-    try {
-      for (const tail of this.tails.values()) {
-        if (this.stopped) return;
-        await this.pump(tail);
-        await yieldNow();
-      }
-    } finally {
-      this.pumping = false;
-    }
-  }
-  /**
-   * Read new content of one wire file in bounded chunks, yielding to the
-   * event loop after every chunk, so a 20MB initial catch-up never blocks.
-   */
-  async pump(tail) {
-    const st = await statSafe(tail.file);
-    if (!st) return;
-    if (st.size < tail.offset) {
-      tail.offset = 0;
-      tail.pending = "";
-    }
-    tail.size = Number(st.size);
-    if (tail.size === tail.offset) return;
-    let fd;
-    try {
-      fd = await fs.promises.open(tail.file, "r");
-    } catch {
-      return;
-    }
-    try {
-      while (tail.offset < tail.size && !this.stopped) {
-        const len = Math.min(PUMP_CHUNK, tail.size - tail.offset);
-        const buf = Buffer.alloc(len);
-        const { bytesRead } = await fd.read(buf, 0, len, tail.offset);
-        if (bytesRead <= 0) break;
-        tail.offset += bytesRead;
-        const text = tail.pending + buf.toString("utf8", 0, bytesRead);
-        const lines = text.split("\n");
-        tail.pending = lines.pop() ?? "";
-        for (const line of lines) {
-          const raw = line.trim();
-          if (!raw) continue;
-          let parsed = null;
-          try {
-            parsed = JSON.parse(raw);
-          } catch {
-          }
-          this.records++;
-          this.opts.onRecord(tail.ref, raw, parsed);
-        }
-        await yieldNow();
-      }
-    } finally {
-      await fd.close().catch(() => void 0);
-    }
-  }
-};
-
-// src/modules/status/index.ts
-var HOME_RECHECK_MS = 3e4;
-var SWEEP_MS = 5e3;
-var AGENTS_CAP = 100;
-function createStatusController(opts = {}) {
-  const fold = new StateFold({ staleMs: opts.staleMs });
-  const watchers = /* @__PURE__ */ new Map();
-  let started = false;
-  let homeRecheck = null;
-  let sweepTimer = null;
-  const omkc = new OmkcSource({
-    probeMin: opts.omkcProbeMin,
-    probeMax: opts.omkcProbeMax,
-    probeIntervalMs: opts.omkcProbeIntervalMs,
-    probeTimeoutMs: opts.omkcProbeTimeoutMs,
-    readIdleTimeoutMs: opts.omkcReadIdleTimeoutMs,
-    onEvent: (_raw, ev) => {
-      if (ev) fold.applyOmkcEvent(ev);
-    }
-  });
-  function attachHome(spec) {
-    if (watchers.has(spec.home)) return;
-    const root = sessionsRoot(spec.home);
-    const watcher = new WireWatcher({
-      home: spec.label,
-      root,
-      scanIntervalMs: opts.scanIntervalMs,
-      pollIntervalMs: opts.pollIntervalMs,
-      onRecord: (ref, _raw, record2) => {
-        fold.applyWire(ref, record2);
-      },
-      onSessionState: (ref, state) => {
-        fold.applySessionState(ref, state);
-      },
-      onTask: (ref, task) => {
-        fold.applyTask(ref, task);
-      }
-    });
-    watcher.start();
-    watchers.set(spec.home, watcher);
-  }
-  return {
-    start() {
-      if (started) return;
-      started = true;
-      for (const w of watchers.values()) w.start();
-      for (const spec of resolveHomes(opts.env)) {
-        if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
-      }
-      if (!homeRecheck) {
-        homeRecheck = setInterval(() => {
-          for (const spec of resolveHomes(opts.env)) {
-            if (!watchers.has(spec.home) && fs2.existsSync(spec.home)) attachHome(spec);
-          }
-        }, HOME_RECHECK_MS);
-        homeRecheck.unref();
-      }
-      if (!sweepTimer) {
-        sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
-        sweepTimer.unref();
-      }
-      omkc.start();
-    },
-    stop() {
-      if (!started) return;
-      started = false;
-      for (const w of watchers.values()) w.stop();
-      if (homeRecheck) {
-        clearInterval(homeRecheck);
-        homeRecheck = null;
-      }
-      if (sweepTimer) {
-        clearInterval(sweepTimer);
-        sweepTimer = null;
-      }
-      void omkc.stop();
-    },
-    isStarted: () => started,
-    getFold: () => fold,
-    scanStatus: () => {
-      const perHome = [...watchers.entries()].map(([home, w]) => ({
-        home,
-        ...w.getProgress()
-      }));
-      return {
-        scanning: perHome.some((p) => p.scanning || p.catchingUp > 0),
-        homes: perHome
-      };
-    }
-  };
-}
-function statusAgentsTool(controller) {
-  return {
-    name: "moa_status_agents",
-    description: `Live agent/session status folded from the CLI homes' session trees (wire.jsonl / state.json / tasks/*.json). Returns aggregate counts plus per-agent snapshots ordered by lastSeen (most recent first), capped at 100 by default (pass limit or sessionId to filter). started is false until the status controller is running \u2014 agents is then empty by design; the state is always explicit, never silently stale.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string", description: "Only return agents of this sessionId" },
-        limit: { type: "number", description: `Max agents to return (default ${AGENTS_CAP})` }
-      },
-      additionalProperties: false
-    },
-    handler: (args) => {
-      const started = controller.isStarted();
-      const fold = controller.getFold();
-      const sessionId = typeof args.sessionId === "string" && args.sessionId.length > 0 ? args.sessionId : void 0;
-      const rawLimit = typeof args.limit === "number" ? args.limit : AGENTS_CAP;
-      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : AGENTS_CAP;
-      let agents = started ? fold.snapshotAgents() : [];
-      if (sessionId) agents = agents.filter((a) => a.sessionId === sessionId);
-      agents.sort((a, b) => b.lastSeen - a.lastSeen);
-      return {
-        started,
-        scanning: started ? controller.scanStatus().scanning : false,
-        sessionCount: started ? fold.sessionCount : 0,
-        agentCount: started ? fold.agentCount : 0,
-        sessions: started ? fold.snapshotSessions() : [],
-        agents: agents.slice(0, limit),
-        agentsTruncated: agents.length
-      };
-    }
-  };
-}
-function createStatusModule(controller) {
-  return {
-    id: "status",
-    tier: "experimental",
-    tools: [statusAgentsTool(controller)]
-  };
-}
-
 // src/server.ts
-function startStatusOnOwnTakeover(result, controller) {
+function syncStatusOnTakeover(result, controller) {
   if (result.mode === "own") controller.start();
+  else controller.stop();
 }
 var REUSE_PUBLISH_TIMEOUT_MS = 2e3;
 function cardUrl(port, taskId) {
@@ -37651,13 +37773,15 @@ async function main() {
   const watchTimeoutMs = Number(process.env.MOAMCP_BUS_WATCH_TIMEOUT_MS);
   const watchFailThreshold = Number(process.env.MOAMCP_BUS_WATCH_FAILS);
   const logsDir = defaultLogsDir();
+  const statusController = createStatusController();
   const bus = new Bus({
     ...Number.isFinite(busPort) && busPort > 0 ? { port: busPort } : {},
     ...Number.isFinite(watchIntervalMs) && watchIntervalMs > 0 ? { reuseWatchIntervalMs: watchIntervalMs } : {},
     ...Number.isFinite(watchTimeoutMs) && watchTimeoutMs > 0 ? { reuseWatchTimeoutMs: watchTimeoutMs } : {},
     ...Number.isFinite(watchFailThreshold) && watchFailThreshold > 0 ? { reuseWatchFailThreshold: watchFailThreshold } : {},
     cwd: process.cwd(),
-    logsDir
+    logsDir,
+    statusController
   });
   let actualPort;
   try {
@@ -37671,7 +37795,7 @@ async function main() {
     throw err;
   }
   const startResult = bus.startResult;
-  const statusController = createStatusController();
+  statusController.setPort(startResult.port);
   if (startResult.mode === "own") statusController.start();
   bus.onRelease = () => {
     spawnBusDaemon({ port: bus.startResult.port, cwd: process.cwd() });
@@ -37681,7 +37805,8 @@ async function main() {
   bus.onTakeover = (result) => {
     cardPort = result.port;
     sink = result.mode === "own" ? (taskId, event) => bus.publish(taskId, event) : reusePublishForwarder(result.port);
-    startStatusOnOwnTakeover(result, statusController);
+    statusController.setPort(result.port);
+    syncStatusOnTakeover(result, statusController);
     console.error(
       result.mode === "own" ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)` : `[moamcp] takeover: lost the port race; reusing new Bus at http://127.0.0.1:${result.port}/`
     );
@@ -37746,7 +37871,7 @@ if (isMain) {
 export {
   cardUrl,
   createServer,
-  startStatusOnOwnTakeover
+  syncStatusOnTakeover
 };
 /*! Bundled license information:
 

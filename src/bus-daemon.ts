@@ -17,13 +17,20 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { Bus } from './core/bus/bus.js';
 import { spawnBusDaemon } from './core/bus/daemon-spawn.js';
+import { DAEMON_VERSION_CHECK_MS, diskVersionMismatch } from './core/bus/daemon-version-check.js';
+import { readDiskVersion } from './core/bus/disk-version.js';
 import { BoardStore } from './core/store/board.js';
+import { createStatusController } from './modules/status/index.js';
 import { TipStore } from './modules/tips/tips.js';
 import { defaultLogsDir } from './modules/debate/state.js';
 
 async function main(): Promise<void> {
   const cwd = process.cwd();
-  const bus = new Bus({ cwd, logsDir: defaultLogsDir() });
+  // Batch 1c P1: the status controller is built before the Bus so the daemon's
+  // Control Plane serves /status; it starts once the daemon confirms it owns
+  // the port (the daemon is batch-1c option ①'s folded owner).
+  const statusController = createStatusController();
+  const bus = new Bus({ cwd, logsDir: defaultLogsDir(), statusController });
   const board = new BoardStore({
     workspaceCwd: cwd,
     // The daemon owns the Bus, so board events fan out locally — same routing
@@ -39,6 +46,28 @@ async function main(): Promise<void> {
     await bus.stop().catch(() => {});
     return;
   }
+
+  // Own confirmed: the status fold is this daemon's to serve (batch 1c P1).
+  statusController.setPort(port);
+  statusController.start();
+
+  // Version self-check (batch 1c P4): every 60s compare the installed disk
+  // build version against the running VERSION. A mismatch means a newer build
+  // landed on disk after this daemon started — exit(0) so the next release
+  // chain / fresh session rebuild takes the port. No logging: the daemon's
+  // stdio is 'ignore', so a marker file would be the only observable side
+  // effect (not required). MOAMCP_DAEMON_VERSION_CHECK_MS overrides the
+  // interval (test seam).
+  const versionCheckMs = (() => {
+    const raw = Number(process.env.MOAMCP_DAEMON_VERSION_CHECK_MS);
+    return Number.isFinite(raw) && raw > 0 ? raw : DAEMON_VERSION_CHECK_MS;
+  })();
+  const versionCheck = setInterval(() => {
+    void readDiskVersion().then((diskVersion) => {
+      if (diskVersionMismatch(diskVersion)) process.exit(0);
+    });
+  }, versionCheckMs);
+  versionCheck.unref();
 
   // Chain restarts: when THIS daemon later serves a restart, its replacement
   // is spawned from whatever build is on disk at that moment.

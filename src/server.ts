@@ -28,17 +28,19 @@ import { TipStore } from './modules/tips/tips.js';
 export { createServer };
 
 /**
- * Status-module part of a Bus takeover (batch 1b, F6): when this process wins
- * the port race, (re)start the status controller so its omkc SSE source and
- * wire watchers come up. `controller.start()` is idempotent, so an own→own
- * re-takeover is safe. The reverse direction (own → reuse: stop the
- * controller) is left to batch 1c.
+ * Status-module side of a Bus takeover (batch 1c P3): winning the port race
+ * (re)starts the status controller so its omkc SSE source and wire watchers
+ * come up; losing it (own → reuse) stops the controller so this process does
+ * not keep tailing homes the new owner now covers. Both directions are
+ * idempotent — `start()`/`stop()` are safe no-ops on repeated takeovers and
+ * on own→own / reuse→reuse re-takeovers.
  */
-export function startStatusOnOwnTakeover(
+export function syncStatusOnTakeover(
   result: BusStartResult,
-  controller: Pick<StatusController, 'start'>,
+  controller: Pick<StatusController, 'start' | 'stop'>,
 ): void {
   if (result.mode === 'own') controller.start();
+  else controller.stop();
 }
 
 /** Best-effort forward timeout for reuse-mode publishes (design §3.3: no retries). */
@@ -100,6 +102,10 @@ async function main(): Promise<void> {
   // Fixed archive root shared by all instances (reuse mode's /archive depends
   // on it): MOAMCP_LOGS_DIR or <MOAMCP_HOME|~/.moamcp>/logs (design §3.1).
   const logsDir = defaultLogsDir();
+  // Status module (batch 1c P1): the controller is built BEFORE the Bus so the
+  // Bus's Control Plane can mount its /status route; the actual port is set
+  // once bus.start() settles (below).
+  const statusController = createStatusController();
   const bus = new Bus({
     ...(Number.isFinite(busPort) && busPort > 0 ? { port: busPort } : {}),
     ...(Number.isFinite(watchIntervalMs) && watchIntervalMs > 0 ? { reuseWatchIntervalMs: watchIntervalMs } : {}),
@@ -107,6 +113,7 @@ async function main(): Promise<void> {
     ...(Number.isFinite(watchFailThreshold) && watchFailThreshold > 0 ? { reuseWatchFailThreshold: watchFailThreshold } : {}),
     cwd: process.cwd(),
     logsDir,
+    statusController,
   });
   let actualPort: number;
   try {
@@ -122,11 +129,13 @@ async function main(): Promise<void> {
     throw err;
   }
   const startResult = bus.startResult;
+  // The status controller knows the Bus/owner port: the /status snapshot's
+  // server.port, and the moa_status_agents reuse proxy target (batch 1c P5).
+  statusController.setPort(startResult.port);
   // Status module (batch 1a): watch the CLI session trees only when this
   // process owns the Bus. In reuse mode another process's watchers already
   // cover the homes — starting a second set here would double-tail every
-  // wire. Takeover-time dynamic rebuild is left to a later batch.
-  const statusController = createStatusController();
+  // wire. Takeover-time sync is handled by syncStatusOnTakeover below.
   if (startResult.mode === 'own') statusController.start();
   // Controlled restart (task D): once this owner releases the port, spawn the
   // headless bus daemon from the current disk build so the panel recovers on
@@ -153,11 +162,13 @@ async function main(): Promise<void> {
       result.mode === 'own'
         ? (taskId, event) => bus.publish(taskId, event)
         : reusePublishForwarder(result.port);
-    // F6 (batch 1b): if we win the takeover, start the status controller —
-    // its omkc SSE source + wire watchers are otherwise only started at boot
-    // (main() above, own mode). start() is idempotent. Reverse (own→reuse
-    // stops the controller) is left to batch 1c.
-    startStatusOnOwnTakeover(result, statusController);
+    // Keep the status fold in sync with Bus ownership (batch 1c P3): winning
+    // the port starts the controller (its omkc SSE source + wire watchers are
+    // otherwise only started at boot in own mode); losing it stops the
+    // controller so this process stops tailing the new owner's homes. Both
+    // directions are idempotent. The port follows the takeover either way.
+    statusController.setPort(result.port);
+    syncStatusOnTakeover(result, statusController);
     console.error(
       result.mode === 'own'
         ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)`

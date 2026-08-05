@@ -21,7 +21,7 @@ import {
 } from '../src/modules/status/sse-source.js';
 import { StateFold, type OmkcEvent } from '../src/modules/status/state.js';
 import { createStatusController } from '../src/modules/status/index.js';
-import { startStatusOnOwnTakeover } from '../src/server.js';
+import { syncStatusOnTakeover } from '../src/server.js';
 
 async function waitFor(cond: () => boolean, ms = 5000, step = 20): Promise<void> {
   const deadline = Date.now() + ms;
@@ -656,7 +656,7 @@ describe('StatusController assembly (batch 1b)', () => {
     expect(controller.isStarted()).toBe(false);
   });
 
-  it('startStatusOnOwnTakeover starts the controller only on an own takeover (F6)', () => {
+  it('syncStatusOnTakeover starts on own and stops on reuse, idempotently (F6/F1)', () => {
     const missing = join(tmpdir(), 'moamcp-takeover-missing');
     const controller = createStatusController({
       env: { OMKC_HOME: `${missing}-omkc`, KIMI_CODE_HOME: `${missing}-kimi` } as NodeJS.ProcessEnv,
@@ -665,12 +665,23 @@ describe('StatusController assembly (batch 1b)', () => {
       omkcProbeIntervalMs: 50,
       omkcProbeTimeoutMs: 50,
     });
-    startStatusOnOwnTakeover({ mode: 'reuse', port: 1 }, controller);
+    // reuse never starts the controller
+    syncStatusOnTakeover({ mode: 'reuse', port: 1 }, controller);
     expect(controller.isStarted()).toBe(false);
-    startStatusOnOwnTakeover({ mode: 'own', port: 1 }, controller);
+    // own starts it
+    syncStatusOnTakeover({ mode: 'own', port: 1 }, controller);
     expect(controller.isStarted()).toBe(true);
-    // idempotent: an own→own re-takeover must not double-start
-    startStatusOnOwnTakeover({ mode: 'own', port: 2 }, controller);
+    // own→own re-takeover is idempotent
+    syncStatusOnTakeover({ mode: 'own', port: 2 }, controller);
+    expect(controller.isStarted()).toBe(true);
+    // own→reuse stops it (batch 1c P3)
+    syncStatusOnTakeover({ mode: 'reuse', port: 2 }, controller);
+    expect(controller.isStarted()).toBe(false);
+    // reuse→reuse re-takeover is idempotent
+    syncStatusOnTakeover({ mode: 'reuse', port: 2 }, controller);
+    expect(controller.isStarted()).toBe(false);
+    // and a later own re-takeover restarts it
+    syncStatusOnTakeover({ mode: 'own', port: 3 }, controller);
     expect(controller.isStarted()).toBe(true);
     controller.stop();
   });

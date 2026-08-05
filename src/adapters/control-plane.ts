@@ -22,6 +22,7 @@ import {
   WorkspaceAgentConfigService,
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
+import { createStatusModule, type StatusController } from '../modules/status/index.js';
 import { BoardStore, WORKSPACE_NAME_MAX_CHARS, workspaceIdForPath, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
 import { readDiskVersion } from '../core/bus/disk-version.js';
@@ -413,11 +414,18 @@ export class ControlPlane {
   private tips?: TipsAuthority;
   private runtime?: RuntimeReadProvider;
   private agentConfig: WorkspaceAgentConfigService;
+  private statusController?: StatusController;
   private exactRoutes = new Map<string, MoaRouteDef[]>();
   private patternRoutes: PatternRouteGroup[] = [];
 
-  constructor(board?: BoardStore, tips?: TipsAuthority, agentConfig: WorkspaceAgentConfigService = new WorkspaceAgentConfigService()) {
+  constructor(
+    board?: BoardStore,
+    tips?: TipsAuthority,
+    agentConfig: WorkspaceAgentConfigService = new WorkspaceAgentConfigService(),
+    statusController?: StatusController,
+  ) {
     this.agentConfig = agentConfig;
+    this.statusController = statusController;
     this.registerRoutes();
     if (board !== undefined) this.mount(board, tips);
   }
@@ -439,7 +447,13 @@ export class ControlPlane {
 
   /** Aggregate module routes and adapter-level routes into the dispatch tables. */
   private registerRoutes(): void {
-    const modules: MoaModule[] = [createAgentConfigModule(this.agentConfig)];
+    // The status module's /status route closes over a possibly-undefined
+    // controller: it 503s (status_not_ready) until one is wired and started
+    // (batch 1c P2), so a Bus without a status controller still answers.
+    const modules: MoaModule[] = [
+      createAgentConfigModule(this.agentConfig),
+      createStatusModule(this.statusController),
+    ];
     const routes: MoaRouteDef[] = [
       ...modules.flatMap((module) => module.routes ?? []),
       ...this.adapterRoutes(),
