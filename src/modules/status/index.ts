@@ -33,6 +33,10 @@ export interface StatusControllerOptions {
   pollIntervalMs?: number;
   /** Fold stale threshold (default STALE_MS = 60s). */
   staleMs?: number;
+  /** Fold eviction threshold (default EVICT_STALE_MS = 24h). */
+  evictStaleMs?: number;
+  /** Stale/eviction sweep cadence (default SWEEP_MS = 5s; test seam). */
+  sweepIntervalMs?: number;
   /** omkc SSE source (source ②) probe window (default 39631..39731). */
   omkcProbeMin?: number;
   omkcProbeMax?: number;
@@ -57,6 +61,17 @@ export interface StatusScanStatus {
  *  (single-agent snapshots, already cloned at flush time). */
 export type StatusChangeListener = (agents: readonly AgentState[]) => void;
 
+/** One sweep tick's eviction delta, fanned out as minimal `gone` frames: the
+ *  entries no longer exist, so no snapshotAgentByKey/dirty path is involved —
+ *  the frame IS the whole message (0.8.1 F1). */
+export interface StatusGoneBatch {
+  evictedAgents: Array<{ sessionId: string; agentId: string }>;
+  evictedSessions: Array<{ sessionId: string }>;
+}
+
+/** Subscriber for fold-eviction gone frames (the /status/events fan-out). */
+export type StatusGoneListener = (gone: StatusGoneBatch) => void;
+
 export interface StatusController {
   /** Start watching (idempotent); also starts the 5s stale sweep. */
   start(): void;
@@ -75,6 +90,10 @@ export interface StatusController {
   /** Subscribe to per-flush agent state changes (the /status/events fan-out). */
   subscribeStatus(listener: StatusChangeListener): void;
   unsubscribe(listener: StatusChangeListener): void;
+  /** Subscribe to fold-eviction gone frames (the /status/events fan-out). */
+  subscribeGone(listener: StatusGoneListener): void;
+  /** Unsubscribe a gone-frame listener (idempotent). */
+  unsubscribeGone(listener: StatusGoneListener): void;
   /** Active /status/events subscriber count (audit + test seam). */
   statusSubscriberCount(): number;
 }
@@ -213,9 +232,10 @@ export function statusSnapshot(controller: StatusController): StatusSnapshot {
 }
 
 export function createStatusController(opts: StatusControllerOptions = {}): StatusController {
-  const fold = new StateFold({ staleMs: opts.staleMs });
+  const fold = new StateFold({ staleMs: opts.staleMs, evictStaleMs: opts.evictStaleMs });
   const watchers = new Map<string, WireWatcher>();
   const statusListeners = new Set<StatusChangeListener>();
+  const goneListeners = new Set<StatusGoneListener>();
   let started = false;
   let startedAtMs: number | null = null;
   /** Known Bus/owner port (reuse proxy seam; set after bus.start()). */
@@ -340,8 +360,30 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
       }
       if (!sweepTimer) {
         // 0.8.0: sweepStale also runs the fold eviction (>EVICT_STALE_MS) on
-        // the same tick.
-        sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
+        // the same tick. 0.8.1 F1: the sweep returns what it evicted, and the
+        // driver fans each entry out as a minimal `gone` frame to connected
+        // /status/events subscribers — eviction is no longer silent on the
+        // push face. Frames bypass the dirty/snapshot path entirely (the
+        // entry no longer exists); a rebuilt agent later surfaces as a normal
+        // agent frame with fresh state, firstSeen reset included.
+        const sweepIntervalMs = opts.sweepIntervalMs ?? SWEEP_MS;
+        sweepTimer = setInterval(() => {
+          const evicted = fold.sweepStale();
+          if (goneListeners.size === 0) return; // nobody to notify
+          if (evicted.evictedAgents.length === 0 && evicted.evictedSessions.length === 0) return;
+          const gone: StatusGoneBatch = {
+            evictedAgents: evicted.evictedAgents,
+            evictedSessions: evicted.evictedSessions,
+          };
+          for (const listener of goneListeners) {
+            try {
+              listener(gone);
+            } catch (err) {
+              // A broken subscriber must never break the sweep loop.
+              console.warn(`[moamcp] status gone listener error: ${(err as Error).message}`);
+            }
+          }
+        }, sweepIntervalMs);
         sweepTimer.unref();
       }
       // Batch 1b: raise the omkc SSE subscription too (OmkcSource.start() is
@@ -391,6 +433,12 @@ export function createStatusController(opts: StatusControllerOptions = {}): Stat
     },
     unsubscribe: (listener) => {
       statusListeners.delete(listener);
+    },
+    subscribeGone: (listener) => {
+      goneListeners.add(listener);
+    },
+    unsubscribeGone: (listener) => {
+      goneListeners.delete(listener);
     },
     statusSubscriberCount: () => statusListeners.size,
   };
@@ -524,6 +572,13 @@ export interface StatusEventsOptions {
  *    snapshot (identical shape to GET /status), then one `event: agent`
  *    frame per changed agent per broadcast flush (single-agent JSON, never a
  *    full snapshot clone);
+ *  - fold eviction (0.8.1 F1): a sweep tick that drops an agent emits a
+ *    minimal `event: agent` frame `{sessionId, agentId, gone: true}`, and a
+ *    dropped session emits `event: session` `{sessionId, gone: true}` — a
+ *    connected client is told the entry is gone instead of showing it forever
+ *    (no full snapshot follows an eviction). A rebuilt agent later arrives as
+ *    a normal agent frame with fresh state (firstSeen/usage reset is
+ *    expected);
  *  - a `: heartbeat` comment every heartbeatMs keeps proxies alive;
  *  - a subscriber that stops draining (backlog > maxBacklog frames) is
  *    destroyed rather than buffered forever;
@@ -592,6 +647,21 @@ function statusEventsRoute(controller: StatusController | undefined, opts: Statu
         }
       };
       controller.subscribeStatus(listener);
+      // 0.8.1 F1: eviction gone frames. The evicted entry is no longer in the
+      // fold, so this path constructs the minimal frame directly — no
+      // snapshotAgentByKey, no dirty mark. `gone: true` distinguishes it from
+      // a live agent frame carrying the same sessionId/agentId.
+      const goneListener: StatusGoneListener = (gone) => {
+        for (const agent of gone.evictedAgents) {
+          sendFrame(
+            `event: agent\ndata: ${JSON.stringify({ sessionId: agent.sessionId, agentId: agent.agentId, gone: true })}\n\n`,
+          );
+        }
+        for (const session of gone.evictedSessions) {
+          sendFrame(`event: session\ndata: ${JSON.stringify({ sessionId: session.sessionId, gone: true })}\n\n`);
+        }
+      };
+      controller.subscribeGone(goneListener);
       // Socket errors after a client disconnect are expected — never crash.
       res.on('error', () => undefined);
       const heartbeat = setInterval(() => {
@@ -609,6 +679,7 @@ function statusEventsRoute(controller: StatusController | undefined, opts: Statu
         destroy();
         clearInterval(heartbeat);
         controller.unsubscribe(listener);
+        controller.unsubscribeGone(goneListener);
       });
     },
   };

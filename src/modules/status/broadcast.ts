@@ -14,6 +14,13 @@
  *   drops any pending dirty keys — they are covered by the next full snapshot,
  *   and draining nothing keeps the post-catch-up first flush from flooding
  *   subscribers with every agent that was bulk-loaded by the initial scan.
+ *   Suppression is GLOBAL in granularity (accepted trade-off, 0.8.1 F2 doc):
+ *   while ANY watcher tail is catching up, dirty marks for ALL agents are
+ *   dropped, not just the tail's own. A new SSE connection is compensated by
+ *   its opening full-snapshot frame; an already-connected client can re-fetch
+ *   the truth at any time via GET /status. Per-agent scoped suppression is
+ *   deliberately out of scope — the global gate is a one-liner and the bulk
+ *   scan it guards is rare (startup / home re-attach).
  * - flush(): drain the dirty set into onChange(keys). Called on the interval
  *   tick (and directly by unit tests with an injected clock). While
  *   suppressed it drains nothing; otherwise it only drains once at least one

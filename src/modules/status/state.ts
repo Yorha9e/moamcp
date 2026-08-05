@@ -92,6 +92,29 @@ export const STALE_MS = 60_000;
  */
 export const EVICT_STALE_MS = 24 * 60 * 60 * 1000;
 
+/** One agent dropped by sweepStale for >evictStaleMs inactivity. */
+export interface EvictedAgent {
+  sessionId: string;
+  agentId: string;
+}
+
+/** One session dropped by sweepStale for >evictStaleMs inactivity. */
+export interface EvictedSession {
+  sessionId: string;
+}
+
+/**
+ * What a sweepStale tick evicted. Returned (never null) so the controller's
+ * sweep driver can fan each entry out as a minimal `gone` frame to connected
+ * /status/events clients — eviction is no longer silent on the SSE push face.
+ * The cumulative audit counters (evictedAgents/evictedSessions) still ride on
+ * the /status snapshot; this list is the per-tick delta, not the total.
+ */
+export interface SweepEviction {
+  evictedAgents: EvictedAgent[];
+  evictedSessions: EvictedSession[];
+}
+
 function asRecord(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
 }
@@ -472,27 +495,41 @@ export class StateFold {
    * then evict anything idle for >EVICT_STALE_MS on the same tick: the agent
    * is removed from the fold and counted in evictedAgents, the session in
    * evictedSessions. A dropped entry is rebuilt by the next event (ensure()
-   * re-creates it), which is what proves it came back to life. Eviction is
-   * deliberately silent on the SSE fan-out — the next full snapshot reflects
-   * it, and the audit counters ride on the snapshot.
+   * re-creates it), which is what proves it came back to life.
+   *
+   * Returns the per-tick eviction delta (SweepEviction). The controller's
+   * sweep tick uses it to push a `gone` frame per dropped entry to connected
+   * /status/events clients: a long-lived SSE subscriber would otherwise keep
+   * showing the dead agent forever, because no full snapshot ever follows an
+   * eviction (the 0.8.0 "next full snapshot reflects it" reasoning only holds
+   * for clients that reconnect). A rebuilt agent surfaces as a normal agent
+   * frame with fresh state — firstSeen/usage reset on rebirth is expected.
    */
-  sweepStale(now = Date.now()): void {
+  sweepStale(now = Date.now()): SweepEviction {
     for (const agent of this.agents.values()) {
       agent.stale = now - agent.lastSeen > this.staleMs;
     }
+    const evictedAgents: EvictedAgent[] = [];
     for (const [key, agent] of this.agents) {
       if (now - agent.lastSeen > this.evictStaleMs) {
         this.agents.delete(key);
         this.evictedAgentsCount++;
+        evictedAgents.push({ sessionId: agent.sessionId, agentId: agent.agentId });
       }
     }
+    const evictedSessions: EvictedSession[] = [];
     for (const [skey, seen] of this.sessionSeen) {
       if (now - seen > this.evictStaleMs) {
+        const session = this.sessions.get(skey);
         this.sessions.delete(skey);
         this.sessionSeen.delete(skey);
         this.evictedSessionsCount++;
+        evictedSessions.push({
+          sessionId: session?.sessionId ?? skey.slice(skey.indexOf('/') + 1),
+        });
       }
     }
+    return { evictedAgents, evictedSessions };
   }
 
   get agentCount(): number {

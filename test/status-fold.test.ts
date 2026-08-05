@@ -368,6 +368,29 @@ describe('fold eviction (0.8.0)', () => {
     expect(fold.agentCount).toBe(1);
     expect(fold.evictedAgents).toBe(1); // counted once
   });
+
+  it('sweepStale returns the per-tick eviction delta for gone frames (0.8.1)', () => {
+    const fold = new StateFold({ staleMs: 1000, evictStaleMs: 1000 });
+    const now = Date.now();
+    fold.applyWire(ref, wire('turn.prompt', {}, now - 5000)); // 'sess-1/main' evictable
+    fold.applySessionState(
+      { home: 'omkc', workDirHash: 'wd_evict', sessionId: 's-old' },
+      { updatedAt: new Date(now - 5000).toISOString(), agents: { main: { type: 'main' } } },
+    );
+    fold.applyWire({ ...ref, agentId: 'live' }, wire('turn.prompt', {}, now)); // kept
+    const evicted = fold.sweepStale(now);
+    // per-tick delta: both idle agents + their session, in fold insertion order
+    expect(evicted.evictedAgents).toEqual([
+      { sessionId: 'sess-1', agentId: 'main' },
+      { sessionId: 's-old', agentId: 'main' },
+    ]);
+    expect(evicted.evictedSessions).toEqual([{ sessionId: 's-old' }]);
+    // cumulative audit counters keep their existing semantics
+    expect(fold.evictedAgents).toBe(2);
+    expect(fold.evictedSessions).toBe(1);
+    // an idle tick still returns empty lists, never null/undefined
+    expect(fold.sweepStale(now)).toEqual({ evictedAgents: [], evictedSessions: [] });
+  });
 });
 
 // ------------------------------------------------------------ MCP assembly

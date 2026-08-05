@@ -9775,27 +9775,41 @@ var StateFold = class {
    * then evict anything idle for >EVICT_STALE_MS on the same tick: the agent
    * is removed from the fold and counted in evictedAgents, the session in
    * evictedSessions. A dropped entry is rebuilt by the next event (ensure()
-   * re-creates it), which is what proves it came back to life. Eviction is
-   * deliberately silent on the SSE fan-out — the next full snapshot reflects
-   * it, and the audit counters ride on the snapshot.
+   * re-creates it), which is what proves it came back to life.
+   *
+   * Returns the per-tick eviction delta (SweepEviction). The controller's
+   * sweep tick uses it to push a `gone` frame per dropped entry to connected
+   * /status/events clients: a long-lived SSE subscriber would otherwise keep
+   * showing the dead agent forever, because no full snapshot ever follows an
+   * eviction (the 0.8.0 "next full snapshot reflects it" reasoning only holds
+   * for clients that reconnect). A rebuilt agent surfaces as a normal agent
+   * frame with fresh state — firstSeen/usage reset on rebirth is expected.
    */
   sweepStale(now = Date.now()) {
     for (const agent of this.agents.values()) {
       agent.stale = now - agent.lastSeen > this.staleMs;
     }
+    const evictedAgents = [];
     for (const [key, agent] of this.agents) {
       if (now - agent.lastSeen > this.evictStaleMs) {
         this.agents.delete(key);
         this.evictedAgentsCount++;
+        evictedAgents.push({ sessionId: agent.sessionId, agentId: agent.agentId });
       }
     }
+    const evictedSessions = [];
     for (const [skey, seen] of this.sessionSeen) {
       if (now - seen > this.evictStaleMs) {
+        const session = this.sessions.get(skey);
         this.sessions.delete(skey);
         this.sessionSeen.delete(skey);
         this.evictedSessionsCount++;
+        evictedSessions.push({
+          sessionId: session?.sessionId ?? skey.slice(skey.indexOf("/") + 1)
+        });
       }
     }
+    return { evictedAgents, evictedSessions };
   }
   get agentCount() {
     return this.agents.size;
@@ -10464,9 +10478,10 @@ function statusSnapshot(controller) {
   };
 }
 function createStatusController(opts = {}) {
-  const fold = new StateFold({ staleMs: opts.staleMs });
+  const fold = new StateFold({ staleMs: opts.staleMs, evictStaleMs: opts.evictStaleMs });
   const watchers = /* @__PURE__ */ new Map();
   const statusListeners = /* @__PURE__ */ new Set();
+  const goneListeners = /* @__PURE__ */ new Set();
   let started = false;
   let startedAtMs = null;
   let ownerPort;
@@ -10558,7 +10573,23 @@ function createStatusController(opts = {}) {
         homeRecheck.unref();
       }
       if (!sweepTimer) {
-        sweepTimer = setInterval(() => fold.sweepStale(), SWEEP_MS);
+        const sweepIntervalMs = opts.sweepIntervalMs ?? SWEEP_MS;
+        sweepTimer = setInterval(() => {
+          const evicted = fold.sweepStale();
+          if (goneListeners.size === 0) return;
+          if (evicted.evictedAgents.length === 0 && evicted.evictedSessions.length === 0) return;
+          const gone = {
+            evictedAgents: evicted.evictedAgents,
+            evictedSessions: evicted.evictedSessions
+          };
+          for (const listener of goneListeners) {
+            try {
+              listener(gone);
+            } catch (err) {
+              console.warn(`[moamcp] status gone listener error: ${err.message}`);
+            }
+          }
+        }, sweepIntervalMs);
         sweepTimer.unref();
       }
       omkc.start();
@@ -10602,6 +10633,12 @@ function createStatusController(opts = {}) {
     },
     unsubscribe: (listener) => {
       statusListeners.delete(listener);
+    },
+    subscribeGone: (listener) => {
+      goneListeners.add(listener);
+    },
+    unsubscribeGone: (listener) => {
+      goneListeners.delete(listener);
     },
     statusSubscriberCount: () => statusListeners.size
   };
@@ -10739,6 +10776,23 @@ data: ${JSON.stringify(agent)}
         }
       };
       controller.subscribeStatus(listener);
+      const goneListener = (gone) => {
+        for (const agent of gone.evictedAgents) {
+          sendFrame(
+            `event: agent
+data: ${JSON.stringify({ sessionId: agent.sessionId, agentId: agent.agentId, gone: true })}
+
+`
+          );
+        }
+        for (const session of gone.evictedSessions) {
+          sendFrame(`event: session
+data: ${JSON.stringify({ sessionId: session.sessionId, gone: true })}
+
+`);
+        }
+      };
+      controller.subscribeGone(goneListener);
       res.on("error", () => void 0);
       const heartbeat = setInterval(() => {
         if (destroyed) return;
@@ -10753,6 +10807,7 @@ data: ${JSON.stringify(agent)}
         destroy();
         clearInterval(heartbeat);
         controller.unsubscribe(listener);
+        controller.unsubscribeGone(goneListener);
       });
     }
   };

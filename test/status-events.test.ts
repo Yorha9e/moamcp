@@ -81,8 +81,47 @@ async function readFrames(
   }
 }
 
+/**
+ * Streaming SSE reader that keeps the connection open across stages, so one
+ * test can observe snapshot -> live frame -> gone frame -> rebuild on a single
+ * /status/events connection. `until(pred)` resolves once the accumulated
+ * frames satisfy pred; `close()` releases the reader (the server then sees the
+ * client close and unsubscribes).
+ */
+class SseCollector {
+  private readonly reader: ReadableStreamDefaultReader<Uint8Array>;
+  private readonly decoder = new TextDecoder();
+  private text = '';
+  readonly frames: SseFrame[] = [];
+
+  constructor(res: Response) {
+    this.reader = res.body!.getReader();
+  }
+
+  async until(pred: (frames: SseFrame[]) => boolean, timeoutMs = 5000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      if (pred(this.frames)) return;
+      if (Date.now() > deadline) throw new Error('SseCollector.until timed out');
+      const { done, value } = await this.reader.read();
+      if (done) return;
+      this.text += this.decoder.decode(value, { stream: true });
+      const parsed = parseFrames(this.text);
+      this.frames.push(...parsed.frames);
+      this.text = parsed.rest;
+    }
+  }
+
+  async close(): Promise<void> {
+    await this.reader.cancel().catch(() => undefined);
+  }
+}
+
 /** Hermetic controller: never watches a real ~/.omkc or probes a real omkc. */
-function makeController(home?: string): StatusController {
+function makeController(
+  home?: string,
+  opts: { staleMs?: number; evictStaleMs?: number; sweepIntervalMs?: number } = {},
+): StatusController {
   const missing = join(tmpdir(), 'moamcp-status-events-missing');
   return createStatusController({
     env: home
@@ -94,6 +133,9 @@ function makeController(home?: string): StatusController {
     omkcProbeMax: 40000,
     omkcProbeIntervalMs: 5000,
     omkcProbeTimeoutMs: 50,
+    staleMs: opts.staleMs,
+    evictStaleMs: opts.evictStaleMs,
+    sweepIntervalMs: opts.sweepIntervalMs,
   });
 }
 
@@ -278,5 +320,133 @@ describe('/status/events (0.8.0)', () => {
     // a later mutation does not resurrect the dead subscription
     await new Promise((r) => setTimeout(r, 120));
     expect(ctrl.statusSubscriberCount()).toBe(0);
+  });
+});
+
+// ------------------------------------------------- eviction gone frames (0.8.1)
+
+interface GoneShape {
+  sessionId?: string;
+  agentId?: string;
+  gone?: boolean;
+}
+
+const isLiveAgentFrame = (f: SseFrame): boolean =>
+  f.event === 'agent' && f.data !== undefined && (JSON.parse(f.data) as GoneShape).gone !== true;
+const isGoneAgentFrame = (f: SseFrame): boolean =>
+  f.event === 'agent' && f.data !== undefined && (JSON.parse(f.data) as GoneShape).gone === true;
+const isGoneSessionFrame = (f: SseFrame): boolean =>
+  f.event === 'session' && f.data !== undefined && (JSON.parse(f.data) as GoneShape).gone === true;
+
+describe('fold eviction gone frames (0.8.1 P1)', () => {
+  let home: string;
+  let bus: Bus;
+  let controller: StatusController | undefined;
+
+  afterEach(async () => {
+    controller?.stop();
+    await bus?.stop();
+    if (home) await rm(home, { recursive: true, force: true });
+    controller = undefined;
+    home = undefined;
+    bus = undefined as unknown as Bus;
+  });
+
+  async function startBus(ctrl: StatusController): Promise<number> {
+    controller = ctrl;
+    if (home === undefined) home = await mkdtemp(join(tmpdir(), 'moamcp-status-events-'));
+    bus = new Bus({
+      port: 0,
+      cwd: home,
+      instancesDir: join(home, 'instances'),
+      logsDir: join(home, 'logs'),
+      statusController: ctrl,
+    });
+    return bus.start();
+  }
+
+  it('emits an agent gone frame to a connected SSE client when the sweep evicts the agent', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-status-events-'));
+    const ctrl = makeController(home, { evictStaleMs: 250, sweepIntervalMs: 40 });
+    ctrl.start();
+    const port = await startBus(ctrl);
+    ctrl.setPort(port);
+    const res = await fetch(`http://127.0.0.1:${port}/status/events`);
+    const sse = new SseCollector(res);
+    // stage 1: the client sees the agent as a live frame (snapshot opens first)
+    await writeWire(home, 'sess-1', 'main', Date.now());
+    await sse.until((fs) => fs.some(isLiveAgentFrame));
+    expect(sse.frames[0].event).toBe('snapshot'); // snapshot always comes first
+    const live = JSON.parse(sse.frames.find(isLiveAgentFrame)!.data!);
+    expect(live.sessionId).toBe('sess-1');
+    expect(live.agentId).toBe('main');
+    // stage 2: the same connection gets the minimal gone frame after the sweep
+    await sse.until((fs) => fs.some(isGoneAgentFrame));
+    const gone = JSON.parse(sse.frames.find(isGoneAgentFrame)!.data!);
+    expect(gone).toEqual({ sessionId: 'sess-1', agentId: 'main', gone: true });
+    expect(ctrl.getFold().agentCount).toBe(0);
+    await sse.close();
+  });
+
+  it('emits a session gone frame when the sweep evicts a stale session', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-status-events-'));
+    const ctrl = makeController(home, { evictStaleMs: 250, sweepIntervalMs: 40 });
+    ctrl.start();
+    const port = await startBus(ctrl);
+    ctrl.setPort(port);
+    const res = await fetch(`http://127.0.0.1:${port}/status/events`);
+    const sse = new SseCollector(res);
+    // an old state.json folds a session (+agent) that is evictable immediately
+    await mkdir(join(home, 'sessions', 'wd_evict', 'sess-old'), { recursive: true });
+    await writeFile(
+      join(home, 'sessions', 'wd_evict', 'sess-old', 'state.json'),
+      JSON.stringify({
+        title: 'old',
+        updatedAt: new Date(Date.now() - 10_000).toISOString(),
+        agents: { main: { type: 'main' } },
+      }),
+    );
+    await sse.until((fs) => fs.some(isGoneSessionFrame));
+    const gone = JSON.parse(sse.frames.find(isGoneSessionFrame)!.data!);
+    expect(gone).toEqual({ sessionId: 'sess-old', gone: true });
+    expect(ctrl.getFold().sessionCount).toBe(0);
+    await sse.close();
+  });
+
+  it('runs the eviction sweep with no subscribers attached without error', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-status-events-'));
+    const ctrl = makeController(home, { evictStaleMs: 200, sweepIntervalMs: 30 });
+    await writeWire(home, 'sess-1', 'main', Date.now() - 10_000); // old -> evictable
+    ctrl.start();
+    // no SSE client ever connects; the sweep must evict silently and cleanly
+    await waitFor(() => ctrl.getFold().agentCount === 0 && ctrl.getFold().evictedAgents === 1);
+    expect(ctrl.statusSubscriberCount()).toBe(0);
+  });
+
+  it('sends a normal agent frame after an evicted agent is rebuilt', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-status-events-'));
+    const ctrl = makeController(home, { evictStaleMs: 250, sweepIntervalMs: 40 });
+    ctrl.start();
+    const port = await startBus(ctrl);
+    ctrl.setPort(port);
+    const res = await fetch(`http://127.0.0.1:${port}/status/events`);
+    const sse = new SseCollector(res);
+    await writeWire(home, 'sess-1', 'main', Date.now());
+    await sse.until((fs) => fs.some(isLiveAgentFrame));
+    const firstSeen = (JSON.parse(sse.frames.find(isLiveAgentFrame)!.data!) as { firstSeen: number }).firstSeen;
+    await sse.until((fs) => fs.some(isGoneAgentFrame));
+    expect(ctrl.getFold().agentCount).toBe(0);
+    // the agent comes back to life: a normal (non-gone) frame, fresh firstSeen
+    const goneIndex = sse.frames.findIndex(isGoneAgentFrame);
+    await appendWire(home, 'sess-1', 'main', Date.now());
+    await sse.until((fs) => fs.some((f, i) => i > goneIndex && isLiveAgentFrame(f)));
+    const rebuilt = JSON.parse(
+      sse.frames.find((f, i) => i > goneIndex && isLiveAgentFrame(f))!.data!,
+    ) as { sessionId: string; agentId: string; firstSeen: number; gone?: boolean };
+    expect(rebuilt.sessionId).toBe('sess-1');
+    expect(rebuilt.agentId).toBe('main');
+    expect(rebuilt.gone).toBeUndefined(); // a live agent frame, not a gone frame
+    expect(rebuilt.firstSeen).toBeGreaterThan(firstSeen); // fresh entry after rebirth
+    await sse.close();
   });
 });
