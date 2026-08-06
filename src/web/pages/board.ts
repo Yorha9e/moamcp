@@ -150,7 +150,9 @@ export const BOARD_LIST_JS = `  function boardQuery() {
       setNotice(tr('board.scopeNotice'), false);
       return Promise.resolve();
     }
-    return api('/api/board?' + boardQuery()).then(function (data) { renderBoardList(data && Array.isArray(data.entries) ? data.entries : []); });
+    var list = document.getElementById('boardList');
+    showListLoading(list);
+    return api('/api/board?' + boardQuery()).then(function (data) { renderBoardList(data && Array.isArray(data.entries) ? data.entries : []); }).catch(function (error) { clearListLoading(list); throw error; });
   }
 `;
 

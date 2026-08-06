@@ -600,6 +600,36 @@ ${COMPONENTS_CSS}
   border-radius: var(--r-md);
   text-align: center;
 }
+/* Unified list loading state (panel polish batch 3): one shared component
+   for every SPA list view (tips/board/runs/archives/agents/projects/inbox).
+   Tokens only, so glass/liquid/editorial each render their own palette; the
+   spinner is a border ring in the green accent, the label uses the shared
+   common.loading key. Debate's "Loading…" and status-board's "Scanning…"
+   keep their own contextual markup. */
+.view-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 24px 16px;
+  color: var(--text-faint);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+}
+.view-loading-spin {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent-green);
+  animation: view-loading-rotate 0.8s linear infinite;
+}
+@keyframes view-loading-rotate {
+  to { transform: rotate(360deg); }
+}
 .section[hidden], .subview[hidden], .workspace-bar[hidden], .section-tabs[hidden] { display: none; }
 .section-intro { margin: 0 0 14px; color: var(--text-dim); }
 .result-count { margin-left: auto; color: var(--text-faint); font-size: 12px; }
@@ -1009,6 +1039,43 @@ ${LIB_JS}
     notice.hidden = !message;
     notice.textContent = message || '';
     notice.className = 'notice' + (isError ? ' error' : '');
+    if (isError) clearAllListLoading();
+  }
+  /* Unified list loading state (panel polish batch 3). Shown by every SPA
+     list fetch while data is in flight; only replaces an empty container or
+     a lone .empty placeholder, so refreshes with rows already on screen keep
+     them (no flicker on the 5s/15s poll paths). Renderers clear their list
+     before filling, load* rejections clear it themselves, and setNotice(error)
+     sweeps any straggler as the final safety net. */
+  function showListLoading(list) {
+    if (!list || list.querySelector('.view-loading')) return;
+    var children = list.children;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].className !== 'empty') return;
+    }
+    list.textContent = '';
+    var box = document.createElement('div');
+    box.className = 'view-loading';
+    box.setAttribute('role', 'status');
+    var spin = document.createElement('span');
+    spin.className = 'view-loading-spin';
+    spin.setAttribute('aria-hidden', 'true');
+    var label = document.createElement('span');
+    label.textContent = tr('common.loading');
+    box.appendChild(spin);
+    box.appendChild(label);
+    list.appendChild(box);
+  }
+  function clearListLoading(list) {
+    if (!list) return;
+    var box = list.querySelector('.view-loading');
+    if (box) list.removeChild(box);
+  }
+  function clearAllListLoading() {
+    var boxes = document.querySelectorAll('.view-loading');
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].parentNode) boxes[i].parentNode.removeChild(boxes[i]);
+    }
   }
   function setFormError(message) { formError.textContent = message || ''; }
   function valueText(value) {

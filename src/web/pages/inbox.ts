@@ -110,9 +110,11 @@ export const INBOX_PAGE_JS = `  var inboxMode = 'inbox';
   function loadInbox() {
     if (!currentWorkspace) return Promise.resolve();
     var url = inboxMode === 'outbox' ? '/api/handoff/outbox?' + inboxQuery() : '/api/handoff/inbox?' + inboxQuery();
+    var list = document.getElementById('inboxList');
+    showListLoading(list);
     return api(url).then(function (data) {
       renderInboxList(data && Array.isArray(data.handoffs) ? data.handoffs : []);
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
   function switchInboxMode(mode) {
     if (mode !== 'inbox' && mode !== 'outbox') mode = 'inbox';

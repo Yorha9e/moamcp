@@ -204,11 +204,13 @@ export const PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
   }
   function loadProjects() {
     if (!currentWorkspace) return Promise.resolve();
+    var list = document.getElementById('projectsList');
+    showListLoading(list);
     return api('/api/projects').then(function (data) {
       var projects = data && Array.isArray(data.projects) ? data.projects : [];
       renderProjects(projects);
       document.getElementById('projectsCount').textContent = tr(projects.length === 1 ? 'projects.count' : 'projects.countPlural', { count: projects.length });
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
   function migrateCurrentWorkspace(project) {
     if (!currentWorkspace) return;

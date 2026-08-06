@@ -79,6 +79,8 @@ describe('shared Web i18n', () => {
     expect(translate('zh-CN', 'app.debate')).toBe('MOA 辩论');
     expect(translate('en', 'app.debate')).toBe('MOA Debate');
     expect(translate('zh-CN', 'debate.connecting')).toBe('连接中…');
+    expect(translate('en', 'common.loading')).toBe('Loading…');
+    expect(translate('zh-CN', 'common.loading')).toBe('加载中…');
     expect(translate('zh-CN', 'missing.key')).toBe('missing.key');
     expect(translate('zh-CN', 'common.copied', { label: 'key' })).toContain('key');
   });

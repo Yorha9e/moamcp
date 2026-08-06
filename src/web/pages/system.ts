@@ -28,8 +28,10 @@ export const SYSTEM_PAGE_JS = `  function renderHealthCard(container, title, val
       ['process', 'bus', 'runs', 'sse', 'archives', 'reuseWatch'].forEach(function (key) { renderHealthCard(box, key, data ? data[key] : undefined); });
       renderHealthCard(box, 'registry listenerEntries', data && data.registry ? data.registry.listenerEntries : undefined);
     }).catch(function (error) {
-      var box = document.getElementById('systemHealth'); box.textContent = '';
-      var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('system.unavailable') + error.message; box.appendChild(empty);
+      /* Panel polish batch 3: SPA error presentation converges on the notice
+         banner (setNotice); no view renders its own error markup anymore. */
+      document.getElementById('systemHealth').textContent = '';
+      setNotice(tr('system.unavailable') + error.message, true);
     });
   }
 `;

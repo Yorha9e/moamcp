@@ -212,6 +212,7 @@ export const AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.
     if (!currentWorkspace) { clearAgentEditor(); return Promise.resolve(); }
     var previousName = selectedAgentName;
     var previousNew = agentIsNew;
+    showListLoading(agentList);
     return api(agentRequest('/api/agent-config')).then(function (data) {
       agentSnapshot = data; agentLocalHash = data.localToml ? data.localToml.hash : null;
       renderAgentList(data.agents); renderAgentBindings();
@@ -219,7 +220,7 @@ export const AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.
       if (!previousName && !previousNew) clearAgentEditor();
       if (selectedAgent && !agentIsNew) renderAgentMeta(selectedAgent);
       return undefined;
-    });
+    }).catch(function (error) { clearListLoading(agentList); throw error; });
   }
   function openNewAgent() {
     selectedAgentName = ''; selectedAgent = null; agentIsNew = true; showAgentEditor(null, true);

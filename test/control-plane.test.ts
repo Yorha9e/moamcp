@@ -239,6 +239,45 @@ describe('control plane HTTP surface', () => {
     expect(html).not.toContain('inner' + 'HTML');
   });
 
+  it('serves one unified list loading state and one converged SPA error banner', async () => {
+    const page = await request('/control-plane');
+    expect(page.response.status).toBe(200);
+    const html = page.body as string;
+
+    // One shared component (spinner + localized label) styled purely with
+    // design tokens, so all three themes render their own palette.
+    expect(html).toContain('.view-loading {');
+    expect(html).toContain('.view-loading-spin {');
+    expect(html).toContain('@keyframes view-loading-rotate');
+    expect(html).toContain('border-top-color: var(--accent-green)');
+    expect(html).toContain("tr('common.loading')");
+    expect(html).toContain('function showListLoading(list)');
+    expect(html).toContain('function clearListLoading(list)');
+    expect(html).toContain('function clearAllListLoading()');
+
+    // Every SPA list fetch (tips/board/runs/archives/agents/projects/inbox)
+    // shows the state on the way in and clears it again on rejection.
+    expect(html).toContain('showListLoading(tipList)');
+    expect(html).toContain('clearListLoading(tipList)');
+    expect(html).toContain('showListLoading(agentList)');
+    expect(html).toContain('clearListLoading(agentList)');
+    expect((html.match(/showListLoading\(list\);/g) || []).length).toBe(5);
+    expect((html.match(/clearListLoading\(list\); throw error;/g) || []).length).toBe(5);
+    // Refreshes keep rows already on screen: the placeholder only replaces an
+    // empty container or a lone empty-state box (no flicker on poll paths).
+    expect(html).toContain("if (children[i].className !== 'empty') return;");
+
+    // Error presentation converges on the notice banner inside the SPA:
+    // System Health no longer renders its own error box, and an error notice
+    // sweeps any loading placeholder a failed first fetch left behind.
+    expect(html).toContain("setNotice(tr('system.unavailable') + error.message, true)");
+    expect(html).not.toContain("empty.textContent = tr('system.unavailable') + error.message");
+    expect(html).toContain('if (isError) clearAllListLoading()');
+
+    // The component stays DOM-built (no HTML injection) like the rest of the page.
+    expect(html).not.toContain('inner' + 'HTML');
+  });
+
   it('lists sidecars by recent board activity and isolates workspace ids', async () => {
     const idA = workspaceIdForPath(workspaceA);
     const idB = workspaceIdForPath(workspaceB);

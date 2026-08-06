@@ -103,9 +103,10 @@ export const TIPS_PAGE_JS = `  function tipQuery() {
   }
   function loadTips() {
     if (!currentWorkspace) return Promise.resolve();
+    showListLoading(tipList);
     return api('/api/tips?' + tipQuery()).then(function (data) {
       renderTipList(data && Array.isArray(data.tips) ? data.tips : []);
-    });
+    }).catch(function (error) { clearListLoading(tipList); throw error; });
   }
   function addDetailRow(box, label, value, code) {
     var dt = document.createElement('dt'); dt.textContent = label;

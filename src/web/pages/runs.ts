@@ -84,13 +84,15 @@ export const RUNS_PAGE_JS = `  function appendMeta(grid, label, value) {
     var status = document.getElementById('runStatusFilter').value;
     var text = document.getElementById('runQuery').value.trim();
     if (status) query.set('status', status); if (text) query.set('query', text);
+    var list = document.getElementById('runList');
+    showListLoading(list);
     return api('/api/tasks?' + query.toString()).then(function (data) {
       var tasks = data && Array.isArray(data.tasks) ? data.tasks : [];
       document.getElementById('runResultCount').textContent = tr(tasks.length === 1 ? 'board.result' : 'board.results', { count: tasks.length });
-      var list = document.getElementById('runList'); list.textContent = '';
+      list.textContent = '';
       if (!tasks.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('runs.empty'); list.appendChild(empty); return; }
       tasks.forEach(function (task) { list.appendChild(renderRunCard(task)); });
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
   function archiveUrl(taskId, file) {
     if (ARCHIVE_FILES.indexOf(file) < 0) return '';
@@ -133,12 +135,14 @@ export const RUNS_PAGE_JS = `  function appendMeta(grid, label, value) {
     card.appendChild(files); return card;
   }
   function loadArchives() {
+    var list = document.getElementById('archiveList');
+    showListLoading(list);
     return api('/api/archives').then(function (data) {
       var archives = data && Array.isArray(data.archives) ? data.archives : [];
       document.getElementById('archiveResultCount').textContent = tr(archives.length === 1 ? 'board.result' : 'board.results', { count: archives.length });
-      var list = document.getElementById('archiveList'); list.textContent = '';
+      list.textContent = '';
       if (!archives.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('archives.empty'); list.appendChild(empty); return; }
       archives.forEach(function (entry) { list.appendChild(renderArchiveCard(entry)); });
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
 `;
