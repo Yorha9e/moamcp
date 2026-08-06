@@ -181,6 +181,15 @@ describe('control plane HTTP surface', () => {
     expect(html).toContain("nav.setAttribute('aria-current', 'page')");
     expect(html).toContain("nav.removeAttribute('aria-current')");
     expect(html).toContain("document.getElementById(name + 'Section').hidden = !current");
+    // The initial header highlight is derived from ?section before first
+    // paint (panel polish batch 4): the generated markup defaults to memory
+    // (asserted above), and a bootstrap script right after the header moves
+    // the highlight for direct ?section=runs/system entry; switchSection()
+    // keeps owning runtime switching.
+    expect(html).toContain("if (section !== 'runs' && section !== 'system') return;");
+    expect(html).toContain("var current = document.getElementById(section + 'Nav')");
+    expect(html).toContain("current.setAttribute('aria-current', 'page')");
+    expect(html.indexOf('id="memoryNav"')).toBeLessThan(html.indexOf("if (section !== 'runs'"));
   });
 
   it('serves the three read-only management areas with safe lifecycle contracts', async () => {

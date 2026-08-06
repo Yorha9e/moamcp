@@ -949,6 +949,26 @@ ${I18N_BOOTSTRAP}
 <div class="aurora-bg"></div>
 <div class="shell">
   ${renderAppHeader('memory')}
+  <script>
+  /* Header active-item bootstrap (panel polish batch 4): the header markup
+     is generated with the default 'memory' section active. When the page is
+     opened directly with ?section=runs/system, correct the highlight before
+     first paint instead of waiting for switchSection() at the end of the
+     page script; without/with an unknown ?section the default stays memory.
+     Runtime section switching remains owned by switchSection(). */
+  (function () {
+    try {
+      var section = new URLSearchParams(location.search).get('section');
+      if (section !== 'runs' && section !== 'system') return;
+      var current = document.getElementById(section + 'Nav');
+      var fallback = document.getElementById('memoryNav');
+      if (!current) return;
+      if (fallback) { fallback.className = ''; fallback.removeAttribute('aria-current'); }
+      current.className = 'active';
+      current.setAttribute('aria-current', 'page');
+    } catch (e) {}
+  })();
+  </script>
 
   <div id="notice" class="notice" hidden></div>
   <main id="memorySection" class="section">

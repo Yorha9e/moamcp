@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { renderAppHeader } from '../src/web/app-header.js';
 import { CONTROL_PLANE_HTML } from '../src/web/control-plane-page.js';
 import { DEBATE_CARD_HTML } from '../src/web/debate-card.js';
+import { STATUS_BOARD_HTML } from '../src/web/status-board.js';
 import {
   I18N_DICTIONARIES,
   I18N_JS,
@@ -116,14 +117,14 @@ describe('shared Web i18n', () => {
     expect(runtime.draft.value).toBe('unsaved draft');
   });
 
-  it('shares one selector and one dictionary runtime across both single-markup pages', () => {
+  it('shares one selector and one dictionary runtime across the single-markup pages', () => {
     const header = renderAppHeader('runs');
-    for (const html of [header, DEBATE_CARD_HTML, CONTROL_PLANE_HTML]) {
+    for (const html of [header, DEBATE_CARD_HTML, CONTROL_PLANE_HTML, STATUS_BOARD_HTML]) {
       expect(html).toContain('id="localePicker"');
       expect(html).toContain('data-locale="zh-CN"');
       expect(html).toContain('data-locale="en"');
     }
-    for (const html of [DEBATE_CARD_HTML, CONTROL_PLANE_HTML]) {
+    for (const html of [DEBATE_CARD_HTML, CONTROL_PLANE_HTML, STATUS_BOARD_HTML]) {
       expect(html).toContain(LOCALE_STORAGE_KEY);
       expect(html).toContain('window.__moaI18n');
       expect(html).toContain("moamcp:localechange");
@@ -133,6 +134,8 @@ describe('shared Web i18n', () => {
     expect(CONTROL_PLANE_HTML).toContain('data-i18n-placeholder="common.module"');
     expect(CONTROL_PLANE_HTML).toContain('data-i18n-placeholder="common.tag"');
     expect(CONTROL_PLANE_HTML).toContain('data-i18n="board.keyAsc"');
+    expect(STATUS_BOARD_HTML).toContain('data-i18n="status.scanning"');
+    expect(STATUS_BOARD_HTML).toContain('data-i18n="status.notReady"');
     expect(CONTROL_PLANE_HTML).toContain("new URLSearchParams(location.search).get('section')");
     expect(DEBATE_CARD_HTML).toContain("new URLSearchParams(location.search).get('task_id')");
     // The shared lib must never force a page reload; the control-plane page
