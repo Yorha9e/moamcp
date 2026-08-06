@@ -85,7 +85,7 @@ it('serves the frontend card at GET /', async () => {
   expect(res.headers.get('content-type')).toContain('text/html');
   const html = await res.text();
   expect(html).toContain('MOA Debate');
-  expect(html).toContain("EventSource('/subscribe?task_id=");
+  expect(html).toContain("connectSSE('/subscribe?task_id=");
   // Shared app navigation deep-links to each Control Plane section.
   expect(html).toContain('href="/control-plane?section=memory"');
   expect(html).toContain('href="/control-plane?section=runs"');

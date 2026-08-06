@@ -4,6 +4,19 @@
  */
 import { THEMES, THEME_STORAGE_KEY } from './tokens.js';
 
+/**
+ * Shared refresh-layer polling intervals (milliseconds).
+ *
+ * Values intentionally preserve each page's historical cadence — the
+ * convergence is on shared constants/helpers, not on changed behavior:
+ * SSE-backed views keep a 15s freshness fallback (board subscription,
+ * debate OMKC health probe), the runs live view polls every 5s, and
+ * system health every 10s.
+ */
+export const SSE_FALLBACK_POLL_MS = 15000;
+export const RUNS_POLL_MS = 5000;
+export const SYSTEM_POLL_MS = 10000;
+
 export const LIB_JS = `
 (function(window) {
   'use strict';
@@ -240,6 +253,55 @@ export const LIB_JS = `
       close: function() {
         stopped = true;
         if (sse) { sse.close(); sse = null; }
+      }
+    };
+  }
+
+  /* ── Shared refresh layer (converged polling/SSE-fallback plumbing) ──────
+     Polling intervals keep each page's historical cadence (SSE fallback
+     15s, runs 5s, system 10s); the constants are exported from lib.ts and
+     inlined here so every page reads the same source of truth. */
+  var POLL_MS = {
+    sseFallback: ${SSE_FALLBACK_POLL_MS},
+    runs: ${RUNS_POLL_MS},
+    system: ${SYSTEM_POLL_MS}
+  };
+
+  /**
+   * Shared polling timer for the refresh layer (runs live, system health,
+   * the SSE fallback below). Runs fn() every intervalMs and returns
+   * { stop() }; error handling stays with the caller, exactly like the
+   * historical per-page setInterval(...).catch(...) call sites.
+   */
+  function startPoll(fn, intervalMs) {
+    var timer = setInterval(function () { fn(); }, intervalMs);
+    return {
+      stop: function () {
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+    };
+  }
+
+  /**
+   * SSE stream plus an unconditional polling fallback (the board view's
+   * pattern): a plain EventSource keeps the browser's native reconnect
+   * (onerror stays inert on purpose — reconnect parameters untouched),
+   * while poll() every pollMs keeps the view fresh if the stream stalls
+   * silently or never connects. Returns { close() } releasing both; pair
+   * it with the owning view's teardown.
+   */
+  function subscribeWithPoll(url, onMessage, poll, pollMs) {
+    var source = null;
+    if (typeof EventSource !== 'undefined') {
+      source = new EventSource(url);
+      source.onmessage = onMessage;
+      source.onerror = function () {};
+    }
+    var pollTimer = startPoll(poll, pollMs);
+    return {
+      close: function () {
+        if (source) { source.close(); source = null; }
+        pollTimer.stop();
       }
     };
   }
@@ -630,6 +692,9 @@ export const LIB_JS = `
     valueText: valueText,
     api: api,
     connectSSE: connectSSE,
+    POLL_MS: POLL_MS,
+    startPoll: startPoll,
+    subscribeWithPoll: subscribeWithPoll,
     initThemePicker: initThemePicker,
     initLiquidParallax: initLiquidParallax,
     EnhanceSelect: EnhanceSelect,

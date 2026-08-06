@@ -97,7 +97,7 @@ describe('control plane HTTP surface', () => {
     expect(page.response.status).toBe(200);
     expect(page.response.headers.get('content-type')).toContain('text/html');
     expect(page.body).toContain('Workspace Control Plane');
-    expect(page.body).toContain("new EventSource('/subscribe?task_id=' + encodeURIComponent(channel)");
+    expect(page.body).toContain("subscribeWithPoll('/subscribe?task_id=' + encodeURIComponent(channel)");
     expect(page.body).toContain('textContent');
     expect(page.body).toContain('document.createElement');
     expect(page.body).not.toContain('innerHTML');
@@ -205,8 +205,8 @@ describe('control plane HTTP surface', () => {
     expect(html).toContain("var activeSection = 'memory'");
     expect(html).toContain("var activeRunsView = 'live'");
     expect(html).toContain('function closeSectionResources()');
-    expect(html).toContain('clearInterval(runsPollTimer)');
-    expect(html).toContain('clearInterval(systemPollTimer)');
+    expect(html).toContain('runsPollTimer.stop()');
+    expect(html).toContain('systemPollTimer.stop()');
     expect(html).toContain('closeBoardSubscription()');
     expect(html).toContain("activeSection !== 'memory' || activeView !== 'board'");
 

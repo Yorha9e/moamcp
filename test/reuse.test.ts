@@ -412,7 +412,7 @@ describe('reuse mode (two real server processes sharing MOAMCP_HOME)', () => {
     expect(html).toContain("fetch('/tasks')");
     expect(html).toContain("location.href = '/?task_id=' + encodeURIComponent(id)");
     // The task view is intact when task_id IS given.
-    expect(html).toContain("EventSource('/subscribe?task_id=");
+    expect(html).toContain("connectSSE('/subscribe?task_id=");
   });
 });
 

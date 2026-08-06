@@ -1047,14 +1047,14 @@ ${LIB_JS}
     omkcShow(true);
     omkcConnect();
     if (!omkcHealthPoll) {
-      omkcHealthPoll = setInterval(function () {
+      omkcHealthPoll = window.__moaLib.startPoll(function () {
         if (!omkcEs) return;
         probeOmkc().then(function (h) { setOmkcScan(h.scanning === true); }, function () {});
-      }, 15000);
+      }, window.__moaLib.POLL_MS.sseFallback);
     }
   }, function () {});
 
-  var sse = null, sseFails = 0, sseDelay = 800, gotAny = false, waitingShown = false;
+  var gotAny = false, waitingShown = false;
   function setConn(text) { document.getElementById('conn').textContent = text; }
   function showWaitingHint(force) {
     if (waitingShown && !force) return;
@@ -1096,33 +1096,22 @@ ${LIB_JS}
   renderAgents();
   setStage(0);
   setDebateLabel();
-  function connect() {
-    sse = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
-    sse.onopen = function () {
-      sseFails = 0;
-      sseDelay = 800;
-      setConn('● sse');
+  /* Shared lib.ts connectSSE: the same 3-fail backoff reconnect this page
+     used to hand-roll; the waiting hint still arms 3s after every open.
+     'connecting' is skipped so #conn stays empty until the stream opens
+     or errors, exactly as with the hand-rolled version. */
+  window.__moaLib.connectSSE('/subscribe?task_id=' + encodeURIComponent(taskId), function (data) {
+    gotAny = true;
+    onEvent(data);
+  }, function (state, msg) {
+    if (state === 'connecting') return;
+    setConn(msg);
+    if (state === 'open') {
       setTimeout(function () {
         if (!gotAny) showWaitingHint();
       }, 3000);
-    };
-    sse.onmessage = function (m) {
-      gotAny = true;
-      sseFails = 0;
-      try { onEvent(JSON.parse(m.data)); } catch (_) {}
-    };
-    sse.onerror = function () {
-      if (sse) { sse.close(); sse = null; }
-      sseFails++;
-      var delay = sseFails < 3 ? 800 : Math.min(15000, sseDelay * 2);
-      sseDelay = delay;
-      setConn(sseFails < 3
-        ? tr('debate.transient', { count: sseFails })
-        : tr('debate.backoff', { seconds: Math.round(delay / 100) / 10 }));
-      setTimeout(connect, delay);
-    };
-  }
-  connect();
+    }
+  });
 })();
 </script>
 </body>

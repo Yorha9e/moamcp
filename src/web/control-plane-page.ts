@@ -978,8 +978,7 @@ ${LIB_JS}
   var boardEntries = [];
   var selectedBoardKey = '';
   var boardEditing = null;
-  var boardEventSource = null;
-  var boardPollTimer = null;
+  var boardSubscription = null;
   var boardRefreshTimer = null;
   var boardSearchTimer = null;
   var activeView = 'tips';
@@ -1158,8 +1157,7 @@ ${LIB_JS}
   function updateLocation(id) { replaceLocationParam('workspace', id); }
   function updateSectionLocation(section) { replaceLocationParam('section', section); }
   function closeBoardSubscription() {
-    if (boardEventSource) { boardEventSource.close(); boardEventSource = null; }
-    if (boardPollTimer) { clearInterval(boardPollTimer); boardPollTimer = null; }
+    if (boardSubscription) { boardSubscription.close(); boardSubscription = null; }
     if (boardRefreshTimer) { clearTimeout(boardRefreshTimer); boardRefreshTimer = null; }
   }
   function refreshActiveView() {
@@ -1186,21 +1184,16 @@ ${LIB_JS}
     closeBoardSubscription();
     var channel = getBoardChannel();
     if (!channel) return;
-    if (typeof EventSource !== 'undefined') {
-      boardEventSource = new EventSource('/subscribe?task_id=' + encodeURIComponent(channel));
-      boardEventSource.onmessage = function (event) {
-        var payload = null;
-        try { payload = JSON.parse(event.data); } catch (_) {}
-        if (payload && payload.type === 'board_updated') handleBoardEvent(payload);
-        if (boardRefreshTimer) clearTimeout(boardRefreshTimer);
-        boardRefreshTimer = setTimeout(function () {
-          boardRefreshTimer = null;
-          refreshActiveView().catch(function () {});
-        }, 300);
-      };
-      boardEventSource.onerror = function () {};
-    }
-    boardPollTimer = setInterval(function () { refreshActiveView().catch(function () {}); }, 15000);
+    boardSubscription = window.__moaLib.subscribeWithPoll('/subscribe?task_id=' + encodeURIComponent(channel), function (event) {
+      var payload = null;
+      try { payload = JSON.parse(event.data); } catch (_) {}
+      if (payload && payload.type === 'board_updated') handleBoardEvent(payload);
+      if (boardRefreshTimer) clearTimeout(boardRefreshTimer);
+      boardRefreshTimer = setTimeout(function () {
+        boardRefreshTimer = null;
+        refreshActiveView().catch(function () {});
+      }, 300);
+    }, function () { refreshActiveView().catch(function () {}); }, window.__moaLib.POLL_MS.sseFallback);
   }
   function isProjectValue(value) { return typeof value === 'string' && value.indexOf('project:') === 0; }
   function projectForValue(value) {
@@ -1356,17 +1349,17 @@ ${LIB_JS}
   }
 ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}${SYSTEM_PAGE_JS}${PROJECTS_PAGE_JS}${INBOX_PAGE_JS}  function closeSectionResources() {
     closeBoardSubscription();
-    if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
-    if (systemPollTimer) { clearInterval(systemPollTimer); systemPollTimer = null; }
+    if (runsPollTimer) { runsPollTimer.stop(); runsPollTimer = null; }
+    if (systemPollTimer) { systemPollTimer.stop(); systemPollTimer = null; }
     if (runSearchTimer) { clearTimeout(runSearchTimer); runSearchTimer = null; }
   }
   function switchRunsView(view) {
     activeRunsView = view;
     document.getElementById('liveRunsView').hidden = view !== 'live'; document.getElementById('archivesView').hidden = view !== 'archives';
     document.getElementById('liveRunsTab').className = 'tab' + (view === 'live' ? ' active' : ''); document.getElementById('archivesTab').className = 'tab' + (view === 'archives' ? ' active' : '');
-    if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
+    if (runsPollTimer) { runsPollTimer.stop(); runsPollTimer = null; }
     if (activeSection !== 'runs') return;
-    if (view === 'live') { loadRuns().catch(function (error) { setNotice(error.message, true); }); runsPollTimer = setInterval(function () { loadRuns().catch(function () {}); }, 5000); }
+    if (view === 'live') { loadRuns().catch(function (error) { setNotice(error.message, true); }); runsPollTimer = window.__moaLib.startPoll(function () { loadRuns().catch(function () {}); }, window.__moaLib.POLL_MS.runs); }
     else loadArchives().catch(function (error) { setNotice(error.message, true); });
   }
   function switchSection(section) {
@@ -1381,7 +1374,7 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     });
     if (section === 'memory') { switchView(activeView); }
     else if (section === 'runs') switchRunsView(activeRunsView);
-    else { loadSystem(); systemPollTimer = setInterval(function () { loadSystem(); }, 10000); }
+    else { loadSystem(); systemPollTimer = window.__moaLib.startPoll(function () { loadSystem(); }, window.__moaLib.POLL_MS.system); }
   }
   function switchView(view) {
     if (['tips', 'board', 'agents', 'projects', 'inbox'].indexOf(view) < 0) view = 'tips';
