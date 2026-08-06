@@ -124,9 +124,6 @@ export const AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.
     var inheritLabel = document.createElement('label'); inheritLabel.textContent = tr('agent.inherit'); inheritLabel.setAttribute('for', inherit.id); inheritWrapper.appendChild(inheritLabel);
     appendBindingOption(inherit, 'unset', tr('agent.unset')); appendBindingOption(inherit, 'true', 'true'); appendBindingOption(inherit, 'false', 'false');
     inherit.value = binding.inherit === true ? 'true' : binding.inherit === false ? 'false' : 'unset'; inheritWrapper.appendChild(inherit); row.appendChild(inheritWrapper);
-    /* Themed custom dropdown like the static selects: the native element stays
-       the single data source; destroy() runs when the row goes away below. */
-    if (window.__moaLib && typeof window.__moaLib.EnhanceSelect === 'function') window.__moaLib.EnhanceSelect(inherit);
     var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger remove-binding'; remove.textContent = tr('common.delete');
     remove.addEventListener('click', function () {
       if (row.dataset.originalName) {
@@ -137,6 +134,12 @@ export const AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.
     });
     row.appendChild(remove);
     container.appendChild(row);
+    /* Themed custom dropdown like the static selects: the native element stays
+       the single data source; destroy() runs when the row goes away. Enhance
+       only after the row is attached — EnhanceSelect resolves the accessible
+       name via document.querySelector('label[for=...]'), which cannot see the
+       label while the row is still a detached fragment. */
+    if (window.__moaLib && typeof window.__moaLib.EnhanceSelect === 'function') window.__moaLib.EnhanceSelect(inherit);
   }
   function renderAgentBindingList(id, section, rows) {
     var container = document.getElementById(id); destroyBindingEnhancedSelects(container); container.textContent = '';

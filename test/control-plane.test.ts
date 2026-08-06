@@ -909,6 +909,14 @@ describe('control plane HTTP surface', () => {
     // 4. Locale change calls updateBindingRowTranslations instead of renderAgentBindings
     expect(html).toContain('function updateBindingRowTranslations()');
     expect(html).toContain('if (agentSnapshot) updateBindingRowTranslations()');
+
+    // 5. Regression: the dynamic inherit <select> is enhanced only AFTER its
+    // row is attached — EnhanceSelect resolves the accessible name via
+    // document.querySelector('label[for=...]'), which cannot see a label that
+    // still lives in a detached row fragment (aria-labelledby would be lost).
+    const rowFn = html.slice(html.indexOf('function appendAgentBindingRow('), html.indexOf('function renderAgentBindingList('));
+    expect(rowFn).toContain('window.__moaLib.EnhanceSelect(inherit)');
+    expect(rowFn.indexOf('window.__moaLib.EnhanceSelect(inherit)')).toBeGreaterThan(rowFn.indexOf('container.appendChild(row);'));
   });
 
   it('maps the new project/handoff routes to 200/400/404/405 as appropriate', async () => {
