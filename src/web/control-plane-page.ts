@@ -27,6 +27,11 @@ import { SYSTEM_SECTION_HTML, SYSTEM_PAGE_JS } from './pages/system.js';
 import { PROJECTS_VIEW_HTML, PROJECTS_PAGE_JS } from './pages/projects.js';
 import { INBOX_VIEW_HTML, INBOX_PAGE_JS } from './pages/inbox.js';
 
+/** Check-mark data-uri for the custom .check checkbox skin. Fixed glass-ink
+ * stroke — the same convention as components.ts' SELECT_CHEVRON fixed slate —
+ * so the mark reads on every theme's --accent-green checked fill. */
+const CHECK_MARK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='8' viewBox='0 0 10 8'><path d='M1 4.2 3.8 7 9 1.4' fill='none' stroke='%230d1017' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>")`;
+
 export const CONTROL_PLANE_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -175,9 +180,39 @@ ${COMPONENTS_CSS}
   flex: 0 0 auto;
   padding: 8px 0;
   color: var(--text-dim);
+  cursor: pointer;
 }
+/* Custom checkbox skin in the .cs-* family: the native input stays the
+   single source of truth (keyboard + AT operable) but drops its platform
+   look. Box chrome comes from the same tokens as buttons/selects
+   (--solid-2/--border-strong via the shared input rule, which also brings
+   the themed focus ring); hover/checked use the accent-green tokens, so
+   glass, liquid and editorial each render their own palette. */
 .check input {
-  accent-color: var(--accent-green);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  cursor: pointer;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.check input:hover {
+  border-color: var(--accent-green);
+}
+.check input:checked {
+  background-color: var(--accent-green);
+  border-color: var(--accent-green);
+  background-image: ${CHECK_MARK};
+  background-size: 10px 8px;
+}
+.check input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .tip-layout {

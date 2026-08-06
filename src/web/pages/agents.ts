@@ -97,6 +97,13 @@ export const AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.
   function appendBindingOption(select, value, label) {
     var option = document.createElement('option'); option.value = value; option.textContent = label; select.appendChild(option);
   }
+  var bindingSelectSeq = 0;
+  function destroyBindingEnhancedSelects(scope) {
+    var roots = scope.querySelectorAll('.cs-root');
+    for (var i = 0; i < roots.length; i++) {
+      if (typeof roots[i].destroy === 'function') roots[i].destroy();
+    }
+  }
   function appendAgentBindingRow(container, section, rowData) {
     var binding = rowData && rowData.binding ? rowData.binding : {};
     var row = document.createElement('div'); row.className = 'agent-binding-row'; row.dataset.section = section;
@@ -112,22 +119,27 @@ export const AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.
     textField('agent.model', 'model', binding.model);
     textField('agent.thinking', 'thinking_effort', binding.thinking_effort);
     var inheritWrapper = document.createElement('div'); inheritWrapper.className = 'field';
-    var inheritLabel = document.createElement('label'); inheritLabel.textContent = tr('agent.inherit'); inheritWrapper.appendChild(inheritLabel);
     var inherit = document.createElement('select'); inherit.dataset.bindingField = 'inherit';
+    inherit.id = 'agentBindInherit' + (++bindingSelectSeq);
+    var inheritLabel = document.createElement('label'); inheritLabel.textContent = tr('agent.inherit'); inheritLabel.setAttribute('for', inherit.id); inheritWrapper.appendChild(inheritLabel);
     appendBindingOption(inherit, 'unset', tr('agent.unset')); appendBindingOption(inherit, 'true', 'true'); appendBindingOption(inherit, 'false', 'false');
     inherit.value = binding.inherit === true ? 'true' : binding.inherit === false ? 'false' : 'unset'; inheritWrapper.appendChild(inherit); row.appendChild(inheritWrapper);
+    /* Themed custom dropdown like the static selects: the native element stays
+       the single data source; destroy() runs when the row goes away below. */
+    if (window.__moaLib && typeof window.__moaLib.EnhanceSelect === 'function') window.__moaLib.EnhanceSelect(inherit);
     var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger remove-binding'; remove.textContent = tr('common.delete');
     remove.addEventListener('click', function () {
       if (row.dataset.originalName) {
         deletedBindings.push({ section: section, name: row.dataset.originalName, binding: null });
       }
+      destroyBindingEnhancedSelects(row);
       row.remove();
     });
     row.appendChild(remove);
     container.appendChild(row);
   }
   function renderAgentBindingList(id, section, rows) {
-    var container = document.getElementById(id); container.textContent = '';
+    var container = document.getElementById(id); destroyBindingEnhancedSelects(container); container.textContent = '';
     var list = Array.isArray(rows) ? rows : [];
     if (!list.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('agent.noBindings'); container.appendChild(empty); return; }
     list.forEach(function (row) { appendAgentBindingRow(container, section, row); });
