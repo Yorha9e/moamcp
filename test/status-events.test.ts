@@ -154,6 +154,7 @@ async function appendWire(home: string, sessionId: string, agentId: string, time
 function makeFakeCtx(opts: { writeReturns?: boolean } = {}) {
   const writes: string[] = [];
   const closeHandlers: Array<() => void> = [];
+  const drainCbs: Array<() => void> = [];
   let destroyed = false;
   const res = {
     setHeader: () => undefined,
@@ -162,7 +163,9 @@ function makeFakeCtx(opts: { writeReturns?: boolean } = {}) {
       writes.push(frame);
       return opts.writeReturns ?? true;
     },
-    once: () => undefined,
+    once: (ev: string, cb: () => void) => {
+      if (ev === 'drain') drainCbs.push(cb);
+    },
     on: () => undefined,
     destroy: () => {
       destroyed = true;
@@ -180,7 +183,7 @@ function makeFakeCtx(opts: { writeReturns?: boolean } = {}) {
     url: new URL('http://127.0.0.1/status/events'),
     sendJson: () => undefined,
   } as unknown as MoaRouteContext;
-  return { ctx, writes, closeHandlers, isDestroyed: () => destroyed };
+  return { ctx, writes, closeHandlers, drainCbs, isDestroyed: () => destroyed };
 }
 
 describe('/status/events (0.8.0)', () => {
@@ -302,6 +305,37 @@ describe('/status/events (0.8.0)', () => {
     // snapshot (1) + agent frames push the undrained count past 3 -> destroy
     await waitFor(() => h.isDestroyed());
     // the destroy leads to req close -> unsubscribe cleanup
+    for (const cb of h.closeHandlers) cb();
+    expect(ctrl.statusSubscriberCount()).toBe(0);
+  });
+
+  it('stacks at most one drain listener under sustained backpressure', async () => {
+    home = await mkdtemp(join(tmpdir(), 'moamcp-status-events-'));
+    const ctrl = makeController(home);
+    for (const [i, id] of ['a', 'b', 'c', 'd'].entries()) {
+      await writeWire(home, 'sess-1', id, 1000 + i);
+    }
+    ctrl.start();
+    await waitFor(() => ctrl.getFold().agentCount >= 4);
+    await waitFor(() => ctrl.scanStatus().homes.every((h) => h.catchingUp === 0));
+    // fake response under permanent backpressure, generous backlog so the
+    // connection survives: every frame write reports false
+    const h = makeFakeCtx({ writeReturns: false });
+    const route = statusRoutes(ctrl).find((r) => r.path === '/status/events')!;
+    route.handler(h.ctx);
+    for (const [i, id] of ['a', 'b', 'c', 'd'].entries()) {
+      await appendWire(home, 'sess-1', id, 2000 + i);
+    }
+    await waitFor(() => h.writes.length >= 5); // snapshot + 4 agent frames
+    // regression guard: repeated once('drain') under sustained backpressure
+    // used to stack listeners and trip MaxListenersExceededWarning
+    expect(h.drainCbs.length).toBe(1);
+    // after a drain the guard re-arms: one more backpressured frame attaches
+    // exactly one fresh listener (still only one pending at a time)
+    h.drainCbs[0]!();
+    await appendWire(home, 'sess-1', 'a', 3000);
+    await waitFor(() => h.writes.length >= 6);
+    expect(h.drainCbs.length).toBe(2);
     for (const cb of h.closeHandlers) cb();
     expect(ctrl.statusSubscriberCount()).toBe(0);
   });

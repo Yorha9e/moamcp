@@ -635,6 +635,10 @@ function statusEventsRoute(controller: StatusController | undefined, opts: Statu
       let destroyed = false;
       /** Agent/snapshot frames handed to res.write since the last drain. */
       let bufferedFrames = 0;
+      /** Guards against stacking 'drain' listeners under sustained backpressure
+       *  (one per response max — 11+ stacked listeners trip Node's
+       *  MaxListenersExceededWarning on a busy stream). */
+      let drainWaiting = false;
       const destroy = (): void => {
         if (destroyed) return;
         destroyed = true;
@@ -659,9 +663,14 @@ function statusEventsRoute(controller: StatusController | undefined, opts: Statu
         if (accepted) {
           // Socket buffer absorbed the frame: prior queued frames drained.
           bufferedFrames = 0;
-        } else {
+        } else if (!drainWaiting) {
           // Backpressure: the buffer is full; the count grows until 'drain'.
+          // Only one 'drain' listener may be pending per response — repeated
+          // once('drain') under sustained backpressure stacks listeners and
+          // trips MaxListenersExceededWarning.
+          drainWaiting = true;
           res.once('drain', () => {
+            drainWaiting = false;
             bufferedFrames = 0;
           });
         }
