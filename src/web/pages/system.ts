@@ -22,16 +22,25 @@ export const SYSTEM_PAGE_JS = `  function renderHealthCard(container, title, val
     else { var dt = document.createElement('dt'); dt.textContent = tr('system.value'); var dd = document.createElement('dd'); dd.textContent = valueText(value); dl.appendChild(dt); dl.appendChild(dd); }
     card.appendChild(dl); container.appendChild(card);
   }
+  /* Panel polish batch 3: the system error surface converged on the notice
+     banner. systemErrorMessage remembers the exact banner text loadSystem
+     set, so a recovered fetch clears precisely its own error — the old inline
+     .empty error box was wiped by the next successful render, and without
+     this the 10s poll would leave a stale banner over healthy data. */
+  var systemErrorMessage = '';
   function loadSystem() {
     return api('/api/system').then(function (data) {
       var box = document.getElementById('systemHealth'); box.textContent = '';
       ['process', 'bus', 'runs', 'sse', 'archives', 'reuseWatch'].forEach(function (key) { renderHealthCard(box, key, data ? data[key] : undefined); });
       renderHealthCard(box, 'registry listenerEntries', data && data.registry ? data.registry.listenerEntries : undefined);
+      if (systemErrorMessage && notice.textContent === systemErrorMessage) setNotice('', false);
+      systemErrorMessage = '';
     }).catch(function (error) {
       /* Panel polish batch 3: SPA error presentation converges on the notice
          banner (setNotice); no view renders its own error markup anymore. */
       document.getElementById('systemHealth').textContent = '';
-      setNotice(tr('system.unavailable') + error.message, true);
+      systemErrorMessage = tr('system.unavailable') + error.message;
+      setNotice(systemErrorMessage, true);
     });
   }
 `;

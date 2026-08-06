@@ -279,9 +279,15 @@ describe('control plane HTTP surface', () => {
     // Error presentation converges on the notice banner inside the SPA:
     // System Health no longer renders its own error box, and an error notice
     // sweeps any loading placeholder a failed first fetch left behind.
-    expect(html).toContain("setNotice(tr('system.unavailable') + error.message, true)");
+    expect(html).toContain("systemErrorMessage = tr('system.unavailable') + error.message");
+    expect(html).toContain('setNotice(systemErrorMessage, true)');
     expect(html).not.toContain("empty.textContent = tr('system.unavailable') + error.message");
     expect(html).toContain('if (isError) clearAllListLoading()');
+    // Recovery clears precisely the banner loadSystem set (the old inline
+    // error box vanished on the next successful render; the 10s poll must not
+    // leave a stale error banner over healthy data, and a stale success must
+    // not wipe a banner another source set — hence the exact-text guard).
+    expect(html).toContain("if (systemErrorMessage && notice.textContent === systemErrorMessage) setNotice('', false)");
 
     // The component stays DOM-built (no HTML injection) like the rest of the page.
     expect(html).not.toContain('inner' + 'HTML');
