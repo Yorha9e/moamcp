@@ -8,14 +8,13 @@
  *     accessor becomes available for B2 identity checks.
  *   - `stop()`: reuse mode (another process owns the Bus) — the fold accessor
  *     returns undefined; the board reads still work (they are disk-backed),
- *     but identity cross-validation (①②③) is B2 and needs the fold.
+ *     and identity cross-validation (①②③) degrades to verified:false.
  *
  * The controller is a thin seam: it carries the shared BoardStore (mounted
  * after the Bus is constructed — server.ts builds the board after bus.start(),
  * mirroring `bus.mountControlPlane`), the status fold accessor (injected from
- * `statusController.getFold()`; reuse/not-started → empty fold), and the
- * start/stop lifecycle. B1 only leaves this interface ready — register's
- * ①②③ fold checks land in B2.
+ * `statusController.getFold()`; reuse/not-started → empty fold), the start/stop
+ * lifecycle, and the B2 CI serial queue (`runCiSerial`).
  */
 import type { BoardStore } from '../../core/store/board.js';
 import type { StateFold } from '../status/state.js';
@@ -26,7 +25,7 @@ export interface TowerControllerOptions {
   /**
    * Status fold accessor: returns the live StateFold while this process owns
    * the Bus and the status controller is running; undefined in reuse mode /
-   * before start (B2 identity checks consume it; B1 leaves the seam).
+   * before start (B2 identity checks consume it).
    */
   foldAccessor?: () => StateFold | undefined;
 }
@@ -43,12 +42,23 @@ export interface TowerController {
   getBoard(): BoardStore | undefined;
   /** Mount the shared BoardStore (server.ts mounts it after bus.start()). */
   mountBoard(board: BoardStore): void;
+  /**
+   * B2 CI: run one task in the process-internal SERIAL queue. CI runs against
+   * the SAME worktree can never overlap within this process — but there is NO
+   * cross-process mutex (单塔台单会话 assumption, 风险台账 9/11): two moamcp
+   * processes reusing one tower could still run CI concurrently and LWW-stomp
+   * `ci/<branchSlug>`. A multi-tower v2 must add a cross-process lock.
+   */
+  runCiSerial<T>(task: () => Promise<T>): Promise<T>;
 }
 
 export function createTowerController(opts: TowerControllerOptions = {}): TowerController {
   let started = false;
   let board: BoardStore | undefined = opts.board;
   const foldAccessor = opts.foldAccessor ?? (() => undefined);
+  // In-process CI serial queue: each run chains after the previous one, and a
+  // failing run does not poison the tail (the chain swallows rejections).
+  let ciTail: Promise<unknown> = Promise.resolve();
   return {
     start(): void {
       started = true;
@@ -63,6 +73,11 @@ export function createTowerController(opts: TowerControllerOptions = {}): TowerC
     getBoard: () => board,
     mountBoard: (mounted) => {
       board = mounted;
+    },
+    runCiSerial<T>(task: () => Promise<T>): Promise<T> {
+      const run = ciTail.then(() => task());
+      ciTail = run.then(() => undefined, () => undefined);
+      return run;
     },
   };
 }

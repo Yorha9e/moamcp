@@ -15,8 +15,10 @@
  *     review/<targetSlug>/<reviewer>-r<n>
  *                          review doc, round-scoped per reviewer
  *     log/<ts>-<rand>      one activity-log line per key
- *     ci/<branchSlug>      B2 (CI results; layout reserved, not written yet)
- *     progress/<missionId> B2 (progress key; layout reserved, not written yet)
+ *     ci/<branchSlug>      B2 CI result record (LWW latest run)
+ *     ci/<branchSlug>/<ts>-<rand>
+ *                          B2 CI run log (per run, truncated)
+ *     progress/<missionId> B2 progress key (single LWW key per mission)
  *
  * All reads/writes go through `BoardStore` with the workspace **explicitly**
  * anchored at `repoRoot` (B1-1 scope anchoring — never the server's
@@ -87,6 +89,12 @@ export interface TowerKeys {
   review(targetSlug: string, reviewer: string, round: number): string;
   /** One activity-log line (`…/log/<ts>-<rand>`). */
   log(ts: number, rand: string): string;
+  /** One CI result record (`…/ci/<branchSlug>`, LWW latest run — B2). */
+  ci(branch: string): string;
+  /** One CI run log (`…/ci/<branchSlug>/<ts>-<rand>`, per run — B2). */
+  ciLog(branch: string, ts: number, rand: string): string;
+  /** One progress key (`…/progress/<missionId>`, single LWW key — B2). */
+  progress(missionId: string): string;
   /** Namespace prefix for namespace reads (`…/mission/`, `…/inbox/`, …). */
   prefix(kind: 'mission' | 'inbox' | 'finding' | 'review' | 'log' | 'ci' | 'progress'): string;
 }
@@ -103,6 +111,9 @@ export function towerKeys(repoRoot: string): TowerKeys {
     finding: (id) => `${ns}/finding/${id}`,
     review: (targetSlugged, reviewer, round) => `${ns}/review/${targetSlugged}/${reviewer}-r${round}`,
     log: (ts, rand) => `${ns}/log/${ts}-${rand}`,
+    ci: (branch) => `${ns}/ci/${targetSlug(branch)}`,
+    ciLog: (branch, ts, rand) => `${ns}/ci/${targetSlug(branch)}/${ts}-${rand}`,
+    progress: (missionId) => `${ns}/progress/${missionId}`,
     prefix: (kind) => `${ns}/${kind}/`,
   };
 }

@@ -189,14 +189,38 @@ it('protocol gates: non-tower callers are rejected at the protocol layer, not by
 // finding → review → merge → status → teardown
 // ---------------------------------------------------------------------------
 
-it('register writes the guard mirror with worktrees; spawn created the physical worktree', async () => {
+it('register writes the guard mirror (B2-6 name-keyed entries); spawn wrote a pending entry first', async () => {
   const env = await makeToolEnv();
-  await bootPlanSpawnRegister(env);
-  const mirror = join(env.repoRoot, '.tower-guard.json');
-  const raw = await readFile(mirror, 'utf8');
-  const doc = JSON.parse(raw);
+  const { client, repoRoot } = env;
+  await call(client, 'moa_tower_boot', { workspace: repoRoot, tower_agent_id: 'agent-orch' });
+  await call(client, 'moa_tower_plan', {
+    workspace: repoRoot,
+    caller_agent_id: 'agent-orch',
+    missions: [{ title: 'Build the parser', scope: ['src/**'], tasks: ['parse', 'test'] }],
+  });
+  await call(client, 'moa_tower_spawn', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w1', kind: 'worker', mission_id: 'M1',
+  });
+  // B2-6: spawn ALSO writes the mirror — pending entry agentId:null, name-addressable.
+  const pending = JSON.parse(await readFile(join(repoRoot, '.tower-guard.json'), 'utf8'));
+  expect(pending.agents.w1).toMatchObject({
+    name: 'w1',
+    agentId: null,
+    worktree: join(repoRoot, '..', 'repo-worktrees', 'wt-1'),
+  });
+  await call(client, 'moa_tower_register', {
+    workspace: repoRoot,
+    caller_agent_id: 'agent-orch',
+    name: 'w1',
+    agent_id: 'agent-w1',
+  });
+  const doc = JSON.parse(await readFile(join(repoRoot, '.tower-guard.json'), 'utf8'));
   expect(doc.repoRoot).toBe(env.repoRoot);
-  expect(doc.agents.w1).toMatchObject({ agentId: 'agent-w1', kind: 'worker', missionId: 'M1', branch: 'feat/M1-build-the-parser' });
+  expect(doc.agents.w1).toMatchObject({
+    name: 'w1',
+    agentId: 'agent-w1',
+    worktree: join(repoRoot, '..', 'repo-worktrees', 'wt-1'),
+  });
   expect(Array.isArray(doc.worktrees)).toBe(true);
   expect(doc.worktrees).toHaveLength(1);
   const branch = (await run(env.repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
@@ -276,11 +300,85 @@ it('B1R-1 spawn preflight: slug collision rejected BEFORE any side effect — no
   await env.close();
 });
 
-it('B1R-4: the B1 tool surface exposes no moa_tower_ci (B2 boundary locked)', async () => {
+it('F3 (B1 终审携带项): same-mission re-spawn hits the already-exists branch — warning note, roster lands, mission stays active', async () => {
+  const env = await makeToolEnv();
+  const { client, repoRoot } = env;
+  await call(client, 'moa_tower_boot', { workspace: repoRoot, tower_agent_id: 'agent-orch' });
+  await call(client, 'moa_tower_plan', {
+    workspace: repoRoot,
+    caller_agent_id: 'agent-orch',
+    missions: [{ title: 'Build the parser', scope: ['src/**'] }],
+  });
+  const w1 = await call(client, 'moa_tower_spawn', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w1', kind: 'worker', mission_id: 'M1',
+  });
+  expect(w1).toMatchObject({ name: 'w1', status: 'pending-register' });
+  // Second spawn of the SAME mission with a new name: the worktree already
+  // exists → git worktree add fails with "already exists" → warning note,
+  // spawn continues (official respawn semantics, F1/F2 accept-wontfix).
+  const w2 = await call(client, 'moa_tower_spawn', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w2', kind: 'worker', mission_id: 'M1',
+  });
+  expect(w2).toMatchObject({ name: 'w2', status: 'pending-register' });
+  expect(Array.isArray(w2.notes)).toBe(true);
+  expect(w2.notes.some((n: string) => /already exists|already checked out|already a registered worktree/i.test(n))).toBe(true);
+  // Roster entry landed (pending) and the mission is still active.
+  const status = await call(client, 'moa_tower_status', { workspace: repoRoot, caller_agent_id: 'agent-orch' });
+  expect(status.missions[0].status).toBe('active');
+  expect(status.roster.map((r: any) => r.name).sort()).toEqual(['tower', 'w1', 'w2']);
+  // Both pending entries are visible in the guard mirror with agentId:null.
+  const doc = JSON.parse(await readFile(join(repoRoot, '.tower-guard.json'), 'utf8'));
+  expect(doc.agents.w1).toMatchObject({ agentId: null, name: 'w1' });
+  expect(doc.agents.w2).toMatchObject({ agentId: null, name: 'w2' });
+  await env.close();
+});
+
+it('moa_tower_progress: owner worker posts; strangers and non-owners are rejected; LWW key accumulates', async () => {
+  const env = await makeToolEnv();
+  await bootPlanSpawnRegister(env);
+  const { client, repoRoot } = env;
+  const posted = await call(client, 'moa_tower_progress', {
+    workspace: repoRoot, caller_agent_id: 'agent-w1', mission_id: 'M1', note: 'parser done',
+  });
+  expect(posted.posted).toBe(true);
+  expect(posted.file).toMatch(/\/progress\/M1$/);
+  // A registered non-owner (a reviewer is not a worker of M1) is rejected with
+  // the row-11 ownership message.
+  await call(client, 'moa_tower_spawn', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'rv1', kind: 'reviewer',
+    review_target: 'feat/M1-build-the-parser',
+  });
+  await call(client, 'moa_tower_register', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'rv1', agent_id: 'agent-rv1',
+  });
+  const nonOwner = await call(client, 'moa_tower_progress', {
+    workspace: repoRoot, caller_agent_id: 'agent-rv1', mission_id: 'M1', note: 'x',
+  });
+  expect(nonOwner.isError).toBe(true);
+  expect(nonOwner.output).toMatch(/does not own mission M1/);
+  // A stranger outside the roster is rejected at the protocol layer.
+  const stranger = await call(client, 'moa_tower_progress', {
+    workspace: repoRoot, caller_agent_id: 'agent-stranger', mission_id: 'M1', note: 'x',
+  });
+  expect(stranger.isError).toBe(true);
+  expect(stranger.output).toMatch(/not a tower participant/);
+  // The tower may post for any mission.
+  const asTower = await call(client, 'moa_tower_progress', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', mission_id: 'M1', note: 'tower says hi',
+  });
+  expect(asTower.posted).toBe(true);
+  const rows = await env.board.read(posted.file, undefined, 'workspace', 1, repoRoot);
+  expect(rows[0].value).toContain('parser done');
+  expect(rows[0].value).toContain('tower says hi');
+  await env.close();
+});
+
+it('B2: the tool surface ships moa_tower_ci + moa_tower_progress (B1 boundary moved)', async () => {
   const env = await makeToolEnv();
   const { tools } = await env.client.listTools();
   const names = tools.map((t) => t.name);
-  expect(names).not.toContain('moa_tower_ci');
+  expect(names).toContain('moa_tower_ci');
+  expect(names).toContain('moa_tower_progress');
   expect(names).toContain('moa_tower_merge'); // the tower surface itself is live
   await env.close();
 });

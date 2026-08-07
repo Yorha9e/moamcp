@@ -1,7 +1,8 @@
 /**
- * Tower module — the 12 B1 MCP tools (moa_tower_boot / plan / spawn /
+ * Tower module — the 14 tower MCP tools (moa_tower_boot / plan / spawn /
  * register / mission / send / inbox / finding / review / merge / teardown /
- * status). Hand-written JSON schemas (board/index.ts convention).
+ * status / ci / progress). Hand-written JSON schemas (board/index.ts
+ * convention).
  *
  * Protocol discipline (B1, not deferred to B4 profiles):
  *  - **B1-1 scope anchoring**: every tool REQUIRES `workspace` (the absolute
@@ -12,16 +13,19 @@
  *    the protocol layer (the MCP transport cannot authenticate callers; the
  *    caller passes its own agent id and the roster decides — 纪律辅助, not a
  *    security boundary).
- *  - plan/spawn/register/merge/teardown are tower-only; mission updates go
- *    through the store's owner check; review requires an assigned reviewer.
- *  - `moa_tower_ci` is deliberately absent in B1 (B2 ships it with the CI
- *    queue — no stub that could error).
+ *  - plan/spawn/register/merge/ci/teardown are tower-only; mission/progress
+ *    updates go through the store's owner check; review requires an assigned
+ *    reviewer.
+ *  - B2 identity (①②③) cross-validation runs on register (eager) and status
+ *    read (lazy re-verify) via `store.verifyAgentIdentity`; the fold accessor
+ *    comes from the controller.
  */
 import type { BoardStore } from '../../core/store/board.js';
 import type { MoaModule, MoaToolDef, MoaToolArgs } from '../types.js';
 import type { TowerController } from './controller.js';
 import * as git from './git.js';
-import { normalizeTowerRoot, worktreePath } from './paths.js';
+import { IDENTITY_BLOCK_THRESHOLD, foldView } from './identity.js';
+import { TOWER_NAME, normalizeTowerRoot, worktreePath } from './paths.js';
 import {
   TowerProtocolError,
   TowerStore,
@@ -104,15 +108,35 @@ async function requireTower(
   return { state, caller };
 }
 
-/** Uniform error mapping: protocol/git failures become error results. */
+/**
+ * Uniform error mapping: protocol/git failures become error results, and B2
+ * extends the same mapping to ANY Error (fs errors — EACCES/ENOSPC/… — are
+ * plain Errors, e.g. from the guard-mirror write or the boot exclude write;
+ * "fs 错误统一经 runTool 映射为 isError"). Non-Error throws still propagate.
+ */
 async function runTool<T>(fn: () => Promise<T>): Promise<Record<string, unknown>> {
   try {
     return (await fn()) as Record<string, unknown>;
   } catch (error) {
-    if (error instanceof TowerProtocolError || error instanceof git.GitError) {
+    if (error instanceof Error) {
       return { output: error.message, isError: true };
     }
     throw error;
+  }
+}
+
+/**
+ * B2-6: rebuild the guard mirror, returning the failure message instead of
+ * throwing. fs errors (EACCES/ENOSPC/…) are plain Errors — mapping them here
+ * keeps the register/spawn retryable-error contract ("fs 错误统一经 runTool
+ * 映射为 isError" is honored by the callers returning the isError result).
+ */
+async function syncMirrorOrRetry(store: TowerStore): Promise<string | undefined> {
+  try {
+    await store.syncGuardMirror();
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
   }
 }
 
@@ -148,6 +172,11 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             enum: ['branch', 'pr'],
             description: 'Tower mode (default "branch"; "pr" is reserved for a future gh-backed mode).',
           },
+          ci_command: {
+            type: 'string',
+            description:
+              'Optional CI command (B2): moa_tower_ci runs it in each mission worktree and the merge gate turns hard (green ci/<branchSlug> record required) once set. Re-booting with ci_command is the idempotent configuration channel — it updates the repo doc instead of erroring.',
+          },
         },
         required: ['workspace', 'tower_agent_id'],
         additionalProperties: false,
@@ -167,16 +196,28 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           }
           const base = argString(args, 'base');
           const modeArg = argString(args, 'mode');
+          const ciCommand = argString(args, 'ci_command');
           const result = await store.boot(towerAgentId, {
             ...(base !== undefined ? { base } : {}),
             ...(modeArg !== undefined ? { mode: modeArg as 'branch' | 'pr' } : {}),
+            ...(ciCommand !== undefined && ciCommand.trim().length > 0 ? { ciCommand: ciCommand.trim() } : {}),
           });
+          // B2 (decision 2): the booted towerAgentId goes through the same ①
+          // fold-existence check (missing fold data → verified:false, never a
+          // mismatch — lazy re-verify happens on later status reads).
+          const outcome = await store.verifyAgentIdentity(
+            TOWER_NAME,
+            foldView(controller.getFold()),
+            towerAgentId,
+          );
           return {
-            booted: result.created,
+            booted: result.created || result.updated === true,
+            ...(result.updated === true ? { ci_command_updated: true } : {}),
             base: result.base,
             mode: 'branch',
             workspace: repoRoot,
             tower_agent_id: towerAgentId,
+            verified: outcome.entry.verified ?? false,
             roster: ['tower'],
           };
         }),
@@ -361,6 +402,17 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             ...(branch !== undefined ? { branch } : {}),
             spawnedAt: new Date().toISOString(),
           });
+          // B2-6: spawn ALSO writes the guard mirror (pending entry agentId:null,
+          // name-addressable — fail-open until register fills the id).
+          const mirrorError = await syncMirrorOrRetry(store);
+          if (mirrorError !== undefined) {
+            // The spawn side effects (worktree/mission/roster) are done; the
+            // mirror write is the retryable part — re-running register rebuilds it.
+            return {
+              output: `guard mirror write failed: ${mirrorError} — the spawn side effects (worktree/mission/roster entry) are recorded; re-run moa_tower_register(name="${name}", agent_id=<engine id>) to retry the mirror write`,
+              isError: true,
+            };
+          }
           await store.appendLog(
             'tower',
             'spawn',
@@ -389,7 +441,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_register',
       description:
-        'Two-stage spawn completion (tower-only, B1 basic enrollment): fills the real engine agent id into the pending roster entry created by moa_tower_spawn and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json — agents map + worktrees array). Identity cross-validation (①②③: fold entry exists, parentAgentId matches the tower, session workDir matches the repo root) is B2; B1 only requires the roster entry to exist.',
+        'Two-stage spawn completion (tower-only): fills the real engine agent id into the pending roster entry created by moa_tower_spawn, runs the B2 identity cross-validation (① fold entry exists; ② dual-channel parent-child: wire parentAgentId == towerAgentId OR the tower fold entry lists this agent as a subagent; ③ soft session-workDir check), and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json — name-keyed agents map with {name, worktree, agentId} + worktrees array). Missing fold data degrades to verified:false (never blocked); a hard mismatch increments failed_count (3 consecutive → blocked). Re-running register is allowed and re-verifies (B2-9).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -408,7 +460,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
       handler: (args) =>
         runTool(async () => {
           const { store } = storeFor(controller, args);
-          await requireTower(store, args);
+          const { state } = await requireTower(store, args);
           const name = argString(args, 'name');
           const agentId = argString(args, 'agent_id');
           if (name === undefined || name.trim().length === 0) {
@@ -423,14 +475,36 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             ...(argString(args, 'worktree') !== undefined ? { worktree: argString(args, 'worktree')! } : {}),
             ...(argString(args, 'branch') !== undefined ? { branch: argString(args, 'branch')! } : {}),
           });
-          // Item 9: agentId lands in the roster + the guard mirror.
-          await store.syncGuardMirror();
+          // B2 identity ①②③ — persist verified/verifiedAt/failedCount (lazy
+          // re-verify trigger: an overwrite is allowed, so re-running register
+          // re-validates after the fold caught up).
+          const towerAgentId =
+            state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? '';
+          const outcome = await store.verifyAgentIdentity(
+            name,
+            foldView(controller.getFold()),
+            towerAgentId,
+          );
+          // B2-6: agentId lands in the roster + the guard mirror. A mirror
+          // write failure is a RETRYABLE isError — the roster entry is already
+          // recorded, re-running register retries the mirror write.
+          const mirrorError = await syncMirrorOrRetry(store);
+          if (mirrorError !== undefined) {
+            return {
+              output: `guard mirror write failed: ${mirrorError} — the roster entry IS recorded (agentId ${agentId}); re-run moa_tower_register to retry the mirror write`,
+              isError: true,
+            };
+          }
           await store.appendLog('tower', 'register', { name, agent: agentId });
           return {
             registered: true,
             name: entry.name,
             agent_id: entry.agentId,
             kind: entry.kind,
+            verified: outcome.entry.verified ?? false,
+            failed_count: outcome.entry.failedCount ?? 0,
+            blocked: (outcome.entry.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
+            identity: outcome.verdict.reason,
             ...(entry.missionId !== undefined ? { mission_id: entry.missionId } : {}),
             ...(entry.reviewTarget !== undefined ? { review_target: entry.reviewTarget } : {}),
             guard_mirror: `${store.repoRoot}/.tower-guard.json`,
@@ -690,7 +764,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_merge',
       description:
-        'Merge a mission branch into the base (tower-only). The hard gate runs in fixed order: branch belongs to a mission → dependencies merged → survey zero-diff noop → review exists → latest round fully clean (every reviewer of the highest round) → branch tip unchanged since the clean review → changed files inside the mission scope (picomatch) → git merge --no-ff → conflicts report. Every blocked step records a merge.blocked activity-log line.',
+        'Merge a mission branch into the base (tower-only). The hard gate runs in fixed order: branch belongs to a mission → dependencies merged → survey zero-diff noop → review exists → latest round fully clean (every reviewer of the highest round) → branch tip unchanged since the clean review → changed files inside the mission scope (picomatch) → CI green (only when a ci_command is configured on boot — requires a ci/<branchSlug> record with commit == current tip && exitCode == 0 && clean worktree; otherwise skipped) → git merge --no-ff → conflicts report. Every blocked step records a merge.blocked activity-log line.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -759,7 +833,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_status',
       description:
-        'Shared tower dashboard: mission table, roster, per-branch review-gate state (highest review round/status and whether it still matches the branch tip), the caller\'s inbox count, and the recent activity log.',
+        'Shared tower dashboard: mission table, roster (with B2 identity verified/failed_count/blocked columns), per-branch review-gate state (highest review round/status and whether it still matches the branch tip), CI summary (configured + per-branch latest result), the caller\'s inbox count, and the recent activity log. Reading status also re-verifies every roster entry against the status fold (lazy re-verify, B2-9) and persists the verdicts.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -775,10 +849,20 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           const state = await store.load();
           const caller = await resolveCaller(store, state, args);
           const missions = await store.loadMissions(state);
+          // B2-9: lazy identity re-verification while reading status — persist
+          // verdicts (the register re-run is the other trigger). Cheap: the
+          // store skips the board write when nothing changed.
+          const towerAgentId =
+            state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? '';
+          const fold = foldView(controller.getFold());
+          for (const agent of state.roster.agents) {
+            await store.verifyAgentIdentity(agent.name, fold, towerAgentId);
+          }
+          const latest = await store.load();
           const reviewGate: Array<Record<string, unknown>> = [];
           for (const mission of missions.filter((m) => m.status !== 'merged')) {
-            const latest = await store.latestReviewRound(mission.branch);
-            if (latest.length === 0) {
+            const latestReviews = await store.latestReviewRound(mission.branch);
+            if (latestReviews.length === 0) {
               reviewGate.push({ branch: mission.branch, mission: mission.id, review: 'none' });
               continue;
             }
@@ -788,29 +872,140 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             reviewGate.push({
               branch: mission.branch,
               mission: mission.id,
-              round: latest[0]!.round,
-              reviewers: latest.map((r) => r.reviewer).join(', '),
-              status: latest.map((r) => `${r.reviewer}=${r.status}`).join(', '),
+              round: latestReviews[0]!.round,
+              reviewers: latestReviews.map((r) => r.reviewer).join(', '),
+              status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(', '),
               sync:
                 tip === undefined
                   ? 'branch-not-created'
-                  : latest.every((r) => r.reviewedCommit === tip)
+                  : latestReviews.every((r) => r.reviewedCommit === tip)
                     ? 'reviewed-commit-matches-tip'
                     : `stale — tip moved to ${tip.slice(0, 7)}, re-review required`,
             });
           }
           const inbox = await store.readInbox(caller, INBOX_COUNT_LIMIT);
           const log = await store.recentLog(RECENT_LOG_LINES);
+          // B2 CI summary: configured flag + latest per-branch result.
+          const repoDoc = await store.loadRepoDoc();
+          const ciConfigured =
+            repoDoc?.ciCommand !== undefined && repoDoc.ciCommand.trim().length > 0;
+          const ciPerBranch: Record<string, { commit: string; exitCode: number | null; ranAt: string }> = {};
+          for (const mission of missions) {
+            const ci = await store.loadCiResult(mission.branch);
+            if (ci !== undefined) {
+              ciPerBranch[mission.branch] = { commit: ci.commit, exitCode: ci.exitCode, ranAt: ci.ranAt };
+            }
+          }
           return {
             caller,
             base: state.base,
             mode: state.mode,
             booted: true,
             missions: renderMissions(missions),
-            roster: renderRoster(state),
+            roster: renderRoster(latest),
             review_gate: reviewGate,
+            ci: { configured: ciConfigured, 'per-branch': ciPerBranch },
             inbox_count: inbox.length,
             recent_activity: [...log],
+          };
+        }),
+    },
+    {
+      name: 'moa_tower_ci',
+      description:
+        'Run the configured CI command (boot ci_command) in the mission branch\'s worktree (tower-only). The run is serialized per tower process (single-tower single-session assumption — no cross-process mutex, 风险台账 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The outcome is stored under ci/<branchSlug> {commit (tip at run time), exitCode, dirty, logRef, ranAt}; the run log is truncated (last 200 lines, ≤64KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          branch: { type: 'string', description: 'The mission branch to run CI against (e.g. "feat/M1-x")' },
+        },
+        required: ['workspace', 'caller_agent_id', 'branch'],
+        additionalProperties: false,
+      },
+      handler: (args) =>
+        runTool(async () => {
+          const { store } = storeFor(controller, args);
+          await requireTower(store, args);
+          const branch = argString(args, 'branch');
+          if (branch === undefined || branch.trim().length === 0) {
+            throw new TowerProtocolError('moa_tower_ci needs the mission branch');
+          }
+          const repoDoc = await store.loadRepoDoc();
+          const ciCommand = repoDoc?.ciCommand?.trim();
+          if (ciCommand === undefined || ciCommand.length === 0) {
+            return {
+              output:
+                'no ci_command configured — set one by re-booting: moa_tower_boot(workspace, tower_agent_id, ci_command="…")',
+              isError: true,
+            };
+          }
+          // In-process serial queue (controller seam): CI runs against the same
+          // worktree can never overlap inside this process.
+          const result = await controller.runCiSerial(() => store.runCi(branch, ciCommand));
+          if (result.dirty) {
+            // B2-3 dirty-tree interception: error + dirty flag; a dirty failed
+            // record was already persisted (merge gate rejects it).
+            return {
+              output: `ci skipped: the worktree for ${branch} has uncommitted changes — commit them first and re-run moa_tower_ci (a dirty run is recorded as failed)`,
+              isError: true,
+              dirty: true,
+              branch,
+              commit: result.commit,
+              ran_at: result.ranAt,
+            };
+          }
+          return {
+            ran: true,
+            branch,
+            commit: result.commit,
+            exit_code: result.exitCode,
+            dirty: false,
+            log_ref: result.logRef ?? null,
+            ...(result.logError !== undefined ? { log_error: result.logError } : {}),
+            ran_at: result.ranAt,
+            next:
+              result.exitCode === 0
+                ? 'CI green — the merge gate accepts this record while the branch tip stays put.'
+                : 'CI failed — fix the failures, commit, and re-run moa_tower_ci.',
+          };
+        }),
+    },
+    {
+      name: 'moa_tower_progress',
+      description:
+        'Post a progress note to a mission (the mission\'s owning worker or the tower only — row-11 ownership). Notes accumulate under the single LWW key progress/<missionId>; the value keeps the newest lines within the board ceiling (80KB headroom). Write frequency is the profile\'s cron discipline (B4) — keep notes sparse.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          mission_id: { type: 'string', description: 'The mission id (e.g. "M1") you own' },
+          note: { type: 'string', description: 'A short progress note (timestamped and attributed automatically)' },
+        },
+        required: ['workspace', 'caller_agent_id', 'mission_id', 'note'],
+        additionalProperties: false,
+      },
+      handler: (args) =>
+        runTool(async () => {
+          const { store } = storeFor(controller, args);
+          const state = await store.load();
+          const caller = await resolveCaller(store, state, args);
+          const missionId = argString(args, 'mission_id');
+          const note = argString(args, 'note');
+          if (missionId === undefined || missionId.trim().length === 0) {
+            throw new TowerProtocolError('moa_tower_progress needs mission_id');
+          }
+          if (note === undefined || note.trim().length === 0) {
+            throw new TowerProtocolError('moa_tower_progress needs a non-empty note');
+          }
+          const result = await store.updateProgress(caller, missionId, note);
+          return {
+            posted: true,
+            mission: missionId,
+            file: result.key,
+            bytes: result.bytes,
           };
         }),
     },
@@ -842,6 +1037,12 @@ function renderRoster(state: TowerState): Array<Record<string, unknown>> {
     name: a.name,
     kind: a.kind,
     agentId: a.agentId === '' ? null : a.agentId,
+    // B2 identity columns: verified / failed_count / blocked (derived from
+    // consecutive hard mismatches — missing data never counts, decision 2).
+    verified: a.verified ?? false,
+    ...(a.verifiedAt !== undefined ? { verified_at: a.verifiedAt } : {}),
+    failed_count: a.failedCount ?? 0,
+    blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
     ...(a.missionId !== undefined ? { mission_id: a.missionId } : {}),
     ...(a.reviewTarget !== undefined ? { review_target: a.reviewTarget } : {}),
     ...(a.branch !== undefined ? { branch: a.branch } : {}),

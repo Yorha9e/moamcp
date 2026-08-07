@@ -9132,9 +9132,9 @@ var require_picomatch2 = __commonJS({
 
 // src/core/bus/bus.ts
 import { createServer, get as get2 } from "node:http";
-import { writeFile as writeFile4, readFile as readFile8, rm as rm2 } from "node:fs/promises";
+import { writeFile as writeFile4, readFile as readFile9, rm as rm2 } from "node:fs/promises";
 import { rmSync } from "node:fs";
-import { join as join10, resolve as resolve5 } from "node:path";
+import { join as join10, resolve as resolve6 } from "node:path";
 
 // src/core/store/archive-index.ts
 import { constants } from "node:fs";
@@ -9354,8 +9354,8 @@ var ArchiveIndex = class {
 };
 
 // src/adapters/control-plane.ts
-import { readFile as readFile7 } from "node:fs/promises";
-import { dirname as dirname5, isAbsolute as isAbsolute5, join as join9 } from "node:path";
+import { readFile as readFile8 } from "node:fs/promises";
+import { dirname as dirname5, isAbsolute as isAbsolute6, join as join9 } from "node:path";
 
 // src/modules/agentconfig/agent-config.ts
 import { createHash } from "node:crypto";
@@ -10070,7 +10070,7 @@ async function renameReplace(tmpPath, filePath) {
       return;
     } catch (error) {
       if (attempt >= RENAME_RETRY_LIMIT || !isReplaceRetryableError(error)) throw error;
-      await new Promise((resolve6) => setTimeout(resolve6, RENAME_RETRY_DELAY_MS * (attempt + 1)));
+      await new Promise((resolve7) => setTimeout(resolve7, RENAME_RETRY_DELAY_MS * (attempt + 1)));
     }
   }
 }
@@ -11746,7 +11746,7 @@ function classifySourceHealth(body, port) {
   };
 }
 function sleep(ms) {
-  return new Promise((resolve6) => setTimeout(resolve6, ms));
+  return new Promise((resolve7) => setTimeout(resolve7, ms));
 }
 var OmkcSource = class {
   constructor(opts) {
@@ -11875,8 +11875,8 @@ var OmkcSource = class {
       };
       try {
         for (; ; ) {
-          const idle = new Promise((resolve6) => {
-            idleTimer = setTimeout(() => resolve6("idle"), this.readIdleTimeoutMs);
+          const idle = new Promise((resolve7) => {
+            idleTimer = setTimeout(() => resolve7("idle"), this.readIdleTimeoutMs);
           });
           const chunk = await Promise.race([reader.read(), idle]);
           if (idleTimer) clearTimeout(idleTimer);
@@ -11938,7 +11938,7 @@ function sessionsRoot(home) {
 var PUMP_CHUNK = 256 * 1024;
 var SCAN_YIELD_EVERY = 16;
 function yieldNow() {
-  return new Promise((resolve6) => setImmediate(resolve6));
+  return new Promise((resolve7) => setImmediate(resolve7));
 }
 async function readdirSafe(dir) {
   try {
@@ -12256,11 +12256,11 @@ var SWEEP_MS = 5e3;
 var AGENTS_CAP = 100;
 var REMOTE_STATUS_TIMEOUT_MS = 1500;
 async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
-  return new Promise((resolve6) => {
+  return new Promise((resolve7) => {
     let deadline;
     const settle = (value) => {
       clearTimeout(deadline);
-      resolve6(value);
+      resolve7(value);
     };
     const req = get(
       { host: "127.0.0.1", port, path: "/status", timeout: timeoutMs },
@@ -12699,9 +12699,10 @@ function createStatusModule(controller, opts = {}) {
 
 // src/modules/tower/store.ts
 var import_picomatch = __toESM(require_picomatch2(), 1);
+import { spawn } from "node:child_process";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { mkdir as mkdir5, rename as rename3, rm, writeFile as writeFile2 } from "node:fs/promises";
-import { dirname as dirname4, join as join7 } from "node:path";
+import { access, mkdir as mkdir5, readFile as readFile5, rename as rename3, rm, writeFile as writeFile2 } from "node:fs/promises";
+import { dirname as dirname4, isAbsolute as isAbsolute3, join as join7 } from "node:path";
 
 // src/core/store/board.ts
 import { createHash as createHash2 } from "node:crypto";
@@ -12906,7 +12907,7 @@ var AppendLockTimeoutError = class extends Error {
     this.name = "AppendLockTimeoutError";
   }
 };
-var sleep2 = (ms) => new Promise((resolve6) => setTimeout(resolve6, ms));
+var sleep2 = (ms) => new Promise((resolve7) => setTimeout(resolve7, ms));
 async function isStaleLock(lockFile, staleMs) {
   try {
     const info = await stat(lockFile);
@@ -13510,15 +13511,15 @@ var BoardStore = class {
       if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
         return { kind: "now", payload: { status: "ready", entry: cloneEntry(current) } };
       }
-      const promise = new Promise((resolve6) => {
+      const promise = new Promise((resolve7) => {
         const waiter = {
           key: k,
           sinceEpoch,
-          resolve: resolve6,
+          resolve: resolve7,
           timer: setTimeout(() => {
             state.waiters.delete(waiter);
             this.stopPollIfIdle(state);
-            resolve6({ status: "timeout", retry: true });
+            resolve7({ status: "timeout", retry: true });
           }, effectiveTimeout)
         };
         state.waiters.add(waiter);
@@ -14440,7 +14441,7 @@ var GitError = class extends Error {
   stderr;
 };
 async function git(cwd, args) {
-  return new Promise((resolve6, reject) => {
+  return new Promise((resolve7, reject) => {
     execFile(
       "git",
       [...args],
@@ -14450,7 +14451,7 @@ async function git(cwd, args) {
           reject(new GitError(args, stderr || error.message));
           return;
         }
-        resolve6(stdout.trimEnd());
+        resolve7(stdout.trimEnd());
       }
     );
   });
@@ -14503,9 +14504,132 @@ async function diffNameOnly(cwd, base, ref) {
   return out.length === 0 ? [] : out.split("\n").filter((line) => line.trim().length > 0);
 }
 
+// src/modules/tower/identity.ts
+import { resolve as resolve3 } from "node:path";
+var IDENTITY_BLOCK_THRESHOLD = 3;
+function foldView(fold) {
+  if (fold === void 0) return void 0;
+  return {
+    findAgentById: (agentId) => fold.findAgentById(agentId),
+    snapshotSessions: () => fold.snapshotSessions()
+  };
+}
+function findFoldAgent(fold, agentId) {
+  return fold?.findAgentById(agentId);
+}
+function checkParentChild(fold, towerAgentId, workerAgentId) {
+  const worker = fold?.findAgentById(workerAgentId);
+  const tower = fold?.findAgentById(towerAgentId);
+  const parent = worker?.parentAgentId;
+  const wireOk = typeof parent === "string" && parent.length > 0 && parent === towerAgentId;
+  const wireDenies = typeof parent === "string" && parent.length > 0 && parent !== towerAgentId;
+  const subagents = tower?.subagents ?? [];
+  const omkcOk = subagents.some((s) => s.subagentId === workerAgentId);
+  const omkcDenies = subagents.length > 0 && !omkcOk;
+  if (wireOk || omkcOk) {
+    return { ok: true, missing: false, channel: wireOk ? "wire" : "omkc", reason: "ok" };
+  }
+  if (wireDenies || omkcDenies) {
+    return {
+      ok: false,
+      missing: false,
+      channel: wireDenies ? "wire" : "omkc",
+      reason: `parent-child mismatch on ${wireDenies ? "wire" : "omkc"} channel`
+    };
+  }
+  return {
+    ok: false,
+    missing: true,
+    channel: "none",
+    reason: "no parent-child data in the fold (parentAgentId absent and tower subagents unknown)"
+  };
+}
+function checkWorkdirSoft(fold, workerAgentId, repoRoot, worktree) {
+  const worker = fold?.findAgentById(workerAgentId);
+  if (worker === void 0) {
+    return { ok: false, missing: true, reason: "fold-entry-missing" };
+  }
+  const session = fold?.snapshotSessions().find((s) => s.sessionId === worker.sessionId);
+  if (session === void 0 || typeof session.workDir !== "string" || session.workDir.trim().length === 0) {
+    return { ok: false, missing: true, reason: "session-workdir-missing" };
+  }
+  const normalize = (p) => resolve3(p).toLowerCase();
+  const actual = normalize(session.workDir);
+  const candidates = [normalize(repoRoot)];
+  if (worktree !== void 0) candidates.push(normalize(worktree));
+  if (candidates.includes(actual)) return { ok: true, missing: false, reason: "ok" };
+  return {
+    ok: false,
+    missing: false,
+    reason: `session workDir ${JSON.stringify(session.workDir)} is neither the tower workspace nor the worker worktree`
+  };
+}
+function evaluateTowerIdentity(fold, towerAgentId) {
+  if (findFoldAgent(fold, towerAgentId) === void 0) {
+    return {
+      verified: false,
+      missing: true,
+      mismatch: false,
+      soft: false,
+      reason: "fold-entry-missing (tower)",
+      parentChild: { ok: false, missing: true, channel: "none", reason: "n/a \u2014 tower is the root (\u2460 only)" },
+      workdir: { ok: false, missing: true, reason: "n/a \u2014 tower is the root (\u2460 only)" }
+    };
+  }
+  return {
+    verified: true,
+    missing: false,
+    mismatch: false,
+    soft: false,
+    reason: "ok",
+    parentChild: { ok: true, missing: false, channel: "none", reason: "n/a \u2014 tower is the root (\u2460 only)" },
+    workdir: { ok: true, missing: false, reason: "n/a \u2014 tower is the root (\u2460 only)" }
+  };
+}
+function evaluateIdentity(fold, workerAgentId, towerAgentId, repoRoot, worktree) {
+  const reasons = [];
+  let missing = false;
+  let mismatch = false;
+  let soft = false;
+  if (findFoldAgent(fold, workerAgentId) === void 0) {
+    missing = true;
+    reasons.push("fold-entry-missing");
+  }
+  const pc = checkParentChild(fold, towerAgentId, workerAgentId);
+  if (!pc.ok) {
+    if (pc.missing) {
+      missing = true;
+      reasons.push("parent-child-missing");
+    } else {
+      mismatch = true;
+      reasons.push(pc.reason);
+    }
+  }
+  const wd = checkWorkdirSoft(fold, workerAgentId, repoRoot, worktree);
+  if (!wd.ok) {
+    if (wd.missing) {
+      missing = true;
+      reasons.push("workdir-missing");
+    } else {
+      soft = true;
+      reasons.push(wd.reason);
+    }
+  }
+  const verified = !missing && !mismatch && !soft;
+  return {
+    verified,
+    missing,
+    mismatch,
+    soft,
+    reason: verified ? "ok" : reasons.join("; "),
+    parentChild: pc,
+    workdir: wd
+  };
+}
+
 // src/modules/tower/paths.ts
 import { createHash as createHash3 } from "node:crypto";
-import { basename, dirname as dirname3, join as join6, resolve as resolve3 } from "node:path";
+import { basename, dirname as dirname3, join as join6, resolve as resolve4 } from "node:path";
 var TOWER_NAME = "tower";
 var BROADCAST_NAME = "all";
 function worktreesRoot(repoRoot) {
@@ -14518,7 +14642,7 @@ function normalizeTowerRoot(repoRoot) {
   if (typeof repoRoot !== "string" || repoRoot.length === 0 || !/^[a-zA-Z]:[\\/]|^\//.test(repoRoot)) {
     throw new Error(`repoRoot must be an absolute path, got: ${JSON.stringify(repoRoot)}`);
   }
-  return resolve3(repoRoot);
+  return resolve4(repoRoot);
 }
 function towerRepoKey(repoRoot) {
   return createHash3("sha1").update(normalizeTowerRoot(repoRoot)).digest("hex").slice(0, 12);
@@ -14537,6 +14661,9 @@ function towerKeys(repoRoot) {
     finding: (id) => `${ns}/finding/${id}`,
     review: (targetSlugged, reviewer, round) => `${ns}/review/${targetSlugged}/${reviewer}-r${round}`,
     log: (ts, rand) => `${ns}/log/${ts}-${rand}`,
+    ci: (branch) => `${ns}/ci/${targetSlug(branch)}`,
+    ciLog: (branch, ts, rand) => `${ns}/ci/${targetSlug(branch)}/${ts}-${rand}`,
+    progress: (missionId) => `${ns}/progress/${missionId}`,
     prefix: (kind) => `${ns}/${kind}/`
   };
 }
@@ -14576,6 +14703,87 @@ var STATUS_EMOJI = {
   merged: "\u2705"
 };
 var GUARD_MIRROR_FILE = ".tower-guard.json";
+var CI_TIMEOUT_MS = 10 * 60 * 1e3;
+var CI_LOG_MAX_LINES = 200;
+var CI_LOG_LINE_MAX_CHARS = 1e3;
+var CI_LOG_MAX_BYTES = 64 * 1024;
+var CI_OUTPUT_CAP_BYTES = 2 * 1024 * 1024;
+var PROGRESS_MAX_BYTES = 80 * 1024;
+function truncateCiLog(raw) {
+  const lines = raw.split(/\r?\n/).slice(-CI_LOG_MAX_LINES).map(
+    (line) => line.length > CI_LOG_LINE_MAX_CHARS ? `${line.slice(0, CI_LOG_LINE_MAX_CHARS)} \u2026[truncated]` : line
+  );
+  let text = lines.join("\n");
+  if (Buffer.byteLength(text, "utf8") > CI_LOG_MAX_BYTES) {
+    const parts = text.split("\n");
+    const kept = [];
+    let bytes = 0;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const lineBytes = Buffer.byteLength(parts[i], "utf8");
+      const separator = kept.length > 0 ? 1 : 0;
+      if (bytes + lineBytes + separator > CI_LOG_MAX_BYTES) break;
+      kept.unshift(parts[i]);
+      bytes += lineBytes + separator;
+    }
+    text = kept.join("\n");
+  }
+  return text;
+}
+function execCiCommand(cwd, command) {
+  return new Promise((resolve7) => {
+    const isWindows = process.platform === "win32";
+    const child = spawn(isWindows ? "cmd" : "/bin/sh", isWindows ? ["/c", command] : ["-c", command], {
+      cwd,
+      windowsHide: true,
+      env: process.env
+      // env 继承
+    });
+    let out = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, CI_TIMEOUT_MS);
+    const append = (chunk) => {
+      out += chunk.toString("utf8");
+      if (Buffer.byteLength(out, "utf8") > CI_OUTPUT_CAP_BYTES) {
+        out = out.slice(out.length - CI_OUTPUT_CAP_BYTES);
+      }
+    };
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      resolve7({ exitCode: null, output: `${out}
+[ci spawn failed: ${error.message}]`.trim() });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      const suffix = timedOut ? `
+[ci timed out after ${CI_TIMEOUT_MS}ms \u2014 process killed]` : "";
+      resolve7({ exitCode: timedOut ? null : code, output: `${out}${suffix}` });
+    });
+  });
+}
+function truncateTail(text, maxBytes) {
+  if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
+  const parts = text.split("\n");
+  const kept = [];
+  let bytes = 0;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const lineBytes = Buffer.byteLength(parts[i], "utf8");
+    const separator = kept.length > 0 ? 1 : 0;
+    if (bytes + lineBytes + separator > maxBytes) break;
+    kept.unshift(parts[i]);
+    bytes += lineBytes + separator;
+  }
+  if (kept.length === 0) {
+    let last = parts[parts.length - 1] ?? "";
+    while (Buffer.byteLength(last, "utf8") > maxBytes) last = last.slice(0, Math.floor(last.length / 2));
+    return last;
+  }
+  return kept.join("\n");
+}
 var FENCE = "---";
 function renderFrontmatter(fields) {
   const lines = [FENCE];
@@ -14648,10 +14856,18 @@ var TowerStore = class {
    * 附录 A row 2: needs ≥1 commit — `hasAnyCommit` check.
    * 附录 A row 3: boot 幂等 — a repeated boot while booted reports an error
    *   (per the plan landing); teardown clears the namespace so boot works again.
+   *   **B2-4 exception**: re-boot with a `ci_command` is the idempotent CI
+   *   configuration channel — it updates the `…/repo` doc instead of erroring.
+   *   **B2R-2**: that re-boot channel is caller-verified — the passed
+   *   `towerAgentId` must equal the boot-registered tower roster entry's
+   *   agentId, so no arbitrary MCP caller can implant a ciCommand.
    * 附录 A row 4 (**偏差**): official writes `.tower/` to `.git/info/exclude`;
    *   we are exempt — no `.tower/` directory is ever created inside the repo
    *   (state lives in the board under `<home>/boards`, worktrees live in a
    *   sibling `<repoName>-worktrees/`), so there is nothing to exclude.
+   *   **B2-12**: boot appends `.tower-guard.json` to `.git/info/exclude`
+   *   (idempotent — never duplicated) so the guard mirror file at the repo
+   *   root never shows up as untracked in the main checkout.
    */
   async boot(towerAgentId, opts = {}) {
     if (!await isInsideRepo(this.repoRoot)) {
@@ -14665,6 +14881,18 @@ var TowerStore = class {
       );
     }
     if (await this.isInitialized()) {
+      if (opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0) {
+        const state2 = await this.load();
+        const towerEntry = this.findAgent(state2, TOWER_NAME);
+        if (towerEntry === void 0 || towerEntry.agentId !== towerAgentId) {
+          throw new TowerProtocolError(
+            `tower_agent_id ${JSON.stringify(towerAgentId)} does not match the booted tower's registered agent id \u2014 only the booted tower may reconfigure the CI command`
+          );
+        }
+        const repoDoc2 = await this.updateCiCommand(opts.ciCommand.trim());
+        await this.appendLog(TOWER_NAME, "ci.configure", { command: opts.ciCommand.trim() });
+        return { base: repoDoc2.base, created: false, updated: true };
+      }
       throw new TowerProtocolError(
         "tower is already booted in this repository \u2014 teardown first (or reuse the existing workspace)"
       );
@@ -14696,8 +14924,10 @@ var TowerStore = class {
       base,
       mode,
       createdAt,
-      bootedAt: createdAt
+      bootedAt: createdAt,
+      ...opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0 ? { ciCommand: opts.ciCommand.trim() } : {}
     };
+    await this.addGuardExclude();
     await this.board.mutate(
       "workspace",
       (entries, ts) => {
@@ -14706,8 +14936,58 @@ var TowerStore = class {
       },
       this.repoRoot
     );
-    await this.appendLog(TOWER_NAME, "boot", { base, mode });
+    await this.appendLog(TOWER_NAME, "boot", {
+      base,
+      mode,
+      ci: opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0 ? "configured" : void 0
+    });
     return { base, created: true };
+  }
+  /**
+   * B2-12 (附录 A row 4 deviation): append `.tower-guard.json` to the repo's
+   * `.git/info/exclude` — idempotent, never duplicated. The guard mirror file
+   * lives at the repo root, so without the exclude the main checkout's
+   * `git status` would always show it as untracked.
+   */
+  async addGuardExclude() {
+    const rawGitDir = await tryGit(this.repoRoot, ["rev-parse", "--git-dir"]);
+    const gitDir = rawGitDir === null ? ".git" : rawGitDir;
+    const gitDirAbs = isAbsolute3(gitDir) ? gitDir : join7(this.repoRoot, gitDir);
+    const excludeFile = join7(gitDirAbs, "info", "exclude");
+    await mkdir5(dirname4(excludeFile), { recursive: true });
+    let content = "";
+    try {
+      content = await readFile5(excludeFile, "utf8");
+    } catch {
+      content = "";
+    }
+    if (content.split(/\r?\n/).some((line) => line.trim() === GUARD_MIRROR_FILE)) return;
+    const prefix = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+    await writeFile2(excludeFile, `${content}${prefix}${GUARD_MIRROR_FILE}
+`, "utf8");
+  }
+  /**
+   * B2-4: idempotently set the repo doc's CI command (re-boot channel). A
+   * no-op when the command is unchanged.
+   */
+  async updateCiCommand(ciCommand) {
+    return this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const row = entries.get(this.keys.repo());
+        if (row === void 0) {
+          throw new TowerProtocolError(
+            "tower is not booted in this repository \u2014 run moa_tower_boot first"
+          );
+        }
+        const doc = JSON.parse(row.value);
+        if (doc.ciCommand === ciCommand) return doc;
+        const next = { ...doc, ciCommand };
+        entries.set(this.keys.repo(), boardEntry(this.keys.repo(), JSON.stringify(next), TOWER_NAME, ts));
+        return next;
+      },
+      this.repoRoot
+    );
   }
   async load() {
     const rows = await this.board.read(this.keys.state(), void 0, "workspace", 1, this.repoRoot);
@@ -14882,8 +15162,9 @@ var TowerStore = class {
   /**
    * B1 basic enrollment for the register tool: fill the real engine agent id
    * into a pending roster entry (and any missing mission/review fields).
-   * ①②③ identity checks (fold cross-validation, parentAgentId, workDir match)
-   * are B2 — the fold accessor is wired on the controller but unused here.
+   * Overwrite is allowed (resume/re-register) — this is the B2-9 lazy
+   * re-verify trigger, so B2 identity checks run through
+   * `verifyAgentIdentity` (called by the register tool and the status tool).
    */
   async updateRosterAgentId(name, agentId, extra = {}) {
     if (typeof agentId !== "string" || agentId.trim().length === 0) {
@@ -14919,10 +15200,68 @@ var TowerStore = class {
     );
     return updated;
   }
+  /**
+   * B2 identity cross-validation for one roster entry (基准 decision 2):
+   * ① fold entry exists; ② dual-channel parent-child; ③ soft workdir check
+   * (see identity.ts). Persists verified/verifiedAt/failedCount onto the
+   * roster entry inside one mutate; skips the write when nothing changed
+   * (cheap enough for the status-read lazy re-verify, B2-9).
+   *
+   * 缺失 ≠ 不匹配: a missing verdict never increments failedCount and never
+   * blocks. A ② mismatch increments failedCount (consecutive, reset on any
+   * verified:true); blocked is derived as failedCount ≥ IDENTITY_BLOCK_THRESHOLD.
+   * ③ soft mismatches only flip verified:false.
+   */
+  async verifyAgentIdentity(name, fold, towerAgentId) {
+    const outcome = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        const index = state.roster.agents.findIndex((candidate) => candidate.name === name);
+        if (index === -1) {
+          throw new TowerProtocolError(
+            `no roster entry named "${name}" \u2014 spawn the agent with moa_tower_spawn first`
+          );
+        }
+        const agent = state.roster.agents[index];
+        const verdict = agent.name === TOWER_NAME ? evaluateTowerIdentity(fold, agent.agentId) : evaluateIdentity(
+          fold,
+          agent.agentId,
+          towerAgentId,
+          this.repoRoot,
+          agent.worktree !== void 0 ? worktreePath(this.repoRoot, agent.worktree) : void 0
+        );
+        const failedCount = verdict.mismatch ? (agent.failedCount ?? 0) + 1 : verdict.verified ? 0 : agent.failedCount ?? 0;
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const next = {
+          ...agent,
+          verified: verdict.verified,
+          ...verdict.verified ? { verifiedAt: now } : agent.verifiedAt !== void 0 ? { verifiedAt: agent.verifiedAt } : {},
+          failedCount
+        };
+        const unchanged = next.verified === agent.verified && (next.verifiedAt ?? null) === (agent.verifiedAt ?? null) && (next.failedCount ?? 0) === (agent.failedCount ?? 0);
+        if (!unchanged) {
+          state.roster.agents[index] = next;
+          entries.set(
+            this.keys.state(),
+            boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts)
+          );
+        }
+        return { entry: next, verdict };
+      },
+      this.repoRoot
+    );
+    return outcome;
+  }
   // ---------------------------------------------------------------------
-  // Guard mirror (B1-11: shape carries `worktrees: string[]` for the B3 path
-  // allowlist and an `agents` map for the omkc policy). Written by register
-  // (item 9: "agentId 落 roster + 镜像"), deleted by teardown (row 17).
+  // Guard mirror (B2-6 定稿): `agents` keeps NAME keys (B1 contract) with
+  // `{name, worktree, agentId: string|null}` entries — spawn writes pending
+  // entries (agentId:null, name-addressable), register fills the agentId and
+  // rewrites; teardown deletes the file (row 17). `worktrees: string[]` stays
+  // for the B3 hook allowlist; the omkc policy scans the agents map by
+  // agentId (a pending null never matches any real agentId → fail-open
+  // window, 基准 decision 4). Atomic tmp+rename; the tmp name carries
+  // pid+random (B2-8) so concurrent writers never share a tmp file.
   // ---------------------------------------------------------------------
   /** Rebuild `<repoRoot>/.tower-guard.json` from state + missions (atomic tmp+rename). */
   async syncGuardMirror() {
@@ -14931,14 +15270,10 @@ var TowerStore = class {
     const agents = {};
     for (const agent of state.roster.agents) {
       if (agent.name === TOWER_NAME) continue;
-      if (agent.agentId === "") continue;
       agents[agent.name] = {
-        agentId: agent.agentId,
-        kind: agent.kind,
-        ...agent.missionId !== void 0 ? { missionId: agent.missionId } : {},
-        ...agent.reviewTarget !== void 0 ? { reviewTarget: agent.reviewTarget } : {},
-        ...agent.branch !== void 0 ? { branch: agent.branch } : {},
-        ...agent.worktree !== void 0 ? { worktree: worktreePath(this.repoRoot, agent.worktree) } : {}
+        name: agent.name,
+        worktree: agent.worktree !== void 0 ? worktreePath(this.repoRoot, agent.worktree) : null,
+        agentId: agent.agentId === "" ? null : agent.agentId
       };
     }
     const worktrees = [];
@@ -14955,7 +15290,7 @@ var TowerStore = class {
     };
     const file = join7(this.repoRoot, GUARD_MIRROR_FILE);
     await mkdir5(dirname4(file), { recursive: true });
-    const tmp = `${file}.tmp`;
+    const tmp = `${file}.tmp-${process.pid}-${randomUUID2().slice(0, 8)}`;
     await writeFile2(tmp, `${JSON.stringify(doc, null, 2)}
 `, "utf8");
     await rename3(tmp, file);
@@ -14966,6 +15301,91 @@ var TowerStore = class {
       await rm(join7(this.repoRoot, GUARD_MIRROR_FILE), { force: true });
     } catch {
     }
+  }
+  // ---------------------------------------------------------------------
+  // CI (B2) — `moa_tower_ci` runs the repo doc's ci_command in the mission's
+  // worktree and records `ci/<branchSlug>`; the merge gate reads it back
+  // (store.ts merge step 7b). The in-process serial queue lives on the
+  // controller (单塔台单会话 assumption — 风险台账 9/11: no cross-process
+  // mutex; a multi-tower v2 must add one).
+  // ---------------------------------------------------------------------
+  /**
+   * Run the CI command for a branch's mission worktree and persist the result
+   * under `ci/<branchSlug>` (LWW latest run — the run itself is serialized by
+   * the controller queue).
+   *
+   * Dirty-tree interception (B2-3): a dirty worktree is checked BEFORE any
+   * execution; the run is recorded as failed (exitCode null, dirty true) and
+   * the caller reports an error telling the tower to commit first. The merge
+   * gate requires a clean (dirty:false, exitCode:0) record.
+   *
+   * The run log is truncated (tail 200 lines + single-line truncation + ≤64KB
+   * total — B2-5) and stored under `ci/<branchSlug>/<ts>-<rand>`; if that log
+   * write fails the ci record still lands with `logError` set.
+   */
+  async runCi(branch, ciCommand) {
+    const state = await this.load();
+    const missions = await this.loadMissions(state);
+    const mission = missions.find((m) => m.branch === branch);
+    if (mission === void 0) {
+      throw new TowerProtocolError(`no tower mission owns branch "${branch}"`);
+    }
+    const absPath = worktreePath(this.repoRoot, mission.worktree);
+    try {
+      await access(absPath);
+    } catch {
+      throw new TowerProtocolError(
+        `worktree ${mission.worktree} does not exist \u2014 spawn the mission (moa_tower_spawn) before running CI`
+      );
+    }
+    const dirty = await isWorktreeDirty(absPath);
+    const tip = await branchTip(this.repoRoot, branch);
+    const ranAt = (/* @__PURE__ */ new Date()).toISOString();
+    let exitCode = null;
+    let logRef;
+    let logError;
+    if (!dirty) {
+      const outcome = await execCiCommand(absPath, ciCommand);
+      exitCode = outcome.exitCode;
+      const truncated = truncateCiLog(outcome.output);
+      try {
+        const logKey = this.keys.ciLog(branch, Date.now(), randomUUID2().slice(0, 8));
+        await this.board.mutate(
+          "workspace",
+          (entries, ts) => {
+            entries.set(logKey, boardEntry(logKey, truncated, TOWER_NAME, ts, ["ci-log"]));
+          },
+          this.repoRoot
+        );
+        logRef = logKey;
+      } catch (error) {
+        logError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    const record = { branch, commit: tip, exitCode, dirty, logRef, logError, ranAt };
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        entries.set(
+          this.keys.ci(branch),
+          boardEntry(this.keys.ci(branch), JSON.stringify(record), TOWER_NAME, ts, ["ci"])
+        );
+      },
+      this.repoRoot
+    );
+    await this.appendLog(TOWER_NAME, "ci.run", {
+      branch,
+      exit_code: exitCode === null ? void 0 : exitCode,
+      dirty: dirty ? "yes" : void 0,
+      commit: tip.slice(0, 7)
+    });
+    return record;
+  }
+  /** The latest `ci/<branchSlug>` result record, or undefined when none ran. */
+  async loadCiResult(branch) {
+    const rows = await this.board.read(this.keys.ci(branch), void 0, "workspace", 1, this.repoRoot);
+    if (rows.length === 0) return void 0;
+    return JSON.parse(rows[0].value);
   }
   // ---------------------------------------------------------------------
   // Missions
@@ -15199,6 +15619,53 @@ var TowerStore = class {
       ...mission.notes.length > 0 ? mission.notes.map((n) => `- ${n}`) : ["- (none)"],
       ""
     ].join("\n");
+  }
+  // ---------------------------------------------------------------------
+  // Progress (B2) — one LWW key `progress/<missionId>` per mission; the owner
+  // worker (or the tower) appends a dated line. The value keeps the TAIL
+  // within PROGRESS_MAX_BYTES (headroom under the 96KB board ceiling). The
+  // write-frequency throttle is the profile's cron discipline (B4) — no code
+  // rate limit here.
+  // ---------------------------------------------------------------------
+  /**
+   * Post one progress note (row-11 ownership: only the tower or the mission's
+   * owning worker). Single key LWW; the accumulated value is truncated to the
+   * newest lines fitting in PROGRESS_MAX_BYTES.
+   */
+  async updateProgress(callerName, missionId, note) {
+    const trimmed = note.trim();
+    if (trimmed.length === 0) {
+      throw new TowerProtocolError("progress note must not be empty");
+    }
+    const state = await this.load();
+    if (callerName !== TOWER_NAME) {
+      const caller = this.findAgent(state, callerName);
+      if (caller?.kind !== "worker" || caller.missionId !== missionId) {
+        throw new TowerProtocolError(
+          `agent "${callerName}" does not own mission ${missionId} \u2014 only the tower or the owning worker posts progress`
+        );
+      }
+    }
+    const missions = await this.loadMissions(state);
+    if (!missions.some((m) => m.id === missionId)) {
+      throw new TowerProtocolError(
+        `unknown mission "${missionId}" \u2014 known missions: ${state.missions.join(", ") || "(none planned yet)"}`
+      );
+    }
+    const key = this.keys.progress(missionId);
+    const line = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${callerName}: ${trimmed}`;
+    const result = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const existing = entries.get(key);
+        const value = existing === void 0 ? line : truncateTail(`${existing.value}
+${line}`, PROGRESS_MAX_BYTES);
+        entries.set(key, boardEntry(key, value, callerName, ts, ["progress"]));
+        return { key, bytes: Buffer.byteLength(value, "utf8") };
+      },
+      this.repoRoot
+    );
+    return result;
   }
   // ---------------------------------------------------------------------
   // Inbox
@@ -15477,16 +15944,21 @@ ${input.body.trim()}
    * 附录 A row 16: the eight-step gate, order preserved verbatim —
    * branch 属主 → deps-unmerged → survey zero-diff noop (**before** the review
    * checks) → no-review → not-clean → tip-moved → out-of-scope (picomatch) →
-   * mergeNoFf → conflictsWith. Every blocked step appends a `merge.blocked`
-   * activity-log line with the step reason.
+   * [B2 CI hard gate when a ci_command is configured] → mergeNoFf →
+   * conflictsWith. Every blocked step appends a `merge.blocked` activity-log
+   * line with the step reason.
    *
    * B1-12 deviation: "latest review clean" means EVERY review in the highest
    * round is clean (round desc + date desc — the official readdir-order
    * `latestReview` had a same-round bypass hole: two reviewers of one round,
    * newest file wins regardless of the other reviewer's verdict).
    *
-   * B2: the CI hard gate (ciCommand + `ci/<branchSlug>` result key) inserts
-   * after the out-of-scope step — marked below.
+   * B2 (marked at the insertion point): the CI gate runs AFTER out-of-scope.
+   * When a ci_command is configured on the repo doc it is a HARD gate — a
+   * `ci/<branchSlug>` record with commit == current tip && exitCode == 0 &&
+   * !dirty is required, and a red run blocks with `reason=ci-failed`. When no
+   * ci_command is configured the step is skipped and logs
+   * `reason=ci-not-configured` (B2-11).
    */
   async merge(branch) {
     const state = await this.load();
@@ -15555,6 +16027,22 @@ ${input.body.trim()}
         "out-of-scope",
         `merge blocked: ${branch} changed files outside mission ${mission.id} scope (${mission.scope.join(", ")}): ${outOfScope.join(", ")} \u2014 the tower must widen the mission scope (TowerMission scope patch) or revert those changes`
       );
+    }
+    const repoDoc = await this.loadRepoDoc();
+    const ciCommand = repoDoc?.ciCommand?.trim();
+    if (ciCommand !== void 0 && ciCommand.length > 0) {
+      const ci = await this.loadCiResult(branch);
+      const tipMatch = ci !== void 0 && ci.commit === tip;
+      const green = ci !== void 0 && ci.exitCode === 0 && ci.dirty !== true;
+      if (!tipMatch || !green) {
+        const detail = ci === void 0 ? "no CI run recorded" : `recorded commit ${ci.commit.slice(0, 7)}${ci.commit !== tip ? ` \u2260 tip ${tip.slice(0, 7)}` : ""}, exitCode ${String(ci.exitCode)}, dirty ${String(ci.dirty)}`;
+        throw await block(
+          "ci-failed",
+          `merge blocked: CI is not green for ${branch} (${detail}) \u2014 run moa_tower_ci on the clean current tip`
+        );
+      }
+    } else {
+      await this.appendLog(TOWER_NAME, "merge.ci-skip", { branch, reason: "ci-not-configured" });
     }
     const mergeCommit = await mergeNoFf(this.repoRoot, branch);
     await this.saveMissionStatus(mission, "merged");
@@ -15704,6 +16192,11 @@ function towerRoutes(controller) {
           name: a.name,
           agentId: a.agentId === "" ? null : a.agentId,
           kind: a.kind,
+          verified: a.verified ?? false,
+          ...a.verifiedAt !== void 0 ? { verifiedAt: a.verifiedAt } : {},
+          failedCount: a.failedCount ?? 0,
+          // B2: blocked is derived from consecutive hard mismatches (缺失≠不匹配).
+          blocked: (a.failedCount ?? 0) >= 3,
           ...a.missionId !== void 0 ? { missionId: a.missionId } : {},
           ...a.reviewTarget !== void 0 ? { reviewTarget: a.reviewTarget } : {},
           ...a.worktree !== void 0 ? { worktree: a.worktree } : {},
@@ -15830,10 +16323,18 @@ async function runTool(fn) {
   try {
     return await fn();
   } catch (error) {
-    if (error instanceof TowerProtocolError || error instanceof GitError) {
+    if (error instanceof Error) {
       return { output: error.message, isError: true };
     }
     throw error;
+  }
+}
+async function syncMirrorOrRetry(store) {
+  try {
+    await store.syncGuardMirror();
+    return void 0;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
   }
 }
 function towerTools(controller) {
@@ -15861,6 +16362,10 @@ function towerTools(controller) {
             type: "string",
             enum: ["branch", "pr"],
             description: 'Tower mode (default "branch"; "pr" is reserved for a future gh-backed mode).'
+          },
+          ci_command: {
+            type: "string",
+            description: "Optional CI command (B2): moa_tower_ci runs it in each mission worktree and the merge gate turns hard (green ci/<branchSlug> record required) once set. Re-booting with ci_command is the idempotent configuration channel \u2014 it updates the repo doc instead of erroring."
           }
         },
         required: ["workspace", "tower_agent_id"],
@@ -15880,16 +16385,25 @@ function towerTools(controller) {
         }
         const base = argString(args, "base");
         const modeArg = argString(args, "mode");
+        const ciCommand = argString(args, "ci_command");
         const result = await store.boot(towerAgentId, {
           ...base !== void 0 ? { base } : {},
-          ...modeArg !== void 0 ? { mode: modeArg } : {}
+          ...modeArg !== void 0 ? { mode: modeArg } : {},
+          ...ciCommand !== void 0 && ciCommand.trim().length > 0 ? { ciCommand: ciCommand.trim() } : {}
         });
+        const outcome = await store.verifyAgentIdentity(
+          TOWER_NAME,
+          foldView(controller.getFold()),
+          towerAgentId
+        );
         return {
-          booted: result.created,
+          booted: result.created || result.updated === true,
+          ...result.updated === true ? { ci_command_updated: true } : {},
           base: result.base,
           mode: "branch",
           workspace: repoRoot,
           tower_agent_id: towerAgentId,
+          verified: outcome.entry.verified ?? false,
           roster: ["tower"]
         };
       })
@@ -16054,6 +16568,13 @@ function towerTools(controller) {
           ...branch !== void 0 ? { branch } : {},
           spawnedAt: (/* @__PURE__ */ new Date()).toISOString()
         });
+        const mirrorError = await syncMirrorOrRetry(store);
+        if (mirrorError !== void 0) {
+          return {
+            output: `guard mirror write failed: ${mirrorError} \u2014 the spawn side effects (worktree/mission/roster entry) are recorded; re-run moa_tower_register(name="${name}", agent_id=<engine id>) to retry the mirror write`,
+            isError: true
+          };
+        }
         await store.appendLog(
           "tower",
           "spawn",
@@ -16081,7 +16602,7 @@ function towerTools(controller) {
     },
     {
       name: "moa_tower_register",
-      description: "Two-stage spawn completion (tower-only, B1 basic enrollment): fills the real engine agent id into the pending roster entry created by moa_tower_spawn and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json \u2014 agents map + worktrees array). Identity cross-validation (\u2460\u2461\u2462: fold entry exists, parentAgentId matches the tower, session workDir matches the repo root) is B2; B1 only requires the roster entry to exist.",
+      description: "Two-stage spawn completion (tower-only): fills the real engine agent id into the pending roster entry created by moa_tower_spawn, runs the B2 identity cross-validation (\u2460 fold entry exists; \u2461 dual-channel parent-child: wire parentAgentId == towerAgentId OR the tower fold entry lists this agent as a subagent; \u2462 soft session-workDir check), and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json \u2014 name-keyed agents map with {name, worktree, agentId} + worktrees array). Missing fold data degrades to verified:false (never blocked); a hard mismatch increments failed_count (3 consecutive \u2192 blocked). Re-running register is allowed and re-verifies (B2-9).",
       inputSchema: {
         type: "object",
         properties: {
@@ -16099,7 +16620,7 @@ function towerTools(controller) {
       },
       handler: (args) => runTool(async () => {
         const { store } = storeFor(controller, args);
-        await requireTower(store, args);
+        const { state } = await requireTower(store, args);
         const name = argString(args, "name");
         const agentId = argString(args, "agent_id");
         if (name === void 0 || name.trim().length === 0) {
@@ -16114,13 +16635,29 @@ function towerTools(controller) {
           ...argString(args, "worktree") !== void 0 ? { worktree: argString(args, "worktree") } : {},
           ...argString(args, "branch") !== void 0 ? { branch: argString(args, "branch") } : {}
         });
-        await store.syncGuardMirror();
+        const towerAgentId = state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? "";
+        const outcome = await store.verifyAgentIdentity(
+          name,
+          foldView(controller.getFold()),
+          towerAgentId
+        );
+        const mirrorError = await syncMirrorOrRetry(store);
+        if (mirrorError !== void 0) {
+          return {
+            output: `guard mirror write failed: ${mirrorError} \u2014 the roster entry IS recorded (agentId ${agentId}); re-run moa_tower_register to retry the mirror write`,
+            isError: true
+          };
+        }
         await store.appendLog("tower", "register", { name, agent: agentId });
         return {
           registered: true,
           name: entry.name,
           agent_id: entry.agentId,
           kind: entry.kind,
+          verified: outcome.entry.verified ?? false,
+          failed_count: outcome.entry.failedCount ?? 0,
+          blocked: (outcome.entry.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
+          identity: outcome.verdict.reason,
           ...entry.missionId !== void 0 ? { mission_id: entry.missionId } : {},
           ...entry.reviewTarget !== void 0 ? { review_target: entry.reviewTarget } : {},
           guard_mirror: `${store.repoRoot}/.tower-guard.json`,
@@ -16356,7 +16893,7 @@ function towerTools(controller) {
     },
     {
       name: "moa_tower_merge",
-      description: "Merge a mission branch into the base (tower-only). The hard gate runs in fixed order: branch belongs to a mission \u2192 dependencies merged \u2192 survey zero-diff noop \u2192 review exists \u2192 latest round fully clean (every reviewer of the highest round) \u2192 branch tip unchanged since the clean review \u2192 changed files inside the mission scope (picomatch) \u2192 git merge --no-ff \u2192 conflicts report. Every blocked step records a merge.blocked activity-log line.",
+      description: "Merge a mission branch into the base (tower-only). The hard gate runs in fixed order: branch belongs to a mission \u2192 dependencies merged \u2192 survey zero-diff noop \u2192 review exists \u2192 latest round fully clean (every reviewer of the highest round) \u2192 branch tip unchanged since the clean review \u2192 changed files inside the mission scope (picomatch) \u2192 CI green (only when a ci_command is configured on boot \u2014 requires a ci/<branchSlug> record with commit == current tip && exitCode == 0 && clean worktree; otherwise skipped) \u2192 git merge --no-ff \u2192 conflicts report. Every blocked step records a merge.blocked activity-log line.",
       inputSchema: {
         type: "object",
         properties: {
@@ -16418,7 +16955,7 @@ function towerTools(controller) {
     },
     {
       name: "moa_tower_status",
-      description: "Shared tower dashboard: mission table, roster, per-branch review-gate state (highest review round/status and whether it still matches the branch tip), the caller's inbox count, and the recent activity log.",
+      description: "Shared tower dashboard: mission table, roster (with B2 identity verified/failed_count/blocked columns), per-branch review-gate state (highest review round/status and whether it still matches the branch tip), CI summary (configured + per-branch latest result), the caller's inbox count, and the recent activity log. Reading status also re-verifies every roster entry against the status fold (lazy re-verify, B2-9) and persists the verdicts.",
       inputSchema: {
         type: "object",
         properties: {
@@ -16433,10 +16970,16 @@ function towerTools(controller) {
         const state = await store.load();
         const caller = await resolveCaller(store, state, args);
         const missions = await store.loadMissions(state);
+        const towerAgentId = state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? "";
+        const fold = foldView(controller.getFold());
+        for (const agent of state.roster.agents) {
+          await store.verifyAgentIdentity(agent.name, fold, towerAgentId);
+        }
+        const latest = await store.load();
         const reviewGate = [];
         for (const mission of missions.filter((m) => m.status !== "merged")) {
-          const latest = await store.latestReviewRound(mission.branch);
-          if (latest.length === 0) {
+          const latestReviews = await store.latestReviewRound(mission.branch);
+          if (latestReviews.length === 0) {
             reviewGate.push({ branch: mission.branch, mission: mission.id, review: "none" });
             continue;
           }
@@ -16444,24 +16987,121 @@ function towerTools(controller) {
           reviewGate.push({
             branch: mission.branch,
             mission: mission.id,
-            round: latest[0].round,
-            reviewers: latest.map((r) => r.reviewer).join(", "),
-            status: latest.map((r) => `${r.reviewer}=${r.status}`).join(", "),
-            sync: tip === void 0 ? "branch-not-created" : latest.every((r) => r.reviewedCommit === tip) ? "reviewed-commit-matches-tip" : `stale \u2014 tip moved to ${tip.slice(0, 7)}, re-review required`
+            round: latestReviews[0].round,
+            reviewers: latestReviews.map((r) => r.reviewer).join(", "),
+            status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(", "),
+            sync: tip === void 0 ? "branch-not-created" : latestReviews.every((r) => r.reviewedCommit === tip) ? "reviewed-commit-matches-tip" : `stale \u2014 tip moved to ${tip.slice(0, 7)}, re-review required`
           });
         }
         const inbox = await store.readInbox(caller, INBOX_COUNT_LIMIT);
         const log = await store.recentLog(RECENT_LOG_LINES);
+        const repoDoc = await store.loadRepoDoc();
+        const ciConfigured = repoDoc?.ciCommand !== void 0 && repoDoc.ciCommand.trim().length > 0;
+        const ciPerBranch = {};
+        for (const mission of missions) {
+          const ci = await store.loadCiResult(mission.branch);
+          if (ci !== void 0) {
+            ciPerBranch[mission.branch] = { commit: ci.commit, exitCode: ci.exitCode, ranAt: ci.ranAt };
+          }
+        }
         return {
           caller,
           base: state.base,
           mode: state.mode,
           booted: true,
           missions: renderMissions(missions),
-          roster: renderRoster(state),
+          roster: renderRoster(latest),
           review_gate: reviewGate,
+          ci: { configured: ciConfigured, "per-branch": ciPerBranch },
           inbox_count: inbox.length,
           recent_activity: [...log]
+        };
+      })
+    },
+    {
+      name: "moa_tower_ci",
+      description: "Run the configured CI command (boot ci_command) in the mission branch's worktree (tower-only). The run is serialized per tower process (single-tower single-session assumption \u2014 no cross-process mutex, \u98CE\u9669\u53F0\u8D26 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The outcome is stored under ci/<branchSlug> {commit (tip at run time), exitCode, dirty, logRef, ranAt}; the run log is truncated (last 200 lines, \u226464KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          branch: { type: "string", description: 'The mission branch to run CI against (e.g. "feat/M1-x")' }
+        },
+        required: ["workspace", "caller_agent_id", "branch"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        await requireTower(store, args);
+        const branch = argString(args, "branch");
+        if (branch === void 0 || branch.trim().length === 0) {
+          throw new TowerProtocolError("moa_tower_ci needs the mission branch");
+        }
+        const repoDoc = await store.loadRepoDoc();
+        const ciCommand = repoDoc?.ciCommand?.trim();
+        if (ciCommand === void 0 || ciCommand.length === 0) {
+          return {
+            output: 'no ci_command configured \u2014 set one by re-booting: moa_tower_boot(workspace, tower_agent_id, ci_command="\u2026")',
+            isError: true
+          };
+        }
+        const result = await controller.runCiSerial(() => store.runCi(branch, ciCommand));
+        if (result.dirty) {
+          return {
+            output: `ci skipped: the worktree for ${branch} has uncommitted changes \u2014 commit them first and re-run moa_tower_ci (a dirty run is recorded as failed)`,
+            isError: true,
+            dirty: true,
+            branch,
+            commit: result.commit,
+            ran_at: result.ranAt
+          };
+        }
+        return {
+          ran: true,
+          branch,
+          commit: result.commit,
+          exit_code: result.exitCode,
+          dirty: false,
+          log_ref: result.logRef ?? null,
+          ...result.logError !== void 0 ? { log_error: result.logError } : {},
+          ran_at: result.ranAt,
+          next: result.exitCode === 0 ? "CI green \u2014 the merge gate accepts this record while the branch tip stays put." : "CI failed \u2014 fix the failures, commit, and re-run moa_tower_ci."
+        };
+      })
+    },
+    {
+      name: "moa_tower_progress",
+      description: "Post a progress note to a mission (the mission's owning worker or the tower only \u2014 row-11 ownership). Notes accumulate under the single LWW key progress/<missionId>; the value keeps the newest lines within the board ceiling (80KB headroom). Write frequency is the profile's cron discipline (B4) \u2014 keep notes sparse.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          mission_id: { type: "string", description: 'The mission id (e.g. "M1") you own' },
+          note: { type: "string", description: "A short progress note (timestamped and attributed automatically)" }
+        },
+        required: ["workspace", "caller_agent_id", "mission_id", "note"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const missionId = argString(args, "mission_id");
+        const note = argString(args, "note");
+        if (missionId === void 0 || missionId.trim().length === 0) {
+          throw new TowerProtocolError("moa_tower_progress needs mission_id");
+        }
+        if (note === void 0 || note.trim().length === 0) {
+          throw new TowerProtocolError("moa_tower_progress needs a non-empty note");
+        }
+        const result = await store.updateProgress(caller, missionId, note);
+        return {
+          posted: true,
+          mission: missionId,
+          file: result.key,
+          bytes: result.bytes
         };
       })
     }
@@ -16486,6 +17126,12 @@ function renderRoster(state) {
     name: a.name,
     kind: a.kind,
     agentId: a.agentId === "" ? null : a.agentId,
+    // B2 identity columns: verified / failed_count / blocked (derived from
+    // consecutive hard mismatches — missing data never counts, decision 2).
+    verified: a.verified ?? false,
+    ...a.verifiedAt !== void 0 ? { verified_at: a.verifiedAt } : {},
+    failed_count: a.failedCount ?? 0,
+    blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
     ...a.missionId !== void 0 ? { mission_id: a.missionId } : {},
     ...a.reviewTarget !== void 0 ? { review_target: a.reviewTarget } : {},
     ...a.branch !== void 0 ? { branch: a.branch } : {},
@@ -16501,6 +17147,7 @@ function createTowerController(opts = {}) {
   let started = false;
   let board = opts.board;
   const foldAccessor = opts.foldAccessor ?? (() => void 0);
+  let ciTail = Promise.resolve();
   return {
     start() {
       started = true;
@@ -16515,6 +17162,11 @@ function createTowerController(opts = {}) {
     getBoard: () => board,
     mountBoard: (mounted) => {
       board = mounted;
+    },
+    runCiSerial(task) {
+      const run = ciTail.then(() => task());
+      ciTail = run.then(() => void 0, () => void 0);
+      return run;
     }
   };
 }
@@ -16530,7 +17182,7 @@ function createTowerModule(controller) {
 }
 
 // src/core/store/project-migration.ts
-import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile5, rename as rename4, stat as stat4, truncate, unlink as unlink5, writeFile as writeFile3 } from "node:fs/promises";
+import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile6, rename as rename4, stat as stat4, truncate, unlink as unlink5, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join8 } from "node:path";
 async function fileSizeOrZero(file) {
   try {
@@ -16561,7 +17213,7 @@ async function ensureProjectMetaCwd(boardsDir, projectId, cwd) {
   await withAppendLock(metaFile, async () => {
     let doc;
     try {
-      const parsed = JSON.parse(await readFile5(metaFile, "utf8"));
+      const parsed = JSON.parse(await readFile6(metaFile, "utf8"));
       if (parsed.projectId === projectId && Array.isArray(parsed.cwds) && parsed.cwds.every((entry) => typeof entry === "string") && typeof parsed.created_at === "string") {
         doc = parsed;
       }
@@ -16610,7 +17262,7 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
     const beforeSize = await fileSizeOrZero(targetFile);
     let raw = "";
     try {
-      raw = await readFile5(sourceFile, "utf8");
+      raw = await readFile6(sourceFile, "utf8");
     } catch (err) {
       if (err.code !== "ENOENT") throw err;
     }
@@ -16668,7 +17320,7 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
 
 // src/core/bus/disk-version.ts
 import { createRequire as createRequire2 } from "node:module";
-import { readFile as readFile6 } from "node:fs/promises";
+import { readFile as readFile7 } from "node:fs/promises";
 var DISK_VERSION_CACHE_MS = 5e3;
 var cached = null;
 function packageJsonPath() {
@@ -16688,7 +17340,7 @@ async function readDiskVersion() {
   const path2 = packageJsonPath();
   if (path2 !== void 0) {
     try {
-      const pkg = JSON.parse(await readFile6(path2, "utf8"));
+      const pkg = JSON.parse(await readFile7(path2, "utf8"));
       value = typeof pkg.version === "string" && pkg.version.length > 0 ? pkg.version : null;
     } catch {
       value = null;
@@ -24815,7 +25467,7 @@ ${STATUS_MODEL_JS}
 // src/modules/handoff/handoff.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
 import { readdir as readdir5 } from "node:fs/promises";
-import { isAbsolute as isAbsolute3 } from "node:path";
+import { isAbsolute as isAbsolute4 } from "node:path";
 var HANDOFF_USER_GLOBAL = "user-global";
 var HANDOFF_STATES = ["pending", "consumed", "archived"];
 var HandoffValidationError = class extends Error {
@@ -25139,7 +25791,7 @@ var HandoffStore = class {
       throw new HandoffValidationError("target must be a non-empty string");
     }
     if (target === HANDOFF_USER_GLOBAL) return { scope: "global" };
-    if (isAbsolute3(target)) return { scope: "workspace", workspace: normalizeWorkspacePath(target) };
+    if (isAbsolute4(target)) return { scope: "workspace", workspace: normalizeWorkspacePath(target) };
     if (PROJECT_ID_PATTERN.test(target)) return { scope: `project:${target}` };
     throw new HandoffValidationError(
       `target must be an absolute workspace path, a projectId (p_<12 hex chars>), or "${HANDOFF_USER_GLOBAL}"`
@@ -25214,7 +25866,7 @@ var HandoffStore = class {
 
 // src/modules/tips/tips.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
-import { isAbsolute as isAbsolute4 } from "node:path";
+import { isAbsolute as isAbsolute5 } from "node:path";
 var PROJECT_TIP_STATUSES = [
   "captured",
   "exploring",
@@ -25251,7 +25903,7 @@ var TIP_LIST_MAX_LIMIT = 1e3;
 var TIP_PREFIX = "tips/";
 var TIP_TAG = "tip";
 function assertWorkspace(workspace) {
-  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute4(workspace)) {
+  if (typeof workspace !== "string" || workspace.length === 0 || !isAbsolute5(workspace)) {
     throw new TipValidationError("workspace must be an absolute path");
   }
   return normalizeWorkspacePath(workspace);
@@ -25434,8 +26086,8 @@ var TipStore = class {
     }, workspace);
   }
   async read(first, second) {
-    const workspace = assertWorkspace(isAbsolute4(first) ? first : second);
-    const id = isAbsolute4(first) ? second : first;
+    const workspace = assertWorkspace(isAbsolute5(first) ? first : second);
+    const id = isAbsolute5(first) ? second : first;
     const normalizedId = requireString2(id, "id");
     const rows = await this.board.read(tipKey(normalizedId), void 0, "workspace", 1, workspace);
     const entry = rows[0];
@@ -25470,9 +26122,9 @@ var TipStore = class {
     return filtered.slice(0, limit).map(summaryOf2);
   }
   async update(first, second, third, fourth) {
-    const workspace = assertWorkspace(isAbsolute4(first) ? first : third);
-    const id = isAbsolute4(first) ? second : first;
-    const patch = isAbsolute4(first) ? third : second;
+    const workspace = assertWorkspace(isAbsolute5(first) ? first : third);
+    const id = isAbsolute5(first) ? second : first;
+    const patch = isAbsolute5(first) ? third : second;
     const normalizedId = requireString2(id, "id");
     if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new TipValidationError("update patch must be an object");
     const rawPatch = patch;
@@ -25494,8 +26146,8 @@ var TipStore = class {
     }, workspace);
   }
   async archive(first, second, third) {
-    const workspace = assertWorkspace(isAbsolute4(first) ? first : second);
-    const id = isAbsolute4(first) ? second : first;
+    const workspace = assertWorkspace(isAbsolute5(first) ? first : second);
+    const id = isAbsolute5(first) ? second : first;
     const normalizedId = requireString2(id, "id");
     const boardAuthor = normalizeActor2(third);
     const key = tipKey(normalizedId);
@@ -26181,13 +26833,13 @@ var ControlPlane = class {
   async validProjectMetaCwd(metaFile, projectId) {
     let parsed;
     try {
-      parsed = JSON.parse(await readFile7(metaFile, "utf8"));
+      parsed = JSON.parse(await readFile8(metaFile, "utf8"));
     } catch (err) {
       if (err.code === "ENOENT" || err instanceof SyntaxError) return void 0;
       throw err;
     }
     const cwds = parsed.cwds;
-    if (parsed.projectId !== projectId || !Array.isArray(cwds) || cwds.length === 0 || typeof cwds[0] !== "string" || !isAbsolute5(cwds[0])) {
+    if (parsed.projectId !== projectId || !Array.isArray(cwds) || cwds.length === 0 || typeof cwds[0] !== "string" || !isAbsolute6(cwds[0])) {
       return void 0;
     }
     return cwds[0];
@@ -26293,7 +26945,7 @@ var ControlPlane = class {
     const board = this.stores().board;
     let cwds = [];
     try {
-      const parsed = JSON.parse(await readFile7(join9(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
+      const parsed = JSON.parse(await readFile8(join9(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
       if (Array.isArray(parsed.cwds)) cwds = parsed.cwds.filter((cwd) => typeof cwd === "string");
     } catch {
     }
@@ -28446,7 +29098,7 @@ var Bus = class {
     this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
-    this.logsDir = resolve5(opts.logsDir ?? "logs");
+    this.logsDir = resolve6(opts.logsDir ?? "logs");
     this.archiveIndex = new ArchiveIndex(this.logsDir);
     this.portRetryLimit = opts.portRetryLimit ?? PORT_RETRY_LIMIT;
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
@@ -28610,7 +29262,7 @@ var Bus = class {
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
-    await new Promise((resolve6) => this.server.close(() => resolve6()));
+    await new Promise((resolve7) => this.server.close(() => resolve7()));
     await this.releaseRegistration();
     await this.removePortFileIfOwned();
     this.wrotePortFile = false;
@@ -28636,7 +29288,7 @@ var Bus = class {
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
-    await new Promise((resolve6) => this.server.close(() => resolve6()));
+    await new Promise((resolve7) => this.server.close(() => resolve7()));
     await this.releaseRegistration();
     await this.removePortFileIfOwned();
     this.released = true;
@@ -28888,7 +29540,7 @@ var Bus = class {
         return;
       }
       try {
-        const content = await readFile8(resolve5(this.logsDir, taskId, file), "utf8");
+        const content = await readFile9(resolve6(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
@@ -28937,7 +29589,7 @@ var Bus = class {
 };
 
 // src/core/bus/daemon-spawn.ts
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 import { fileURLToPath } from "node:url";
 function defaultDaemonScript() {
   return fileURLToPath(new URL("./bus-daemon.js", import.meta.url));
@@ -28950,7 +29602,7 @@ function spawnBusDaemon(opts) {
     return false;
   }
   try {
-    const child = spawn(process.execPath, [script], {
+    const child = spawn2(process.execPath, [script], {
       cwd: opts.cwd,
       detached: true,
       stdio: "ignore",

@@ -23,14 +23,21 @@
  * the deliberate change.
  */
 
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import picomatch from 'picomatch';
 
 import { BOARD_VALUE_MAX_BYTES, type BoardEntry, type BoardStore } from '../../core/store/board.js';
 import * as git from './git.js';
+import {
+  evaluateIdentity,
+  evaluateTowerIdentity,
+  type IdentityFoldView,
+  type IdentityVerdict,
+} from './identity.js';
 import {
   BROADCAST_NAME,
   TOWER_NAME,
@@ -66,6 +73,9 @@ export class TowerProtocolError extends Error {
 export interface TowerInitResult {
   readonly base: string;
   readonly created: boolean;
+  /** True when the tower was already booted and only the repo doc's CI command
+   *  was updated (B2-4 idempotent re-boot channel). */
+  readonly updated?: boolean;
 }
 
 export interface TowerPlanInput {
@@ -127,11 +137,149 @@ const STATUS_EMOJI: Record<TowerMissionStatus, string> = {
   merged: '✅',
 };
 
-/** Guard mirror file name at the repo root (B1-11 shape; written by register,
- *  deleted by teardown — 附录 A row 17). */
+/** Guard mirror file name at the repo root (B2-6 final shape: `agents` keeps
+ *  NAME keys with `{name, worktree, agentId: string|null}` entries; spawn
+ *  writes pending entries agentId:null, register fills the agentId and
+ *  rewrites; teardown deletes — 附录 A row 17). */
 export const GUARD_MIRROR_FILE = '.tower-guard.json';
 /** The tower's board value ceiling: messages must fit with frontmatter (row 13). */
 export const TOWER_BODY_MAX_BYTES = BOARD_VALUE_MAX_BYTES;
+
+// ---------------------------------------------------------------------------
+// B2 CI constants — exec + log truncation (B2-5: tail 200 lines + single-line
+// truncation + ≤64KB total, double protection).
+// ---------------------------------------------------------------------------
+
+/** CI exec timeout: 10 minutes, deliberately above git's 60s. */
+const CI_TIMEOUT_MS = 10 * 60 * 1000;
+/** Stored CI log: last 200 lines. */
+const CI_LOG_MAX_LINES = 200;
+/** Stored CI log: each line truncated to this many chars. */
+const CI_LOG_LINE_MAX_CHARS = 1000;
+/** Stored CI log: total ≤64KB (with the line cap this is always satisfiable —
+ *  the two caps are independent, hence "双保险"). */
+const CI_LOG_MAX_BYTES = 64 * 1024;
+/** Raw output collection cap before truncation (prevents memory blowup on a
+ *  chatty 10-minute CI; the stored log is exactly capped by truncateCiLog). */
+const CI_OUTPUT_CAP_BYTES = 2 * 1024 * 1024;
+
+/** B2 progress: single LWW key per mission, value kept ≤80KB (headroom under
+ *  the 96KB board ceiling — "留 96KB 内余量"). */
+const PROGRESS_MAX_BYTES = 80 * 1024;
+
+/** One `ci/<branchSlug>` result record (B2). `commit` is the branch tip at
+ *  execution time; the merge gate requires `commit == current tip`. */
+export interface TowerCiResult {
+  readonly branch: string;
+  readonly commit: string;
+  /** null when the run was skipped (dirty worktree) or killed (timeout). */
+  readonly exitCode: number | null;
+  /** true when the worktree was dirty at run time — no command executed. */
+  readonly dirty: boolean;
+  /** Board key of the truncated run log (missing for dirty-skipped runs). */
+  readonly logRef?: string;
+  /** Set when the log write failed — the ci record still lands (B2-5). */
+  readonly logError?: string;
+  readonly ranAt: string;
+}
+
+/**
+ * B2-5 log truncation, double protection: keep the last 200 lines, truncate
+ * every line to CI_LOG_LINE_MAX_CHARS, then keep the total within
+ * CI_LOG_MAX_BYTES (tail wins). The line cap guarantees the byte cap is always
+ * satisfiable, so the two caps are independent.
+ */
+export function truncateCiLog(raw: string): string {
+  const lines = raw
+    .split(/\r?\n/)
+    .slice(-CI_LOG_MAX_LINES)
+    .map((line) =>
+      line.length > CI_LOG_LINE_MAX_CHARS
+        ? `${line.slice(0, CI_LOG_LINE_MAX_CHARS)} …[truncated]`
+        : line,
+    );
+  let text = lines.join('\n');
+  if (Buffer.byteLength(text, 'utf8') > CI_LOG_MAX_BYTES) {
+    const parts = text.split('\n');
+    const kept: string[] = [];
+    let bytes = 0;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const lineBytes = Buffer.byteLength(parts[i]!, 'utf8');
+      const separator = kept.length > 0 ? 1 : 0;
+      if (bytes + lineBytes + separator > CI_LOG_MAX_BYTES) break;
+      kept.unshift(parts[i]!);
+      bytes += lineBytes + separator;
+    }
+    text = kept.join('\n');
+  }
+  return text;
+}
+
+/**
+ * Execute the CI command in a worktree (B2): Windows `cmd /c`, POSIX `sh -c`,
+ * environment inherited, 10-minute timeout, output collected with a hard cap
+ * (tail kept) so a chatty run cannot balloon memory. Resolves with the exit
+ * code (null when killed by the timeout or spawn failed).
+ */
+export function execCiCommand(
+  cwd: string,
+  command: string,
+): Promise<{ readonly exitCode: number | null; readonly output: string }> {
+  return new Promise((resolve) => {
+    const isWindows = process.platform === 'win32';
+    const child = spawn(isWindows ? 'cmd' : '/bin/sh', isWindows ? ['/c', command] : ['-c', command], {
+      cwd,
+      windowsHide: true,
+      env: process.env, // env 继承
+    });
+    let out = '';
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, CI_TIMEOUT_MS);
+    const append = (chunk: Buffer): void => {
+      out += chunk.toString('utf8');
+      if (Buffer.byteLength(out, 'utf8') > CI_OUTPUT_CAP_BYTES) {
+        out = out.slice(out.length - CI_OUTPUT_CAP_BYTES); // tail keeps the newest
+      }
+    };
+    child.stdout.on('data', append);
+    child.stderr.on('data', append);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      resolve({ exitCode: null, output: `${out}\n[ci spawn failed: ${error.message}]`.trim() });
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      const suffix = timedOut ? `\n[ci timed out after ${CI_TIMEOUT_MS}ms — process killed]` : '';
+      resolve({ exitCode: timedOut ? null : code, output: `${out}${suffix}` });
+    });
+  });
+}
+
+/** Keep the newest lines of `text` within `maxBytes` (tail wins; used by the
+ *  progress LWW value so it never grows past the board ceiling). */
+export function truncateTail(text: string, maxBytes: number): string {
+  if (Buffer.byteLength(text, 'utf8') <= maxBytes) return text;
+  const parts = text.split('\n');
+  const kept: string[] = [];
+  let bytes = 0;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const lineBytes = Buffer.byteLength(parts[i]!, 'utf8');
+    const separator = kept.length > 0 ? 1 : 0;
+    if (bytes + lineBytes + separator > maxBytes) break;
+    kept.unshift(parts[i]!);
+    bytes += lineBytes + separator;
+  }
+  if (kept.length === 0) {
+    // even the newest line is over budget — hard-slice it.
+    let last = parts[parts.length - 1] ?? '';
+    while (Buffer.byteLength(last, 'utf8') > maxBytes) last = last.slice(0, Math.floor(last.length / 2));
+    return last;
+  }
+  return kept.join('\n');
+}
 
 // ---------------------------------------------------------------------------
 // Minimal YAML-frontmatter codec (port of official protocol/frontmatter.ts).
@@ -234,14 +382,27 @@ export class TowerStore {
    * 附录 A row 2: needs ≥1 commit — `hasAnyCommit` check.
    * 附录 A row 3: boot 幂等 — a repeated boot while booted reports an error
    *   (per the plan landing); teardown clears the namespace so boot works again.
+   *   **B2-4 exception**: re-boot with a `ci_command` is the idempotent CI
+   *   configuration channel — it updates the `…/repo` doc instead of erroring.
+   *   **B2R-2**: that re-boot channel is caller-verified — the passed
+   *   `towerAgentId` must equal the boot-registered tower roster entry's
+   *   agentId, so no arbitrary MCP caller can implant a ciCommand.
    * 附录 A row 4 (**偏差**): official writes `.tower/` to `.git/info/exclude`;
    *   we are exempt — no `.tower/` directory is ever created inside the repo
    *   (state lives in the board under `<home>/boards`, worktrees live in a
    *   sibling `<repoName>-worktrees/`), so there is nothing to exclude.
+   *   **B2-12**: boot appends `.tower-guard.json` to `.git/info/exclude`
+   *   (idempotent — never duplicated) so the guard mirror file at the repo
+   *   root never shows up as untracked in the main checkout.
    */
   async boot(
     towerAgentId: string,
-    opts: { readonly base?: string; readonly mode?: TowerState['mode'] } = {},
+    opts: {
+      readonly base?: string;
+      readonly mode?: TowerState['mode'];
+      /** B2-4: CI command; also the idempotent re-boot channel (repo doc update). */
+      readonly ciCommand?: string;
+    } = {},
   ): Promise<TowerInitResult> {
     if (!(await git.isInsideRepo(this.repoRoot))) {
       throw new TowerProtocolError(
@@ -254,6 +415,27 @@ export class TowerStore {
       );
     }
     if (await this.isInitialized()) {
+      if (opts.ciCommand !== undefined && opts.ciCommand.trim().length > 0) {
+        // B2-4: idempotent CI configuration — re-boot with ci_command updates
+        // the repo doc instead of the row-3 "already booted" error.
+        //
+        // B2R-2: this re-boot channel is caller-verified — the passed
+        // tower_agent_id must equal the boot-registered roster entry's agentId
+        // (name 'tower'). Otherwise ANY MCP caller could rewrite the repo
+        // doc's ciCommand, which moa_tower_ci later executes with the server's
+        // full environment in the worktree (command injection). A missing or
+        // mismatched id is a TowerProtocolError → runTool maps it to isError.
+        const state = await this.load();
+        const towerEntry = this.findAgent(state, TOWER_NAME);
+        if (towerEntry === undefined || towerEntry.agentId !== towerAgentId) {
+          throw new TowerProtocolError(
+            `tower_agent_id ${JSON.stringify(towerAgentId)} does not match the booted tower's registered agent id — only the booted tower may reconfigure the CI command`,
+          );
+        }
+        const repoDoc = await this.updateCiCommand(opts.ciCommand.trim());
+        await this.appendLog(TOWER_NAME, 'ci.configure', { command: opts.ciCommand.trim() });
+        return { base: repoDoc.base, created: false, updated: true };
+      }
       // Row 3 (plan landing): repeated boot is a deterministic error, not a
       // silent reset; teardown 后可重 boot.
       throw new TowerProtocolError(
@@ -294,7 +476,14 @@ export class TowerStore {
       mode,
       createdAt,
       bootedAt: createdAt,
+      ...(opts.ciCommand !== undefined && opts.ciCommand.trim().length > 0
+        ? { ciCommand: opts.ciCommand.trim() }
+        : {}),
     };
+    // B2-12 (附录 A row 4 deviation): exclude the guard mirror from the main
+    // checkout's git status. Written BEFORE the state mutate so a failure here
+    // never leaves a booted-but-mirror-exposed half state.
+    await this.addGuardExclude();
     await this.board.mutate(
       'workspace',
       (entries, ts) => {
@@ -303,8 +492,59 @@ export class TowerStore {
       },
       this.repoRoot,
     );
-    await this.appendLog(TOWER_NAME, 'boot', { base, mode });
+    await this.appendLog(TOWER_NAME, 'boot', {
+      base,
+      mode,
+      ci: opts.ciCommand !== undefined && opts.ciCommand.trim().length > 0 ? 'configured' : undefined,
+    });
     return { base, created: true };
+  }
+
+  /**
+   * B2-12 (附录 A row 4 deviation): append `.tower-guard.json` to the repo's
+   * `.git/info/exclude` — idempotent, never duplicated. The guard mirror file
+   * lives at the repo root, so without the exclude the main checkout's
+   * `git status` would always show it as untracked.
+   */
+  private async addGuardExclude(): Promise<void> {
+    const rawGitDir = await git.tryGit(this.repoRoot, ['rev-parse', '--git-dir']);
+    const gitDir = rawGitDir === null ? '.git' : rawGitDir;
+    const gitDirAbs = isAbsolute(gitDir) ? gitDir : join(this.repoRoot, gitDir);
+    const excludeFile = join(gitDirAbs, 'info', 'exclude');
+    await mkdir(dirname(excludeFile), { recursive: true });
+    let content = '';
+    try {
+      content = await readFile(excludeFile, 'utf8');
+    } catch {
+      content = ''; // no exclude file yet — fine
+    }
+    if (content.split(/\r?\n/).some((line) => line.trim() === GUARD_MIRROR_FILE)) return;
+    const prefix = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
+    await writeFile(excludeFile, `${content}${prefix}${GUARD_MIRROR_FILE}\n`, 'utf8');
+  }
+
+  /**
+   * B2-4: idempotently set the repo doc's CI command (re-boot channel). A
+   * no-op when the command is unchanged.
+   */
+  async updateCiCommand(ciCommand: string): Promise<TowerRepoDoc> {
+    return this.board.mutate<TowerRepoDoc>(
+      'workspace',
+      (entries, ts) => {
+        const row = entries.get(this.keys.repo());
+        if (row === undefined) {
+          throw new TowerProtocolError(
+            'tower is not booted in this repository — run moa_tower_boot first',
+          );
+        }
+        const doc = JSON.parse(row.value) as TowerRepoDoc;
+        if (doc.ciCommand === ciCommand) return doc; // idempotent: no-op rewrite
+        const next: TowerRepoDoc = { ...doc, ciCommand };
+        entries.set(this.keys.repo(), boardEntry(this.keys.repo(), JSON.stringify(next), TOWER_NAME, ts));
+        return next;
+      },
+      this.repoRoot,
+    );
   }
 
   async load(): Promise<TowerState> {
@@ -504,8 +744,9 @@ export class TowerStore {
   /**
    * B1 basic enrollment for the register tool: fill the real engine agent id
    * into a pending roster entry (and any missing mission/review fields).
-   * ①②③ identity checks (fold cross-validation, parentAgentId, workDir match)
-   * are B2 — the fold accessor is wired on the controller but unused here.
+   * Overwrite is allowed (resume/re-register) — this is the B2-9 lazy
+   * re-verify trigger, so B2 identity checks run through
+   * `verifyAgentIdentity` (called by the register tool and the status tool).
    */
   async updateRosterAgentId(
     name: string,
@@ -525,8 +766,6 @@ export class TowerStore {
             `no roster entry named "${name}" — spawn the agent with moa_tower_spawn first`,
           );
         }
-        // Overwrite is allowed (resume/re-register); B2's identity checks will
-        // gate cross-session reuse.
         const next: TowerRosterEntry = {
           ...agent,
           agentId,
@@ -548,10 +787,87 @@ export class TowerStore {
     return updated;
   }
 
+  /**
+   * B2 identity cross-validation for one roster entry (基准 decision 2):
+   * ① fold entry exists; ② dual-channel parent-child; ③ soft workdir check
+   * (see identity.ts). Persists verified/verifiedAt/failedCount onto the
+   * roster entry inside one mutate; skips the write when nothing changed
+   * (cheap enough for the status-read lazy re-verify, B2-9).
+   *
+   * 缺失 ≠ 不匹配: a missing verdict never increments failedCount and never
+   * blocks. A ② mismatch increments failedCount (consecutive, reset on any
+   * verified:true); blocked is derived as failedCount ≥ IDENTITY_BLOCK_THRESHOLD.
+   * ③ soft mismatches only flip verified:false.
+   */
+  async verifyAgentIdentity(
+    name: string,
+    fold: IdentityFoldView | undefined,
+    towerAgentId: string,
+  ): Promise<{ readonly entry: TowerRosterEntry; readonly verdict: IdentityVerdict }> {
+    const outcome = await this.board.mutate<{
+      entry: TowerRosterEntry;
+      verdict: IdentityVerdict;
+    }>(
+      'workspace',
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        const index = state.roster.agents.findIndex((candidate) => candidate.name === name);
+        if (index === -1) {
+          throw new TowerProtocolError(
+            `no roster entry named "${name}" — spawn the agent with moa_tower_spawn first`,
+          );
+        }
+        const agent = state.roster.agents[index]!;
+        const verdict =
+          agent.name === TOWER_NAME
+            ? evaluateTowerIdentity(fold, agent.agentId)
+            : evaluateIdentity(
+                fold,
+                agent.agentId,
+                towerAgentId,
+                this.repoRoot,
+                agent.worktree !== undefined ? worktreePath(this.repoRoot, agent.worktree) : undefined,
+              );
+        // missing → counter unchanged; verified → reset; mismatch → +1.
+        const failedCount = verdict.mismatch
+          ? (agent.failedCount ?? 0) + 1
+          : verdict.verified
+            ? 0
+            : (agent.failedCount ?? 0);
+        const now = new Date().toISOString();
+        const next: TowerRosterEntry = {
+          ...agent,
+          verified: verdict.verified,
+          ...(verdict.verified ? { verifiedAt: now } : agent.verifiedAt !== undefined ? { verifiedAt: agent.verifiedAt } : {}),
+          failedCount,
+        };
+        const unchanged =
+          next.verified === agent.verified &&
+          (next.verifiedAt ?? null) === (agent.verifiedAt ?? null) &&
+          (next.failedCount ?? 0) === (agent.failedCount ?? 0);
+        if (!unchanged) {
+          state.roster.agents[index] = next;
+          entries.set(
+            this.keys.state(),
+            boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts),
+          );
+        }
+        return { entry: next, verdict };
+      },
+      this.repoRoot,
+    );
+    return outcome;
+  }
+
   // ---------------------------------------------------------------------
-  // Guard mirror (B1-11: shape carries `worktrees: string[]` for the B3 path
-  // allowlist and an `agents` map for the omkc policy). Written by register
-  // (item 9: "agentId 落 roster + 镜像"), deleted by teardown (row 17).
+  // Guard mirror (B2-6 定稿): `agents` keeps NAME keys (B1 contract) with
+  // `{name, worktree, agentId: string|null}` entries — spawn writes pending
+  // entries (agentId:null, name-addressable), register fills the agentId and
+  // rewrites; teardown deletes the file (row 17). `worktrees: string[]` stays
+  // for the B3 hook allowlist; the omkc policy scans the agents map by
+  // agentId (a pending null never matches any real agentId → fail-open
+  // window, 基准 decision 4). Atomic tmp+rename; the tmp name carries
+  // pid+random (B2-8) so concurrent writers never share a tmp file.
   // ---------------------------------------------------------------------
 
   /** Rebuild `<repoRoot>/.tower-guard.json` from state + missions (atomic tmp+rename). */
@@ -561,14 +877,10 @@ export class TowerStore {
     const agents: Record<string, unknown> = {};
     for (const agent of state.roster.agents) {
       if (agent.name === TOWER_NAME) continue; // the tower itself is not guarded
-      if (agent.agentId === '') continue; // pending registration — nothing to guard yet
       agents[agent.name] = {
-        agentId: agent.agentId,
-        kind: agent.kind,
-        ...(agent.missionId !== undefined ? { missionId: agent.missionId } : {}),
-        ...(agent.reviewTarget !== undefined ? { reviewTarget: agent.reviewTarget } : {}),
-        ...(agent.branch !== undefined ? { branch: agent.branch } : {}),
-        ...(agent.worktree !== undefined ? { worktree: worktreePath(this.repoRoot, agent.worktree) } : {}),
+        name: agent.name,
+        worktree: agent.worktree !== undefined ? worktreePath(this.repoRoot, agent.worktree) : null,
+        agentId: agent.agentId === '' ? null : agent.agentId,
       };
     }
     const worktrees: string[] = [];
@@ -585,7 +897,7 @@ export class TowerStore {
     };
     const file = join(this.repoRoot, GUARD_MIRROR_FILE);
     await mkdir(dirname(file), { recursive: true });
-    const tmp = `${file}.tmp`;
+    const tmp = `${file}.tmp-${process.pid}-${randomUUID().slice(0, 8)}`;
     await writeFile(tmp, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
     await rename(tmp, file);
   }
@@ -597,6 +909,96 @@ export class TowerStore {
     } catch {
       // best-effort: a locked file must not fail the teardown
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // CI (B2) — `moa_tower_ci` runs the repo doc's ci_command in the mission's
+  // worktree and records `ci/<branchSlug>`; the merge gate reads it back
+  // (store.ts merge step 7b). The in-process serial queue lives on the
+  // controller (单塔台单会话 assumption — 风险台账 9/11: no cross-process
+  // mutex; a multi-tower v2 must add one).
+  // ---------------------------------------------------------------------
+
+  /**
+   * Run the CI command for a branch's mission worktree and persist the result
+   * under `ci/<branchSlug>` (LWW latest run — the run itself is serialized by
+   * the controller queue).
+   *
+   * Dirty-tree interception (B2-3): a dirty worktree is checked BEFORE any
+   * execution; the run is recorded as failed (exitCode null, dirty true) and
+   * the caller reports an error telling the tower to commit first. The merge
+   * gate requires a clean (dirty:false, exitCode:0) record.
+   *
+   * The run log is truncated (tail 200 lines + single-line truncation + ≤64KB
+   * total — B2-5) and stored under `ci/<branchSlug>/<ts>-<rand>`; if that log
+   * write fails the ci record still lands with `logError` set.
+   */
+  async runCi(branch: string, ciCommand: string): Promise<TowerCiResult> {
+    const state = await this.load();
+    const missions = await this.loadMissions(state);
+    const mission = missions.find((m) => m.branch === branch);
+    if (mission === undefined) {
+      throw new TowerProtocolError(`no tower mission owns branch "${branch}"`);
+    }
+    const absPath = worktreePath(this.repoRoot, mission.worktree);
+    try {
+      await access(absPath);
+    } catch {
+      throw new TowerProtocolError(
+        `worktree ${mission.worktree} does not exist — spawn the mission (moa_tower_spawn) before running CI`,
+      );
+    }
+    // B2-3: dirty check BEFORE execution.
+    const dirty = await git.isWorktreeDirty(absPath);
+    const tip = await git.branchTip(this.repoRoot, branch);
+    const ranAt = new Date().toISOString();
+    let exitCode: number | null = null;
+    let logRef: string | undefined;
+    let logError: string | undefined;
+    if (!dirty) {
+      const outcome = await execCiCommand(absPath, ciCommand);
+      exitCode = outcome.exitCode;
+      const truncated = truncateCiLog(outcome.output);
+      try {
+        const logKey = this.keys.ciLog(branch, Date.now(), randomUUID().slice(0, 8));
+        await this.board.mutate(
+          'workspace',
+          (entries, ts) => {
+            entries.set(logKey, boardEntry(logKey, truncated, TOWER_NAME, ts, ['ci-log']));
+          },
+          this.repoRoot,
+        );
+        logRef = logKey;
+      } catch (error) {
+        // B2-5: logRef 写失败仍落 ci 记录并注 log_error.
+        logError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    const record: TowerCiResult = { branch, commit: tip, exitCode, dirty, logRef, logError, ranAt };
+    await this.board.mutate(
+      'workspace',
+      (entries, ts) => {
+        entries.set(
+          this.keys.ci(branch),
+          boardEntry(this.keys.ci(branch), JSON.stringify(record), TOWER_NAME, ts, ['ci']),
+        );
+      },
+      this.repoRoot,
+    );
+    await this.appendLog(TOWER_NAME, 'ci.run', {
+      branch,
+      exit_code: exitCode === null ? undefined : exitCode,
+      dirty: dirty ? 'yes' : undefined,
+      commit: tip.slice(0, 7),
+    });
+    return record;
+  }
+
+  /** The latest `ci/<branchSlug>` result record, or undefined when none ran. */
+  async loadCiResult(branch: string): Promise<TowerCiResult | undefined> {
+    const rows = await this.board.read(this.keys.ci(branch), undefined, 'workspace', 1, this.repoRoot);
+    if (rows.length === 0) return undefined;
+    return JSON.parse(rows[0]!.value) as TowerCiResult;
   }
 
   // ---------------------------------------------------------------------
@@ -867,6 +1269,59 @@ export class TowerStore {
       ...(mission.notes.length > 0 ? mission.notes.map((n) => `- ${n}`) : ['- (none)']),
       '',
     ].join('\n');
+  }
+
+  // ---------------------------------------------------------------------
+  // Progress (B2) — one LWW key `progress/<missionId>` per mission; the owner
+  // worker (or the tower) appends a dated line. The value keeps the TAIL
+  // within PROGRESS_MAX_BYTES (headroom under the 96KB board ceiling). The
+  // write-frequency throttle is the profile's cron discipline (B4) — no code
+  // rate limit here.
+  // ---------------------------------------------------------------------
+
+  /**
+   * Post one progress note (row-11 ownership: only the tower or the mission's
+   * owning worker). Single key LWW; the accumulated value is truncated to the
+   * newest lines fitting in PROGRESS_MAX_BYTES.
+   */
+  async updateProgress(
+    callerName: string,
+    missionId: string,
+    note: string,
+  ): Promise<{ readonly key: string; readonly bytes: number }> {
+    const trimmed = note.trim();
+    if (trimmed.length === 0) {
+      throw new TowerProtocolError('progress note must not be empty');
+    }
+    const state = await this.load();
+    if (callerName !== TOWER_NAME) {
+      const caller = this.findAgent(state, callerName);
+      if (caller?.kind !== 'worker' || caller.missionId !== missionId) {
+        throw new TowerProtocolError(
+          `agent "${callerName}" does not own mission ${missionId} — only the tower or the owning worker posts progress`,
+        );
+      }
+    }
+    const missions = await this.loadMissions(state);
+    if (!missions.some((m) => m.id === missionId)) {
+      throw new TowerProtocolError(
+        `unknown mission "${missionId}" — known missions: ${state.missions.join(', ') || '(none planned yet)'}`,
+      );
+    }
+    const key = this.keys.progress(missionId);
+    const line = `[${new Date().toISOString()}] ${callerName}: ${trimmed}`;
+    const result = await this.board.mutate<{ key: string; bytes: number }>(
+      'workspace',
+      (entries, ts) => {
+        const existing = entries.get(key);
+        const value =
+          existing === undefined ? line : truncateTail(`${existing.value}\n${line}`, PROGRESS_MAX_BYTES);
+        entries.set(key, boardEntry(key, value, callerName, ts, ['progress']));
+        return { key, bytes: Buffer.byteLength(value, 'utf8') };
+      },
+      this.repoRoot,
+    );
+    return result;
   }
 
   // ---------------------------------------------------------------------
@@ -1177,16 +1632,21 @@ export class TowerStore {
    * 附录 A row 16: the eight-step gate, order preserved verbatim —
    * branch 属主 → deps-unmerged → survey zero-diff noop (**before** the review
    * checks) → no-review → not-clean → tip-moved → out-of-scope (picomatch) →
-   * mergeNoFf → conflictsWith. Every blocked step appends a `merge.blocked`
-   * activity-log line with the step reason.
+   * [B2 CI hard gate when a ci_command is configured] → mergeNoFf →
+   * conflictsWith. Every blocked step appends a `merge.blocked` activity-log
+   * line with the step reason.
    *
    * B1-12 deviation: "latest review clean" means EVERY review in the highest
    * round is clean (round desc + date desc — the official readdir-order
    * `latestReview` had a same-round bypass hole: two reviewers of one round,
    * newest file wins regardless of the other reviewer's verdict).
    *
-   * B2: the CI hard gate (ciCommand + `ci/<branchSlug>` result key) inserts
-   * after the out-of-scope step — marked below.
+   * B2 (marked at the insertion point): the CI gate runs AFTER out-of-scope.
+   * When a ci_command is configured on the repo doc it is a HARD gate — a
+   * `ci/<branchSlug>` record with commit == current tip && exitCode == 0 &&
+   * !dirty is required, and a red run blocks with `reason=ci-failed`. When no
+   * ci_command is configured the step is skipped and logs
+   * `reason=ci-not-configured` (B2-11).
    */
   async merge(branch: string): Promise<{
     readonly mergeCommit: string;
@@ -1281,8 +1741,30 @@ export class TowerStore {
       );
     }
 
-    // B2: CI gate inserts here (ciCommand configured → wait on ci/<branchSlug>
-    // green before mergeNoFf; a hard gate with its own merge.blocked reason).
+    // Step 7b — CI green (B2 hard gate, only when a ci_command is configured
+    // on the repo doc, B2-4). Requires a recorded run with commit == current
+    // tip && exitCode == 0 && !dirty. All git IO and board reads happen
+    // OUTSIDE any mutate transaction (reviewedCommit precedent) — the state
+    // was loaded at the top and `tip` came from step 6's `git rev-parse`.
+    const repoDoc = await this.loadRepoDoc();
+    const ciCommand = repoDoc?.ciCommand?.trim();
+    if (ciCommand !== undefined && ciCommand.length > 0) {
+      const ci = await this.loadCiResult(branch);
+      const tipMatch = ci !== undefined && ci.commit === tip;
+      const green = ci !== undefined && ci.exitCode === 0 && ci.dirty !== true;
+      if (!tipMatch || !green) {
+        const detail =
+          ci === undefined
+            ? 'no CI run recorded'
+            : `recorded commit ${ci.commit.slice(0, 7)}${ci.commit !== tip ? ` ≠ tip ${tip.slice(0, 7)}` : ''}, exitCode ${String(ci.exitCode)}, dirty ${String(ci.dirty)}`;
+        throw await block(
+          'ci-failed',
+          `merge blocked: CI is not green for ${branch} (${detail}) — run moa_tower_ci on the clean current tip`,
+        );
+      }
+    } else {
+      await this.appendLog(TOWER_NAME, 'merge.ci-skip', { branch, reason: 'ci-not-configured' });
+    }
 
     // Step 8 — mergeNoFf + conflictsWith.
     const mergeCommit = await git.mergeNoFf(this.repoRoot, branch);

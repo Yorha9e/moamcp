@@ -144,18 +144,24 @@ it('row3: boot is idempotent — repeated boot errors, teardown re-enables boot'
   await expect(rebooted.load()).resolves.toMatchObject({ version: 1, base: 'main' });
 });
 
-it('row4 (deviation): no .tower/ tree is written and .git/info/exclude stays untouched', async () => {
-  const { repoRoot } = await makeRepo();
-  // The repo must remain clean: no .tower/, no exclude edit.
+it('row4 (deviation) + B2-12: no .tower/ tree is written; .git/info/exclude gains .tower-guard.json (idempotent, never .tower/)', async () => {
+  const { store, board, repoRoot } = await makeRepo();
+  // The repo must remain clean: no .tower/, and the guard mirror is excluded.
   expect((await run(repoRoot, ['status', '--porcelain'])).trim()).toBe('');
   await expect(readFile(join(repoRoot, '.tower', 'comms', 'state.json'), 'utf8')).rejects.toThrow();
-  let exclude = '';
-  try {
-    exclude = await readFile(join(repoRoot, '.git', 'info', 'exclude'), 'utf8');
-  } catch {
-    // no exclude file at all — fine
-  }
-  expect(exclude.split(/\r?\n/).some((line) => line.trim() === '.tower/')).toBe(false);
+  const exclude = await readFile(join(repoRoot, '.git', 'info', 'exclude'), 'utf8');
+  const lines = exclude.split(/\r?\n/).map((line) => line.trim());
+  expect(lines).not.toContain('.tower/');
+  // B2-12: the guard mirror is appended exactly once.
+  expect(lines.filter((line) => line === '.tower-guard.json')).toHaveLength(1);
+  // Teardown → re-boot → still exactly one line (idempotent append).
+  await store.teardown();
+  const rebooted = new TowerStore(repoRoot, board);
+  await rebooted.boot('agent-tower');
+  const excludeAfter = await readFile(join(repoRoot, '.git', 'info', 'exclude'), 'utf8');
+  expect(
+    excludeAfter.split(/\r?\n/).filter((line) => line.trim() === '.tower-guard.json'),
+  ).toHaveLength(1);
 });
 
 // ---------------------------------------------------------------------------
@@ -680,6 +686,41 @@ it('row18 (deviation): send/finding keys are random UUIDs, never date-based (no 
   expect(finding1).toMatch(/^tower\/[0-9a-f]{12}\/finding\/[0-9a-f-]{36}$/);
   expect(finding2).toMatch(/^tower\/[0-9a-f]{12}\/finding\/[0-9a-f-]{36}$/);
   expect(finding1).not.toBe(finding2);
+});
+
+// ---------------------------------------------------------------------------
+// B2 progress
+// ---------------------------------------------------------------------------
+
+it('B2 progress: owner/tower-only writes, LWW single key, byte truncation keeps the tail ≤80KB', async () => {
+  const { store, board, repoRoot } = await makeRepo();
+  await store.plan([{ title: 'A', scope: ['a/**'] }]);
+  await store.registerAgent({
+    name: 'w1',
+    agentId: 'engine-w1',
+    kind: 'worker',
+    missionId: 'M1',
+    worktree: 'wt-1',
+    spawnedAt: new Date().toISOString(),
+  });
+  // Non-owner / unknown callers are rejected (row-11 ownership).
+  await expect(store.updateProgress('stranger', 'M1', 'x')).rejects.toThrow(/does not own mission M1/);
+  await expect(store.updateProgress('tower', 'M99', 'x')).rejects.toThrow(/unknown mission/);
+  // Owner worker and tower both write to the SAME key (LWW accumulation).
+  await store.updateProgress('w1', 'M1', 'first step');
+  await store.updateProgress('tower', 'M1', 'tower note');
+  const keys = towerKeys(repoRoot);
+  const rows = await board.read(keys.progress('M1'), undefined, 'workspace', 1, repoRoot);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]!.value).toContain('first step');
+  expect(rows[0]!.value).toContain('tower note');
+  // A huge note is truncated: the stored value stays ≤80KB and the newest
+  // content survives.
+  const big = await store.updateProgress('w1', 'M1', 'z'.repeat(90 * 1024));
+  expect(big.bytes).toBeLessThanOrEqual(80 * 1024);
+  const rows2 = await board.read(keys.progress('M1'), undefined, 'workspace', 1, repoRoot);
+  expect(Buffer.byteLength(rows2[0]!.value, 'utf8')).toBeLessThanOrEqual(80 * 1024);
+  expect(rows2[0]!.value).toContain('z'.repeat(100));
 });
 
 // ---------------------------------------------------------------------------

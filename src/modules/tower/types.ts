@@ -31,6 +31,15 @@ export interface TowerRosterEntry {
   readonly worktree?: string;
   /** Workers: their branch, e.g. `feat/M1-vulkan-build`. */
   readonly branch?: string;
+  /** B2 identity (decision 2): fold cross-validation outcome (① ∧ ② ∧ ③ for
+   *  spawned agents; ① only for the tower entry). `false` also covers "not yet
+   *  re-verified / fold data missing" — missing ≠ mismatch (see identity.ts). */
+  readonly verified?: boolean;
+  /** B2 identity: ISO timestamp of the last `verified:true` stamp. */
+  readonly verifiedAt?: string;
+  /** B2 identity: consecutive hard-mismatch count (② data-present-but-wrong
+   *  only; missing data never counts). blocked is derived: failedCount ≥ 3. */
+  readonly failedCount?: number;
   readonly spawnedAt: string;
 }
 
@@ -110,6 +119,10 @@ export interface TowerRepoDoc {
   readonly mode: 'branch' | 'pr';
   readonly createdAt: string;
   readonly bootedAt: string;
+  /** B2 CI (B2-4): optional shell command `moa_tower_ci` runs in each mission
+   *  worktree; the merge gate turns hard (ci/<branchSlug> green required) when
+   *  configured. Set idempotently by re-booting with `ci_command`. */
+  readonly ciCommand?: string;
 }
 
 export type TowerFindingType = 'bug' | 'improve' | 'vuln' | 'idea';

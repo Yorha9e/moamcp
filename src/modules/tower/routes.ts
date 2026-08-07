@@ -66,6 +66,11 @@ export function towerRoutes(controller: TowerController | undefined): MoaRouteDe
           name: a.name,
           agentId: a.agentId === '' ? null : a.agentId,
           kind: a.kind,
+          verified: a.verified ?? false,
+          ...(a.verifiedAt !== undefined ? { verifiedAt: a.verifiedAt } : {}),
+          failedCount: a.failedCount ?? 0,
+          // B2: blocked is derived from consecutive hard mismatches (缺失≠不匹配).
+          blocked: (a.failedCount ?? 0) >= 3,
           ...(a.missionId !== undefined ? { missionId: a.missionId } : {}),
           ...(a.reviewTarget !== undefined ? { reviewTarget: a.reviewTarget } : {}),
           ...(a.worktree !== undefined ? { worktree: a.worktree } : {}),
