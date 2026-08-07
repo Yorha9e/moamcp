@@ -3,6 +3,7 @@ import { COMPONENTS_CSS } from './components.js';
 import { LIB_JS } from './lib.js';
 import { I18N_BOOTSTRAP, I18N_JS } from './i18n.js';
 import { renderAppHeader } from './app-header.js';
+import { STATUS_MODEL_JS } from './status-model.js';
 
 export const DEBATE_CARD_HTML = `<!doctype html>
 <html lang="en">
@@ -107,7 +108,7 @@ ${COMPONENTS_CSS}
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   font-family: var(--font-mono);
   font-size: 12px;
   background: var(--solid);
@@ -115,9 +116,48 @@ ${COMPONENTS_CSS}
   border-radius: var(--r-md);
   padding: 6px;
 }
+/* Session group head: home badge + workDir / short session id. */
+.omkc-session {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0 1px;
+  padding: 3px 9px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.omkc-session:first-child {
+  margin-top: 0;
+}
+.omkc-home {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+}
+.omkc-session-dir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* F7: session-gone marker on the group head (ended sessions keep their rows). */
+.omkc-ended {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--tint-red);
+  color: var(--accent-red);
+  white-space: nowrap;
+}
 .omkc-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1.1fr) minmax(130px, 1.4fr) 86px 100px minmax(120px, 1.5fr);
+  grid-template-columns: minmax(170px, 1.5fr) minmax(120px, 1.2fr) 86px 100px minmax(120px, 1.4fr);
   gap: 10px;
   align-items: center;
   padding: 4px 9px;
@@ -130,13 +170,90 @@ ${COMPONENTS_CSS}
 .omkc-row.stale {
   opacity: 0.4;
 }
+/* Debate-mapped sub row: accent highlight (spec chip rides in the id cell). */
+.omkc-row.matched {
+  background: var(--tint-green-soft);
+}
 .omkc-row > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .omkc-row .omkc-id {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: visible;
   color: var(--accent-blue);
+}
+.omkc-row.matched .omkc-id {
+  color: var(--accent-green);
+}
+.omkc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Sub rows: indent + CSS tree connector (vertical line + └ glyph). */
+.omkc-row.sub {
+  position: relative;
+  padding-left: 22px;
+}
+.omkc-row.sub::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 4px;
+  bottom: 4px;
+  border-left: 1px solid var(--border);
+}
+.omkc-guide {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  font-size: 10px;
+}
+.omkc-badge {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+  white-space: nowrap;
+}
+.omkc-badge.orchestrator {
+  background: var(--tint-green);
+  color: var(--accent-green);
+}
+/* Subagent type name (resolved from the parent's subagents[] list). */
+.omkc-type {
+  flex: 0 0 auto;
+  max-width: 110px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--tint-purple);
+  color: var(--accent-purple);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* spec.id chip on matched rows. */
+.omkc-chip {
+  flex: 0 0 auto;
+  max-width: 90px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 15px;
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .omkc-st {
   justify-self: start;
@@ -145,13 +262,29 @@ ${COMPONENTS_CSS}
   font-size: 11px;
   line-height: 18px;
 }
-.omkc-st.on {
+.omkc-st.st-busy {
   background: var(--tint-green);
   color: var(--accent-green);
 }
-.omkc-st.off {
+.omkc-st.st-done {
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+}
+.omkc-st.st-err {
+  background: var(--tint-red);
+  color: var(--accent-red);
+}
+.omkc-st.st-warn {
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+}
+.omkc-st.st-idle {
   background: var(--surface-strong);
   color: var(--text-dim);
+}
+.omkc-st.st-stale {
+  background: var(--surface-strong);
+  color: var(--text-faint);
 }
 .omkc-tok {
   color: var(--text-dim);
@@ -162,6 +295,37 @@ ${COMPONENTS_CSS}
 }
 .omkc-tool.err {
   color: var(--accent-red);
+}
+/* Status controller still starting: placeholder body instead of the list. */
+.omkc-starting {
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.omkc-starting[hidden] {
+  display: none;
+}
+/* Debaters chips: live-match status dot (busy green / idle gray). */
+.omkc-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+.omkc-dot.busy {
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+}
+.omkc-dot.idle {
+  background: var(--text-faint);
+}
+.omkc-dot[hidden] {
+  display: none;
 }
 
 .tool-log {
@@ -411,6 +575,7 @@ ${I18N_BOOTSTRAP}
   </div>
   <div class="card" id="omkcCard" hidden>
     <div class="sec-title"><span data-i18n="debate.agentStatus">Agent Status</span><span class="omkc-scan" id="omkcScan" hidden></span><span class="aux hint" id="omkcCount"></span></div>
+    <div class="omkc-starting" id="omkcStarting" hidden data-i18n="debate.starting">starting…</div>
     <div class="omkc-list" id="omkcAgents"></div>
   </div>
   <div class="card" id="transcriptCard">
@@ -433,8 +598,10 @@ ${I18N_BOOTSTRAP}
 <script>
 ${I18N_JS}
 ${LIB_JS}
+${STATUS_MODEL_JS}
 (function () {
   'use strict';
+  var M = window.__moaStatusModel;
   var tr = window.__moaI18n ? window.__moaI18n.t : function (key) { return key; };
   var taskId = new URLSearchParams(location.search).get('task_id') || '';
   document.getElementById('taskId').textContent = taskId || tr('debate.noTask');
@@ -600,6 +767,9 @@ ${LIB_JS}
   }
   function renderAgents() {
     var box = document.getElementById('agents');
+    // Every render recomputes the debate-spec mapping (C): the Debaters dots
+    // must reflect the current model as soon as the debate context is known.
+    recomputeSpecHits();
     box.textContent = '';
     if (!agents.length) {
       var empty = document.createElement('span');
@@ -612,6 +782,12 @@ ${LIB_JS}
       var a = agents[i];
       var chip = document.createElement('span');
       chip.className = 'agent' + (a.id === speaking ? ' speaking' : '');
+      chip.setAttribute('data-spec-id', a.id);
+      // Live-match status dot: filled by updateDebaterDots after model updates.
+      var dot = document.createElement('span');
+      dot.className = 'omkc-dot idle';
+      dot.hidden = true;
+      chip.appendChild(dot);
       chip.appendChild(document.createTextNode(a.id));
       var sub = document.createElement('span');
       sub.className = 'sub';
@@ -620,6 +796,7 @@ ${LIB_JS}
       chip.appendChild(sub);
       box.appendChild(chip);
     }
+    updateDebaterDots();
   }
   function setMeta(round, speaker) {
     document.getElementById('round').textContent = round;
@@ -862,33 +1039,23 @@ ${LIB_JS}
     setInterval(refreshTasks, 3000);
   }
 
-  var OMKC = 'http://127.0.0.1:39627';
-  var omkcRows = new Map();
+  // ── Agent Status card: same-origin bus /status + /status/events ─────────
+  // Consumes the same status model as the Status Board page: one
+  // window.__moaStatusModel instance fed by /status snapshots and the
+  // /status/events SSE stream, rendered as a per-session main→sub tree.
+  var model = M.newModel();
+  var specHits = Object.create(null);   // spec.id -> matched agent keys (narrowed, F3)
   var toolSeen = new Map();
-  var omkcEs = null, omkcFails = 0, omkcReprobe = null, omkcHealthPoll = null;
+  var omkcSse = null, omkcFails = 0, omkcReprobe = null, omkcStartingTimer = null, omkcPoll = null;
+  // F1: rAF frame batching (mirrors status-board.ts queueFrame/flushFrames) —
+  // agent/session frames only mutate the model; one render per animation frame
+  // instead of one full render per frame. omkcRenderedOnce marks the first
+  // paint so the first snapshot can still render synchronously.
+  var omkcPendingFrames = [], omkcFlushScheduled = false, omkcRenderedOnce = false;
+  // F2: the 3-strike rule hides the card deliberately; an in-flight 503 must
+  // not re-show it (only 200 / a snapshot frame re-shows).
+  var omkcHidden = false;
 
-  function fetchWithTimeout(url, ms) {
-    return new Promise(function (resolve, reject) {
-      var ctrl = new AbortController();
-      var timer = setTimeout(function () { ctrl.abort(); reject(new Error('timeout')); }, ms);
-      fetch(url, { signal: ctrl.signal }).then(function (r) {
-        clearTimeout(timer);
-        resolve(r);
-      }, function (err) {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-  }
-  function probeOmkc() {
-    return fetchWithTimeout(OMKC + '/health', 500).then(function (r) {
-      if (!r.ok) throw new Error('health HTTP ' + r.status);
-      return r.json();
-    }).then(function (h) {
-      if (!h || h.ok !== true) throw new Error('not omkc-status');
-      return h;
-    });
-  }
   function omkcShow(on) {
     document.getElementById('omkcCard').hidden = !on;
     document.getElementById('omkcToolsCard').hidden = !on;
@@ -898,32 +1065,162 @@ ${LIB_JS}
     chip.hidden = !scanning;
     chip.textContent = tr('debate.scanning');
   }
-  function omkcKey(a) { return (a.sessionId || '') + ':' + (a.agentId || ''); }
+  function setOmkcStarting(on) {
+    var el = document.getElementById('omkcStarting');
+    if (el) {
+      el.hidden = !on;
+      if (on) document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: 0 });
+    }
+  }
+  function stopOmkcSse() {
+    if (omkcSse) { omkcSse.close(); omkcSse = null; }
+  }
+  function stopScanPoll() {
+    if (omkcPoll) { omkcPoll.stop(); omkcPoll = null; }
+  }
   function fmtTok(n) {
     n = Number(n);
     if (!isFinite(n)) return '–';
     return n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'k' : String(n);
   }
-  function fillAgentRow(el, a) {
-    var cells = el.children;
-    cells[0].textContent = String(a.agentId || '?') + (a.kind === 'sub' ? ' ⤷' : '');
-    cells[0].title = (a.sessionId || '') + (a.home ? ' @ ' + a.home : '');
-    cells[1].textContent = a.model || '–';
-    var busyish = a.busy === true || (!!a.phase && a.phase !== 'idle' && a.phase !== 'completed' && a.phase !== 'suspended');
-    cells[2].textContent = a.phase || (a.busy ? 'busy' : 'idle');
-    cells[2].className = 'omkc-st ' + (busyish ? 'on' : 'off');
-    cells[3].textContent = a.contextTokens != null
-      ? fmtTok(a.contextTokens) + ' / ' + fmtTok(a.maxContextTokens)
-      : '–';
-    var tc = a.lastToolCall;
-    if (tc && tc.name) {
-      cells[4].textContent = String(tc.name) + (tc.isError ? ' ✗' : '');
-      cells[4].className = 'omkc-tool' + (tc.isError ? ' err' : '');
-    } else {
-      cells[4].textContent = '–';
-      cells[4].className = 'omkc-tool';
+  function shortId(s) {
+    s = String(s || '');
+    return s.length > 24 ? s.slice(0, 24) + '…' : s;
+  }
+  /** F3: cross-session narrowing — the debate lives in ONE session, but global
+   *  matchDebateSpecs hits can span concurrent sessions (two debates running
+   *  the same type names). Group every hit key by sessionId, keep the session
+   *  with the most hits (tie: newest lastSeen among its hit entries), and
+   *  return only that session's hits. No hits at all -> behave as today. */
+  function narrowSpecHits(global) {
+    var per = Object.create(null);        // sessionId -> { count, maxSeen }
+    var bySession = Object.create(null);  // sessionId -> hit keys
+    for (var specId in global) {
+      var ks = global[specId];
+      for (var i = 0; i < ks.length; i++) {
+        var k = ks[i];
+        var e = model.byKey[k];
+        if (!e) continue;
+        var sid = e.sessionId;
+        var rec = per[sid];
+        if (!rec) {
+          rec = per[sid] = { count: 0, maxSeen: 0 };
+          bySession[sid] = [];
+        }
+        rec.count++;
+        if (e.lastSeen > rec.maxSeen) rec.maxSeen = e.lastSeen;
+        bySession[sid].push(k);
+      }
     }
-    if (a.stale) el.classList.add('stale'); else el.classList.remove('stale');
+    var best = null, bestSid = null;
+    for (var sid in per) {
+      var r = per[sid];
+      if (!best || r.count > best.count || (r.count === best.count && r.maxSeen > best.maxSeen)) {
+        best = r;
+        bestSid = sid;
+      }
+    }
+    if (!bestSid) return global;
+    var allow = Object.create(null);
+    var keep = bySession[bestSid];
+    for (var j = 0; j < keep.length; j++) allow[keep[j]] = true;
+    var out = Object.create(null);
+    for (var specId in global) {
+      var gks = global[specId];
+      var hits = [];
+      for (var i = 0; i < gks.length; i++) if (allow[gks[i]]) hits.push(gks[i]);
+      out[specId] = hits;
+    }
+    return out;
+  }
+  function recomputeSpecHits() {
+    specHits = narrowSpecHits(M.matchDebateSpecs(model, agents));
+  }
+  /** spec ids whose hits include this key. */
+  function matchedSpecsOf(key) {
+    var out = [];
+    for (var specId in specHits) {
+      var ks = specHits[specId];
+      for (var i = 0; i < ks.length; i++) {
+        if (ks[i] === key) { out.push(specId); break; }
+      }
+    }
+    return out;
+  }
+  /** True when any debate-matched key lives in this session (hit-first ordering). */
+  function sessionHasHits(sessionId) {
+    for (var specId in specHits) {
+      var ks = specHits[specId];
+      for (var i = 0; i < ks.length; i++) {
+        var e = model.byKey[ks[i]];
+        if (e && e.sessionId === sessionId) return true;
+      }
+    }
+    return false;
+  }
+  /** True when a debate-matched SUB lives in this session (orchestrator badge:
+   *  only sessions with a hit sub get it — a rule-1 main-only hit does not). */
+  function sessionHasSubHits(sessionId) {
+    for (var specId in specHits) {
+      var ks = specHits[specId];
+      for (var i = 0; i < ks.length; i++) {
+        var e = model.byKey[ks[i]];
+        if (e && e.sessionId === sessionId && (e.kind === 'sub' || e.orphan)) return true;
+      }
+    }
+    return false;
+  }
+  /** Session rows: main entries first, subs after, each by lastSeen desc. */
+  function sessionEntries(sessionId) {
+    var mains = [], subs = [];
+    var keys = Object.keys(model.byKey);
+    for (var i = 0; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e.sessionId !== sessionId) continue;
+      if (e.kind === 'sub' || e.orphan) subs.push(e);
+      else mains.push(e);
+    }
+    function bySeenDesc(x, y) { return (y.lastSeen || 0) - (x.lastSeen || 0); }
+    mains.sort(bySeenDesc);
+    subs.sort(bySeenDesc);
+    return { mains: mains, subs: subs };
+  }
+  function sessionMaxSeen(sessionId) {
+    var max = 0;
+    var keys = Object.keys(model.byKey);
+    for (var i = 0; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e.sessionId === sessionId && e.lastSeen > max) max = e.lastSeen;
+    }
+    return max;
+  }
+  /** Sessions with debate hits first, then by newest lastSeen (stable tie-break). */
+  function orderedSessionIds() {
+    var ids = model.sessionOrder.slice();
+    ids.sort(function (a, b) {
+      var ha = sessionHasHits(a), hb = sessionHasHits(b);
+      if (ha !== hb) return ha ? -1 : 1;
+      var ma = sessionMaxSeen(a), mb = sessionMaxSeen(b);
+      if (mb !== ma) return mb - ma;
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    });
+    return ids;
+  }
+  /** Subagent type name: parent's subagents[].name by subagentId; orphan uses subName. */
+  function subTypeName(entry) {
+    var parentKey = entry.parentKey;
+    var parent = parentKey ? model.byKey[parentKey] : null;
+    if (parent && Array.isArray(parent.subagents)) {
+      for (var i = 0; i < parent.subagents.length; i++) {
+        var s = parent.subagents[i];
+        if (s && typeof s === 'object' && s.subagentId === entry.agentId && typeof s.name === 'string' && s.name) {
+          return s.name;
+        }
+      }
+    }
+    return entry.subName ? String(entry.subName) : '–';
   }
   function newRow() {
     var el = document.createElement('div');
@@ -932,46 +1229,139 @@ ${LIB_JS}
       var c = document.createElement('span');
       if (i === 0) c.className = 'omkc-id';
       if (i === 3) c.className = 'omkc-tok';
+      if (i === 4) c.className = 'omkc-tool';
       el.appendChild(c);
     }
     return el;
   }
-  function upsertAgent(a) {
-    if (!a || typeof a !== 'object' || !a.agentId) return;
-    var key = omkcKey(a);
-    var el = omkcRows.get(key);
-    if (!el) {
-      el = newRow();
-      omkcRows.set(key, el);
-      var box = document.getElementById('omkcAgents');
-      box.insertBefore(el, box.firstChild);
+  function fillRow(el, entry, seed) {
+    var isSub = entry.kind === 'sub' || entry.orphan;
+    // Spec chips + highlight are a SUB-row treatment (C); a rule-1 match on a
+    // main row is still tracked for ordering/dots but renders as its badge.
+    var matched = isSub ? matchedSpecsOf(entry.key) : [];
+    el.className = 'omkc-row' + (isSub ? ' sub' : '') + (matched.length ? ' matched' : '');
+    if (entry.stale) el.classList.add('stale'); else el.classList.remove('stale');
+    var idCell = el.children[0];
+    idCell.textContent = '';
+    idCell.title = entry.sessionId + (entry.home ? ' @ ' + entry.home : '');
+    for (var i = 0; i < matched.length; i++) {
+      var chip = document.createElement('span');
+      chip.className = 'omkc-chip';
+      chip.textContent = matched[i];
+      idCell.appendChild(chip);
     }
-    fillAgentRow(el, a);
-    maybeLogTool(key, a, false);
+    if (isSub) {
+      var guide = document.createElement('span');
+      guide.className = 'omkc-guide';
+      guide.textContent = '└';
+      idCell.appendChild(guide);
+      var type = document.createElement('span');
+      type.className = 'omkc-type';
+      type.textContent = subTypeName(entry);
+      idCell.appendChild(type);
+    } else {
+      var orch = sessionHasSubHits(entry.sessionId);
+      var badge = document.createElement('span');
+      badge.className = 'omkc-badge ' + (orch ? 'orchestrator' : 'main');
+      badge.textContent = orch ? tr('debate.orchestrator') : tr('debate.mainAgent');
+      idCell.appendChild(badge);
+    }
+    var name = document.createElement('span');
+    name.className = 'omkc-name';
+    name.textContent = entry.agentId;
+    idCell.appendChild(name);
+    el.children[1].textContent = entry.model || '–';
+    var st = M.deriveStatus(entry);
+    el.children[2].className = 'omkc-st st-' + st.tone;
+    el.children[2].textContent = st.label ? st.label : tr('status.' + st.key);
+    el.children[3].textContent = entry.contextTokens != null ? fmtTok(entry.contextTokens) : '–';
+    var tc = entry.lastToolCall;
+    if (tc && tc.name) {
+      el.children[4].textContent = String(tc.name) + (tc.isError ? ' ✗' : '');
+      el.children[4].className = 'omkc-tool' + (tc.isError ? ' err' : '');
+    } else {
+      el.children[4].textContent = '–';
+      el.children[4].className = 'omkc-tool';
+    }
+    maybeLogTool(entry.key, entry, seed);
   }
-  function applyOmkcSnapshot(snap) {
-    var list = (snap && snap.agents) || [];
-    if (!list.length) return;
-    omkcRows.clear();
+  function buildRow(entry, seed) {
+    var el = newRow();
+    fillRow(el, entry, seed);
+    return el;
+  }
+  function sessionHeadEl(sessionId) {
+    var head = document.createElement('div');
+    head.className = 'omkc-session';
+    var row = model.sessions[sessionId] || {};
+    if (typeof row.home === 'string' && row.home) {
+      var home = document.createElement('span');
+      home.className = 'omkc-home';
+      home.textContent = row.home;
+      head.appendChild(home);
+    }
+    var dir = document.createElement('span');
+    dir.className = 'omkc-session-dir';
+    var wd = row.workDir;
+    dir.textContent = (typeof wd === 'string' && wd) ? wd : shortId(sessionId);
+    dir.title = sessionId;
+    head.appendChild(dir);
+    // F7: ended (session-gone with surviving rows) marker on the group head.
+    if (row.gone === true) {
+      var ended = document.createElement('span');
+      ended.className = 'omkc-ended';
+      ended.textContent = tr('debate.sessionEnded');
+      head.appendChild(ended);
+    }
+    return head;
+  }
+  /** Full re-render from the model (the card is compact; rows are cheap). */
+  function renderOmkc(seed) {
+    omkcRenderedOnce = true;
+    recomputeSpecHits();
     var box = document.getElementById('omkcAgents');
-    box.textContent = '';
-    var sorted = [];
-    for (var i = 0; i < list.length; i++) {
-      var a = list[i];
-      if (a && typeof a === 'object' && a.agentId) sorted.push(a);
-    }
-    sorted.sort(function (x, y) { return (y.lastSeen || 0) - (x.lastSeen || 0); });
+    if (!box) return;
+    var counts = M.modelCounts(model);
+    document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: counts.agents });
+    var ids = orderedSessionIds();
     var frag = document.createDocumentFragment();
-    for (var j = 0; j < sorted.length; j++) {
-      var el = newRow();
-      omkcRows.set(omkcKey(sorted[j]), el);
-      fillAgentRow(el, sorted[j]);
-      frag.appendChild(el);
-      maybeLogTool(omkcKey(sorted[j]), sorted[j], true);
+    for (var i = 0; i < ids.length; i++) {
+      var sid = ids[i];
+      var parts = sessionEntries(sid);
+      if (parts.mains.length + parts.subs.length === 0) continue;
+      frag.appendChild(sessionHeadEl(sid));
+      for (var m = 0; m < parts.mains.length; m++) frag.appendChild(buildRow(parts.mains[m], seed));
+      for (var s = 0; s < parts.subs.length; s++) frag.appendChild(buildRow(parts.subs[s], seed));
     }
+    box.textContent = '';
     box.appendChild(frag);
-    document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: sorted.length });
-    setOmkcScan(!!(snap.scan && snap.scan.scanning === true));
+    updateDebaterDots();
+  }
+  /** Debaters chips: live-match status dot (busy=green / idle=gray via tone). */
+  function updateDebaterDots() {
+    var box = document.getElementById('agents');
+    if (!box) return;
+    var kids = box.children;
+    var hits = specHits || {};
+    for (var i = 0; i < kids.length; i++) {
+      var chip = kids[i];
+      if (!chip || typeof chip.getAttribute !== 'function') continue;
+      var specId = chip.getAttribute('data-spec-id');
+      if (specId == null) continue;
+      var ks = hits[specId] || [];
+      var any = false, busy = false;
+      for (var j = 0; j < ks.length; j++) {
+        var e = model.byKey[ks[j]];
+        if (!e) continue;
+        any = true;
+        if (M.deriveStatus(e).tone === 'busy') busy = true;
+      }
+      var dot = chip.querySelector ? chip.querySelector('.omkc-dot') : null;
+      if (dot) {
+        dot.hidden = !any;
+        dot.className = 'omkc-dot ' + (busy ? 'busy' : 'idle');
+      }
+    }
   }
   function maybeLogTool(key, a, seed) {
     var tc = a.lastToolCall;
@@ -1012,47 +1402,158 @@ ${LIB_JS}
     while (box.children.length > 150) box.removeChild(box.lastChild);
     document.getElementById('toolCount').textContent = tr('debate.toolCount', { count: box.children.length });
   }
-  function omkcConnect() {
-    if (omkcEs) { omkcEs.close(); omkcEs = null; }
-    omkcEs = new EventSource(OMKC + '/events');
-    omkcEs.addEventListener('snapshot', function (m) {
-      omkcFails = 0;
-      try { applyOmkcSnapshot(JSON.parse(m.data)); } catch (_) {}
-    });
-    omkcEs.addEventListener('agent', function (m) {
-      omkcFails = 0;
-      try { upsertAgent(JSON.parse(m.data)); } catch (_) {}
-    });
-    omkcEs.onerror = function () {
-      if (omkcEs) { omkcEs.close(); omkcEs = null; }
-      omkcFails++;
-      if (omkcFails < 3) { setTimeout(omkcConnect, 1000); return; }
-      omkcShow(false);
-      setOmkcScan(false);
-      if (!omkcReprobe) {
-        omkcReprobe = setInterval(function () {
-          probeOmkc().then(function () {
-            clearInterval(omkcReprobe);
-            omkcReprobe = null;
-            omkcFails = 0;
-            omkcShow(true);
-            omkcConnect();
-          }, function () {});
-        }, 30000);
+  /** Frame handling mirrors status-board.ts: snapshot -> applySnapshot, agent
+   *  gone -> removeAgent, live agent -> upsertAgent, session gone ->
+   *  removeSession (kept rows re-render from the model). F1: frames only
+   *  mutate the model; the actual render is batched — the first snapshot
+   *  renders synchronously (first-paint guarantee), later frames coalesce
+   *  into one render per animation frame (status-board flushFrames pattern),
+   *  so a sweep burst of N frames costs one render instead of N. */
+  function onOmkcFrame(data, type) {
+    queueOmkcFrame(data, type);
+  }
+  function queueOmkcFrame(data, type) {
+    omkcPendingFrames.push({ data: data, type: type });
+    if (omkcFlushScheduled) return;
+    if (type === 'snapshot' && !omkcRenderedOnce && omkcPendingFrames.length === 1) {
+      // First snapshot: paint now, don't wait for a rAF tick.
+      flushOmkcFrames();
+      return;
+    }
+    omkcFlushScheduled = true;
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flushOmkcFrames);
+    else setTimeout(flushOmkcFrames, 0);
+  }
+  function flushOmkcFrames() {
+    omkcFlushScheduled = false;
+    var frames = omkcPendingFrames;
+    omkcPendingFrames = [];
+    var changed = false, seed = false;
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      var type = f.type;
+      var data = f.data;
+      if (type === 'snapshot') {
+        M.applySnapshot(model, data);
+        setOmkcScan(!!(data && data.scan && data.scan.scanning === true));
+        omkcHidden = false;
+        omkcShow(true);
+        setOmkcStarting(false);
+        changed = true;
+        seed = true;
+        continue;
       }
-    };
+      if (type === 'session') {
+        if (data && data.gone === true && typeof data.sessionId === 'string') {
+          M.removeSession(model, data.sessionId);
+          changed = true;
+        }
+        continue;
+      }
+      if (type === 'agent' && data) {
+        var sid = typeof data.sessionId === 'string' ? data.sessionId : null;
+        if (sid) {
+          if (data.gone === true) M.removeAgent(model, sid, data.agentId);
+          else M.upsertAgent(model, data);
+          changed = true;
+        }
+      }
+    }
+    if (changed) renderOmkc(seed);
+  }
+  function connectOmkc() {
+    if (omkcSse) return;
+    omkcSse = window.__moaLib.connectSSE('/status/events', onOmkcFrame, onOmkcState, ['snapshot', 'agent', 'session']);
+  }
+  function onOmkcState(state) {
+    if (state === 'open') {
+      omkcFails = 0;
+      if (omkcReprobe) { clearInterval(omkcReprobe); omkcReprobe = null; }
+      if (omkcStartingTimer) { clearTimeout(omkcStartingTimer); omkcStartingTimer = null; }
+    } else if (state === 'error') {
+      // EventSource never exposes the HTTP status: probe /status to classify
+      // 503 status_not_ready (controller still starting) from a plain failure.
+      probeStatus();
+    }
+  }
+  function startScanPoll() {
+    if (omkcPoll) return;
+    omkcPoll = window.__moaLib.startPoll(function () {
+      fetch('/status').then(function (res) {
+        if (res.status !== 200) return null;
+        return res.json().catch(function () { return null; });
+      }).then(function (snap) {
+        if (snap) setOmkcScan(snap.scan && snap.scan.scanning === true);
+      }).catch(function () {});
+    }, window.__moaLib.POLL_MS.sseFallback);
+  }
+  /** GET /status probe: 200 -> show + connect SSE; 503 -> starting placeholder
+   *  (slow retry, never treated as a loss); other/network error -> the
+   *  historical 3-strike rule: hide the card and slow-probe every 30s. */
+  function probeStatus() {
+    try {
+      fetch('/status').then(function (res) {
+        if (res.status === 200) {
+          omkcFails = 0;
+          omkcHidden = false;
+          if (omkcReprobe) { clearInterval(omkcReprobe); omkcReprobe = null; }
+          if (omkcStartingTimer) { clearTimeout(omkcStartingTimer); omkcStartingTimer = null; }
+          return res.json().catch(function () { return null; }).then(function (snap) {
+            if (snap && typeof snap === 'object') {
+              M.applySnapshot(model, snap);
+              setOmkcScan(snap.scan && snap.scan.scanning === true);
+              renderOmkc(true);
+            }
+            omkcShow(true);
+            setOmkcStarting(false);
+            connectOmkc();
+            startScanPoll();
+            return null;
+          });
+        }
+        if (res.status === 503) {
+          // Controller still starting (Retry-After: 2). A 503 proves the bus
+          // is reachable, so it resets the failure counter (never a loss).
+          // F2: a card hidden by the 3-strike rule must NOT be re-shown by an
+          // in-flight 503 (only 200 / a snapshot frame re-shows it) — the 30s
+          // reprobe owns recovery; a visible card keeps the starting
+          // placeholder armed with the slow retry.
+          omkcFails = 0;
+          if (omkcHidden) return null;
+          omkcShow(true);
+          setOmkcStarting(true);
+          if (!omkcStartingTimer) {
+            omkcStartingTimer = setTimeout(function () {
+              omkcStartingTimer = null;
+              probeStatus();
+            }, 2000);
+          }
+          return null;
+        }
+        throw new Error('status HTTP ' + res.status);
+      }).catch(function () {
+        omkcFails++;
+        if (omkcFails >= 3) {
+          // 3-strike hide: disarm any in-flight starting retry so a late 503
+          // cannot re-show the card (F2).
+          if (omkcStartingTimer) { clearTimeout(omkcStartingTimer); omkcStartingTimer = null; }
+          omkcHidden = true;
+          omkcShow(false);
+          setOmkcStarting(false);
+          setOmkcScan(false);
+          stopOmkcSse();
+          stopScanPoll();
+          if (!omkcReprobe) {
+            omkcReprobe = setInterval(function () { probeStatus(); }, 30000);
+          }
+        } else {
+          setTimeout(probeStatus, 1000);
+        }
+      });
+    } catch (_) {}
   }
 
-  probeOmkc().then(function () {
-    omkcShow(true);
-    omkcConnect();
-    if (!omkcHealthPoll) {
-      omkcHealthPoll = window.__moaLib.startPoll(function () {
-        if (!omkcEs) return;
-        probeOmkc().then(function (h) { setOmkcScan(h.scanning === true); }, function () {});
-      }, window.__moaLib.POLL_MS.sseFallback);
-    }
-  }, function () {});
+  probeStatus();
 
   var gotAny = false, waitingShown = false;
   function setConn(text) { document.getElementById('conn').textContent = text; }
@@ -1089,6 +1590,12 @@ ${LIB_JS}
       for (var i = 0; i < signoffs.length; i++) signoffs[i].textContent = tr('debate.signoff');
       var errors = document.querySelectorAll('.tool-err');
       for (var j = 0; j < errors.length; j++) errors[j].textContent = tr('debate.error');
+      // F6: re-translate the scan chip with its current visibility.
+      var scanChip = document.getElementById('omkcScan');
+      if (scanChip) setOmkcScan(!scanChip.hidden);
+      // Agent Status tree rows carry dynamic translations (badges, status
+      // pills) — re-render from the model with the new locale.
+      renderOmkc(false);
     }
   });
   if (!taskId) { setBadge(tr('debate.pickTask'), '', 'debate.pickTask'); showPicker(); return; }

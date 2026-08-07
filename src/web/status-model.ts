@@ -159,6 +159,108 @@ export interface StatusDerivation {
   label?: string;
 }
 
+/** Wire shape of a debate participant declaration (agent_specs entry). */
+export interface DebateSpecLike {
+  id: string;
+  tag?: string;
+}
+
+/**
+ * Map debate participant declarations (agent_specs) to live sub-agent keys.
+ * Type-only on the TS side — never serialized (the page passes plain arrays).
+ *
+ * Each spec collects every distinct hit; rule 1 is kind-agnostic, rules 2-4
+ * only match kind 'sub' entries:
+ *  1. exact agentId equality;
+ *  2. a subagent whose declared type name equals the spec id;
+ *  3. a subagent whose declared type name equals the spec tag;
+ *  4. a sub entry whose model equals the spec tag (only when the tag looks
+ *     like a model id, i.e. contains '/').
+ *
+ * Subagent type names come from every entry's subagents[] list (elements
+ * carry subagentId/name/status), indexed by the subagent's own key; orphan
+ * leaves synthesized from those lists carry kind 'sub', so they are matched
+ * through the same path as independent sub entries. Self-contained (the
+ * serialization wrapper requires it): no imports, no module-level state, and
+ * the only model helper it calls is the key joiner.
+ */
+export function matchDebateSpecs(model: StatusModel, specs: DebateSpecLike[]): Record<string, string[]> {
+  const out: Record<string, string[]> = Object.create(null);
+  if (!model || !Array.isArray(specs)) return out;
+  const byId: Record<string, string[]> = Object.create(null);
+  const nameOf: Record<string, string> = Object.create(null);
+  const byModel: Record<string, string[]> = Object.create(null);
+  const keys = Object.keys(model.byKey);
+  for (let i = 0; i < keys.length; i++) {
+    const e = model.byKey[keys[i]];
+    if (typeof e.agentId === 'string' && e.agentId) {
+      const list = byId[e.agentId] || (byId[e.agentId] = []);
+      list.push(e.key);
+    }
+    const subs = e.subagents;
+    if (Array.isArray(subs)) {
+      for (let j = 0; j < subs.length; j++) {
+        const sub = subs[j] as Record<string, unknown>;
+        if (!sub || typeof sub !== 'object') continue;
+        const subId = typeof sub.subagentId === 'string' ? sub.subagentId : undefined;
+        const subName = typeof sub.name === 'string' ? sub.name : undefined;
+        if (!subId || !subName) continue;
+        const skey = agentKey(e.sessionId, subId);
+        if (nameOf[skey] === undefined) nameOf[skey] = subName;
+      }
+    }
+    if (e.kind === 'sub' && typeof e.model === 'string' && e.model) {
+      const list = byModel[e.model] || (byModel[e.model] = []);
+      list.push(e.key);
+    }
+  }
+  // F4 (second pass): an orphan leaf carries its own subName when the parent
+  // no longer declares it in subagents[] (the leaf persists after the list
+  // drops the id). Parent-declared names win — the first pass registered them,
+  // and this backfill never overrides an existing value.
+  for (let i = 0; i < keys.length; i++) {
+    const e = model.byKey[keys[i]];
+    if (e.orphan === true && nameOf[e.key] === undefined && typeof e.subName === 'string' && e.subName) {
+      nameOf[e.key] = e.subName;
+    }
+  }
+  for (let i = 0; i < specs.length; i++) {
+    const spec = specs[i];
+    if (!spec || typeof spec.id !== 'string' || !spec.id) continue;
+    const hits: string[] = [];
+    const seen: Record<string, boolean> = Object.create(null);
+    const addHit = (k: string): void => {
+      if (seen[k]) return;
+      seen[k] = true;
+      hits.push(k);
+    };
+    const ids = byId[spec.id];
+    if (ids) {
+      for (let j = 0; j < ids.length; j++) addHit(ids[j]);
+    }
+    const tag = typeof spec.tag === 'string' && spec.tag ? spec.tag : undefined;
+    const nk = Object.keys(nameOf);
+    for (let j = 0; j < nk.length; j++) {
+      if (nameOf[nk[j]] === spec.id) {
+        const e = model.byKey[nk[j]];
+        if (e && e.kind === 'sub') addHit(nk[j]);
+      }
+      if (tag && nameOf[nk[j]] === tag) {
+        const e = model.byKey[nk[j]];
+        if (e && e.kind === 'sub') addHit(nk[j]);
+      }
+    }
+    if (tag && tag.indexOf('/') !== -1) {
+      const mk = byModel[tag];
+      if (mk) {
+        for (let j = 0; j < mk.length; j++) addHit(mk[j]);
+      }
+    }
+    out[spec.id] = hits;
+  }
+  return out;
+}
+
 export function agentKey(sessionId: string, agentId: string): string {
   return `${sessionId}:${agentId}`;
 }
@@ -909,10 +1011,11 @@ const MODEL_FUNCTIONS: Array<[string, (...args: any[]) => any]> = [
   ['activeAgentKeys', activeAgentKeys],
   ['activeAgentKeysWithAncestors', activeAgentKeysWithAncestors],
   ['subtreeKeys', subtreeKeys],
+  ['matchDebateSpecs', matchDebateSpecs],
 ];
 
 /** Public API surface the page consumes (subset of MODEL_FUNCTIONS). */
-const MODEL_API_EXPORTS = [
+export const MODEL_API_EXPORTS = [
   'agentKey',
   'newModel',
   'upsertSession',
@@ -929,6 +1032,7 @@ const MODEL_API_EXPORTS = [
   'activeAgentKeys',
   'activeAgentKeysWithAncestors',
   'subtreeKeys',
+  'matchDebateSpecs',
 ];
 
 /** The name the function actually carries in this build (its `toString()`

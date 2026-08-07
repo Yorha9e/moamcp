@@ -15,6 +15,7 @@ import {
   deriveStatus,
   isActiveAgent,
   listDirectories,
+  matchDebateSpecs,
   modelCounts,
   newModel,
   partitionSession,
@@ -958,5 +959,142 @@ describe('status-model: drift protection (D2)', () => {
     vm.createContext(sandbox);
     expect(() => vm.runInContext(STATUS_MODEL_JS, sandbox, { timeout: 5000 })).not.toThrow();
     expect(sandbox.window.__moaStatusModel.agentKey('a', 'b')).toBe('a:b');
+  });
+});
+
+describe('status-model: matchDebateSpecs (0.13.0)', () => {
+  /** Build a model from a bare agent list (no session records needed). */
+  function modelFrom(...raws: RawAgent[]): StatusModel {
+    const m = newModel();
+    applySnapshot(m, snapshot([], raws));
+    return m;
+  }
+
+  /** Load the serialized model source in a bare vm and return its API. */
+  function vmModel() {
+    const sandbox: Record<string, unknown> = { console };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(STATUS_MODEL_JS, sandbox, { timeout: 5000 });
+    return (sandbox as { window: { __moaStatusModel: any } }).window.__moaStatusModel;
+  }
+
+  it('rule 1: exact agentId match, any kind', () => {
+    const m = modelFrom(
+      agent('s1', 'main', { kind: 'main' }),
+      agent('s1', 'debaterA', { kind: 'sub', parentAgentId: 'main' }),
+    );
+    const hits = matchDebateSpecs(m, [{ id: 'debaterA' }]);
+    expect(hits['debaterA']).toEqual([agentKey('s1', 'debaterA')]);
+  });
+
+  it('rule 2: subagent type name equals the spec id (orphan + independent subs, one spec hits multiple same-type subs)', () => {
+    const m = modelFrom(
+      agent('s1', 'main', { subagents: [{ subagentId: 'res1', name: 'Researcher', status: 'running' }] }),
+      agent('s2', 'other', { subagents: [{ subagentId: 'res2', name: 'Researcher', status: 'running' }] }),
+      // Independent sub whose type name lives on its parent's subagents list.
+      agent('s3', 'm3', { subagents: [{ subagentId: 'res3', name: 'Critic', status: 'running' }] }),
+      agent('s3', 'res3', { kind: 'sub', parentAgentId: 'm3' }),
+    );
+    const hits = matchDebateSpecs(m, [{ id: 'Researcher' }]);
+    expect(hits['Researcher'].slice().sort()).toEqual([agentKey('s1', 'res1'), agentKey('s2', 'res2')]);
+    expect(matchDebateSpecs(m, [{ id: 'Critic' }])['Critic']).toEqual([agentKey('s3', 'res3')]);
+  });
+
+  it('rule 3: subagent type name equals the spec tag', () => {
+    const m = modelFrom(
+      agent('s1', 'main', { subagents: [{ subagentId: 'r1', name: 'Researcher', status: 'completed' }] }),
+    );
+    const hits = matchDebateSpecs(m, [{ id: 'spec-a', tag: 'Researcher' }]);
+    expect(hits['spec-a']).toEqual([agentKey('s1', 'r1')]);
+  });
+
+  it('rule 4: sub model equals the tag only when the tag looks like a model id (contains /)', () => {
+    const m = modelFrom(
+      agent('s1', 'main', { kind: 'main' }),
+      agent('s1', 'r1', { kind: 'sub', parentAgentId: 'main', model: 'anthropic/claude-3-5-sonnet' }),
+    );
+    expect(matchDebateSpecs(m, [{ id: 'a', tag: 'anthropic/claude-3-5-sonnet' }])['a']).toEqual([agentKey('s1', 'r1')]);
+    // No slash -> rule 4 must not fire.
+    expect(matchDebateSpecs(m, [{ id: 'b', tag: 'anthropic' }])['b']).toEqual([]);
+  });
+
+  it('no hit yields an empty array for the spec', () => {
+    const m = modelFrom(agent('s1', 'main', { kind: 'main' }));
+    const hits = matchDebateSpecs(m, [{ id: 'nope' }, { id: 'also', tag: 'x' }]);
+    expect(hits['nope']).toEqual([]);
+    expect(hits['also']).toEqual([]);
+  });
+
+  it('multiple specs can hit the same sub (rule 1 + rule 3, deduped per spec)', () => {
+    const m = modelFrom(
+      agent('s1', 'main', { subagents: [{ subagentId: 'debaterA', name: 'debaterA', status: 'running' }] }),
+      agent('s1', 'debaterA', { kind: 'sub', parentAgentId: 'main' }),
+    );
+    // Rule 1 (agentId) and rule 2/3 (type name) both resolve to the same key.
+    const hits = matchDebateSpecs(m, [{ id: 'debaterA' }, { id: 'z', tag: 'debaterA' }]);
+    expect(hits['debaterA']).toEqual([agentKey('s1', 'debaterA')]);
+    expect(hits['z']).toEqual([agentKey('s1', 'debaterA')]);
+  });
+
+  it("kind 'main' entries are not matched by rules 2-4", () => {
+    // The main entry itself appears as a subagent with type name 'Researcher'
+    // and carries a slash-y model: rules 2 and 4 both target the same MAIN
+    // key and must skip it (rule 1 has no agentId match here).
+    const m = modelFrom(
+      agent('s1', 'main', {
+        kind: 'main',
+        model: 'anthropic/claude-3-5-sonnet',
+        subagents: [{ subagentId: 'main', name: 'Researcher', status: 'running' }],
+      }),
+    );
+    const hits = matchDebateSpecs(m, [{ id: 'Researcher' }, { id: 'y', tag: 'anthropic/claude-3-5-sonnet' }]);
+    expect(hits['Researcher']).toEqual([]);
+    expect(hits['y']).toEqual([]);
+  });
+
+  it('specs with a missing/empty id are skipped', () => {
+    const m = modelFrom(agent('s1', 'main', { kind: 'main' }));
+    const hits = matchDebateSpecs(m, [{ id: '' }, { id: 'ok' }]);
+    expect(hits['ok']).toEqual([]);
+    expect(hits['']).toBeUndefined();
+  });
+
+  it('F4: orphan subName backfills the name index when the parent no longer declares it', () => {
+    // The orphan leaf is created from the parent's subagents[] declaration;
+    // after the parent frame drops the id, only the leaf's own subName can
+    // resolve the type name — the backfill must match it.
+    const m = modelFrom(
+      agent('s1', 'main', { subagents: [{ subagentId: 'r1', name: 'Researcher', status: 'running' }] }),
+    );
+    upsertAgent(m, agent('s1', 'main', { subagents: [] }));
+    expect(m.byKey[agentKey('s1', 'r1')]?.orphan).toBe(true);
+    const hits = matchDebateSpecs(m, [{ id: 'Researcher' }]);
+    expect(hits['Researcher']).toEqual([agentKey('s1', 'r1')]);
+  });
+
+  it('F4: a parent-declared name wins over the orphan subName backfill', () => {
+    // Parent declares 'Declared'; force the orphan leaf to carry a different
+    // (older) subName. The parent declaration must keep priority — the
+    // backfill never overrides an existing nameOf entry.
+    const m = modelFrom(
+      agent('s1', 'main', { subagents: [{ subagentId: 'r1', name: 'Declared', status: 'running' }] }),
+    );
+    const orphan = m.byKey[agentKey('s1', 'r1')];
+    expect(orphan?.orphan).toBe(true);
+    orphan!.subName = 'Stale';
+    expect(matchDebateSpecs(m, [{ id: 'Declared' }])['Declared']).toEqual([agentKey('s1', 'r1')]);
+    expect(matchDebateSpecs(m, [{ id: 'Stale' }])['Stale']).toEqual([]);
+  });
+
+  it('serialized source reproduces matchDebateSpecs hits (drift)', () => {
+    const m = modelFrom(
+      agent('s1', 'main', { subagents: [{ subagentId: 'res1', name: 'Researcher', status: 'running' }] }),
+      agent('s1', 'res1', { kind: 'sub', parentAgentId: 'main', model: 'anthropic/claude-3-5-sonnet', busy: true }),
+    );
+    const specs = [{ id: 'Researcher' }, { id: 'x', tag: 'anthropic/claude-3-5-sonnet' }, { id: 'miss' }];
+    const real = matchDebateSpecs(m, specs);
+    const fake = vmModel().matchDebateSpecs(m, specs);
+    expect(JSON.parse(JSON.stringify(fake))).toEqual(JSON.parse(JSON.stringify(real)));
   });
 });
