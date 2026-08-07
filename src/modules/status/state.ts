@@ -598,4 +598,20 @@ export class StateFold {
   snapshotAgents(): AgentState[] {
     return [...this.agents.values()].map((a) => this.cloneAgent(a));
   }
+
+  /**
+   * Resolve an engine agent id to one fold entry (B1-10). The same agent id
+   * can legitimately appear in several sessions (resume / multi-session
+   * mirroring), so a multiple-hit lookup is ambiguous: this picks the entry
+   * with the newest `lastSeen`. Consumers that need the full ambiguity set
+   * should use `snapshotAgents()` and filter themselves.
+   */
+  findAgentById(agentId: string): AgentState | undefined {
+    let best: AgentState | undefined;
+    for (const agent of this.agents.values()) {
+      if (agent.agentId !== agentId) continue;
+      if (best === undefined || agent.lastSeen > best.lastSeen) best = agent;
+    }
+    return best === undefined ? undefined : this.cloneAgent(best);
+  }
 }

@@ -58,6 +58,27 @@ it('falls back to llm.request model when nothing else set it', () => {
   expect(agent.model).toBe('kimi-code/k3');
 });
 
+it('findAgentById resolves an agent id across sessions to the newest lastSeen (B1-10 ambiguity)', () => {
+  const fold = new StateFold();
+  // The same engine agent id in two sessions (resume / multi-session mirroring)
+  // makes the lookup ambiguous — the helper picks the newest lastSeen.
+  fold.applyWire(
+    { home: 'omkc', workDirHash: 'wd_a', sessionId: 'sess-old', agentId: 'dup' },
+    wire('metadata', { created_at: 100 }, 100),
+    100,
+  );
+  fold.applyWire(
+    { home: 'omkc', workDirHash: 'wd_b', sessionId: 'sess-new', agentId: 'dup' },
+    wire('metadata', { created_at: 300 }, 300),
+    300,
+  );
+  const hit = fold.findAgentById('dup');
+  expect(hit).toBeDefined();
+  expect(hit!.sessionId).toBe('sess-new');
+  expect(hit!.lastSeen).toBe(300);
+  expect(fold.findAgentById('no-such-agent')).toBeUndefined();
+});
+
 it('infers busy from turn.prompt and idle from a terminal step.end', () => {
   const fold = new StateFold();
   fold.applyWire(ref, wire('turn.prompt', { input: [] }, 1000));

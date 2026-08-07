@@ -19,6 +19,7 @@ import { DAEMON_VERSION_CHECK_MS, diskVersionMismatch } from './core/bus/daemon-
 import { readDiskVersion } from './core/bus/disk-version.js';
 import { BoardStore } from './core/store/board.js';
 import { createStatusController } from './modules/status/index.js';
+import { createTowerController } from './modules/tower/index.js';
 import { TipStore } from './modules/tips/tips.js';
 import { defaultLogsDir } from './modules/debate/state.js';
 
@@ -28,7 +29,14 @@ async function main(): Promise<void> {
   // Control Plane serves /status; it starts once the daemon confirms it owns
   // the port (the daemon is batch-1c option ①'s folded owner).
   const statusController = createStatusController();
-  const bus = new Bus({ cwd, logsDir: defaultLogsDir(), statusController });
+  // Tower module (B1): same seam — the daemon's Control Plane serves the
+  // /api/tower/* routes; the controller starts once ownership is confirmed
+  // (the board is process-shared under MOAMCP_HOME, so no per-process state
+  // needs starting; B2 identity checks read getFold()).
+  const towerController = createTowerController({
+    foldAccessor: () => statusController.getFold(),
+  });
+  const bus = new Bus({ cwd, logsDir: defaultLogsDir(), statusController, towerController });
   const board = new BoardStore({
     workspaceCwd: cwd,
     // The daemon owns the Bus, so board events fan out locally — same routing
@@ -36,6 +44,7 @@ async function main(): Promise<void> {
     // the synthetic @board/<scope> channel for Control Plane invalidation).
     emit: (scope, event) => bus.publish(scope.kind === 'task' ? scope.taskId : `@board/${scope.key}`, event),
   });
+  towerController.mountBoard(board);
   bus.mountControlPlane(board, new TipStore(board));
 
   const port = await bus.start();
@@ -48,6 +57,7 @@ async function main(): Promise<void> {
   // Own confirmed: the status fold is this daemon's to serve (batch 1c P1).
   statusController.setPort(port);
   statusController.start();
+  towerController.start();
 
   // Version self-check (batch 1c P4): every 60s compare the installed disk
   // build version against the running VERSION. A mismatch means a newer build
