@@ -995,6 +995,27 @@ ${STATUS_MODEL_JS}
     }
   }
 
+  /** Attach (or re-attach) a session group at its model-order position inside
+   *  the dir's sessionsBox. Plain appendChild on an already-attached group
+   *  MOVES it to the bottom — expanding/collapsing a session (or a flush
+   *  re-render) used to yank it out of order; anchor on the next attached
+   *  sibling in model.sessionOrder instead. */
+  function attachSessionGroup(dirInfo, sessionId, group) {
+    var box = dirInfo.sessionsBox;
+    var order = model.sessionOrder;
+    var myIdx = order.indexOf(sessionId);
+    if (myIdx !== -1) {
+      for (var i = myIdx + 1; i < order.length; i++) {
+        var sib = sessionEls[order[i]];
+        if (sib && sib.group.parentNode === box) {
+          box.insertBefore(group, sib.group);
+          return;
+        }
+      }
+    }
+    box.appendChild(group);
+  }
+
   function renderFullSession(sessionId, dirInfo) {
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
@@ -1031,7 +1052,7 @@ ${STATUS_MODEL_JS}
       while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
       for (var i = 0; i < inactive.length; i++) delete rowEls[inactive[i]];
     }
-    if (dirInfo) dirInfo.sessionsBox.appendChild(info.group);
+    if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
   }
 
   function renderHeadOnly(sessionId, dirInfo) {
@@ -1039,7 +1060,7 @@ ${STATUS_MODEL_JS}
     var info = ensureSessionEl(sessionId);
     applySessionMode(info, 'head');
     updateSessionEl(sessionId, part);
-    if (dirInfo) dirInfo.sessionsBox.appendChild(info.group);
+    if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
   }
 
   /** Rebuild-path renderer (snapshot / dir expand): inactive sessions get a

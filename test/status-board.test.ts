@@ -1206,6 +1206,37 @@ describe('Status Board 0.10.0: directory tree, active section and lazy rendering
     expect(rowIds(idleGroup)).toEqual(['s9:lone']);
   });
 
+  it('expanding or collapsing a session keeps its position among sibling sessions', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      sessions: [
+        { sessionId: 's1', title: 'One', workDir: '/wd/pos', workDirHash: 'hp1' },
+        { sessionId: 's2', title: 'Two', workDir: '/wd/pos', workDirHash: 'hp1' },
+        { sessionId: 's3', title: 'Three', workDir: '/wd/pos', workDirHash: 'hp1' },
+      ],
+      agents: [
+        agentFrame('s1', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s2', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+        agentFrame('s3', 'main', { kind: 'main', busy: false, lastSeen: 1 }),
+      ],
+    }));
+    await flush();
+    const dir = dirGroups(page.el('sbList')).find((d) => d.getAttribute('data-dir') === '/wd/pos')!;
+    // all-inactive dir is default folded: expand it to build the head-only groups
+    click(dir.querySelector('.sb-dir-head')!);
+    const order = () => sessionGroups(dir).map((g) => g.getAttribute('data-session'));
+    expect(order()).toEqual(['s1', 's2', 's3']);
+    // regression: renderFullSession/renderHeadOnly used plain appendChild,
+    // which MOVED the touched group to the bottom of sessionsBox
+    click(sessionGroups(dir)[0].querySelector('.sb-session-head')!); // s1 head-only -> full
+    expect(order()).toEqual(['s1', 's2', 's3']);
+    click(sessionGroups(dir)[0].querySelector('.sb-session-head')!); // s1 full -> head-only
+    expect(order()).toEqual(['s1', 's2', 's3']);
+    // middle session too (insertBefore anchor must not drift past it)
+    click(sessionGroups(dir)[1].querySelector('.sb-session-head')!);
+    expect(order()).toEqual(['s1', 's2', 's3']);
+  });
+
   it('persists dir folds across page rebuilds; user state overrides the default auto-expand', async () => {
     const seed = { 'moamcp-status-folds': JSON.stringify({ dirs: { '/wd/active': 1, '/wd/idle': 0 } }) };
     const page = runStatusPage(await fetchPage(), offlineFetch, seed);
