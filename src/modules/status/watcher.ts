@@ -74,7 +74,10 @@ export interface SessionState {
   createdAt?: string;
   updatedAt?: string;
   title?: string;
+  /** Working directory as omkc writes it. */
   workDir?: string;
+  /** Working directory as official kimi-code writes it (same meaning, other key). */
+  cwd?: string;
   agents?: Record<
     string,
     { homedir?: string; type?: string; parentAgentId?: string | null }

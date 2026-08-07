@@ -115,6 +115,32 @@ it('discovers subagents from state.json agents table', () => {
   expect(fold.snapshotSessions()[0].title).toBe('demo');
 });
 
+it('falls back to cwd for workDir (official kimi-code state.json), workDir key wins when both present', () => {
+  const fold = new StateFold();
+  // Official kimi-code writes `cwd`, omkc writes `workDir` — the row label
+  // must resolve from either, preferring the explicit workDir key.
+  fold.applySessionState(
+    { home: 'kimi-code', workDirHash: 'wd_official_1', sessionId: 'sess-off' },
+    { title: 'official', cwd: 'D:/official', updatedAt: '2026-07-22T10:00:00.000Z' },
+  );
+  expect(fold.snapshotSessions()[0].workDir).toBe('D:/official');
+
+  fold.applySessionState(
+    { home: 'omkc', workDirHash: 'wd_both_1', sessionId: 'sess-both' },
+    { title: 'both', workDir: 'D:/omkc', cwd: 'D:/ignored', updatedAt: '2026-07-22T10:00:00.000Z' },
+  );
+  expect(fold.snapshotSessions()[1].workDir).toBe('D:/omkc');
+
+  // A later state carrying neither key must not clobber the resolved label.
+  fold.applySessionState(
+    { home: 'kimi-code', workDirHash: 'wd_official_1', sessionId: 'sess-off' },
+    { title: 'official v2', updatedAt: '2026-07-22T11:00:00.000Z' },
+  );
+  const off = fold.snapshotSessions().find((s) => s.sessionId === 'sess-off')!;
+  expect(off.workDir).toBe('D:/official');
+  expect(off.title).toBe('official v2');
+});
+
 it('updates subagent lifecycle from tasks/*.json', () => {
   const fold = new StateFold();
   fold.applySessionState(

@@ -370,7 +370,7 @@ export class StateFold {
       sessionId: ref.sessionId,
       home: existing?.home ?? ref.home,
       title: state.title ?? existing?.title,
-      workDir: state.workDir ?? existing?.workDir,
+      workDir: state.workDir ?? state.cwd ?? existing?.workDir,
       createdAt: state.createdAt ?? existing?.createdAt,
       updatedAt: laterOf(existing?.updatedAt, state.updatedAt),
     });
