@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 
 import {
-  BOARD_VALUE_MAX_BYTES,
+  TIP_VALUE_MAX_BYTES,
   BoardStore,
   type BoardEntry,
   normalizeWorkspacePath,
@@ -124,7 +124,7 @@ export class TipValidationError extends Error {
   }
 }
 
-const CONTEXT_MAX_BYTES = 8 * 1024;
+const CONTEXT_MAX_BYTES = 32 * 1024;
 const TIP_LIST_DEFAULT_LIMIT = 100;
 const TIP_LIST_MAX_LIMIT = 1000;
 const TIP_PREFIX = 'tips/';
@@ -255,8 +255,8 @@ function tipTags(tip: ProjectTip): string[] {
 
 function encodeTip(tip: ProjectTip): string {
   const value = JSON.stringify(tip);
-  if (Buffer.byteLength(value, 'utf8') > BOARD_VALUE_MAX_BYTES) {
-    throw new TipValidationError(`tip value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  if (Buffer.byteLength(value, 'utf8') > TIP_VALUE_MAX_BYTES) {
+    throw new TipValidationError(`tip value exceeds ${TIP_VALUE_MAX_BYTES} bytes`);
   }
   return value;
 }

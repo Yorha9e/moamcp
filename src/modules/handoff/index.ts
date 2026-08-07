@@ -57,7 +57,7 @@ export function handoffTools(store: HandoffStore): MoaToolDef[] {
           toProject: HANDOFF_TO_PROJECT,
           title: { type: 'string', description: 'Short handoff title' },
           summary: { type: 'string', description: 'What the target session needs to know/do' },
-          context: { type: 'string', description: 'Optional longer context (the whole entry is capped at 32KB)' },
+          context: { type: 'string', description: 'Optional longer context (the whole entry is capped at 96KB)' },
           author: { type: 'string', description: 'Sender identity recorded on the entry (default "anonymous")' },
           toAgent: {
             ...HANDOFF_AGENT_ADDRESS,

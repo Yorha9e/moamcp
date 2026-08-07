@@ -1,6 +1,6 @@
 /**
  * Shared-blackboard tests: BoardStore semantics (write/read/list/delete,
- * last-write-wins, tag filter, scope isolation, 32KB cap, persistence
+ * last-write-wins, tag filter, scope isolation, 96KB cap, persistence
  * round-trip, tombstones), wait long-poll (wake / since / timeout / closed),
  * per-scope write serialization under concurrency, task-scope archival via
  * moa_complete, and the five moa_board_* tools end-to-end over MCP.
@@ -138,7 +138,7 @@ it('three-level scope isolation: same key, four independent boards', async () =>
   expect(await b.read('handoff', undefined, 'task:other')).toEqual([]);
 });
 
-it('rejects invalid scopes, keys, and oversized values; 32KB is the inclusive bound', async () => {
+it('rejects invalid scopes, keys, and oversized values; 96KB is the inclusive bound', async () => {
   const b = store();
   await expect(b.write('k', 'v', undefined, undefined, 'bogus')).rejects.toThrow(/invalid scope/);
   await expect(b.write('k', 'v', undefined, undefined, 'task:')).rejects.toThrow(/invalid scope/);
@@ -148,6 +148,12 @@ it('rejects invalid scopes, keys, and oversized values; 32KB is the inclusive bo
 
   await expect(b.write('k', 'a'.repeat(BOARD_VALUE_MAX_BYTES), undefined, undefined, 'workspace')).resolves.toMatchObject({ ok: true });
   await expect(b.write('k', 'a'.repeat(BOARD_VALUE_MAX_BYTES + 1), undefined, undefined, 'workspace')).rejects.toThrow(/value too large/);
+});
+
+it('enforces the 96KB value cap: 98304 bytes pass, 98305 reject', async () => {
+  const b = store();
+  await expect(b.write('k', 'a'.repeat(98304), undefined, undefined, 'workspace')).resolves.toMatchObject({ ok: true });
+  await expect(b.write('k', 'a'.repeat(98305), undefined, undefined, 'workspace')).rejects.toThrow(/value too large/);
 });
 
 it('workspace persistence round-trip: a fresh instance folds the same board back', async () => {

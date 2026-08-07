@@ -27,7 +27,7 @@ export const BOARD_MODAL_HTML = `<div id="boardModal" class="board-modal" role="
     <div class="form-grid">
       <div class="field"><label for="boardFormScope" data-i18n="board.scope">Scope *</label><select id="boardFormScope"><option value="workspace">workspace</option><option value="global">global</option></select></div>
       <div class="field"><label for="boardFormKey">key *</label><input id="boardFormKey" required type="text" autocomplete="off"></div>
-      <div class="field full"><label for="boardFormValue" data-i18n="board.value">Markdown value</label><textarea id="boardFormValue"></textarea><div id="boardByteLine" class="byte-line"><span data-i18n="board.valueSize">UTF-8 value size</span><span id="boardValueBytes">0 / 32768 bytes</span></div></div>
+      <div class="field full"><label for="boardFormValue" data-i18n="board.value">Markdown value</label><textarea id="boardFormValue"></textarea><div id="boardByteLine" class="byte-line"><span data-i18n="board.valueSize">UTF-8 value size</span><span id="boardValueBytes"></span></div></div>
       <div class="field"><label for="boardFormTags" data-i18n="tips.tags">Tags · comma or newline separated</label><textarea id="boardFormTags"></textarea></div>
       <div class="field"><label for="boardFormAuthor" data-i18n="board.author">Author</label><input id="boardFormAuthor" type="text"></div>
     </div>
@@ -118,6 +118,21 @@ export const BOARD_LIST_JS = `  function boardQuery() {
     box.appendChild(actions);
     var value = document.createElement('pre'); value.className = 'board-value'; value.textContent = entry.value || ''; box.appendChild(value);
   }
+  function renderBoardDetailMissing(key) {
+    // The exact-key fetch found no live entry (deleted, or shadowed by a
+    // descendant key in namespace searches). Never render the summary row as
+    // if it were the full entry — that would open an empty Edit form and let a
+    // save overwrite the real value with an empty one. Show a not-found state
+    // with Edit disabled instead.
+    var box = document.getElementById('boardDetail'); box.textContent = '';
+    var heading = document.createElement('h2'); heading.textContent = key; box.appendChild(heading);
+    var actions = document.createElement('div'); actions.className = 'board-detail-actions';
+    var edit = makeBoardAction(tr('common.edit'), 'primary', function () {});
+    edit.disabled = true;
+    actions.appendChild(edit);
+    box.appendChild(actions);
+    var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('board.missing'); box.appendChild(empty);
+  }
   function renderBoardList(entries) {
     boardEntries = sortBoardEntries(entries || []);
     document.getElementById('boardResultCount').textContent = tr(boardEntries.length === 1 ? 'board.result' : 'board.results', { count: boardEntries.length });
@@ -137,11 +152,40 @@ export const BOARD_LIST_JS = `  function boardQuery() {
         var children = list.children;
         for (var i = 0; i < children.length; i++) children[i].classList.remove('selected');
         row.classList.add('selected');
-        renderBoardDetail(entry);
+        viewBoardEntry(entry);
       });
       list.appendChild(row);
     });
-    renderBoardDetail(boardEntries[selectedIndex]);
+    viewBoardEntry(boardEntries[selectedIndex]);
+  }
+  function fetchBoardEntry(key) {
+    var query = new URLSearchParams();
+    var scope = document.getElementById('boardScope').value;
+    query.set('scope', scope);
+    if (scope === 'workspace' && currentWorkspace) query.set('workspace', currentWorkspace);
+    query.set('key', key);
+    query.set('exact', '1');
+    query.set('limit', '1');
+    query.set('values', '1');
+    return api('/api/board?' + query.toString()).then(function (data) {
+      var rows = data && Array.isArray(data.entries) ? data.entries : [];
+      return rows.filter(function (entry) { return entry.key === key; })[0] || null;
+    });
+  }
+  function viewBoardEntry(entry) {
+    if (!entry) { renderBoardDetail(null); return; }
+    // List rows come back in summary mode (metadata only, no value): fetch the
+    // full entry by key before rendering the detail pane / edit form.
+    if (entry.value != null) { renderBoardDetail(entry); return; }
+    var box = document.getElementById('boardDetail');
+    box.textContent = '';
+    var loading = document.createElement('div'); loading.className = 'empty'; loading.textContent = '…';
+    box.appendChild(loading);
+    fetchBoardEntry(entry.key).then(function (full) {
+      if (selectedBoardKey !== entry.key) return; // superseded by a newer selection
+      if (full) renderBoardDetail(full);
+      else renderBoardDetailMissing(entry.key);
+    }).catch(function (error) { setNotice(error.message, true); });
   }
   function loadBoard() {
     var scope = document.getElementById('boardScope').value;
@@ -196,7 +240,7 @@ export const BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormE
     var key = document.getElementById('boardFormKey').value.trim();
     var value = document.getElementById('boardFormValue').value;
     if (!key) throw new Error(tr('board.keyRequired'));
-    if (utf8Bytes(value) > BOARD_VALUE_MAX_BYTES) throw new Error(tr('board.tooLarge'));
+    if (utf8Bytes(value) > BOARD_VALUE_MAX_BYTES) throw new Error(tr('board.tooLarge', { max: BOARD_VALUE_MAX_BYTES }));
     if (scope === 'workspace' && !boardEditing.workspace) throw new Error(tr('board.workspaceRequired'));
     var payload = boardRequestBody(scope, boardEditing.workspace, key);
     payload.value = value;
@@ -209,7 +253,7 @@ export const BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormE
   function saveBoardEntry(event) {
     event.preventDefault(); setBoardFormError('');
     if (!boardEditing) return;
-    if (updateBoardValueBytes() > BOARD_VALUE_MAX_BYTES) { setBoardFormError(tr('board.tooLarge')); return; }
+    if (updateBoardValueBytes() > BOARD_VALUE_MAX_BYTES) { setBoardFormError(tr('board.tooLarge', { max: BOARD_VALUE_MAX_BYTES })); return; }
     if (boardEditing.external && !window.confirm(tr('board.externalConfirm'))) return;
     var payload;
     try { payload = buildBoardPayload(); } catch (error) { setBoardFormError(error.message); return; }
@@ -233,7 +277,7 @@ export const BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormE
   }
   function reloadBoardConflict() {
     if (!boardEditing) return;
-    var query = new URLSearchParams(); query.set('scope', boardEditing.scope); query.set('key', boardEditing.key); query.set('limit', '1000');
+    var query = new URLSearchParams(); query.set('scope', boardEditing.scope); query.set('key', boardEditing.key); query.set('exact', '1'); query.set('limit', '1000'); query.set('values', '1');
     if (boardEditing.scope === 'workspace') query.set('workspace', boardEditing.workspace);
     api('/api/board?' + query.toString()).then(function (data) {
       var rows = data && Array.isArray(data.entries) ? data.entries : [];

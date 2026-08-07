@@ -36,7 +36,7 @@ import { readdir } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 
 import {
-  BOARD_VALUE_MAX_BYTES,
+  HANDOFF_VALUE_MAX_BYTES,
   BoardStore,
   normalizeWorkspacePath,
   workspaceIdForPath,
@@ -284,8 +284,8 @@ function encodeHandoff(handoff: Handoff): string {
   ordered.consumedAt = handoff.consumedAt;
   ordered.author = handoff.author;
   const value = JSON.stringify(ordered);
-  if (Buffer.byteLength(value, 'utf8') > BOARD_VALUE_MAX_BYTES) {
-    throw new HandoffValidationError(`handoff value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  if (Buffer.byteLength(value, 'utf8') > HANDOFF_VALUE_MAX_BYTES) {
+    throw new HandoffValidationError(`handoff value exceeds ${HANDOFF_VALUE_MAX_BYTES} bytes`);
   }
   return value;
 }

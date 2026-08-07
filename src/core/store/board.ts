@@ -23,7 +23,7 @@
  *       alias-resolved form, but no cwd sidecar entry (no directory involved).
  *
  * Data model: entries `{key, value, author, ts, tags[]}` where value is a
- * markdown string capped at 32 KB. Same-key writes are last-write-wins; the
+ * markdown string capped at 96 KB. Same-key writes are last-write-wins; the
  * on-disk format is append-only JSONL (`{op:'write'|'delete', ...}` records)
  * and the current view is rebuilt by folding the log on access, so deletes
  * leave tombstones instead of rewriting history.
@@ -55,8 +55,17 @@ import { DEFAULT_WAIT_CAP_MS } from '../constants.js';
 import { withAppendLock } from './append-lock.js';
 import { PROJECT_ID_PATTERN, ProjectRegistry } from './project-registry.js';
 
-/** Hard cap on a single entry value (markdown payload; larger content belongs in files). */
-export const BOARD_VALUE_MAX_BYTES = 32 * 1024;
+/**
+ * Hard caps on persisted payloads (markdown/JSON; larger content belongs in files).
+ * Raw board values and handoff entries share the 96 KB ceiling; tips cap their
+ * JSON-encoded value at 48 KB (their raw `context` field is capped separately at
+ * 32 KB, so the layers fail closed independently by design).
+ */
+export const BOARD_VALUE_MAX_BYTES = 96 * 1024;
+/** Handoff entries are JSON under `handoff/<id>`; same ceiling as raw board values. */
+export const HANDOFF_VALUE_MAX_BYTES = 96 * 1024;
+/** Tips are JSON under `tips/<id>`; encoded size capped at 48 KB. */
+export const TIP_VALUE_MAX_BYTES = 48 * 1024;
 
 /** Default/max entry counts for unbounded reads ("limit 防爆"). */
 const DEFAULT_READ_LIMIT = 100;

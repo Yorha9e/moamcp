@@ -333,10 +333,15 @@ it('send validation: toProject shape, required fields, immutable fields, workspa
     handoffs.send({ toProject: 'user-global', title: 't', summary: 's', fromProject: 'p_000000000000' } as never, wsA),
   ).rejects.toThrow(/fromProject cannot be supplied/);
 
-  // Oversized payload fails closed on the board's 32KB value cap.
+  // Oversized payload fails closed on the handoff value cap (96KB, measured on
+  // the JSON-encoded entry; pure-ASCII payload keeps byte counts exact): a
+  // 97KB summary fits comfortably, a 98305-byte one is over the cap.
   await expect(
-    handoffs.send({ toProject: 'user-global', title: 't', summary: 'z'.repeat(33000) }, wsA),
-  ).rejects.toThrow(/32768/);
+    handoffs.send({ toProject: 'user-global', title: 't', summary: 'z'.repeat(97000) }, wsA),
+  ).resolves.toMatchObject({ state: 'pending' });
+  await expect(
+    handoffs.send({ toProject: 'user-global', title: 't', summary: 'z'.repeat(98305) }, wsA),
+  ).rejects.toThrow(/98304/);
 
   // Unknown ids read as undefined (null over MCP), not an error.
   expect(await handoffs.read('ho_deadbeef0000', 'user-global')).toBeUndefined();

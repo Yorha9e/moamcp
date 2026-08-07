@@ -23,7 +23,14 @@ import {
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { createStatusModule, type StatusController } from '../modules/status/index.js';
-import { BoardStore, WORKSPACE_NAME_MAX_CHARS, workspaceIdForPath, type BoardEntry, type WorkspaceInfo } from '../core/store/board.js';
+import {
+  BOARD_VALUE_MAX_BYTES,
+  BoardStore,
+  WORKSPACE_NAME_MAX_CHARS,
+  workspaceIdForPath,
+  type BoardEntry,
+  type WorkspaceInfo,
+} from '../core/store/board.js';
 import { migrateWorkspaceToProject } from '../core/store/project-migration.js';
 import { readDiskVersion } from '../core/bus/disk-version.js';
 import { VERSION } from '../core/bus/registry.js';
@@ -54,8 +61,17 @@ import {
   type TipUpdateInput,
 } from '../modules/tips/tips.js';
 
-/** JSON request body cap for browser mutations. */
-export const CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
+/**
+ * JSON request body cap for browser mutations. The board value ceiling alone
+ * is not enough: JSON string escaping expands values on the wire (quotes,
+ * newlines, backslashes become two bytes each), so the envelope is estimated
+ * at 2× the value ceiling plus 16 KB of fixed headroom (keys, tags, author,
+ * scope) — 208 KB total, which covers realistic markdown bodies. A
+ * pathological value that is *fully* escape-prone can still exceed the
+ * envelope and 413, an intentional trade-off. Other /api/* endpoints keep
+ * their own semantics.
+ */
+export const CONTROL_PLANE_BODY_MAX_BYTES = BOARD_VALUE_MAX_BYTES * 2 + 16 * 1024;
 
 const WORKSPACE_ID = /^[0-9a-f]{16}$/;
 
@@ -1183,12 +1199,30 @@ export class ControlPlane {
     const key = queryText(url.searchParams.get('key'));
     const tag = queryText(url.searchParams.get('tag'));
     const limit = parseLimit(url.searchParams.get('limit'));
+    // Summary mode (default): entries carry metadata (key/ts/author/tags/bytes)
+    // but no `value`, keeping list loads cheap even with 96 KB entries. Pass
+    // `values=1` to fetch full payloads — the web board view does that per-key
+    // when opening an entry.
+    const withValues = url.searchParams.get('values') === '1';
+    // `exact=1` switches `key=` from namespace-prefix search to an exact
+    // single-key read (BoardStore.read — the moa_board_read path). Without it
+    // `key=` keeps its documented namespace semantics: the toolbar search box
+    // and the frontend-bus-contract doc depend on the prefix match. The web
+    // detail pane opens an entry with exact=1 so a newer descendant key (e.g.
+    // `tips/abc` vs `tips/abc/notes`) can never shadow the selected entry.
+    const exactKey = url.searchParams.get('exact') === '1';
     const entries = key !== undefined
-      ? await board.readNamespace(key, tag, rawScope, limit, cwd)
+      ? (exactKey
+          ? await board.read(key, tag, rawScope, limit, cwd)
+          : await board.readNamespace(key, tag, rawScope, limit, cwd))
       : await board.read(undefined, tag, rawScope, limit, cwd);
     const enrichedEntries = entries.map((entry) => ({
-      ...entry,
+      key: entry.key,
+      author: entry.author,
+      ts: entry.ts,
+      tags: [...entry.tags],
       bytes: Buffer.byteLength(entry.value, 'utf8'),
+      ...(withValues ? { value: entry.value } : {}),
     }));
     sendJson(res, 200, {
       scope: rawScope,

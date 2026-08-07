@@ -71,13 +71,13 @@ export function boardTools(store: BoardStore): MoaToolDef[] {
     {
       name: 'moa_board_write',
       description:
-        'Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 32KB — put large content in files and reference them. ' +
+        'Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 96KB — put large content in files and reference them. ' +
         'Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.',
       inputSchema: {
         type: 'object',
         properties: {
           key: { type: 'string', description: 'Entry key (unique within the scope; rewriting replaces the value)' },
-          value: { type: 'string', description: 'Markdown payload, ≤ 32KB' },
+          value: { type: 'string', description: 'Markdown payload, ≤ 96KB' },
           tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags for moa_board_read tag filtering' },
           author: BOARD_AUTHOR,
           scope: BOARD_SCOPE,

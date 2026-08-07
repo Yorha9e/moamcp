@@ -23439,7 +23439,9 @@ var ProjectRegistry = class {
 };
 
 // src/core/store/board.ts
-var BOARD_VALUE_MAX_BYTES = 32 * 1024;
+var BOARD_VALUE_MAX_BYTES = 96 * 1024;
+var HANDOFF_VALUE_MAX_BYTES = 96 * 1024;
+var TIP_VALUE_MAX_BYTES = 48 * 1024;
 var DEFAULT_READ_LIMIT = 100;
 var MAX_READ_LIMIT = 1e3;
 var KEY_MAX_BYTES = 512;
@@ -24915,6 +24917,26 @@ ${SIGNOFF_PROTOCOL}`;
 };
 
 // src/modules/board/index.ts
+async function collectProjectsList(store) {
+  const [workspaces, projects] = await Promise.all([store.listWorkspaces(), store.registry.listProjects()]);
+  const cwdByHash = new Map(workspaces.map((ws) => [ws.id, ws.cwd]));
+  return {
+    projects: projects.map((project) => {
+      const cwds = project.aliases.map((alias) => cwdByHash.get(alias)).filter((cwd) => cwd !== void 0);
+      return {
+        projectId: project.projectId,
+        ...project.name !== void 0 ? { name: project.name } : {},
+        aliases: project.aliases,
+        ...cwds.length > 0 ? { cwds } : {}
+      };
+    }),
+    workspaces: workspaces.map((ws) => ({
+      id: ws.id,
+      cwd: ws.cwd,
+      ...ws.name !== void 0 ? { name: ws.name } : {}
+    }))
+  };
+}
 var BOARD_SCOPE = {
   type: "string",
   description: 'Board scope: "workspace" (default \u2014 persisted, shared by all sessions of this project), "global" (persisted, cross-project), or "task:<task_id>" (debate-local, archived with the task).'
@@ -24931,12 +24953,12 @@ function boardTools(store) {
   return [
     {
       name: "moa_board_write",
-      description: "Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 32KB \u2014 put large content in files and reference them. Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.",
+      description: "Write an entry to the shared blackboard (last-write-wins per key). value is markdown, max 96KB \u2014 put large content in files and reference them. Use the blackboard for contracts/decisions/status/pointers across agents and sessions; one-shot instructions belong in dispatch prompts instead.",
       inputSchema: {
         type: "object",
         properties: {
           key: { type: "string", description: "Entry key (unique within the scope; rewriting replaces the value)" },
-          value: { type: "string", description: "Markdown payload, \u2264 32KB" },
+          value: { type: "string", description: "Markdown payload, \u2264 96KB" },
           tags: { type: "array", items: { type: "string" }, description: "Optional tags for moa_board_read tag filtering" },
           author: BOARD_AUTHOR,
           scope: BOARD_SCOPE,
@@ -25000,6 +25022,16 @@ function boardTools(store) {
         required: ["key"]
       },
       handler: (a) => store.delete(a.key, a.author, a.scope, a.workspace)
+    },
+    {
+      name: "moa_projects_list",
+      description: "Read-only aggregate for cross-harness project discovery: every registered workspace and registry project in this MOAMCP_HOME. Use it to look up a target projectId before sending a handoff (workspace = the absolute project path you pass to handoff tools). WARNING: every harness that mounts moamcp must point MOAMCP_HOME at the SAME directory \u2014 otherwise each harness gets its own blackboard and the coordination chain silently breaks.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: false
+      },
+      handler: () => collectProjectsList(store)
     }
   ];
 }
@@ -25133,6 +25165,7 @@ var HANDOFF_ID_PATTERN = /^ho_[0-9a-f]{12}$/;
 var HANDOFF_LIST_DEFAULT_LIMIT = 100;
 var HANDOFF_LIST_MAX_LIMIT = 1e3;
 var HANDOFF_SCAN_MAX = 1e3;
+var AGENT_ADDRESS_PATTERN = /^[a-z0-9-]+:[^:\s]+:[^:\s]+$/;
 function handoffKey(id) {
   return `${HANDOFF_PREFIX}${id}`;
 }
@@ -25165,16 +25198,25 @@ function validateDate(value, field) {
   if (Number.isNaN(Date.parse(result))) throw new HandoffValidationError(`${field} must be an ISO 8601 timestamp`);
   return result;
 }
+function validateAgentAddress(value, field) {
+  const address = requireString(value, field);
+  if (!AGENT_ADDRESS_PATTERN.test(address)) {
+    throw new HandoffValidationError(
+      `${field} must match the agent address shape <label>:<sessionId>:<agentId> (label is [a-z0-9-]+; the other two parts must be non-empty and free of colons/whitespace)`
+    );
+  }
+  return address;
+}
 function validateHandoff(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new HandoffValidationError("handoff value must be an object");
   }
   const raw = value;
-  if (raw.v !== 1) throw new HandoffValidationError("v must be 1");
+  if (raw.v !== 1 && raw.v !== 2) throw new HandoffValidationError("v must be 1 or 2");
   const id = requireString(raw.id, "id");
   if (!HANDOFF_ID_PATTERN.test(id)) throw new HandoffValidationError("id must match ho_<12 hex chars>");
   const handoff = {
-    v: 1,
+    v: raw.v,
     id,
     title: requireString(raw.title, "title"),
     summary: requireString(raw.summary, "summary"),
@@ -25186,6 +25228,8 @@ function validateHandoff(value) {
     consumedAt: raw.consumedAt === void 0 || raw.consumedAt === null ? null : validateDate(raw.consumedAt, "consumedAt"),
     author: requireString(raw.author, "author")
   };
+  if (raw.toAgent !== void 0) handoff.toAgent = validateAgentAddress(raw.toAgent, "toAgent");
+  if (raw.fromAgent !== void 0) handoff.fromAgent = validateAgentAddress(raw.fromAgent, "fromAgent");
   if (raw.context !== void 0) handoff.context = requireString(raw.context, "context", false);
   return handoff;
 }
@@ -25198,7 +25242,9 @@ function summaryOf(handoff) {
   return copy;
 }
 function handoffTags(handoff) {
-  return [HANDOFF_TAG, `${HANDOFF_TAG}:state:${handoff.state}`];
+  const tags = [HANDOFF_TAG, `${HANDOFF_TAG}:state:${handoff.state}`];
+  if (handoff.toAgent !== void 0) tags.push(`agent:${handoff.toAgent}`);
+  return tags;
 }
 function encodeHandoff(handoff) {
   const ordered = {
@@ -25210,14 +25256,16 @@ function encodeHandoff(handoff) {
   if (handoff.context !== void 0) ordered.context = handoff.context;
   ordered.fromProject = handoff.fromProject;
   ordered.toProject = handoff.toProject;
+  if (handoff.fromAgent !== void 0) ordered.fromAgent = handoff.fromAgent;
+  if (handoff.toAgent !== void 0) ordered.toAgent = handoff.toAgent;
   ordered.state = handoff.state;
   ordered.createdAt = handoff.createdAt;
   ordered.updatedAt = handoff.updatedAt;
   ordered.consumedAt = handoff.consumedAt;
   ordered.author = handoff.author;
   const value = JSON.stringify(ordered);
-  if (Buffer.byteLength(value, "utf8") > BOARD_VALUE_MAX_BYTES) {
-    throw new HandoffValidationError(`handoff value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  if (Buffer.byteLength(value, "utf8") > HANDOFF_VALUE_MAX_BYTES) {
+    throw new HandoffValidationError(`handoff value exceeds ${HANDOFF_VALUE_MAX_BYTES} bytes`);
   }
   return value;
 }
@@ -25258,14 +25306,17 @@ var HandoffStore = class {
     const summary = requireString(raw.summary, "summary");
     const context = raw.context === void 0 ? void 0 : requireString(raw.context, "context", false);
     const author = normalizeActor(raw.author);
+    const toAgent = raw.toAgent === void 0 ? void 0 : validateAgentAddress(raw.toAgent, "toAgent");
+    const fromAgent = raw.fromAgent === void 0 ? void 0 : validateAgentAddress(raw.fromAgent, "fromAgent");
     const fromProject = await this.senderIdentity(from);
     const id = newHandoffId();
     const key = handoffKey(id);
     const target = this.scopeFor(toProject);
+    const v = toAgent !== void 0 || fromAgent !== void 0 ? 2 : 1;
     return this.board.mutate(target.scope, (entries, commitTs) => {
       if (entries.has(key)) throw new HandoffValidationError(`handoff id collision: ${id}`);
       const handoff = {
-        v: 1,
+        v,
         id,
         title,
         summary,
@@ -25277,6 +25328,8 @@ var HandoffStore = class {
         consumedAt: null,
         author
       };
+      if (toAgent !== void 0) handoff.toAgent = toAgent;
+      if (fromAgent !== void 0) handoff.fromAgent = fromAgent;
       if (context !== void 0) handoff.context = context;
       entries.set(key, {
         key,
@@ -25297,9 +25350,10 @@ var HandoffStore = class {
     const opts = options ?? {};
     const wanted = normalizeStateFilter(opts.state);
     const limit = normalizeLimit2(opts.limit);
+    const agent = opts.agent === void 0 ? void 0 : requireString(opts.agent, "agent");
     const scope = await this.resolveTarget(target);
     const rows = await this.board.readNamespace(HANDOFF_PREFIX, void 0, scope.scope, HANDOFF_SCAN_MAX, scope.workspace);
-    return this.collect(rows, wanted, limit);
+    return this.collect(rows, wanted, limit, agent);
   }
   /** Read one complete handoff (including context) from `target`'s board. */
   async read(id, target) {
@@ -25368,13 +25422,15 @@ var HandoffStore = class {
       return updated;
     }, scope.workspace);
   }
-  collect(rows, wanted, limit) {
+  collect(rows, wanted, limit, agent) {
     const handoffs = [];
     for (const row of rows) {
       if (!row.key.startsWith(HANDOFF_PREFIX)) continue;
       handoffs.push(this.decodeEntry(row.key.slice(HANDOFF_PREFIX.length), row));
     }
-    const filtered = handoffs.filter((handoff) => wanted.includes(handoff.state));
+    const filtered = handoffs.filter(
+      (handoff) => wanted.includes(handoff.state) && (agent === void 0 || handoff.toAgent === agent)
+    );
     filtered.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     return filtered.slice(0, limit).map(summaryOf);
   }
@@ -25483,11 +25539,15 @@ var HANDOFF_ACTOR = {
   type: "string",
   description: 'Who performs this transition (recorded in BoardEntry.author; default "anonymous").'
 };
+var HANDOFF_AGENT_ADDRESS = {
+  type: "string",
+  description: "Agent address in v2 shape `<label>:<sessionId>:<agentId>` (label is free text `[a-z0-9-]+`; e.g. `claude-code:sess-a:sub-1`). Opaque \u2014 shape-checked only, never resolved against a registry."
+};
 function handoffTools(store) {
   return [
     {
       name: "moa_handoff_send",
-      description: `Send a directed handoff (title/summary/optional context) into the TARGET project's inbox (toProject: projectId or "user-global"). The entry is written to the target project's board under handoff/<id> with fromProject = the current workspace's project alias (or ws:<pathHash>). Handoffs never participate in recall/indexing and never merge projects \u2014 they are pull-on-demand messages the target session consumes explicitly.`,
+      description: "Send a directed handoff (title/summary/optional context) into the TARGET project's inbox (toProject: projectId or \"user-global\"). The entry is written to the target project's board under handoff/<id> with fromProject = the current workspace's project alias (or ws:<pathHash>). v2 (optional): pass toAgent/fromAgent as `<label>:<sessionId>:<agentId>` for agent-level addressing \u2014 the entry is tagged agent:<toAgent> and the recipient filters its inbox by self-reported agent. Compromise: a misspelled address is silently missed (no registry to catch it) \u2014 align via fromAgent echo. Handoffs never participate in recall/indexing and never merge projects \u2014 they are pull-on-demand messages the target session consumes explicitly.",
       inputSchema: {
         type: "object",
         properties: {
@@ -25495,8 +25555,16 @@ function handoffTools(store) {
           toProject: HANDOFF_TO_PROJECT,
           title: { type: "string", description: "Short handoff title" },
           summary: { type: "string", description: "What the target session needs to know/do" },
-          context: { type: "string", description: "Optional longer context (the whole entry is capped at 32KB)" },
-          author: { type: "string", description: 'Sender identity recorded on the entry (default "anonymous")' }
+          context: { type: "string", description: "Optional longer context (the whole entry is capped at 96KB)" },
+          author: { type: "string", description: 'Sender identity recorded on the entry (default "anonymous")' },
+          toAgent: {
+            ...HANDOFF_AGENT_ADDRESS,
+            description: HANDOFF_AGENT_ADDRESS.description + " Recipient agent address (delivery still routes via toProject)."
+          },
+          fromAgent: {
+            ...HANDOFF_AGENT_ADDRESS,
+            description: HANDOFF_AGENT_ADDRESS.description + " Sender agent address; lets the recipient reply by echoing it."
+          }
         },
         required: ["workspace", "toProject", "title", "summary"],
         additionalProperties: false
@@ -25508,13 +25576,17 @@ function handoffTools(store) {
     },
     {
       name: "moa_handoff_inbox",
-      description: "List handoffs addressed to the current project (newest first; id/title/summary/state/fromProject metadata, no context). Archived rows are hidden by default \u2014 pass state to filter exactly (pending/consumed/archived). Handoffs never participate in recall/indexing.",
+      description: "List handoffs addressed to the current project (newest first; id/title/summary/state/fromProject metadata, no context). Archived rows are hidden by default \u2014 pass state to filter exactly (pending/consumed/archived). v2: pass agent (your self-reported `<label>:<sessionId>:<agentId>` address) to filter exactly on toAgent \u2014 a misspelled address returns an empty inbox rather than an error, so echo the sender's fromAgent when replying. Handoffs never participate in recall/indexing.",
       inputSchema: {
         type: "object",
         properties: {
           workspace: HANDOFF_WORKSPACE,
           state: HANDOFF_STATE,
-          limit: { type: "number", description: "Max rows to return (default 100, hard cap 1000)" }
+          limit: { type: "number", description: "Max rows to return (default 100, hard cap 1000)" },
+          agent: {
+            ...HANDOFF_AGENT_ADDRESS,
+            description: HANDOFF_AGENT_ADDRESS.description + " Exact filter on toAgent (only entries addressed to this agent address are returned)."
+          }
         },
         required: ["workspace"],
         additionalProperties: false
@@ -25523,6 +25595,7 @@ function handoffTools(store) {
         const options = {};
         if (a.state !== void 0) options.state = a.state;
         if (a.limit !== void 0) options.limit = a.limit;
+        if (a.agent !== void 0) options.agent = a.agent;
         return store.inbox(a.workspace, options);
       }
     },
@@ -25613,7 +25686,7 @@ var TipValidationError = class extends Error {
     this.name = "TipValidationError";
   }
 };
-var CONTEXT_MAX_BYTES = 8 * 1024;
+var CONTEXT_MAX_BYTES = 32 * 1024;
 var TIP_LIST_DEFAULT_LIMIT = 100;
 var TIP_LIST_MAX_LIMIT = 1e3;
 var TIP_PREFIX = "tips/";
@@ -25730,8 +25803,8 @@ function tipTags(tip) {
 }
 function encodeTip(tip) {
   const value = JSON.stringify(tip);
-  if (Buffer.byteLength(value, "utf8") > BOARD_VALUE_MAX_BYTES) {
-    throw new TipValidationError(`tip value exceeds ${BOARD_VALUE_MAX_BYTES} bytes`);
+  if (Buffer.byteLength(value, "utf8") > TIP_VALUE_MAX_BYTES) {
+    throw new TipValidationError(`tip value exceeds ${TIP_VALUE_MAX_BYTES} bytes`);
   }
   return value;
 }
@@ -28167,6 +28240,11 @@ var StateFold = class {
   /** Fold-internal session liveness (derived from state.json updatedAt); not
    *  exposed in SessionInfo — the eviction sweep keys on it instead. */
   sessionSeen = /* @__PURE__ */ new Map();
+  /** sessionId → row count (A3, 0.11.0): O(1) "does a fold session row exist"
+   *  probe for the self-heal path. Reference-counted because the fold keys
+   *  sessions by `${workDirHash}/${sessionId}` and two workDirHashes can share
+   *  a sessionId; a row is "present" while the count is > 0. */
+  sessionIdRows = /* @__PURE__ */ new Map();
   omkcPriorityMs;
   staleMs;
   evictStaleMs;
@@ -28213,11 +28291,23 @@ var StateFold = class {
     return agent.omkcTs > 0 && now - agent.omkcTs < this.omkcPriorityMs;
   }
   // ---------------------------------------------------------------- source ①
-  /** Fold one wire.jsonl record (read-only inference). */
-  applyWire(ref, record2) {
+  /** Fold one wire.jsonl record (read-only inference). The optional
+   *  `fallbackTs` (the wire file's mtime, supplied by the watcher) seeds
+   *  lastSeen for records without a usable `time` — A2 (0.11.0): the first
+   *  metadata line of every wire.jsonl carries none, and stamping Date.now()
+   *  there made every historical agent look freshly-written at daemon startup,
+   *  freezing eviction for 24h and batch-flipping stale at t=60s. */
+  applyWire(ref, record2, fallbackTs) {
     if (!record2 || typeof record2.type !== "string") return null;
     const rawTs = typeof record2.time === "number" ? record2.time : NaN;
-    const ts = finiteTime(rawTs);
+    let ts;
+    if (Number.isFinite(rawTs)) {
+      ts = rawTs;
+    } else if (Number.isFinite(fallbackTs ?? NaN)) {
+      ts = fallbackTs;
+    } else {
+      ts = Date.now();
+    }
     const agent = this.ensure(ref.sessionId, ref.agentId, ts, ref.workDirHash, ref.home);
     agent.lastSeen = Math.max(agent.lastSeen, ts);
     agent.stale = false;
@@ -28308,12 +28398,15 @@ var StateFold = class {
   applySessionState(ref, state) {
     const skey = `${ref.workDirHash}/${ref.sessionId}`;
     const existing = this.sessions.get(skey);
+    if (!existing) {
+      this.sessionIdRows.set(ref.sessionId, (this.sessionIdRows.get(ref.sessionId) ?? 0) + 1);
+    }
     this.sessions.set(skey, {
       workDirHash: ref.workDirHash,
       sessionId: ref.sessionId,
       home: existing?.home ?? ref.home,
       title: state.title ?? existing?.title,
-      workDir: state.workDir ?? existing?.workDir,
+      workDir: state.workDir ?? state.cwd ?? existing?.workDir,
       createdAt: state.createdAt ?? existing?.createdAt,
       updatedAt: laterOf(existing?.updatedAt, state.updatedAt)
     });
@@ -28464,12 +28557,22 @@ var StateFold = class {
         this.sessions.delete(skey);
         this.sessionSeen.delete(skey);
         this.evictedSessionsCount++;
-        evictedSessions.push({
-          sessionId: session?.sessionId ?? skey.slice(skey.indexOf("/") + 1)
-        });
+        const sessionId = session?.sessionId ?? skey.slice(skey.indexOf("/") + 1);
+        evictedSessions.push({ sessionId });
+        const remaining = (this.sessionIdRows.get(sessionId) ?? 0) - 1;
+        if (remaining <= 0) this.sessionIdRows.delete(sessionId);
+        else this.sessionIdRows.set(sessionId, remaining);
       }
     }
     return { evictedAgents, evictedSessions };
+  }
+  /** True while at least one fold session row exists for this sessionId (A3,
+   *  0.11.0): the controller's self-heal probe — new wire/task/omkc activity
+   *  for a row-less session invalidates the watcher's state.json dual key so
+   *  the next scan re-reads it and applySessionState rebuilds the row + its
+   *  parentAgentId lineage. O(1) via the reference-counted sessionIdRows. */
+  hasSessionRow(sessionId) {
+    return (this.sessionIdRows.get(sessionId) ?? 0) > 0;
   }
   get agentCount() {
     return this.agents.size;
@@ -28937,22 +29040,6 @@ var WireWatcher = class {
   }
   async scanSession(workDirHash, sessionId, sessionPath, tick, live) {
     this.watchDir(sessionPath);
-    const stateFile = path.join(sessionPath, "state.json");
-    const stateStat = await statSafe(stateFile);
-    await tick();
-    if (stateStat) {
-      live.state.add(stateFile);
-      const stateKey = `${stateStat.mtimeMs}:${stateStat.size}`;
-      if (this.stateMtimes.get(stateFile) !== stateKey) {
-        this.stateMtimes.set(stateFile, stateKey);
-        try {
-          const raw = await fs.promises.readFile(stateFile, "utf8");
-          const state = JSON.parse(raw);
-          this.opts.onSessionState?.({ home: this.opts.home, workDirHash, sessionId }, state);
-        } catch {
-        }
-      }
-    }
     const agentsPath = path.join(sessionPath, "agents");
     this.watchDir(agentsPath);
     for (const a of await readdirSafe(agentsPath)) {
@@ -28965,7 +29052,14 @@ var WireWatcher = class {
       const wireFile = path.join(agentPath, "wire.jsonl");
       live.tails.add(wireFile);
       if (!this.tails.has(wireFile)) {
-        this.tails.set(wireFile, { ref, file: wireFile, offset: 0, pending: "", size: 0 });
+        const wireStat = await statSafe(wireFile);
+        this.tails.set(wireFile, {
+          ref,
+          file: wireFile,
+          offset: 0,
+          pending: "",
+          size: wireStat ? Number(wireStat.size) : 0
+        });
       }
       const tasksPath = path.join(agentPath, "tasks");
       this.watchDir(tasksPath);
@@ -28987,6 +29081,46 @@ var WireWatcher = class {
         }
       }
     }
+    const stateFile = path.join(sessionPath, "state.json");
+    const stateStat = await statSafe(stateFile);
+    await tick();
+    if (stateStat) {
+      live.state.add(stateFile);
+      const stateKey = `${stateStat.mtimeMs}:${stateStat.size}`;
+      if (this.stateMtimes.get(stateFile) !== stateKey) {
+        this.stateMtimes.set(stateFile, stateKey);
+        try {
+          const raw = await fs.promises.readFile(stateFile, "utf8");
+          const state = JSON.parse(raw);
+          this.opts.onSessionState?.({ home: this.opts.home, workDirHash, sessionId }, state);
+        } catch {
+        }
+      }
+    }
+  }
+  /**
+   * A3 (0.11.0): invalidate a session's state.json dual key (mtime:size) so the
+   * next scan re-reads it — the self-heal path that rebuilds an evicted session
+   * row and its lineage after new wire activity arrives. The controller calls
+   * this only on new wire/task activity for a session whose fold row is missing;
+   * eviction itself never invalidates (dead sessions stay evicted — no
+   * evict→reread→evict loop).
+   */
+  invalidateSessionState(ref) {
+    const stateFile = path.join(this.root, ref.workDirHash, ref.sessionId, "state.json");
+    this.stateMtimes.delete(stateFile);
+  }
+  /**
+   * A3: sessionId-only variant for omkc events, which carry no workDirHash or
+   * home. Invalidates every tracked state.json whose path matches the session
+   * (across workDirHashes); a re-read is harmless for a row that still exists
+   * and is the only way to reach a row that was evicted.
+   */
+  invalidateSessionStateById(sessionId) {
+    const suffix = path.join(sessionId, "state.json");
+    for (const file of this.stateMtimes.keys()) {
+      if (file.endsWith(path.sep + suffix)) this.stateMtimes.delete(file);
+    }
   }
   watchDir(dir) {
     if (this.stopped) return;
@@ -29006,11 +29140,12 @@ var WireWatcher = class {
   }
   /** Pump every tail sequentially, yielding between files. */
   async pumpAll() {
+    if (this.scanning) return;
     if (this.pumping) return;
     this.pumping = true;
     try {
       for (const tail of this.tails.values()) {
-        if (this.stopped) return;
+        if (this.stopped || this.scanning) return;
         await this.pump(tail);
         await yieldNow();
       }
@@ -29056,7 +29191,7 @@ var WireWatcher = class {
           } catch {
           }
           this.records++;
-          this.opts.onRecord(tail.ref, raw, parsed);
+          this.opts.onRecord(tail.ref, raw, parsed, st.mtimeMs);
         }
         await yieldNow();
       }
@@ -29185,20 +29320,29 @@ function createStatusController(opts = {}) {
     readIdleTimeoutMs: opts.omkcReadIdleTimeoutMs,
     onEvent: (_raw, ev) => {
       const agent = fold.applyOmkcEvent(ev);
-      if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
+      if (agent) {
+        dirty(agentKey(agent.sessionId, agent.agentId));
+        if (!fold.hasSessionRow(agent.sessionId)) {
+          for (const w of watchers.values()) w.invalidateSessionStateById(agent.sessionId);
+        }
+      }
     }
   });
   function attachHome(spec) {
     if (watchers.has(spec.home)) return;
     const root = sessionsRoot(spec.home);
-    const watcher = new WireWatcher({
+    let watcher;
+    watcher = new WireWatcher({
       home: spec.label,
       root,
       scanIntervalMs: opts.scanIntervalMs,
       pollIntervalMs: opts.pollIntervalMs,
-      onRecord: (ref, _raw, record2) => {
-        const agent = fold.applyWire(ref, record2);
-        if (agent) dirty(agentKey(agent.sessionId, agent.agentId));
+      onRecord: (ref, _raw, record2, fallbackTs) => {
+        const agent = fold.applyWire(ref, record2, fallbackTs);
+        if (agent) {
+          dirty(agentKey(agent.sessionId, agent.agentId));
+          if (!fold.hasSessionRow(ref.sessionId)) watcher.invalidateSessionState(ref);
+        }
       },
       onSessionState: (ref, state) => {
         fold.applySessionState(ref, state);
@@ -29209,6 +29353,7 @@ function createStatusController(opts = {}) {
       onTask: (ref, task) => {
         fold.applyTask(ref, task);
         dirty(agentKey(ref.sessionId, ref.agentId));
+        if (!fold.hasSessionRow(ref.sessionId)) watcher.invalidateSessionState(ref);
       }
     });
     watcher.start();
@@ -29235,6 +29380,7 @@ function createStatusController(opts = {}) {
       if (!sweepTimer) {
         const sweepIntervalMs = opts.sweepIntervalMs ?? SWEEP_MS;
         sweepTimer = setInterval(() => {
+          if (watchersCatchingUp()) return;
           const evicted = fold.sweepStale();
           if (goneListeners.size === 0) return;
           if (evicted.evictedAgents.length === 0 && evicted.evictedSessions.length === 0) return;
@@ -29390,6 +29536,7 @@ function statusEventsRoute(controller, opts) {
       const res = ctx.res;
       let destroyed = false;
       let bufferedFrames = 0;
+      let drainWaiting = false;
       const destroy = () => {
         if (destroyed) return;
         destroyed = true;
@@ -29411,8 +29558,10 @@ function statusEventsRoute(controller, opts) {
         }
         if (accepted) {
           bufferedFrames = 0;
-        } else {
+        } else if (!drainWaiting) {
+          drainWaiting = true;
           res.once("drain", () => {
+            drainWaiting = false;
             bufferedFrames = 0;
           });
         }
@@ -31080,6 +31229,9 @@ select option {
 `;
 
 // src/web/lib.ts
+var SSE_FALLBACK_POLL_MS = 15e3;
+var RUNS_POLL_MS = 5e3;
+var SYSTEM_POLL_MS = 1e4;
 var LIB_JS = `
 (function(window) {
   'use strict';
@@ -31316,6 +31468,55 @@ var LIB_JS = `
       close: function() {
         stopped = true;
         if (sse) { sse.close(); sse = null; }
+      }
+    };
+  }
+
+  /* \u2500\u2500 Shared refresh layer (converged polling/SSE-fallback plumbing) \u2500\u2500\u2500\u2500\u2500\u2500
+     Polling intervals keep each page's historical cadence (SSE fallback
+     15s, runs 5s, system 10s); the constants are exported from lib.ts and
+     inlined here so every page reads the same source of truth. */
+  var POLL_MS = {
+    sseFallback: ${SSE_FALLBACK_POLL_MS},
+    runs: ${RUNS_POLL_MS},
+    system: ${SYSTEM_POLL_MS}
+  };
+
+  /**
+   * Shared polling timer for the refresh layer (runs live, system health,
+   * the SSE fallback below). Runs fn() every intervalMs and returns
+   * { stop() }; error handling stays with the caller, exactly like the
+   * historical per-page setInterval(...).catch(...) call sites.
+   */
+  function startPoll(fn, intervalMs) {
+    var timer = setInterval(function () { fn(); }, intervalMs);
+    return {
+      stop: function () {
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+    };
+  }
+
+  /**
+   * SSE stream plus an unconditional polling fallback (the board view's
+   * pattern): a plain EventSource keeps the browser's native reconnect
+   * (onerror stays inert on purpose \u2014 reconnect parameters untouched),
+   * while poll() every pollMs keeps the view fresh if the stream stalls
+   * silently or never connects. Returns { close() } releasing both; pair
+   * it with the owning view's teardown.
+   */
+  function subscribeWithPoll(url, onMessage, poll, pollMs) {
+    var source = null;
+    if (typeof EventSource !== 'undefined') {
+      source = new EventSource(url);
+      source.onmessage = onMessage;
+      source.onerror = function () {};
+    }
+    var pollTimer = startPoll(poll, pollMs);
+    return {
+      close: function () {
+        if (source) { source.close(); source = null; }
+        pollTimer.stop();
       }
     };
   }
@@ -31706,6 +31907,9 @@ var LIB_JS = `
     valueText: valueText,
     api: api,
     connectSSE: connectSSE,
+    POLL_MS: POLL_MS,
+    startPoll: startPoll,
+    subscribeWithPoll: subscribeWithPoll,
     initThemePicker: initThemePicker,
     initLiquidParallax: initLiquidParallax,
     EnhanceSelect: EnhanceSelect,
@@ -31766,6 +31970,10 @@ var I18N_DICTIONARIES = {
     "debate.debaters": "Debaters",
     "debate.agentStatus": "Agent Status",
     "debate.transcript": "Debate Transcript",
+    "debate.orchestrator": "Orchestrator",
+    "debate.mainAgent": "Main",
+    "debate.starting": "starting\u2026",
+    "debate.sessionEnded": "ended",
     "debate.noTurns": "No turns yet. Waiting for the debate to start\u2026",
     "debate.fullTranscript": "Load Full Transcript",
     "debate.toolLog": "Tool Call Log",
@@ -31861,6 +32069,7 @@ var I18N_DICTIONARIES = {
     "common.delete": "Delete",
     "common.refresh": "Refresh",
     "common.closeDetails": "Close details",
+    "common.loading": "Loading\u2026",
     "tips.empty": "No Tips match the current filters.",
     "tips.noWorkspace": "No workspace is available. Run /moamcp:tips in a project first.",
     "tips.createWorkspace": "Run /moamcp:tips in a project first to create a workspace sidecar.",
@@ -31892,7 +32101,7 @@ var I18N_DICTIONARIES = {
     "board.save": "Save Entry",
     "board.formClosed": "Board form is not open.",
     "board.keyRequired": "Key is required.",
-    "board.tooLarge": "Value exceeds 32768 UTF-8 bytes.",
+    "board.tooLarge": "Value exceeds {max} UTF-8 bytes.",
     "board.workspaceRequired": "Workspace scope requires a registered workspace.",
     "board.externalConfirm": "This Board entry changed externally. Try saving with the expectedTs from when it was opened?",
     "board.saved": "Board entry saved.",
@@ -32046,6 +32255,12 @@ var I18N_DICTIONARIES = {
     "status.empty": "No agents observed yet.",
     "status.counts": "{agents} agents \xB7 {sessions} sessions",
     "status.sessionCount": "{count} agents",
+    "status.activeSection": "Active",
+    "status.inactiveCount": "{count} inactive",
+    "status.hiddenSessions": "{count} past sessions",
+    "status.dirAgents": "{count} active",
+    "status.unknownDir": "Unknown directory",
+    "status.lastSeen": "Last seen",
     "status.colAgent": "Agent",
     "status.colKind": "Kind",
     "status.colModel": "Model",
@@ -32063,7 +32278,10 @@ var I18N_DICTIONARIES = {
     "status.failed": "failed",
     "status.killed": "killed",
     "status.suspended": "suspended",
-    "status.unknown": "unknown"
+    "status.unknown": "unknown",
+    "status.ancestorBadge": "via sub-agent",
+    "status.subtreeCollapse": "Collapse subtree",
+    "status.subtreeExpand": "Expand subtree"
   },
   "zh-CN": {
     "app.brand": "MOA \u5DE5\u4F5C\u533A",
@@ -32113,6 +32331,10 @@ var I18N_DICTIONARIES = {
     "debate.toolLog": "\u5DE5\u5177\u8C03\u7528\u65E5\u5FD7",
     "debate.waitTools": "\u7B49\u5F85\u5DE5\u5177\u8C03\u7528\u2026",
     "debate.scanning": "\u626B\u63CF\u4E2D\u2026",
+    "debate.orchestrator": "\u7F16\u6392\u8005",
+    "debate.mainAgent": "\u4E3B Agent",
+    "debate.starting": "\u542F\u52A8\u4E2D\u2026",
+    "debate.sessionEnded": "\u5DF2\u7ED3\u675F",
     "debate.agentCount": "{count} \u4E2A agent",
     "debate.toolCount": "{count} \u6761",
     "debate.state.done": "\u5B8C\u6210",
@@ -32203,6 +32425,7 @@ var I18N_DICTIONARIES = {
     "common.delete": "\u5220\u9664",
     "common.refresh": "\u5237\u65B0",
     "common.closeDetails": "\u5173\u95ED\u8BE6\u60C5",
+    "common.loading": "\u52A0\u8F7D\u4E2D\u2026",
     "tips.empty": "\u6CA1\u6709\u7B26\u5408\u7B5B\u9009\u6761\u4EF6\u7684 Tip\u3002",
     "tips.noWorkspace": "\u6682\u65E0\u5DE5\u4F5C\u533A\u3002\u8BF7\u5148\u5728\u9879\u76EE\u91CC\u8FD0\u884C /moamcp:tips\u3002",
     "tips.createWorkspace": "\u8BF7\u5148\u5728\u9879\u76EE\u91CC\u8FD0\u884C /moamcp:tips \u521B\u5EFA\u5DE5\u4F5C\u533A sidecar\u3002",
@@ -32234,7 +32457,7 @@ var I18N_DICTIONARIES = {
     "board.save": "\u4FDD\u5B58\u6761\u76EE",
     "board.formClosed": "\u9ED1\u677F\u8868\u5355\u672A\u6253\u5F00\u3002",
     "board.keyRequired": "key \u4E0D\u80FD\u4E3A\u7A7A\u3002",
-    "board.tooLarge": "\u5185\u5BB9\u8D85\u51FA 32768 \u5B57\u8282 (UTF-8) \u9650\u5236\u3002",
+    "board.tooLarge": "\u5185\u5BB9\u8D85\u51FA {max} \u5B57\u8282 (UTF-8) \u9650\u5236\u3002",
     "board.workspaceRequired": "\u5DE5\u4F5C\u533A\u4F5C\u7528\u57DF\u9700\u8981\u5148\u9009\u62E9\u5DF2\u6CE8\u518C\u7684\u5DE5\u4F5C\u533A\u3002",
     "board.externalConfirm": "\u6B64\u9ED1\u677F\u6761\u76EE\u5DF2\u88AB\u5916\u90E8\u4FEE\u6539\u3002\u786E\u8BA4\u4ECD\u4F7F\u7528\u6253\u5F00\u8868\u5355\u65F6\u7684 expectedTs \u5C1D\u8BD5\u4FDD\u5B58\u5417\uFF1F",
     "board.saved": "\u9ED1\u677F\u6761\u76EE\u5DF2\u4FDD\u5B58\u3002",
@@ -32388,6 +32611,12 @@ var I18N_DICTIONARIES = {
     "status.empty": "\u5C1A\u672A\u89C2\u6D4B\u5230\u4EFB\u4F55 agent\u3002",
     "status.counts": "{agents} \u4E2A agent \xB7 {sessions} \u4E2A\u4F1A\u8BDD",
     "status.sessionCount": "{count} \u4E2A agent",
+    "status.activeSection": "\u6D3B\u8DC3",
+    "status.inactiveCount": "{count} \u4E2A\u4E0D\u6D3B\u8DC3",
+    "status.hiddenSessions": "{count} \u4E2A\u5386\u53F2 session",
+    "status.dirAgents": "{count} \u4E2A\u6D3B\u8DC3",
+    "status.unknownDir": "\u672A\u77E5\u76EE\u5F55",
+    "status.lastSeen": "\u6700\u540E\u6D3B\u8DC3",
     "status.colAgent": "Agent",
     "status.colKind": "\u7C7B\u578B",
     "status.colModel": "\u6A21\u578B",
@@ -32405,7 +32634,10 @@ var I18N_DICTIONARIES = {
     "status.failed": "\u5931\u8D25",
     "status.killed": "\u5DF2\u7EC8\u6B62",
     "status.suspended": "\u5DF2\u6302\u8D77",
-    "status.unknown": "\u672A\u77E5"
+    "status.unknown": "\u672A\u77E5",
+    "status.ancestorBadge": "\u7ECF\u5B50 agent \u5E26\u51FA",
+    "status.subtreeCollapse": "\u6536\u8D77\u5B50\u6811",
+    "status.subtreeExpand": "\u5C55\u5F00\u5B50\u6811"
   }
 };
 var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
@@ -32619,9 +32851,10 @@ var TIPS_PAGE_JS = `  function tipQuery() {
   }
   function loadTips() {
     if (!currentWorkspace) return Promise.resolve();
+    showListLoading(tipList);
     return api('/api/tips?' + tipQuery()).then(function (data) {
       renderTipList(data && Array.isArray(data.tips) ? data.tips : []);
-    });
+    }).catch(function (error) { clearListLoading(tipList); throw error; });
   }
   function addDetailRow(box, label, value, code) {
     var dt = document.createElement('dt'); dt.textContent = label;
@@ -32729,7 +32962,7 @@ var BOARD_MODAL_HTML = `<div id="boardModal" class="board-modal" role="dialog" a
     <div class="form-grid">
       <div class="field"><label for="boardFormScope" data-i18n="board.scope">Scope *</label><select id="boardFormScope"><option value="workspace">workspace</option><option value="global">global</option></select></div>
       <div class="field"><label for="boardFormKey">key *</label><input id="boardFormKey" required type="text" autocomplete="off"></div>
-      <div class="field full"><label for="boardFormValue" data-i18n="board.value">Markdown value</label><textarea id="boardFormValue"></textarea><div id="boardByteLine" class="byte-line"><span data-i18n="board.valueSize">UTF-8 value size</span><span id="boardValueBytes">0 / 32768 bytes</span></div></div>
+      <div class="field full"><label for="boardFormValue" data-i18n="board.value">Markdown value</label><textarea id="boardFormValue"></textarea><div id="boardByteLine" class="byte-line"><span data-i18n="board.valueSize">UTF-8 value size</span><span id="boardValueBytes"></span></div></div>
       <div class="field"><label for="boardFormTags" data-i18n="tips.tags">Tags \xB7 comma or newline separated</label><textarea id="boardFormTags"></textarea></div>
       <div class="field"><label for="boardFormAuthor" data-i18n="board.author">Author</label><input id="boardFormAuthor" type="text"></div>
     </div>
@@ -32819,6 +33052,21 @@ var BOARD_LIST_JS = `  function boardQuery() {
     box.appendChild(actions);
     var value = document.createElement('pre'); value.className = 'board-value'; value.textContent = entry.value || ''; box.appendChild(value);
   }
+  function renderBoardDetailMissing(key) {
+    // The exact-key fetch found no live entry (deleted, or shadowed by a
+    // descendant key in namespace searches). Never render the summary row as
+    // if it were the full entry \u2014 that would open an empty Edit form and let a
+    // save overwrite the real value with an empty one. Show a not-found state
+    // with Edit disabled instead.
+    var box = document.getElementById('boardDetail'); box.textContent = '';
+    var heading = document.createElement('h2'); heading.textContent = key; box.appendChild(heading);
+    var actions = document.createElement('div'); actions.className = 'board-detail-actions';
+    var edit = makeBoardAction(tr('common.edit'), 'primary', function () {});
+    edit.disabled = true;
+    actions.appendChild(edit);
+    box.appendChild(actions);
+    var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('board.missing'); box.appendChild(empty);
+  }
   function renderBoardList(entries) {
     boardEntries = sortBoardEntries(entries || []);
     document.getElementById('boardResultCount').textContent = tr(boardEntries.length === 1 ? 'board.result' : 'board.results', { count: boardEntries.length });
@@ -32838,11 +33086,40 @@ var BOARD_LIST_JS = `  function boardQuery() {
         var children = list.children;
         for (var i = 0; i < children.length; i++) children[i].classList.remove('selected');
         row.classList.add('selected');
-        renderBoardDetail(entry);
+        viewBoardEntry(entry);
       });
       list.appendChild(row);
     });
-    renderBoardDetail(boardEntries[selectedIndex]);
+    viewBoardEntry(boardEntries[selectedIndex]);
+  }
+  function fetchBoardEntry(key) {
+    var query = new URLSearchParams();
+    var scope = document.getElementById('boardScope').value;
+    query.set('scope', scope);
+    if (scope === 'workspace' && currentWorkspace) query.set('workspace', currentWorkspace);
+    query.set('key', key);
+    query.set('exact', '1');
+    query.set('limit', '1');
+    query.set('values', '1');
+    return api('/api/board?' + query.toString()).then(function (data) {
+      var rows = data && Array.isArray(data.entries) ? data.entries : [];
+      return rows.filter(function (entry) { return entry.key === key; })[0] || null;
+    });
+  }
+  function viewBoardEntry(entry) {
+    if (!entry) { renderBoardDetail(null); return; }
+    // List rows come back in summary mode (metadata only, no value): fetch the
+    // full entry by key before rendering the detail pane / edit form.
+    if (entry.value != null) { renderBoardDetail(entry); return; }
+    var box = document.getElementById('boardDetail');
+    box.textContent = '';
+    var loading = document.createElement('div'); loading.className = 'empty'; loading.textContent = '\u2026';
+    box.appendChild(loading);
+    fetchBoardEntry(entry.key).then(function (full) {
+      if (selectedBoardKey !== entry.key) return; // superseded by a newer selection
+      if (full) renderBoardDetail(full);
+      else renderBoardDetailMissing(entry.key);
+    }).catch(function (error) { setNotice(error.message, true); });
   }
   function loadBoard() {
     var scope = document.getElementById('boardScope').value;
@@ -32851,7 +33128,9 @@ var BOARD_LIST_JS = `  function boardQuery() {
       setNotice(tr('board.scopeNotice'), false);
       return Promise.resolve();
     }
-    return api('/api/board?' + boardQuery()).then(function (data) { renderBoardList(data && Array.isArray(data.entries) ? data.entries : []); });
+    var list = document.getElementById('boardList');
+    showListLoading(list);
+    return api('/api/board?' + boardQuery()).then(function (data) { renderBoardList(data && Array.isArray(data.entries) ? data.entries : []); }).catch(function (error) { clearListLoading(list); throw error; });
   }
 `;
 var BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormError.textContent = message || ''; }
@@ -32894,7 +33173,7 @@ var BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormError.text
     var key = document.getElementById('boardFormKey').value.trim();
     var value = document.getElementById('boardFormValue').value;
     if (!key) throw new Error(tr('board.keyRequired'));
-    if (utf8Bytes(value) > BOARD_VALUE_MAX_BYTES) throw new Error(tr('board.tooLarge'));
+    if (utf8Bytes(value) > BOARD_VALUE_MAX_BYTES) throw new Error(tr('board.tooLarge', { max: BOARD_VALUE_MAX_BYTES }));
     if (scope === 'workspace' && !boardEditing.workspace) throw new Error(tr('board.workspaceRequired'));
     var payload = boardRequestBody(scope, boardEditing.workspace, key);
     payload.value = value;
@@ -32907,7 +33186,7 @@ var BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormError.text
   function saveBoardEntry(event) {
     event.preventDefault(); setBoardFormError('');
     if (!boardEditing) return;
-    if (updateBoardValueBytes() > BOARD_VALUE_MAX_BYTES) { setBoardFormError(tr('board.tooLarge')); return; }
+    if (updateBoardValueBytes() > BOARD_VALUE_MAX_BYTES) { setBoardFormError(tr('board.tooLarge', { max: BOARD_VALUE_MAX_BYTES })); return; }
     if (boardEditing.external && !window.confirm(tr('board.externalConfirm'))) return;
     var payload;
     try { payload = buildBoardPayload(); } catch (error) { setBoardFormError(error.message); return; }
@@ -32931,7 +33210,7 @@ var BOARD_FORM_JS = `  function setBoardFormError(message) { boardFormError.text
   }
   function reloadBoardConflict() {
     if (!boardEditing) return;
-    var query = new URLSearchParams(); query.set('scope', boardEditing.scope); query.set('key', boardEditing.key); query.set('limit', '1000');
+    var query = new URLSearchParams(); query.set('scope', boardEditing.scope); query.set('key', boardEditing.key); query.set('exact', '1'); query.set('limit', '1000'); query.set('values', '1');
     if (boardEditing.scope === 'workspace') query.set('workspace', boardEditing.workspace);
     api('/api/board?' + query.toString()).then(function (data) {
       var rows = data && Array.isArray(data.entries) ? data.entries : [];
@@ -33053,6 +33332,13 @@ var AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.getElemen
   function appendBindingOption(select, value, label) {
     var option = document.createElement('option'); option.value = value; option.textContent = label; select.appendChild(option);
   }
+  var bindingSelectSeq = 0;
+  function destroyBindingEnhancedSelects(scope) {
+    var roots = scope.querySelectorAll('.cs-root');
+    for (var i = 0; i < roots.length; i++) {
+      if (typeof roots[i].destroy === 'function') roots[i].destroy();
+    }
+  }
   function appendAgentBindingRow(container, section, rowData) {
     var binding = rowData && rowData.binding ? rowData.binding : {};
     var row = document.createElement('div'); row.className = 'agent-binding-row'; row.dataset.section = section;
@@ -33068,8 +33354,9 @@ var AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.getElemen
     textField('agent.model', 'model', binding.model);
     textField('agent.thinking', 'thinking_effort', binding.thinking_effort);
     var inheritWrapper = document.createElement('div'); inheritWrapper.className = 'field';
-    var inheritLabel = document.createElement('label'); inheritLabel.textContent = tr('agent.inherit'); inheritWrapper.appendChild(inheritLabel);
     var inherit = document.createElement('select'); inherit.dataset.bindingField = 'inherit';
+    inherit.id = 'agentBindInherit' + (++bindingSelectSeq);
+    var inheritLabel = document.createElement('label'); inheritLabel.textContent = tr('agent.inherit'); inheritLabel.setAttribute('for', inherit.id); inheritWrapper.appendChild(inheritLabel);
     appendBindingOption(inherit, 'unset', tr('agent.unset')); appendBindingOption(inherit, 'true', 'true'); appendBindingOption(inherit, 'false', 'false');
     inherit.value = binding.inherit === true ? 'true' : binding.inherit === false ? 'false' : 'unset'; inheritWrapper.appendChild(inherit); row.appendChild(inheritWrapper);
     var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger remove-binding'; remove.textContent = tr('common.delete');
@@ -33077,13 +33364,20 @@ var AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.getElemen
       if (row.dataset.originalName) {
         deletedBindings.push({ section: section, name: row.dataset.originalName, binding: null });
       }
+      destroyBindingEnhancedSelects(row);
       row.remove();
     });
     row.appendChild(remove);
     container.appendChild(row);
+    /* Themed custom dropdown like the static selects: the native element stays
+       the single data source; destroy() runs when the row goes away. Enhance
+       only after the row is attached \u2014 EnhanceSelect resolves the accessible
+       name via document.querySelector('label[for=...]'), which cannot see the
+       label while the row is still a detached fragment. */
+    if (window.__moaLib && typeof window.__moaLib.EnhanceSelect === 'function') window.__moaLib.EnhanceSelect(inherit);
   }
   function renderAgentBindingList(id, section, rows) {
-    var container = document.getElementById(id); container.textContent = '';
+    var container = document.getElementById(id); destroyBindingEnhancedSelects(container); container.textContent = '';
     var list = Array.isArray(rows) ? rows : [];
     if (!list.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('agent.noBindings'); container.appendChild(empty); return; }
     list.forEach(function (row) { appendAgentBindingRow(container, section, row); });
@@ -33153,6 +33447,7 @@ var AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.getElemen
     if (!currentWorkspace) { clearAgentEditor(); return Promise.resolve(); }
     var previousName = selectedAgentName;
     var previousNew = agentIsNew;
+    showListLoading(agentList);
     return api(agentRequest('/api/agent-config')).then(function (data) {
       agentSnapshot = data; agentLocalHash = data.localToml ? data.localToml.hash : null;
       renderAgentList(data.agents); renderAgentBindings();
@@ -33160,7 +33455,7 @@ var AGENTS_PAGE_JS = `  function setAgentFormError(message) { document.getElemen
       if (!previousName && !previousNew) clearAgentEditor();
       if (selectedAgent && !agentIsNew) renderAgentMeta(selectedAgent);
       return undefined;
-    });
+    }).catch(function (error) { clearListLoading(agentList); throw error; });
   }
   function openNewAgent() {
     selectedAgentName = ''; selectedAgent = null; agentIsNew = true; showAgentEditor(null, true);
@@ -33338,13 +33633,15 @@ var RUNS_PAGE_JS = `  function appendMeta(grid, label, value) {
     var status = document.getElementById('runStatusFilter').value;
     var text = document.getElementById('runQuery').value.trim();
     if (status) query.set('status', status); if (text) query.set('query', text);
+    var list = document.getElementById('runList');
+    showListLoading(list);
     return api('/api/tasks?' + query.toString()).then(function (data) {
       var tasks = data && Array.isArray(data.tasks) ? data.tasks : [];
       document.getElementById('runResultCount').textContent = tr(tasks.length === 1 ? 'board.result' : 'board.results', { count: tasks.length });
-      var list = document.getElementById('runList'); list.textContent = '';
+      list.textContent = '';
       if (!tasks.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('runs.empty'); list.appendChild(empty); return; }
       tasks.forEach(function (task) { list.appendChild(renderRunCard(task)); });
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
   function archiveUrl(taskId, file) {
     if (ARCHIVE_FILES.indexOf(file) < 0) return '';
@@ -33387,13 +33684,15 @@ var RUNS_PAGE_JS = `  function appendMeta(grid, label, value) {
     card.appendChild(files); return card;
   }
   function loadArchives() {
+    var list = document.getElementById('archiveList');
+    showListLoading(list);
     return api('/api/archives').then(function (data) {
       var archives = data && Array.isArray(data.archives) ? data.archives : [];
       document.getElementById('archiveResultCount').textContent = tr(archives.length === 1 ? 'board.result' : 'board.results', { count: archives.length });
-      var list = document.getElementById('archiveList'); list.textContent = '';
+      list.textContent = '';
       if (!archives.length) { var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('archives.empty'); list.appendChild(empty); return; }
       archives.forEach(function (entry) { list.appendChild(renderArchiveCard(entry)); });
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
 `;
 
@@ -33416,14 +33715,25 @@ var SYSTEM_PAGE_JS = `  function renderHealthCard(container, title, value) {
     else { var dt = document.createElement('dt'); dt.textContent = tr('system.value'); var dd = document.createElement('dd'); dd.textContent = valueText(value); dl.appendChild(dt); dl.appendChild(dd); }
     card.appendChild(dl); container.appendChild(card);
   }
+  /* Panel polish batch 3: the system error surface converged on the notice
+     banner. systemErrorMessage remembers the exact banner text loadSystem
+     set, so a recovered fetch clears precisely its own error \u2014 the old inline
+     .empty error box was wiped by the next successful render, and without
+     this the 10s poll would leave a stale banner over healthy data. */
+  var systemErrorMessage = '';
   function loadSystem() {
     return api('/api/system').then(function (data) {
       var box = document.getElementById('systemHealth'); box.textContent = '';
       ['process', 'bus', 'runs', 'sse', 'archives', 'reuseWatch'].forEach(function (key) { renderHealthCard(box, key, data ? data[key] : undefined); });
       renderHealthCard(box, 'registry listenerEntries', data && data.registry ? data.registry.listenerEntries : undefined);
+      if (systemErrorMessage && notice.textContent === systemErrorMessage) setNotice('', false);
+      systemErrorMessage = '';
     }).catch(function (error) {
-      var box = document.getElementById('systemHealth'); box.textContent = '';
-      var empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = tr('system.unavailable') + error.message; box.appendChild(empty);
+      /* Panel polish batch 3: SPA error presentation converges on the notice
+         banner (setNotice); no view renders its own error markup anymore. */
+      document.getElementById('systemHealth').textContent = '';
+      systemErrorMessage = tr('system.unavailable') + error.message;
+      setNotice(systemErrorMessage, true);
     });
   }
 `;
@@ -33628,11 +33938,13 @@ var PROJECTS_PAGE_JS = `  function renderProjectCard(project) {
   }
   function loadProjects() {
     if (!currentWorkspace) return Promise.resolve();
+    var list = document.getElementById('projectsList');
+    showListLoading(list);
     return api('/api/projects').then(function (data) {
       var projects = data && Array.isArray(data.projects) ? data.projects : [];
       renderProjects(projects);
       document.getElementById('projectsCount').textContent = tr(projects.length === 1 ? 'projects.count' : 'projects.countPlural', { count: projects.length });
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
   function migrateCurrentWorkspace(project) {
     if (!currentWorkspace) return;
@@ -33770,9 +34082,11 @@ var INBOX_PAGE_JS = `  var inboxMode = 'inbox';
   function loadInbox() {
     if (!currentWorkspace) return Promise.resolve();
     var url = inboxMode === 'outbox' ? '/api/handoff/outbox?' + inboxQuery() : '/api/handoff/inbox?' + inboxQuery();
+    var list = document.getElementById('inboxList');
+    showListLoading(list);
     return api(url).then(function (data) {
       renderInboxList(data && Array.isArray(data.handoffs) ? data.handoffs : []);
-    });
+    }).catch(function (error) { clearListLoading(list); throw error; });
   }
   function switchInboxMode(mode) {
     if (mode !== 'inbox' && mode !== 'outbox') mode = 'inbox';
@@ -33800,6 +34114,7 @@ var INBOX_PAGE_JS = `  var inboxMode = 'inbox';
 `;
 
 // src/web/control-plane-page.ts
+var CHECK_MARK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='8' viewBox='0 0 10 8'><path d='M1 4.2 3.8 7 9 1.4' fill='none' stroke='%230d1017' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>")`;
 var CONTROL_PLANE_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -33948,9 +34263,39 @@ ${COMPONENTS_CSS}
   flex: 0 0 auto;
   padding: 8px 0;
   color: var(--text-dim);
+  cursor: pointer;
 }
+/* Custom checkbox skin in the .cs-* family: the native input stays the
+   single source of truth (keyboard + AT operable) but drops its platform
+   look. Box chrome comes from the same tokens as buttons/selects
+   (--solid-2/--border-strong via the shared input rule, which also brings
+   the themed focus ring); hover/checked use the accent-green tokens, so
+   glass, liquid and editorial each render their own palette. */
 .check input {
-  accent-color: var(--accent-green);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  cursor: pointer;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.check input:hover {
+  border-color: var(--accent-green);
+}
+.check input:checked {
+  background-color: var(--accent-green);
+  border-color: var(--accent-green);
+  background-image: ${CHECK_MARK};
+  background-size: 10px 8px;
+}
+.check input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .tip-layout {
@@ -34338,6 +34683,36 @@ ${COMPONENTS_CSS}
   border-radius: var(--r-md);
   text-align: center;
 }
+/* Unified list loading state (panel polish batch 3): one shared component
+   for every SPA list view (tips/board/runs/archives/agents/projects/inbox).
+   Tokens only, so glass/liquid/editorial each render their own palette; the
+   spinner is a border ring in the green accent, the label uses the shared
+   common.loading key. Debate's "Loading\u2026" and status-board's "Scanning\u2026"
+   keep their own contextual markup. */
+.view-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 24px 16px;
+  color: var(--text-faint);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+}
+.view-loading-spin {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent-green);
+  animation: view-loading-rotate 0.8s linear infinite;
+}
+@keyframes view-loading-rotate {
+  to { transform: rotate(360deg); }
+}
 .section[hidden], .subview[hidden], .workspace-bar[hidden], .section-tabs[hidden] { display: none; }
 .section-intro { margin: 0 0 14px; color: var(--text-dim); }
 .result-count { margin-left: auto; color: var(--text-faint); font-size: 12px; }
@@ -34657,6 +35032,26 @@ ${I18N_BOOTSTRAP}
 <div class="aurora-bg"></div>
 <div class="shell">
   ${renderAppHeader("memory")}
+  <script>
+  /* Header active-item bootstrap (panel polish batch 4): the header markup
+     is generated with the default 'memory' section active. When the page is
+     opened directly with ?section=runs/system, correct the highlight before
+     first paint instead of waiting for switchSection() at the end of the
+     page script; without/with an unknown ?section the default stays memory.
+     Runtime section switching remains owned by switchSection(). */
+  (function () {
+    try {
+      var section = new URLSearchParams(location.search).get('section');
+      if (section !== 'runs' && section !== 'system') return;
+      var current = document.getElementById(section + 'Nav');
+      var fallback = document.getElementById('memoryNav');
+      if (!current) return;
+      if (fallback) { fallback.className = ''; fallback.removeAttribute('aria-current'); }
+      current.className = 'active';
+      current.setAttribute('aria-current', 'page');
+    } catch (e) {}
+  })();
+  </script>
 
   <div id="notice" class="notice" hidden></div>
   <main id="memorySection" class="section">
@@ -34712,12 +35107,18 @@ ${LIB_JS}
   var workspaceRenameInput = document.getElementById('workspaceRenameInput');
   var selectedTip = null;
   var editingId = '';
-  var BOARD_VALUE_MAX_BYTES = 32768;
+  // Mirrors the backend constant BOARD_VALUE_MAX_BYTES in
+  // src/core/store/board.ts (96 KB); v1 ships it client-side, there is no
+  // server-pushed constant mechanism.
+  var BOARD_VALUE_MAX_BYTES = 98304;
+  // The form's static "0 / N bytes" label derives from the same constant
+  // (updateBoardValueBytes() re-renders it on every form open).
+  var boardValueBytesLabel = document.getElementById('boardValueBytes');
+  if (boardValueBytesLabel) boardValueBytesLabel.textContent = '0 / ' + BOARD_VALUE_MAX_BYTES + ' bytes';
   var boardEntries = [];
   var selectedBoardKey = '';
   var boardEditing = null;
-  var boardEventSource = null;
-  var boardPollTimer = null;
+  var boardSubscription = null;
   var boardRefreshTimer = null;
   var boardSearchTimer = null;
   var activeView = 'tips';
@@ -34748,6 +35149,43 @@ ${LIB_JS}
     notice.hidden = !message;
     notice.textContent = message || '';
     notice.className = 'notice' + (isError ? ' error' : '');
+    if (isError) clearAllListLoading();
+  }
+  /* Unified list loading state (panel polish batch 3). Shown by every SPA
+     list fetch while data is in flight; only replaces an empty container or
+     a lone .empty placeholder, so refreshes with rows already on screen keep
+     them (no flicker on the 5s/15s poll paths). Renderers clear their list
+     before filling, load* rejections clear it themselves, and setNotice(error)
+     sweeps any straggler as the final safety net. */
+  function showListLoading(list) {
+    if (!list || list.querySelector('.view-loading')) return;
+    var children = list.children;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].className !== 'empty') return;
+    }
+    list.textContent = '';
+    var box = document.createElement('div');
+    box.className = 'view-loading';
+    box.setAttribute('role', 'status');
+    var spin = document.createElement('span');
+    spin.className = 'view-loading-spin';
+    spin.setAttribute('aria-hidden', 'true');
+    var label = document.createElement('span');
+    label.textContent = tr('common.loading');
+    box.appendChild(spin);
+    box.appendChild(label);
+    list.appendChild(box);
+  }
+  function clearListLoading(list) {
+    if (!list) return;
+    var box = list.querySelector('.view-loading');
+    if (box) list.removeChild(box);
+  }
+  function clearAllListLoading() {
+    var boxes = document.querySelectorAll('.view-loading');
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].parentNode) boxes[i].parentNode.removeChild(boxes[i]);
+    }
   }
   function setFormError(message) { formError.textContent = message || ''; }
   function valueText(value) {
@@ -34896,8 +35334,7 @@ ${LIB_JS}
   function updateLocation(id) { replaceLocationParam('workspace', id); }
   function updateSectionLocation(section) { replaceLocationParam('section', section); }
   function closeBoardSubscription() {
-    if (boardEventSource) { boardEventSource.close(); boardEventSource = null; }
-    if (boardPollTimer) { clearInterval(boardPollTimer); boardPollTimer = null; }
+    if (boardSubscription) { boardSubscription.close(); boardSubscription = null; }
     if (boardRefreshTimer) { clearTimeout(boardRefreshTimer); boardRefreshTimer = null; }
   }
   function refreshActiveView() {
@@ -34924,21 +35361,16 @@ ${LIB_JS}
     closeBoardSubscription();
     var channel = getBoardChannel();
     if (!channel) return;
-    if (typeof EventSource !== 'undefined') {
-      boardEventSource = new EventSource('/subscribe?task_id=' + encodeURIComponent(channel));
-      boardEventSource.onmessage = function (event) {
-        var payload = null;
-        try { payload = JSON.parse(event.data); } catch (_) {}
-        if (payload && payload.type === 'board_updated') handleBoardEvent(payload);
-        if (boardRefreshTimer) clearTimeout(boardRefreshTimer);
-        boardRefreshTimer = setTimeout(function () {
-          boardRefreshTimer = null;
-          refreshActiveView().catch(function () {});
-        }, 300);
-      };
-      boardEventSource.onerror = function () {};
-    }
-    boardPollTimer = setInterval(function () { refreshActiveView().catch(function () {}); }, 15000);
+    boardSubscription = window.__moaLib.subscribeWithPoll('/subscribe?task_id=' + encodeURIComponent(channel), function (event) {
+      var payload = null;
+      try { payload = JSON.parse(event.data); } catch (_) {}
+      if (payload && payload.type === 'board_updated') handleBoardEvent(payload);
+      if (boardRefreshTimer) clearTimeout(boardRefreshTimer);
+      boardRefreshTimer = setTimeout(function () {
+        boardRefreshTimer = null;
+        refreshActiveView().catch(function () {});
+      }, 300);
+    }, function () { refreshActiveView().catch(function () {}); }, window.__moaLib.POLL_MS.sseFallback);
   }
   function isProjectValue(value) { return typeof value === 'string' && value.indexOf('project:') === 0; }
   function projectForValue(value) {
@@ -35094,17 +35526,17 @@ ${LIB_JS}
   }
 ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}${SYSTEM_PAGE_JS}${PROJECTS_PAGE_JS}${INBOX_PAGE_JS}  function closeSectionResources() {
     closeBoardSubscription();
-    if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
-    if (systemPollTimer) { clearInterval(systemPollTimer); systemPollTimer = null; }
+    if (runsPollTimer) { runsPollTimer.stop(); runsPollTimer = null; }
+    if (systemPollTimer) { systemPollTimer.stop(); systemPollTimer = null; }
     if (runSearchTimer) { clearTimeout(runSearchTimer); runSearchTimer = null; }
   }
   function switchRunsView(view) {
     activeRunsView = view;
     document.getElementById('liveRunsView').hidden = view !== 'live'; document.getElementById('archivesView').hidden = view !== 'archives';
     document.getElementById('liveRunsTab').className = 'tab' + (view === 'live' ? ' active' : ''); document.getElementById('archivesTab').className = 'tab' + (view === 'archives' ? ' active' : '');
-    if (runsPollTimer) { clearInterval(runsPollTimer); runsPollTimer = null; }
+    if (runsPollTimer) { runsPollTimer.stop(); runsPollTimer = null; }
     if (activeSection !== 'runs') return;
-    if (view === 'live') { loadRuns().catch(function (error) { setNotice(error.message, true); }); runsPollTimer = setInterval(function () { loadRuns().catch(function () {}); }, 5000); }
+    if (view === 'live') { loadRuns().catch(function (error) { setNotice(error.message, true); }); runsPollTimer = window.__moaLib.startPoll(function () { loadRuns().catch(function () {}); }, window.__moaLib.POLL_MS.runs); }
     else loadArchives().catch(function (error) { setNotice(error.message, true); });
   }
   function switchSection(section) {
@@ -35119,7 +35551,7 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     });
     if (section === 'memory') { switchView(activeView); }
     else if (section === 'runs') switchRunsView(activeRunsView);
-    else { loadSystem(); systemPollTimer = setInterval(function () { loadSystem(); }, 10000); }
+    else { loadSystem(); systemPollTimer = window.__moaLib.startPoll(function () { loadSystem(); }, window.__moaLib.POLL_MS.system); }
   }
   function switchView(view) {
     if (['tips', 'board', 'agents', 'projects', 'inbox'].indexOf(view) < 0) view = 'tips';
@@ -35228,19 +35660,95 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
 `;
 
 // src/web/status-model.ts
+function matchDebateSpecs(model, specs) {
+  const out = /* @__PURE__ */ Object.create(null);
+  if (!model || !Array.isArray(specs)) return out;
+  const byId = /* @__PURE__ */ Object.create(null);
+  const nameOf = /* @__PURE__ */ Object.create(null);
+  const byModel = /* @__PURE__ */ Object.create(null);
+  const keys = Object.keys(model.byKey);
+  for (let i = 0; i < keys.length; i++) {
+    const e = model.byKey[keys[i]];
+    if (typeof e.agentId === "string" && e.agentId) {
+      const list = byId[e.agentId] || (byId[e.agentId] = []);
+      list.push(e.key);
+    }
+    const subs = e.subagents;
+    if (Array.isArray(subs)) {
+      for (let j = 0; j < subs.length; j++) {
+        const sub = subs[j];
+        if (!sub || typeof sub !== "object") continue;
+        const subId = typeof sub.subagentId === "string" ? sub.subagentId : void 0;
+        const subName = typeof sub.name === "string" ? sub.name : void 0;
+        if (!subId || !subName) continue;
+        const skey = agentKey2(e.sessionId, subId);
+        if (nameOf[skey] === void 0) nameOf[skey] = subName;
+      }
+    }
+    if (e.kind === "sub" && typeof e.model === "string" && e.model) {
+      const list = byModel[e.model] || (byModel[e.model] = []);
+      list.push(e.key);
+    }
+  }
+  for (let i = 0; i < keys.length; i++) {
+    const e = model.byKey[keys[i]];
+    if (e.orphan === true && nameOf[e.key] === void 0 && typeof e.subName === "string" && e.subName) {
+      nameOf[e.key] = e.subName;
+    }
+  }
+  for (let i = 0; i < specs.length; i++) {
+    const spec = specs[i];
+    if (!spec || typeof spec.id !== "string" || !spec.id) continue;
+    const hits = [];
+    const seen = /* @__PURE__ */ Object.create(null);
+    const addHit = (k) => {
+      if (seen[k]) return;
+      seen[k] = true;
+      hits.push(k);
+    };
+    const ids = byId[spec.id];
+    if (ids) {
+      for (let j = 0; j < ids.length; j++) addHit(ids[j]);
+    }
+    const tag = typeof spec.tag === "string" && spec.tag ? spec.tag : void 0;
+    const nk = Object.keys(nameOf);
+    for (let j = 0; j < nk.length; j++) {
+      if (nameOf[nk[j]] === spec.id) {
+        const e = model.byKey[nk[j]];
+        if (e && e.kind === "sub") addHit(nk[j]);
+      }
+      if (tag && nameOf[nk[j]] === tag) {
+        const e = model.byKey[nk[j]];
+        if (e && e.kind === "sub") addHit(nk[j]);
+      }
+    }
+    if (tag && tag.indexOf("/") !== -1) {
+      const mk = byModel[tag];
+      if (mk) {
+        for (let j = 0; j < mk.length; j++) addHit(mk[j]);
+      }
+    }
+    out[spec.id] = hits;
+  }
+  return out;
+}
 function agentKey2(sessionId, agentId) {
   return `${sessionId}:${agentId}`;
 }
 function newModel() {
   return {
     byKey: {},
-    roots: {},
-    sessions: {},
+    roots: /* @__PURE__ */ Object.create(null),
+    sessions: /* @__PURE__ */ Object.create(null),
     sessionOrder: [],
-    pending: {},
-    orphans: {},
+    pending: /* @__PURE__ */ Object.create(null),
+    orphans: /* @__PURE__ */ Object.create(null),
+    dirCache: /* @__PURE__ */ Object.create(null),
     seq: 0
   };
+}
+function invalidateDirCache(model, sessionId) {
+  delete model.dirCache[sessionId];
 }
 function removeFromArray(arr, value) {
   if (!arr) return;
@@ -35258,8 +35766,10 @@ function ensureSession(model, sessionId, info) {
     row.gone = false;
   }
   if (info) {
+    const isAgentInfo = typeof info.agentId === "string";
     if (typeof info.title === "string") row.title = info.title;
-    if (typeof info.workDir === "string") row.workDir = info.workDir;
+    if (!isAgentInfo && typeof info.workDir === "string") row.workDir = info.workDir;
+    if (!isAgentInfo && typeof info.workDirHash === "string") row.workDirHash = info.workDirHash;
     if (typeof info.home === "string") row.home = info.home;
   }
   return row;
@@ -35269,6 +35779,7 @@ function upsertSession(model, session) {
   const row = ensureSession(model, session.sessionId, session);
   if (typeof session.createdAt === "string") row.createdAt = session.createdAt;
   if (typeof session.updatedAt === "string") row.updatedAt = session.updatedAt;
+  invalidateDirCache(model, session.sessionId);
 }
 function pushRoot(model, entry) {
   const roots = model.roots[entry.sessionId] || (model.roots[entry.sessionId] = []);
@@ -35400,6 +35911,7 @@ function normalizeEntry(model, agent, existing) {
   if (typeof agent.model === "string") entry.model = agent.model;
   if (typeof agent.phase === "string" && agent.phase) entry.phase = agent.phase;
   if (typeof agent.home === "string") entry.home = agent.home;
+  if (typeof agent.workDir === "string") entry.workDir = agent.workDir;
   if (typeof agent.workDirHash === "string") entry.workDirHash = agent.workDirHash;
   if (typeof agent.contextTokens === "number") entry.contextTokens = agent.contextTokens;
   if (typeof agent.planMode === "boolean") entry.planMode = agent.planMode;
@@ -35423,6 +35935,7 @@ function pruneEmptySession(model, sessionId) {
   }
   delete model.sessions[sessionId];
   delete model.roots[sessionId];
+  delete model.dirCache[sessionId];
   removeFromArray(model.sessionOrder, sessionId);
 }
 function upsertAgent(model, agent) {
@@ -35434,6 +35947,7 @@ function upsertAgent(model, agent) {
   const key = agentKey2(sessionId, agentId);
   const existing = model.byKey[key];
   ensureSession(model, sessionId, agent);
+  invalidateDirCache(model, sessionId);
   if (existing && existing.orphan) {
     const orphanParentKey = model.orphans[key];
     if (orphanParentKey !== void 0) {
@@ -35454,6 +35968,7 @@ function removeAgent(model, sessionId, agentId) {
   const key = agentKey2(sessionId, agentId);
   const entry = model.byKey[key];
   if (!entry) return { removed: [] };
+  invalidateDirCache(model, sessionId);
   if (entry.orphan) {
     delete model.byKey[key];
     delete model.orphans[key];
@@ -35500,6 +36015,7 @@ function removeAgent(model, sessionId, agentId) {
 function removeSession(model, sessionId) {
   const row = model.sessions[sessionId];
   if (!row) return { removed: false, kept: [] };
+  invalidateDirCache(model, sessionId);
   const keys = Object.keys(model.byKey);
   const live = [];
   for (let i = 0; i < keys.length; i++) {
@@ -35508,6 +36024,7 @@ function removeSession(model, sessionId) {
   if (live.length === 0) {
     delete model.sessions[sessionId];
     delete model.roots[sessionId];
+    delete model.dirCache[sessionId];
     removeFromArray(model.sessionOrder, sessionId);
     return { removed: true, kept: [] };
   }
@@ -35516,11 +36033,12 @@ function removeSession(model, sessionId) {
 }
 function applySnapshot(model, snapshot) {
   model.byKey = {};
-  model.roots = {};
-  model.sessions = {};
+  model.roots = /* @__PURE__ */ Object.create(null);
+  model.sessions = /* @__PURE__ */ Object.create(null);
   model.sessionOrder = [];
-  model.pending = {};
-  model.orphans = {};
+  model.pending = /* @__PURE__ */ Object.create(null);
+  model.orphans = /* @__PURE__ */ Object.create(null);
+  model.dirCache = /* @__PURE__ */ Object.create(null);
   model.seq = 0;
   const sessions = Array.isArray(snapshot?.sessions) ? snapshot.sessions : [];
   const agents = Array.isArray(snapshot?.agents) ? snapshot.agents : [];
@@ -35530,7 +36048,7 @@ function applySnapshot(model, snapshot) {
 }
 function modelCounts(model) {
   const keys = Object.keys(model.byKey);
-  const seen = {};
+  const seen = /* @__PURE__ */ Object.create(null);
   let sessions = 0;
   for (let i = 0; i < keys.length; i++) {
     const s = model.byKey[keys[i]].sessionId;
@@ -35605,6 +36123,167 @@ function deriveStatus(entry) {
   }
   return { key: "idle", tone: "idle" };
 }
+function isActiveAgent(entry) {
+  return !!entry && entry.busy === true && entry.stale !== true;
+}
+function sessionDirKey(model, sessionId) {
+  const cached3 = model.dirCache[sessionId];
+  if (cached3) return cached3.dirKey;
+  const row = model.sessions[sessionId];
+  if (row && typeof row.workDir === "string" && row.workDir) {
+    model.dirCache[sessionId] = { dirKey: row.workDir };
+    return row.workDir;
+  }
+  let dirKey;
+  if (row && typeof row.workDirHash === "string" && row.workDirHash) {
+    dirKey = row.workDirHash;
+  }
+  let agentWorkDir;
+  const keys = Object.keys(model.byKey);
+  for (let i = 0; i < keys.length; i++) {
+    const e = model.byKey[keys[i]];
+    if (e.sessionId !== sessionId) continue;
+    if (!agentWorkDir && typeof e.workDir === "string" && e.workDir) agentWorkDir = e.workDir;
+    if (!dirKey && typeof e.workDirHash === "string" && e.workDirHash) dirKey = "hash:" + e.workDirHash;
+  }
+  if (!dirKey) dirKey = "__unknown__";
+  model.dirCache[sessionId] = { dirKey, agentWorkDir };
+  return dirKey;
+}
+function partitionSession(model, sessionId) {
+  const active = [];
+  const inactive = [];
+  const visited = {};
+  const stack = [];
+  const rs = model.roots[sessionId] || [];
+  for (let i = rs.length - 1; i >= 0; i--) stack.push(rs[i]);
+  while (stack.length) {
+    const key = stack.pop();
+    if (key === void 0) continue;
+    if (visited[key]) continue;
+    visited[key] = true;
+    const e = model.byKey[key];
+    if (!e) continue;
+    if (isActiveAgent(e)) active.push(key);
+    else inactive.push(key);
+    const children = e.children;
+    for (let j = children.length - 1; j >= 0; j--) {
+      if (!visited[children[j]]) stack.push(children[j]);
+    }
+  }
+  return { active, inactive };
+}
+function listDirectories(model) {
+  function dirLabel(model2, dirKey, sessionId) {
+    const row = model2.sessions[sessionId];
+    if (row && typeof row.workDir === "string" && row.workDir) return row.workDir;
+    const cached3 = model2.dirCache[sessionId];
+    if (cached3 && typeof cached3.agentWorkDir === "string" && cached3.agentWorkDir) return cached3.agentWorkDir;
+    if (dirKey.indexOf("hash:") === 0 && dirKey.length > 5) return dirKey.slice(5, 13);
+    if (row && typeof row.workDirHash === "string" && row.workDirHash === dirKey && dirKey.length > 8) {
+      return dirKey.slice(0, 8);
+    }
+    return dirKey;
+  }
+  const groups = /* @__PURE__ */ Object.create(null);
+  const order = [];
+  for (let i = 0; i < model.sessionOrder.length; i++) {
+    const sid = model.sessionOrder[i];
+    const key = sessionDirKey(model, sid);
+    let g = groups[key];
+    if (!g) {
+      g = {
+        dirKey: key,
+        label: dirLabel(model, key, sid),
+        sessionIds: [],
+        activeAgents: 0,
+        hiddenSessions: 0,
+        hasActive: false
+      };
+      groups[key] = g;
+      order.push(key);
+    }
+    g.sessionIds.push(sid);
+    const part = partitionSession(model, sid);
+    if (part.active.length > 0) {
+      g.activeAgents += part.active.length;
+      g.hasActive = true;
+    } else {
+      g.hiddenSessions += 1;
+    }
+  }
+  order.sort(function(a, b) {
+    const ga = groups[a];
+    const gb = groups[b];
+    if (ga.hasActive !== gb.hasActive) return ga.hasActive ? -1 : 1;
+    if (ga.activeAgents !== gb.activeAgents) return gb.activeAgents - ga.activeAgents;
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
+  const out = [];
+  for (let i = 0; i < order.length; i++) out.push(groups[order[i]]);
+  return out;
+}
+function activeAgentKeys(model) {
+  const out = [];
+  const dirs = listDirectories(model);
+  for (let i = 0; i < dirs.length; i++) {
+    const ids = dirs[i].sessionIds;
+    for (let j = 0; j < ids.length; j++) {
+      const part = partitionSession(model, ids[j]);
+      for (let k = 0; k < part.active.length; k++) out.push(part.active[k]);
+    }
+  }
+  return out;
+}
+function activeAgentKeysWithAncestors(model) {
+  const seeds = activeAgentKeys(model);
+  const out = [];
+  const seen = {};
+  for (let i = 0; i < seeds.length; i++) {
+    const leaf = seeds[i];
+    const ancestors = [];
+    const visited = {};
+    let cur = model.byKey[leaf] ? model.byKey[leaf].parentKey || null : null;
+    while (cur && !visited[cur]) {
+      visited[cur] = true;
+      const e = model.byKey[cur];
+      if (!e) break;
+      ancestors.push(cur);
+      cur = e.parentKey || null;
+    }
+    for (let j = ancestors.length - 1; j >= 0; j--) {
+      const ak = ancestors[j];
+      if (seen[ak]) continue;
+      seen[ak] = true;
+      out.push({ key: ak, rollupActive: true });
+    }
+    if (!seen[leaf]) {
+      seen[leaf] = true;
+      out.push({ key: leaf, rollupActive: false });
+    }
+  }
+  return out;
+}
+function subtreeKeys(model, rootKey) {
+  const out = [];
+  const visited = {};
+  const stack = [rootKey];
+  while (stack.length) {
+    const key = stack.pop();
+    if (key === void 0 || visited[key]) continue;
+    visited[key] = true;
+    out.push(key);
+    const e = model.byKey[key];
+    if (!e) continue;
+    const children = e.children;
+    for (let j = children.length - 1; j >= 0; j--) {
+      if (!visited[children[j]]) stack.push(children[j]);
+    }
+  }
+  return out;
+}
 var MODEL_FUNCTIONS = [
   ["agentKey", agentKey2],
   ["newModel", newModel],
@@ -35617,6 +36296,7 @@ var MODEL_FUNCTIONS = [
   ["deriveStatus", deriveStatus],
   ["removeFromArray", removeFromArray],
   ["ensureSession", ensureSession],
+  ["invalidateDirCache", invalidateDirCache],
   ["pushRoot", pushRoot],
   ["registerPending", registerPending],
   ["wouldCycle", wouldCycle],
@@ -35627,7 +36307,15 @@ var MODEL_FUNCTIONS = [
   ["normalizeEntry", normalizeEntry],
   ["pruneEmptySession", pruneEmptySession],
   ["statusOf", statusOf],
-  ["phaseOf", phaseOf]
+  ["phaseOf", phaseOf],
+  ["isActiveAgent", isActiveAgent],
+  ["sessionDirKey", sessionDirKey],
+  ["partitionSession", partitionSession],
+  ["listDirectories", listDirectories],
+  ["activeAgentKeys", activeAgentKeys],
+  ["activeAgentKeysWithAncestors", activeAgentKeysWithAncestors],
+  ["subtreeKeys", subtreeKeys],
+  ["matchDebateSpecs", matchDebateSpecs]
 ];
 var MODEL_API_EXPORTS = [
   "agentKey",
@@ -35638,7 +36326,15 @@ var MODEL_API_EXPORTS = [
   "removeSession",
   "applySnapshot",
   "modelCounts",
-  "deriveStatus"
+  "deriveStatus",
+  "isActiveAgent",
+  "sessionDirKey",
+  "partitionSession",
+  "listDirectories",
+  "activeAgentKeys",
+  "activeAgentKeysWithAncestors",
+  "subtreeKeys",
+  "matchDebateSpecs"
 ];
 function serializedName(fn) {
   const m = /^function\s+([$\w]+)/.exec(fn.toString());
@@ -35774,6 +36470,12 @@ ${COMPONENTS_CSS}
   -webkit-backdrop-filter: none !important;
 }
 .sb-session {
+  /* flex-shrink: 0 \u2014 .sb-list / .sb-dir-sessions are capped-height flex
+     columns; with many sessions the default shrink would squeeze every group
+     to ~2px stripes (overflow:hidden makes min-height:auto resolve to 0),
+     rendering the board as thin lines (0.9.1 fix). Groups keep natural height;
+     the list scrolls. */
+  flex-shrink: 0;
   background: var(--solid);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -35791,6 +36493,7 @@ ${COMPONENTS_CSS}
   padding: 9px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  cursor: pointer;
 }
 .sb-session-title {
   font-weight: 600;
@@ -35957,6 +36660,167 @@ ${COMPONENTS_CSS}
 .sb-empty[hidden] {
   display: none;
 }
+
+/* \u2500\u2500 0.10.0: active section (sticky top) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+.sb-active {
+  /* flex-shrink: 0 \u2014 the active section sits in the document flow above the
+     capped-height sb-list; both itself and its rows column must resist the
+     flex-shrink collapse that squeezed .sb-session groups to 2px stripes. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px 14px 10px;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.sb-active[hidden] {
+  display: none;
+}
+.sb-active-head {
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sb-active-rows {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  max-height: 28vh;
+  overflow-y: auto;
+}
+.sb-active-rows .sb-row {
+  border-bottom: none;
+}
+.sb-active-rows .sb-row + .sb-row {
+  border-top: 1px solid var(--border);
+}
+
+/* \u2500\u2500 0.10.0: directory groups (workDir-keyed tree) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+.sb-dir {
+  flex-shrink: 0;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.sb-dir-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  cursor: pointer;
+  background: var(--surface);
+  user-select: none;
+}
+.sb-dir-title {
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.sb-dir-sub {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-dir-count {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.sb-dir-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+/* Chevron: SELECT_CHEVRON-style data-uri inlined here (components.ts keeps the
+   shared const private). Collapsed dirs / closed fold bars rotate it -90deg. */
+.sb-chevron {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.sb-dir.collapsed .sb-chevron,
+.sb-fold:not(.open) .sb-chevron {
+  transform: rotate(-90deg);
+}
+/* "N inactive" fold bar (pill, sb-ended/sb-session-count style) */
+.sb-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  flex-shrink: 0;
+  margin: 6px 14px 8px;
+  padding: 1px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.sb-fold[hidden] {
+  display: none;
+}
+.sb-rows-inactive {
+  border-top: 1px dashed var(--border);
+}
+
+/* \u2500\u2500 0.11.0: nested subtree containers (fourth lazy layer) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+/* .sb-subtree lives INSIDE its parent row (grid-column 1/-1) so a row removal
+   takes the subtree with it; the guide glyphs still carry depth, the container
+   adds a subtle indent + vertical line. */
+.sb-row .sb-subtree {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+/* Parent-row chevron (same 0.10.0 inlined data-uri): rotate when the subtree
+   is collapsed. */
+.sb-row.sb-subtree-parent.collapsed .sb-chevron {
+  transform: rotate(-90deg);
+}
+/* Ancestor rows brought out by a live sub-agent: weak style + badge. */
+.sb-row.sb-active-ancestor {
+  opacity: 0.72;
+}
+.sb-row.sb-active-ancestor .sb-status {
+  background: var(--surface-strong);
+  color: var(--text-faint);
+}
+.sb-ancestor-badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 15px;
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  white-space: nowrap;
+}
 </style>
 ${THEME_BOOTSTRAP}
 ${I18N_BOOTSTRAP}
@@ -35969,6 +36833,9 @@ ${I18N_BOOTSTRAP}
     <span class="sb-live" id="sbLive"></span>
     <span class="sb-conn" id="sbConn" data-i18n="status.connecting">connecting</span>
     <span class="sb-counts" id="sbCounts"></span>
+  </div>
+  <div class="sb-active" id="sbActive" hidden>
+    <div class="sb-active-rows" id="sbActiveRows"></div>
   </div>
   <div class="sb-notready" id="sbNotReady" hidden data-i18n="status.notReady">Status controller is not running. Start or reuse a session to begin monitoring.</div>
   <div class="sb-scan" id="sbScan" hidden><span class="spin"></span><span data-i18n="status.scanning">Scanning workspaces\u2026</span></div>
@@ -35991,10 +36858,53 @@ ${STATUS_MODEL_JS}
   var scanEl = document.getElementById('sbScan');
   var notReadyEl = document.getElementById('sbNotReady');
   var emptyEl = document.getElementById('sbEmpty');
-  var rowEls = {};
-  var sessionEls = {};
+  var activeEl = document.getElementById('sbActive');
+  var activeRowsEl = document.getElementById('sbActiveRows');
+  var activeHeadEl = null;
+  // F3 (0.10.0 review): all sessionId/dirKey-keyed maps are null-prototype so
+  // a sessionId/workDirHash of exactly '__proto__'/'constructor' cannot hit the
+  // prototype chain (e.g. userExpandedSessions['__proto__'] = true would be a
+  // silent no-op on a plain object).
+  var rowEls = Object.create(null);
+  var sessionEls = Object.create(null);
+  var dirEls = Object.create(null);
+  var activeRowEls = Object.create(null);
+  var userExpandedSessions = Object.create(null);
+  // 0.11.0: per-subtree collapse state (fourth lazy layer). Memory-only on
+  // purpose \u2014 agent keys churn fast, localStorage persistence is meaningless.
+  var collapsedSubtrees = Object.create(null);
   var pendingFrames = [];
   var flushScheduled = false;
+  var FOLDS_KEY = 'moamcp-status-folds';
+  var FOLDS_MAX = 500;
+  var folds = loadFolds();
+  // F1: one listDirectories result shared by the whole flush /
+  // localechange / rebuild (refreshActiveSection, resortDirectory,
+  // updateDirEl, dirGroupByKey) \u2014 the old code recomputed listDirectories up
+  // to 4\xD7 per flush, each O(sessions \xD7 agents).
+  var latestDirs = [];
+  var latestDirById = Object.create(null);
+  function computeDirState() {
+    latestDirs = M.listDirectories(model);
+    latestDirById = Object.create(null);
+    for (var i = 0; i < latestDirs.length; i++) latestDirById[latestDirs[i].dirKey] = latestDirs[i];
+  }
+
+  // \u2500\u2500 Active section chrome (title row is JS-created so fake-DOM tests can
+  //    drive localechange; the static shell only carries the rows container).
+  if (activeEl) {
+    activeHeadEl = activeEl.querySelector('.sb-active-head');
+    if (!activeHeadEl) {
+      activeHeadEl = document.createElement('div');
+      activeHeadEl.className = 'sb-active-head';
+      activeHeadEl.textContent = tr('status.activeSection');
+      activeEl.insertBefore(activeHeadEl, activeRowsEl);
+    }
+    if (activeRowsEl) {
+      activeRowsEl.className = 'sb-active-rows';
+      if (activeRowsEl.parentNode !== activeEl) activeEl.appendChild(activeRowsEl);
+    }
+  }
 
   function setConn(state, msg) {
     if (connEl) {
@@ -36015,6 +36925,44 @@ ${STATUS_MODEL_JS}
     if (emptyEl) emptyEl.hidden = M.modelCounts(model).agents > 0;
   }
 
+  // \u2500\u2500 Dir fold persistence (only stores states opposite the default, FIFO 500)
+  function loadFolds() {
+    var out = { dirs: Object.create(null) };
+    try {
+      var raw = localStorage.getItem(FOLDS_KEY);
+      if (!raw) return out;
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.dirs && typeof parsed.dirs === 'object') {
+        var keys = Object.keys(parsed.dirs);
+        for (var i = 0; i < keys.length; i++) {
+          var v = parsed.dirs[keys[i]];
+          if (keys[i] && (v === 0 || v === 1)) out.dirs[keys[i]] = v;
+        }
+      }
+    } catch (_) {}
+    return out;
+  }
+  function persistFolds() {
+    try {
+      localStorage.setItem(FOLDS_KEY, JSON.stringify({ dirs: folds.dirs }));
+    } catch (_) {}
+  }
+  function hasFoldRecord(dirKey) {
+    return Object.prototype.hasOwnProperty.call(folds.dirs, dirKey);
+  }
+  function saveDirFold(dirKey, collapsed, hasActive) {
+    var def = !hasActive;
+    if (collapsed === def) {
+      delete folds.dirs[dirKey];
+    } else {
+      folds.dirs[dirKey] = collapsed ? 1 : 0;
+      var keys = Object.keys(folds.dirs);
+      if (keys.length > FOLDS_MAX) delete folds.dirs[keys[0]];
+    }
+    persistFolds();
+  }
+
+  // \u2500\u2500 Agent rows (shared by the tree and the active section) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function depthOf(entry) {
     var depth = 0;
     var seen = {};
@@ -36038,9 +36986,26 @@ ${STATUS_MODEL_JS}
     return cell;
   }
 
-  function createRowEl(key) {
+  /** Same-partition children of an entry (0.11.0): a row's chevron/subtree only
+   *  covers children on its own side (active rows nest active descendants,
+   *  inactive rows nest inactive descendants); the other side lives behind the
+   *  fold bar and is managed by the master inactiveOpen control. */
+  function sameSideChildren(entry, sideActive) {
+    var out = [];
+    if (!entry || !entry.children) return out;
+    for (var i = 0; i < entry.children.length; i++) {
+      var ce = model.byKey[entry.children[i]];
+      if (ce && M.isActiveAgent(ce) === sideActive) out.push(entry.children[i]);
+    }
+    return out;
+  }
+
+  function createRowEl(key, opts) {
     var entry = model.byKey[key];
     if (!entry) return null;
+    // The active section is a flat list (no nesting, no chevrons) \u2014 only the
+    // tree render passes opts.tree !== false.
+    var isTree = !opts || opts.tree !== false;
     var row = document.createElement('div');
     row.setAttribute('data-key', key);
     row.className = 'sb-row';
@@ -36054,6 +37019,21 @@ ${STATUS_MODEL_JS}
     var name = document.createElement('span');
     name.textContent = entry.agentId;
     agentCell.appendChild(name);
+    if (isTree) {
+      // Parent-row chevron (0.10.0 inlined data-uri; components.ts SELECT_CHEVRON
+      // is private \u2014 do not touch it). Hidden until the row has same-side
+      // children; click toggles the subtree (fourth lazy layer).
+      var chevron = document.createElement('span');
+      chevron.className = 'sb-chevron';
+      chevron.setAttribute('aria-label', tr('status.subtreeCollapse'));
+      chevron.hidden = true;
+      chevron.addEventListener('click', function (ev) {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        toggleSubtree(key);
+      });
+      agentCell.appendChild(chevron);
+      row.__chevron = chevron;
+    }
     row.appendChild(agentCell);
     var isSub = entry.kind === 'sub' || entry.orphan;
     var kindCell = cellText(row, 'sb-kind ' + (isSub ? 'sub' : 'main'), isSub ? tr('status.sub') : tr('status.main'));
@@ -36067,7 +37047,24 @@ ${STATUS_MODEL_JS}
     if (entry.stale) row.classList.add('stale');
     if (entry.busy && !entry.stale) row.classList.add('busy');
     if (entry.orphan) row.classList.add('orphan');
+    if (isTree) {
+      // Subtree container INSIDE the row (grid-column 1/-1): removing the row
+      // removes the whole subtree; collapse keeps the container empty + drops
+      // the subtree keys from rowEls (anti-ghost), expand lazily rebuilds.
+      var sideActive = M.isActiveAgent(entry);
+      var kids = sameSideChildren(entry, sideActive);
+      if (kids.length > 0) {
+        chevron.hidden = false;
+        var subtree = document.createElement('div');
+        subtree.className = 'sb-subtree';
+        row.appendChild(subtree);
+        row.__subtree = subtree;
+        row.classList.add('sb-subtree-parent');
+        row.classList.toggle('collapsed', !!collapsedSubtrees[key]);
+      }
+    }
     row.__cells = {
+      agentCell: agentCell,
       guide: guide,
       name: name,
       kind: kindCell,
@@ -36079,8 +37076,9 @@ ${STATUS_MODEL_JS}
     return row;
   }
 
-  function updateRowEl(key) {
-    var row = rowEls[key];
+  /** In-place refresh of one row inside the given keyed map (tree vs active). */
+  function updateRowEl(map, key) {
+    var row = map[key];
     var entry = model.byKey[key];
     if (!row || !entry || !row.__cells) return;
     var cells = row.__cells;
@@ -36100,8 +37098,36 @@ ${STATUS_MODEL_JS}
     row.classList.toggle('stale', !!entry.stale);
     row.classList.toggle('busy', !!entry.busy && !entry.stale);
     row.classList.toggle('orphan', !!entry.orphan);
+    // 0.11.0: tree chrome sync (chevron visibility/aria, subtree container,
+    // collapse class). Skipped for active-section rows (flat, no nesting).
+    if (map !== activeRowEls) {
+      var sideActive = M.isActiveAgent(entry);
+      var kids = sameSideChildren(entry, sideActive);
+      var hasKids = kids.length > 0;
+      if (row.__chevron) {
+        row.__chevron.hidden = !hasKids;
+        row.__chevron.setAttribute(
+          'aria-label',
+          collapsedSubtrees[key] ? tr('status.subtreeExpand') : tr('status.subtreeCollapse'),
+        );
+      }
+      row.classList.toggle('sb-subtree-parent', hasKids);
+      row.classList.toggle('collapsed', hasKids && !!collapsedSubtrees[key]);
+      if (hasKids) {
+        if (!row.__subtree) {
+          var st2 = document.createElement('div');
+          st2.className = 'sb-subtree';
+          row.appendChild(st2);
+          row.__subtree = st2;
+        }
+      } else if (row.__subtree) {
+        if (row.__subtree.parentNode) row.__subtree.parentNode.removeChild(row.__subtree);
+        delete row.__subtree;
+      }
+    }
   }
 
+  // \u2500\u2500 Session groups (three-level lazy state machine, plan \xA72/\xA73) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var COLS = ['status.colAgent', 'status.colKind', 'status.colModel', 'status.colStatus', 'status.colTool', 'status.colSeen'];
 
   function ensureSessionEl(sessionId) {
@@ -36126,6 +37152,8 @@ ${STATUS_MODEL_JS}
     head.appendChild(sub);
     head.appendChild(ended);
     head.appendChild(count);
+    // Head-only (pure-inactive) sessions: click upgrades to the full render.
+    head.addEventListener('click', function () { toggleSessionExpand(sessionId); });
     var colhead = document.createElement('div');
     colhead.className = 'sb-colhead';
     var colCells = [];
@@ -36137,103 +37165,577 @@ ${STATUS_MODEL_JS}
     }
     var rows = document.createElement('div');
     rows.className = 'sb-rows';
-    group.appendChild(head);
-    group.appendChild(colhead);
-    group.appendChild(rows);
-    var info = { group: group, head: head, title: title, sub: sub, ended: ended, count: count, rows: rows, colCells: colCells };
+    var foldBar = document.createElement('div');
+    foldBar.className = 'sb-fold';
+    var foldChevron = document.createElement('span');
+    foldChevron.className = 'sb-chevron';
+    var foldLabel = document.createElement('span');
+    foldLabel.className = 'sb-fold-label';
+    foldBar.appendChild(foldChevron);
+    foldBar.appendChild(foldLabel);
+    foldBar.addEventListener('click', function () { toggleInactive(sessionId); });
+    var inactiveRows = document.createElement('div');
+    inactiveRows.className = 'sb-rows sb-rows-inactive';
+    var info = {
+      group: group, head: head, title: title, sub: sub, ended: ended, count: count,
+      colhead: colhead, colCells: colCells, rows: rows, foldBar: foldBar,
+      foldLabel: foldLabel, inactiveRows: inactiveRows, inactiveOpen: false, mode: 'head',
+    };
     sessionEls[sessionId] = info;
+    // mode 'head' starts with just the head row in the group; applySessionMode
+    // only re-parents on a mode change, so the initial head must be appended
+    // here (a head-only group is exactly one head element, zero agent rows).
+    group.appendChild(head);
     return info;
   }
 
-  function updateSessionEl(sessionId) {
-    var info = ensureSessionEl(sessionId);
+  /** 'head' = head row only; 'full' = head + colhead + rows + fold bar + inactive rows. */
+  function applySessionMode(info, mode) {
+    if (info.mode === mode) return;
+    info.mode = mode;
+    var desired = [info.head];
+    if (mode === 'full') desired.push(info.colhead, info.rows, info.foldBar, info.inactiveRows);
+    var cur = info.group.children;
+    while (cur.length) info.group.removeChild(cur[0]);
+    for (var i = 0; i < desired.length; i++) info.group.appendChild(desired[i]);
+  }
+
+  /** Max lastSeen over the session's own partition (O(subtree), not a global
+   *  byKey scan \u2014 the 0.9.1 O(n) per-frame full scan the plan \xA73 removes). */
+  function sessionLastSeen(part) {
+    var max = 0;
+    var keys = part.active.concat(part.inactive);
+    for (var i = 0; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e && e.lastSeen > max) max = e.lastSeen;
+    }
+    return window.__moaLib ? window.__moaLib.fmtClock(max) : '';
+  }
+
+  function updateFoldBar(info, inactiveCount) {
+    if (!info.foldLabel) return;
+    if (inactiveCount > 0) {
+      info.foldBar.hidden = false;
+      info.foldLabel.textContent = tr('status.inactiveCount', { count: inactiveCount });
+      info.foldBar.classList.toggle('open', !!info.inactiveOpen);
+    } else {
+      info.foldBar.hidden = true;
+    }
+  }
+
+  function updateSessionEl(sessionId, part) {
+    var info = sessionEls[sessionId];
     if (!info) return;
     var row = model.sessions[sessionId] || {};
     info.title.textContent = row.title || sessionId;
     info.sub.textContent = row.workDir || (row.home || '');
+    // F2 (0.10.0 review): the .sb-ended badge is translated here (not only at
+    // creation) so the localechange re-render refreshes it like the column
+    // headers; ensureSessionEl only sets it once at build time.
+    info.ended.textContent = tr('status.ended');
     info.ended.hidden = !row.gone;
     info.group.classList.toggle('gone', !!row.gone);
-    var n = 0;
-    var keys = Object.keys(model.byKey);
-    for (var i = 0; i < keys.length; i++) {
-      if (model.byKey[keys[i]].sessionId === sessionId) n++;
+    var n = part.active.length + part.inactive.length;
+    if (info.mode === 'head') {
+      info.count.textContent = tr('status.sessionCount', { count: n }) + ' \xB7 ' + tr('status.lastSeen') + ' ' + sessionLastSeen(part);
+    } else {
+      info.count.textContent = tr('status.sessionCount', { count: n });
     }
-    info.count.textContent = tr('status.sessionCount', { count: n });
+    updateFoldBar(info, part.inactive.length);
   }
 
-  /** Re-append this session's rows in DFS tree order (visited-guarded). */
-  function resortSession(sessionId, container) {
-    container = container || board;
-    if (!container) return;
-    var order = [];
-    var visited = {};
-    var stack = [];
-    var roots = model.roots[sessionId] || [];
-    for (var i = roots.length - 1; i >= 0; i--) stack.push(roots[i]);
-    while (stack.length) {
-      var key = stack.pop();
-      if (visited[key]) continue;
-      visited[key] = true;
-      order.push(key);
-      var entry = model.byKey[key];
-      if (!entry) continue;
-      var children = entry.children;
-      for (var j = children.length - 1; j >= 0; j--) {
-        if (!visited[children[j]]) stack.push(children[j]);
-      }
+  /** Remove the group + all of this session's rowEls (extracted from the old
+   *  empty-tree branch: no ghost DOM, no stale keyed entries). */
+  function teardownSession(sessionId) {
+    var info = sessionEls[sessionId];
+    if (!info) return;
+    if (info.group.parentNode) info.group.parentNode.removeChild(info.group);
+    delete sessionEls[sessionId];
+    for (var key in rowEls) {
+      if (key.indexOf(sessionId + ':') === 0) delete rowEls[key];
     }
-    if (order.length === 0) {
-      var info0 = sessionEls[sessionId];
-      if (info0) {
-        if (info0.group.parentNode) info0.group.parentNode.removeChild(info0.group);
-        delete sessionEls[sessionId];
-      }
-      // F4 (0.9.0 review): the group's rows are gone from the DOM with it \u2014
-      // drop their rowEls entries too so removed nodes are not retained by the
-      // keyed map (a later frame for the session must build fresh rows).
-      for (var staleKey in rowEls) {
-        if (staleKey.indexOf(sessionId + ':') === 0) delete rowEls[staleKey];
+  }
+
+  /** Drop a collapsed subtree's keys from rowEls (anti-ghost, the inactiveRows
+   *  precedent) \u2014 only keys on the collapsed root's own side are rendered
+   *  under this container, so only those are removed. */
+  function clearSubtreeRowEls(key) {
+    var keys = M.subtreeKeys(model, key);
+    var sideActive = M.isActiveAgent(model.byKey[key]);
+    for (var i = 1; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e && M.isActiveAgent(e) === sideActive) delete rowEls[keys[i]];
+    }
+  }
+
+  /** True when entry is a root of its partition side's tree \u2014 i.e. its model
+   *  parent is missing or on the OTHER side (active parents nest active
+   *  descendants, inactive parents nest inactive ones; the other side lives
+   *  behind the fold bar). Roots are appended top-level; non-roots are nested
+   *  by appendRowTree's recursion. */
+  function isSideRoot(entry, sideActive) {
+    if (!entry || !entry.parentKey) return true;
+    var p = model.byKey[entry.parentKey];
+    return !p || M.isActiveAgent(p) !== sideActive;
+  }
+
+  /** Append key's row into the given container and (when expanded) its
+   *  same-side subtree recursively. Collapsed subtrees keep their container
+   *  empty and drop their keys from rowEls \u2014 the next expand lazily rebuilds
+   *  them (fourth lazy layer, C3). */
+  function appendRowTree(container, key, sideActive) {
+    var row = rowEls[key];
+    if (!row) return;
+    container.appendChild(row);
+    var entry = model.byKey[key];
+    if (!entry) return;
+    var kids = sameSideChildren(entry, sideActive);
+    var subtree = row.__subtree;
+    if (kids.length === 0) {
+      // Children vanished (or flipped side): clear any stale container so no
+      // ghost rows survive inside the parent row.
+      if (subtree && subtree.firstChild) {
+        while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
       }
       return;
     }
+    if (!subtree) return; // defensive: createRowEl/updateRowEl sync it
+    if (collapsedSubtrees[key]) {
+      if (subtree.firstChild) {
+        while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+        clearSubtreeRowEls(key);
+      }
+      return;
+    }
+    // Expanded: clear + rebuild the container from rowEls (node identity is
+    // reused \u2014 the same cost profile as the 0.10.0 clear+reappend of info.rows).
+    while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+    for (var i = 0; i < kids.length; i++) {
+      var ck = kids[i];
+      if (!rowEls[ck]) rowEls[ck] = createRowEl(ck);
+      else updateRowEl(rowEls, ck);
+      appendRowTree(subtree, ck, sideActive);
+    }
+  }
+
+  /** Chevron click: toggle one subtree (fourth lazy layer). Collapse = clear
+   *  the container + drop its keys from rowEls; expand = lazy rebuild. */
+  function toggleSubtree(key) {
+    var entry = model.byKey[key];
+    var row = rowEls[key];
+    if (!entry || !row || !row.__subtree) return;
+    collapsedSubtrees[key] = !collapsedSubtrees[key];
+    row.classList.toggle('collapsed', !!collapsedSubtrees[key]);
+    if (row.__chevron) {
+      row.__chevron.setAttribute(
+        'aria-label',
+        collapsedSubtrees[key] ? tr('status.subtreeExpand') : tr('status.subtreeCollapse'),
+      );
+    }
+    var subtree = row.__subtree;
+    var sideActive = M.isActiveAgent(entry);
+    if (collapsedSubtrees[key]) {
+      while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+      clearSubtreeRowEls(key);
+    } else {
+      while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
+      var kids = sameSideChildren(entry, sideActive);
+      for (var i = 0; i < kids.length; i++) {
+        var ck = kids[i];
+        if (!rowEls[ck]) rowEls[ck] = createRowEl(ck);
+        else updateRowEl(rowEls, ck);
+        appendRowTree(subtree, ck, sideActive);
+      }
+    }
+  }
+
+  /** Attach (or re-attach) a session group at its model-order position inside
+   *  the dir's sessionsBox. Plain appendChild on an already-attached group
+   *  MOVES it to the bottom \u2014 expanding/collapsing a session (or a flush
+   *  re-render) used to yank it out of order; anchor on the next attached
+   *  sibling in model.sessionOrder instead. */
+  function attachSessionGroup(dirInfo, sessionId, group) {
+    var box = dirInfo.sessionsBox;
+    var order = model.sessionOrder;
+    var myIdx = order.indexOf(sessionId);
+    if (myIdx !== -1) {
+      for (var i = myIdx + 1; i < order.length; i++) {
+        var sib = sessionEls[order[i]];
+        if (sib && sib.group.parentNode === box) {
+          box.insertBefore(group, sib.group);
+          return;
+        }
+      }
+    }
+    box.appendChild(group);
+  }
+
+  function renderFullSession(sessionId, dirInfo) {
+    var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
-    updateSessionEl(sessionId);
-    for (var m = 0; m < order.length; m++) {
-      var rk = order[m];
+    applySessionMode(info, 'full');
+    updateSessionEl(sessionId, part);
+    var active = part.active;
+    // Clear + rebuild the active rows container every pass, then re-append the
+    // side roots recursively (nested rows come along via their parent's
+    // subtree; rowEls reuse keeps node identity; DFS order preserved).
+    while (info.rows.firstChild) info.rows.removeChild(info.rows.firstChild);
+    for (var i = 0; i < active.length; i++) {
+      var rk = active[i];
+      if (!isSideRoot(model.byKey[rk], true)) continue; // nested under an active ancestor
       if (!rowEls[rk]) rowEls[rk] = createRowEl(rk);
-      else updateRowEl(rk); // refresh content on every flush (E1 reuse, no rebuild)
+      else updateRowEl(rowEls, rk);
+      appendRowTree(info.rows, rk, true);
     }
-    for (var n = 0; n < order.length; n++) {
-      var rk2 = order[n];
-      if (rowEls[rk2]) info.rows.appendChild(rowEls[rk2]);
+    var inactive = part.inactive;
+    updateFoldBar(info, inactive.length);
+    if (info.inactiveOpen) {
+      // Master "\u6536\u8D77\u5168\u90E8\u4E0D\u6D3B\u8DC3\u5B50\u6811": opening lazily builds every inactive row
+      // (each subtree respecting its collapsedSubtrees state).
+      while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
+      for (var i = 0; i < inactive.length; i++) {
+        var ik = inactive[i];
+        if (!isSideRoot(model.byKey[ik], false)) continue; // nested under an inactive ancestor
+        if (!rowEls[ik]) rowEls[ik] = createRowEl(ik);
+        else updateRowEl(rowEls, ik);
+        appendRowTree(info.inactiveRows, ik, false);
+      }
+    } else {
+      // Fold bar closed = all inactive subtrees collapsed: the container holds
+      // no DOM and every inactive key is dropped from rowEls (no ghosts).
+      while (info.inactiveRows.firstChild) info.inactiveRows.removeChild(info.inactiveRows.firstChild);
+      for (var i = 0; i < inactive.length; i++) delete rowEls[inactive[i]];
     }
-    container.appendChild(info.group);
+    if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
   }
 
-  function resortBoardGroups(container) {
-    container = container || board;
-    if (!container) return;
-    for (var i = 0; i < model.sessionOrder.length; i++) {
-      var info = sessionEls[model.sessionOrder[i]];
-      if (info) container.appendChild(info.group);
+  function renderHeadOnly(sessionId, dirInfo) {
+    var part = M.partitionSession(model, sessionId);
+    var info = ensureSessionEl(sessionId);
+    applySessionMode(info, 'head');
+    updateSessionEl(sessionId, part);
+    if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
+  }
+
+  /** Rebuild-path renderer (snapshot / dir expand): inactive sessions get a
+   *  head row only, zero agent DOM. */
+  function renderSessionAtRebuild(sessionId, dirInfo) {
+    var part = M.partitionSession(model, sessionId);
+    var n = part.active.length + part.inactive.length;
+    if (dirInfo.fold || n === 0) return;
+    if (part.active.length > 0 || userExpandedSessions[sessionId] === true) {
+      renderFullSession(sessionId, dirInfo);
+    } else {
+      renderHeadOnly(sessionId, dirInfo);
     }
   }
 
-  /** Full rebuild from a snapshot (D5: DocumentFragment batch build). */
+  /** Incremental-path renderer (flush). Keeps a full render full once built
+   *  (E1 reuse / F4 no-drift regressions), keeps head-only head-only, and a
+   *  session first seen via a frame renders full \u2014 the lazy head-only path is
+   *  the snapshot/rebuild one. */
+  function resortSession(sessionId) {
+    var dirKey = M.sessionDirKey(model, sessionId);
+    var dirInfo = ensureDirEl(dirKey);
+    if (!dirInfo) return;
+    var part = M.partitionSession(model, sessionId);
+    var n = part.active.length + part.inactive.length;
+    if (dirInfo.fold || n === 0) {
+      if (sessionEls[sessionId]) teardownSession(sessionId);
+      return;
+    }
+    var existing = sessionEls[sessionId];
+    var full;
+    if (existing && existing.mode === 'full') full = true;
+    else if (part.active.length > 0 || userExpandedSessions[sessionId] === true) full = true;
+    else if (existing && existing.mode === 'head') full = false;
+    else full = true;
+    if (full) renderFullSession(sessionId, dirInfo);
+    else renderHeadOnly(sessionId, dirInfo);
+  }
+
+  function toggleSessionExpand(sessionId) {
+    var info = sessionEls[sessionId];
+    if (!info) return;
+    var part = M.partitionSession(model, sessionId);
+    if (part.active.length > 0) return; // full sessions are not collapsible via the head
+    var dirInfo = dirEls[M.sessionDirKey(model, sessionId)];
+    if (!dirInfo) return;
+    if (info.mode === 'full') {
+      // A full render of an all-inactive session (previously active, or
+      // user-expanded): the head click collapses it back to head-only. Without
+      // this branch the first click only set userExpandedSessions=true (a
+      // visual no-op on an already-full group) and the user needed two clicks.
+      userExpandedSessions[sessionId] = false;
+      renderHeadOnly(sessionId, dirInfo);
+      return;
+    }
+    userExpandedSessions[sessionId] = !userExpandedSessions[sessionId];
+    if (userExpandedSessions[sessionId]) renderFullSession(sessionId, dirInfo);
+    else renderHeadOnly(sessionId, dirInfo);
+  }
+
+  function toggleInactive(sessionId) {
+    var info = sessionEls[sessionId];
+    if (!info) return;
+    info.inactiveOpen = !info.inactiveOpen;
+    var dirInfo = dirEls[M.sessionDirKey(model, sessionId)];
+    if (dirInfo) renderFullSession(sessionId, dirInfo);
+  }
+
+  // \u2500\u2500 Directory layer (plan \xA72) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // F1: group lookup is an O(1) index into the single per-flush listDirectories
+  // result (computeDirState) \u2014 the old code recomputed listDirectories for
+  // every call, e.g. once per dir inside updateDirEl/resortDirSessions.
+  function dirGroupByKey(dirKey) {
+    return latestDirById[dirKey] || null;
+  }
+
+  function ensureDirEl(dirKey) {
+    if (dirEls[dirKey]) return dirEls[dirKey];
+    if (!board) return null;
+    var group = document.createElement('div');
+    group.className = 'sb-dir';
+    group.setAttribute('data-dir', dirKey);
+    var head = document.createElement('div');
+    head.className = 'sb-dir-head';
+    var chevron = document.createElement('span');
+    chevron.className = 'sb-chevron';
+    var title = document.createElement('span');
+    title.className = 'sb-dir-title';
+    var sub = document.createElement('span');
+    sub.className = 'sb-dir-sub';
+    var count = document.createElement('span');
+    count.className = 'sb-dir-count';
+    head.appendChild(chevron);
+    head.appendChild(title);
+    head.appendChild(sub);
+    head.appendChild(count);
+    var sessionsBox = document.createElement('div');
+    sessionsBox.className = 'sb-dir-sessions';
+    group.appendChild(head);
+    group.appendChild(sessionsBox);
+    head.addEventListener('click', function () {
+      var info = dirEls[dirKey];
+      if (!info) return;
+      info.fold = !info.fold;
+      var g = dirGroupByKey(dirKey);
+      applyDirFold(info);
+      saveDirFold(dirKey, info.fold, !!(g && g.hasActive));
+    });
+    var info = { group: group, head: head, chevron: chevron, title: title, sub: sub, count: count, sessionsBox: sessionsBox, dirKey: dirKey, fold: true };
+    dirEls[dirKey] = info;
+    var g = dirGroupByKey(dirKey);
+    if (g) info.fold = hasFoldRecord(dirKey) ? folds.dirs[dirKey] === 1 : !g.hasActive;
+    info.group.classList.toggle('collapsed', !!info.fold);
+    return info;
+  }
+
+  function applyDirFold(info) {
+    info.group.classList.toggle('collapsed', !!info.fold);
+    if (info.fold) {
+      // Folded dir: internal session groups are torn down (zero session DOM);
+      // active agents stay visible in the top active section.
+      var kids = [].slice.call(info.sessionsBox.children);
+      for (var i = 0; i < kids.length; i++) {
+        var sid = kids[i].getAttribute ? kids[i].getAttribute('data-session') : null;
+        if (sid) teardownSession(sid);
+      }
+    } else {
+      var g = dirGroupByKey(info.dirKey);
+      if (g) {
+        for (var j = 0; j < g.sessionIds.length; j++) {
+          renderSessionAtRebuild(g.sessionIds[j], info);
+        }
+      }
+    }
+  }
+
+  function updateDirEl(dirKey) {
+    var info = dirEls[dirKey];
+    if (!info) return;
+    var g = dirGroupByKey(dirKey);
+    if (!g) {
+      if (info.group.parentNode) info.group.parentNode.removeChild(info.group);
+      delete dirEls[dirKey];
+      return;
+    }
+    var last = g.label.split('/').filter(Boolean).pop();
+    info.title.textContent = g.dirKey === '__unknown__' ? tr('status.unknownDir') : (last || g.label);
+    info.sub.textContent = g.label;
+    info.count.textContent = tr('status.hiddenSessions', { count: g.hiddenSessions }) + ' \xB7 ' + tr('status.dirAgents', { count: g.activeAgents });
+    if (!hasFoldRecord(dirKey)) {
+      // No user preference: follow the default (hasActive ? expanded : folded).
+      var def = !g.hasActive;
+      if (info.fold !== def) {
+        info.fold = def;
+        applyDirFold(info);
+      }
+    }
+  }
+
+  function resortDirSessions(dirKey) {
+    var info = dirEls[dirKey];
+    if (!info || info.fold) return;
+    var g = dirGroupByKey(dirKey);
+    if (!g) return;
+    for (var i = 0; i < g.sessionIds.length; i++) {
+      var si = sessionEls[g.sessionIds[i]];
+      if (si) info.sessionsBox.appendChild(si.group);
+    }
+  }
+
+  /** Re-append dir groups in listDirectories order (move semantics, no drift). */
+  function resortDirectory() {
+    if (!board) return;
+    var dirs = latestDirs;
+    var present = Object.create(null);
+    for (var i = 0; i < dirs.length; i++) present[dirs[i].dirKey] = true;
+    for (var d in dirEls) {
+      if (!present[d]) {
+        var di = dirEls[d];
+        if (di.group.parentNode) di.group.parentNode.removeChild(di.group);
+        delete dirEls[d];
+      }
+    }
+    for (var i = 0; i < dirs.length; i++) {
+      var info = dirEls[dirs[i].dirKey];
+      if (info) board.appendChild(info.group);
+    }
+  }
+
+  // \u2500\u2500 Top active section (plan \xA74) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // F1: derive the active partition directly from the shared listDirectories
+  // result (dirs order -> sessionIds order -> partition DFS), so the section
+  // never triggers a second listDirectories (M.activeAgentKeys would).
+  function activeKeysFromDirs(dirs) {
+    var out = [];
+    for (var i = 0; i < dirs.length; i++) {
+      var ids = dirs[i].sessionIds;
+      for (var j = 0; j < ids.length; j++) {
+        var part = M.partitionSession(model, ids[j]);
+        for (var k = 0; k < part.active.length; k++) out.push(part.active[k]);
+      }
+    }
+    return out;
+  }
+  // B1 (0.11.0): ancestor-closure order derived directly from the shared
+  // listDirectories result (dirs order -> sessionIds order -> DFS active list),
+  // inserting each active leaf's ancestor chain before it (reverse chain order
+  // -> leaf). No global reorder \u2014 activeAgentKeys is the stable order. The
+  // serialized model function activeAgentKeysWithAncestors is the API twin of
+  // this page-local derivation (kept in sync by tests / D2).
+  function activeKeysWithAncestorsFromDirs(dirs) {
+    var seeds = activeKeysFromDirs(dirs);
+    var out = []; // { key, rollupActive }
+    var seen = Object.create(null);
+    for (var i = 0; i < seeds.length; i++) {
+      var leaf = seeds[i];
+      var ancestors = [];
+      var visited = Object.create(null);
+      var cur = model.byKey[leaf] ? model.byKey[leaf].parentKey || null : null;
+      while (cur && !visited[cur]) {
+        visited[cur] = true;
+        var ae = model.byKey[cur];
+        if (!ae) break; // broken chain: the gap is not rendered as an ancestor
+        ancestors.push(cur);
+        cur = ae.parentKey || null;
+      }
+      for (var j = ancestors.length - 1; j >= 0; j--) {
+        var ak = ancestors[j];
+        if (seen[ak]) continue;
+        seen[ak] = true;
+        out.push({ key: ak, rollupActive: true });
+      }
+      if (!seen[leaf]) {
+        seen[leaf] = true;
+        out.push({ key: leaf, rollupActive: false });
+      }
+    }
+    return out;
+  }
+  /** Ancestor rows get a weak style + a "brought out by sub-agent" badge \u2014 the
+   *  row itself is not busy, which would otherwise confuse (B2). */
+  function setAncestorBadge(row, on) {
+    if (!row || !row.__cells) return;
+    row.classList.toggle('sb-active-ancestor', !!on);
+    var cell = row.__cells.agentCell;
+    if (!cell) return;
+    if (on) {
+      if (!cell.__badge) {
+        var badge = document.createElement('span');
+        badge.className = 'sb-ancestor-badge';
+        cell.appendChild(badge);
+        cell.__badge = badge;
+      }
+      cell.__badge.textContent = tr('status.ancestorBadge');
+    } else if (cell.__badge) {
+      if (cell.__badge.parentNode) cell.__badge.parentNode.removeChild(cell.__badge);
+      delete cell.__badge;
+    }
+  }
+  function refreshActiveSection() {
+    if (!activeEl || !activeRowsEl) return;
+    var entries = activeKeysWithAncestorsFromDirs(latestDirs);
+    var present = Object.create(null);
+    for (var i = 0; i < entries.length; i++) present[entries[i].key] = true;
+    for (var key in activeRowEls) {
+      if (!present[key]) {
+        var stale = activeRowEls[key];
+        if (stale.parentNode) stale.parentNode.removeChild(stale);
+        delete activeRowEls[key];
+      }
+    }
+    for (var i = 0; i < entries.length; i++) {
+      var k = entries[i].key;
+      if (!activeRowEls[k]) activeRowEls[k] = createRowEl(k, { tree: false });
+      else updateRowEl(activeRowEls, k);
+      if (activeRowEls[k]) {
+        setAncestorBadge(activeRowEls[k], !!entries[i].rollupActive);
+        activeRowsEl.appendChild(activeRowEls[k]);
+      }
+    }
+    activeEl.hidden = entries.length === 0;
+  }
+
+  // \u2500\u2500 Full rebuild from a snapshot (D5: DocumentFragment batch build; F2:
+  //    fragment moves use the firstChild loop, never an indexed loop). \u2500\u2500\u2500\u2500\u2500\u2500
   function rebuildAll() {
     if (!board) return;
-    rowEls = {};
-    sessionEls = {};
+    rowEls = Object.create(null);
+    sessionEls = Object.create(null);
+    dirEls = Object.create(null);
+    // NOTE: activeRowEls is deliberately NOT reset. Its DOM nodes live in the
+    // persistent sbActiveRows container; refreshActiveSection() at the end runs
+    // the same reconciliation (drop keys not active, reuse/update the rest) that
+    // incremental flushes use. Resetting the map here would orphan the old rows
+    // in the container \u2014 every snapshot rebuild would stack a second copy of
+    // each active row (ghost rows in the top section).
     var frag = document.createDocumentFragment();
-    for (var i = 0; i < model.sessionOrder.length; i++) resortSession(model.sessionOrder[i], frag);
+    // F1: one listDirectories for the whole rebuild (dirs + dirGroupByKey +
+    // refreshActiveSection all read latestDirs/latestDirById).
+    computeDirState();
+    var dirs = latestDirs;
+    for (var i = 0; i < dirs.length; i++) {
+      var g = dirs[i];
+      var dirInfo = ensureDirEl(g.dirKey);
+      if (hasFoldRecord(g.dirKey)) dirInfo.fold = folds.dirs[g.dirKey] === 1;
+      else dirInfo.fold = !g.hasActive;
+      updateDirEl(g.dirKey);
+      if (dirInfo.fold) {
+        frag.appendChild(dirInfo.group);
+        continue;
+      }
+      for (var j = 0; j < g.sessionIds.length; j++) {
+        renderSessionAtRebuild(g.sessionIds[j], dirInfo);
+      }
+      frag.appendChild(dirInfo.group);
+    }
     board.textContent = '';
-    // F2 (0.9.0 review): frag.children is a LIVE HTMLCollection \u2014 appending a
-    // child moves it out and shrinks the collection, so an indexed loop over it
-    // skipped every other group (a 323-session snapshot rendered 162 groups).
-    // Snapshot-style moves via firstChild are immune.
     while (frag.firstChild) board.appendChild(frag.firstChild);
     updateCounts();
     updateEmpty();
+    refreshActiveSection();
   }
 
   function handleSnapshot(snap) {
@@ -36252,6 +37754,11 @@ ${STATUS_MODEL_JS}
       if (row) {
         if (row.parentNode) row.parentNode.removeChild(row);
         delete rowEls[rk];
+      }
+      var arow = activeRowEls[rk];
+      if (arow) {
+        if (arow.parentNode) arow.parentNode.removeChild(arow);
+        delete activeRowEls[rk];
       }
     }
   }
@@ -36272,7 +37779,8 @@ ${STATUS_MODEL_JS}
     flushScheduled = false;
     var frames = pendingFrames;
     pendingFrames = [];
-    var touched = {};
+    var touched = Object.create(null);
+    var touchedDirs = Object.create(null);
     for (var i = 0; i < frames.length; i++) {
       var f = frames[i];
       var type = f.type;
@@ -36283,30 +37791,78 @@ ${STATUS_MODEL_JS}
       }
       if (type === 'session') {
         if (data && data.gone === true && typeof data.sessionId === 'string') {
-          M.removeSession(model, data.sessionId);
-          touched[data.sessionId] = true;
+          var sd = data.sessionId;
+          var sdOld = M.sessionDirKey(model, sd);
+          M.removeSession(model, sd);
+          touched[sd] = true;
+          touchedDirs[sdOld] = true;
         }
         continue;
       }
       if (type === 'agent' && data) {
         var sid = typeof data.sessionId === 'string' ? data.sessionId : null;
-        if (data.gone === true) handleGone(data);
-        else M.upsertAgent(model, data);
-        if (sid) touched[sid] = true;
+        if (sid) {
+          var oldDir = M.sessionDirKey(model, sid);
+          if (data.gone === true) {
+            handleGone(data);
+            touched[sid] = true;
+            touchedDirs[oldDir] = true;
+            // A gone frame can flip the session's dirKey (e.g. the only agent
+            // carrying a workDirHash fallback is removed): the NEW dir must be
+            // refreshed too, or a freshly created dir group keeps an empty
+            // title/count (ensureDirEl never fills them).
+            touchedDirs[M.sessionDirKey(model, sid)] = true;
+          } else {
+            M.upsertAgent(model, data);
+            touched[sid] = true;
+            touchedDirs[oldDir] = true;
+            touchedDirs[M.sessionDirKey(model, sid)] = true;
+          }
+        }
       }
     }
-    // F3 (0.9.0 review): agent/session frames queued after a snapshot in the
-    // same batch used to be skipped (the old 'rebuilt' flag short-circuited
-    // the resort), so their model updates only rendered on the next flush.
-    // Resort every touched session unconditionally \u2014 after a snapshot,
-    // rebuildAll has already rendered the base state and resort applies the
-    // later frames.
+    // F3 (0.9.0 review): resort every touched session unconditionally \u2014 after a
+    // snapshot rebuildAll has rendered the base state and resort applies the
+    // later frames in the same batch.
+    // F1: ONE listDirectories for the whole flush tail; refreshActiveSection /
+    // updateDirEl / resortDirSessions / resortDirectory all read it.
+    computeDirState();
+    refreshActiveSection();
     for (var s in touched) resortSession(s);
-    // F4 (0.9.0 review): resortSession appends each touched group to the board
-    // end, which drifts group order away from sessionOrder \u2014 reorder after.
-    resortBoardGroups();
+    for (var d in touchedDirs) {
+      updateDirEl(d);
+      resortDirSessions(d);
+    }
+    resortDirectory();
     updateCounts();
     updateEmpty();
+  }
+
+  // \u2500\u2500 Recursive tree refresh (C5, 0.11.0) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // localechange must walk the rendered tree recursively \u2014 subtree rows are
+  // nested inside parent rows' .sb-subtree containers, and collapsed subtrees
+  // keep no keys in rowEls, so a flat for-key-in-rowEls loop alone cannot be
+  // trusted to cover every visible row.
+  function refreshTreeRows(container) {
+    if (!container) return;
+    for (var i = 0; i < container.children.length; i++) {
+      var child = container.children[i];
+      if (child.className.split(' ').includes('sb-row')) {
+        var key = child.getAttribute('data-key');
+        if (key && rowEls[key]) updateRowEl(rowEls, key);
+        refreshTreeRows(child.__subtree);
+      } else {
+        refreshTreeRows(child);
+      }
+    }
+  }
+  function refreshVisibleRows() {
+    for (var sid in sessionEls) {
+      var info = sessionEls[sid];
+      if (!info || info.mode !== 'full') continue;
+      refreshTreeRows(info.rows);
+      refreshTreeRows(info.inactiveRows);
+    }
   }
 
   var sseUp = false; // last known SSE connection state (guards the probe race)
@@ -36349,12 +37905,20 @@ ${STATUS_MODEL_JS}
       var label = scanEl.children && scanEl.children[1] ? scanEl.children[1] : null;
       if (label) label.textContent = tr('status.scanning');
     }
+    if (activeHeadEl) activeHeadEl.textContent = tr('status.activeSection');
+    // F1: one listDirectories for the whole localechange re-render (the critic
+    // measured ~1s switching 35 dirs with the old per-dir recomputation).
+    computeDirState();
+    for (var d in dirEls) updateDirEl(d);
     for (var sid in sessionEls) {
-      updateSessionEl(sid);
       var info = sessionEls[sid];
       for (var i = 0; i < COLS.length && info.colCells; i++) info.colCells[i].textContent = tr(COLS[i]);
+      updateSessionEl(sid, M.partitionSession(model, sid));
     }
-    for (var key in rowEls) updateRowEl(key);
+    // C5 (0.11.0): recursive tree refresh (covers nested subtree rows), then
+    // the active section re-applies ancestor badges + row text with the locale.
+    refreshVisibleRows();
+    refreshActiveSection();
     updateCounts();
   });
 
@@ -36368,7 +37932,7 @@ ${STATUS_MODEL_JS}
 `;
 
 // src/adapters/control-plane.ts
-var CONTROL_PLANE_BODY_MAX_BYTES = 64 * 1024;
+var CONTROL_PLANE_BODY_MAX_BYTES = BOARD_VALUE_MAX_BYTES * 2 + 16 * 1024;
 var WORKSPACE_ID = /^[0-9a-f]{16}$/;
 var RUN_STATUSES = /* @__PURE__ */ new Set(["initialized", "debating", "complete", "closed"]);
 var ApiValidationError = class extends Error {
@@ -37296,10 +38860,16 @@ var ControlPlane = class {
     const key = queryText(url.searchParams.get("key"));
     const tag = queryText(url.searchParams.get("tag"));
     const limit = parseLimit(url.searchParams.get("limit"));
-    const entries = key !== void 0 ? await board.readNamespace(key, tag, rawScope, limit, cwd) : await board.read(void 0, tag, rawScope, limit, cwd);
+    const withValues = url.searchParams.get("values") === "1";
+    const exactKey = url.searchParams.get("exact") === "1";
+    const entries = key !== void 0 ? exactKey ? await board.read(key, tag, rawScope, limit, cwd) : await board.readNamespace(key, tag, rawScope, limit, cwd) : await board.read(void 0, tag, rawScope, limit, cwd);
     const enrichedEntries = entries.map((entry) => ({
-      ...entry,
-      bytes: Buffer.byteLength(entry.value, "utf8")
+      key: entry.key,
+      author: entry.author,
+      ts: entry.ts,
+      tags: [...entry.tags],
+      bytes: Buffer.byteLength(entry.value, "utf8"),
+      ...withValues ? { value: entry.value } : {}
     }));
     sendJson(res, 200, {
       scope: rawScope,
@@ -37697,7 +39267,7 @@ ${COMPONENTS_CSS}
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   font-family: var(--font-mono);
   font-size: 12px;
   background: var(--solid);
@@ -37705,9 +39275,48 @@ ${COMPONENTS_CSS}
   border-radius: var(--r-md);
   padding: 6px;
 }
+/* Session group head: home badge + workDir / short session id. */
+.omkc-session {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0 1px;
+  padding: 3px 9px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.omkc-session:first-child {
+  margin-top: 0;
+}
+.omkc-home {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--surface-strong);
+  color: var(--text-dim);
+}
+.omkc-session-dir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* F7: session-gone marker on the group head (ended sessions keep their rows). */
+.omkc-ended {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--tint-red);
+  color: var(--accent-red);
+  white-space: nowrap;
+}
 .omkc-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1.1fr) minmax(130px, 1.4fr) 86px 100px minmax(120px, 1.5fr);
+  grid-template-columns: minmax(170px, 1.5fr) minmax(120px, 1.2fr) 86px 100px minmax(120px, 1.4fr);
   gap: 10px;
   align-items: center;
   padding: 4px 9px;
@@ -37720,13 +39329,90 @@ ${COMPONENTS_CSS}
 .omkc-row.stale {
   opacity: 0.4;
 }
+/* Debate-mapped sub row: accent highlight (spec chip rides in the id cell). */
+.omkc-row.matched {
+  background: var(--tint-green-soft);
+}
 .omkc-row > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .omkc-row .omkc-id {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: visible;
   color: var(--accent-blue);
+}
+.omkc-row.matched .omkc-id {
+  color: var(--accent-green);
+}
+.omkc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Sub rows: indent + CSS tree connector (vertical line + \u2514 glyph). */
+.omkc-row.sub {
+  position: relative;
+  padding-left: 22px;
+}
+.omkc-row.sub::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 4px;
+  bottom: 4px;
+  border-left: 1px solid var(--border);
+}
+.omkc-guide {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  font-size: 10px;
+}
+.omkc-badge {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+  white-space: nowrap;
+}
+.omkc-badge.orchestrator {
+  background: var(--tint-green);
+  color: var(--accent-green);
+}
+/* Subagent type name (resolved from the parent's subagents[] list). */
+.omkc-type {
+  flex: 0 0 auto;
+  max-width: 110px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--tint-purple);
+  color: var(--accent-purple);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* spec.id chip on matched rows. */
+.omkc-chip {
+  flex: 0 0 auto;
+  max-width: 90px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  line-height: 15px;
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .omkc-st {
   justify-self: start;
@@ -37735,13 +39421,29 @@ ${COMPONENTS_CSS}
   font-size: 11px;
   line-height: 18px;
 }
-.omkc-st.on {
+.omkc-st.st-busy {
   background: var(--tint-green);
   color: var(--accent-green);
 }
-.omkc-st.off {
+.omkc-st.st-done {
+  background: var(--tint-blue);
+  color: var(--accent-blue);
+}
+.omkc-st.st-err {
+  background: var(--tint-red);
+  color: var(--accent-red);
+}
+.omkc-st.st-warn {
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+}
+.omkc-st.st-idle {
   background: var(--surface-strong);
   color: var(--text-dim);
+}
+.omkc-st.st-stale {
+  background: var(--surface-strong);
+  color: var(--text-faint);
 }
 .omkc-tok {
   color: var(--text-dim);
@@ -37752,6 +39454,37 @@ ${COMPONENTS_CSS}
 }
 .omkc-tool.err {
   color: var(--accent-red);
+}
+/* Status controller still starting: placeholder body instead of the list. */
+.omkc-starting {
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.omkc-starting[hidden] {
+  display: none;
+}
+/* Debaters chips: live-match status dot (busy green / idle gray). */
+.omkc-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+.omkc-dot.busy {
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+}
+.omkc-dot.idle {
+  background: var(--text-faint);
+}
+.omkc-dot[hidden] {
+  display: none;
 }
 
 .tool-log {
@@ -38001,6 +39734,7 @@ ${I18N_BOOTSTRAP}
   </div>
   <div class="card" id="omkcCard" hidden>
     <div class="sec-title"><span data-i18n="debate.agentStatus">Agent Status</span><span class="omkc-scan" id="omkcScan" hidden></span><span class="aux hint" id="omkcCount"></span></div>
+    <div class="omkc-starting" id="omkcStarting" hidden data-i18n="debate.starting">starting\u2026</div>
     <div class="omkc-list" id="omkcAgents"></div>
   </div>
   <div class="card" id="transcriptCard">
@@ -38023,8 +39757,10 @@ ${I18N_BOOTSTRAP}
 <script>
 ${I18N_JS}
 ${LIB_JS}
+${STATUS_MODEL_JS}
 (function () {
   'use strict';
+  var M = window.__moaStatusModel;
   var tr = window.__moaI18n ? window.__moaI18n.t : function (key) { return key; };
   var taskId = new URLSearchParams(location.search).get('task_id') || '';
   document.getElementById('taskId').textContent = taskId || tr('debate.noTask');
@@ -38190,6 +39926,9 @@ ${LIB_JS}
   }
   function renderAgents() {
     var box = document.getElementById('agents');
+    // Every render recomputes the debate-spec mapping (C): the Debaters dots
+    // must reflect the current model as soon as the debate context is known.
+    recomputeSpecHits();
     box.textContent = '';
     if (!agents.length) {
       var empty = document.createElement('span');
@@ -38202,6 +39941,12 @@ ${LIB_JS}
       var a = agents[i];
       var chip = document.createElement('span');
       chip.className = 'agent' + (a.id === speaking ? ' speaking' : '');
+      chip.setAttribute('data-spec-id', a.id);
+      // Live-match status dot: filled by updateDebaterDots after model updates.
+      var dot = document.createElement('span');
+      dot.className = 'omkc-dot idle';
+      dot.hidden = true;
+      chip.appendChild(dot);
       chip.appendChild(document.createTextNode(a.id));
       var sub = document.createElement('span');
       sub.className = 'sub';
@@ -38210,6 +39955,7 @@ ${LIB_JS}
       chip.appendChild(sub);
       box.appendChild(chip);
     }
+    updateDebaterDots();
   }
   function setMeta(round, speaker) {
     document.getElementById('round').textContent = round;
@@ -38452,33 +40198,23 @@ ${LIB_JS}
     setInterval(refreshTasks, 3000);
   }
 
-  var OMKC = 'http://127.0.0.1:39627';
-  var omkcRows = new Map();
+  // \u2500\u2500 Agent Status card: same-origin bus /status + /status/events \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // Consumes the same status model as the Status Board page: one
+  // window.__moaStatusModel instance fed by /status snapshots and the
+  // /status/events SSE stream, rendered as a per-session main\u2192sub tree.
+  var model = M.newModel();
+  var specHits = Object.create(null);   // spec.id -> matched agent keys (narrowed, F3)
   var toolSeen = new Map();
-  var omkcEs = null, omkcFails = 0, omkcReprobe = null, omkcHealthPoll = null;
+  var omkcSse = null, omkcFails = 0, omkcReprobe = null, omkcStartingTimer = null, omkcPoll = null;
+  // F1: rAF frame batching (mirrors status-board.ts queueFrame/flushFrames) \u2014
+  // agent/session frames only mutate the model; one render per animation frame
+  // instead of one full render per frame. omkcRenderedOnce marks the first
+  // paint so the first snapshot can still render synchronously.
+  var omkcPendingFrames = [], omkcFlushScheduled = false, omkcRenderedOnce = false;
+  // F2: the 3-strike rule hides the card deliberately; an in-flight 503 must
+  // not re-show it (only 200 / a snapshot frame re-shows).
+  var omkcHidden = false;
 
-  function fetchWithTimeout(url, ms) {
-    return new Promise(function (resolve, reject) {
-      var ctrl = new AbortController();
-      var timer = setTimeout(function () { ctrl.abort(); reject(new Error('timeout')); }, ms);
-      fetch(url, { signal: ctrl.signal }).then(function (r) {
-        clearTimeout(timer);
-        resolve(r);
-      }, function (err) {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-  }
-  function probeOmkc() {
-    return fetchWithTimeout(OMKC + '/health', 500).then(function (r) {
-      if (!r.ok) throw new Error('health HTTP ' + r.status);
-      return r.json();
-    }).then(function (h) {
-      if (!h || h.ok !== true) throw new Error('not omkc-status');
-      return h;
-    });
-  }
   function omkcShow(on) {
     document.getElementById('omkcCard').hidden = !on;
     document.getElementById('omkcToolsCard').hidden = !on;
@@ -38488,32 +40224,162 @@ ${LIB_JS}
     chip.hidden = !scanning;
     chip.textContent = tr('debate.scanning');
   }
-  function omkcKey(a) { return (a.sessionId || '') + ':' + (a.agentId || ''); }
+  function setOmkcStarting(on) {
+    var el = document.getElementById('omkcStarting');
+    if (el) {
+      el.hidden = !on;
+      if (on) document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: 0 });
+    }
+  }
+  function stopOmkcSse() {
+    if (omkcSse) { omkcSse.close(); omkcSse = null; }
+  }
+  function stopScanPoll() {
+    if (omkcPoll) { omkcPoll.stop(); omkcPoll = null; }
+  }
   function fmtTok(n) {
     n = Number(n);
     if (!isFinite(n)) return '\u2013';
     return n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'k' : String(n);
   }
-  function fillAgentRow(el, a) {
-    var cells = el.children;
-    cells[0].textContent = String(a.agentId || '?') + (a.kind === 'sub' ? ' \u2937' : '');
-    cells[0].title = (a.sessionId || '') + (a.home ? ' @ ' + a.home : '');
-    cells[1].textContent = a.model || '\u2013';
-    var busyish = a.busy === true || (!!a.phase && a.phase !== 'idle' && a.phase !== 'completed' && a.phase !== 'suspended');
-    cells[2].textContent = a.phase || (a.busy ? 'busy' : 'idle');
-    cells[2].className = 'omkc-st ' + (busyish ? 'on' : 'off');
-    cells[3].textContent = a.contextTokens != null
-      ? fmtTok(a.contextTokens) + ' / ' + fmtTok(a.maxContextTokens)
-      : '\u2013';
-    var tc = a.lastToolCall;
-    if (tc && tc.name) {
-      cells[4].textContent = String(tc.name) + (tc.isError ? ' \u2717' : '');
-      cells[4].className = 'omkc-tool' + (tc.isError ? ' err' : '');
-    } else {
-      cells[4].textContent = '\u2013';
-      cells[4].className = 'omkc-tool';
+  function shortId(s) {
+    s = String(s || '');
+    return s.length > 24 ? s.slice(0, 24) + '\u2026' : s;
+  }
+  /** F3: cross-session narrowing \u2014 the debate lives in ONE session, but global
+   *  matchDebateSpecs hits can span concurrent sessions (two debates running
+   *  the same type names). Group every hit key by sessionId, keep the session
+   *  with the most hits (tie: newest lastSeen among its hit entries), and
+   *  return only that session's hits. No hits at all -> behave as today. */
+  function narrowSpecHits(global) {
+    var per = Object.create(null);        // sessionId -> { count, maxSeen }
+    var bySession = Object.create(null);  // sessionId -> hit keys
+    for (var specId in global) {
+      var ks = global[specId];
+      for (var i = 0; i < ks.length; i++) {
+        var k = ks[i];
+        var e = model.byKey[k];
+        if (!e) continue;
+        var sid = e.sessionId;
+        var rec = per[sid];
+        if (!rec) {
+          rec = per[sid] = { count: 0, maxSeen: 0 };
+          bySession[sid] = [];
+        }
+        rec.count++;
+        if (e.lastSeen > rec.maxSeen) rec.maxSeen = e.lastSeen;
+        bySession[sid].push(k);
+      }
     }
-    if (a.stale) el.classList.add('stale'); else el.classList.remove('stale');
+    var best = null, bestSid = null;
+    for (var sid in per) {
+      var r = per[sid];
+      if (!best || r.count > best.count || (r.count === best.count && r.maxSeen > best.maxSeen)) {
+        best = r;
+        bestSid = sid;
+      }
+    }
+    if (!bestSid) return global;
+    var allow = Object.create(null);
+    var keep = bySession[bestSid];
+    for (var j = 0; j < keep.length; j++) allow[keep[j]] = true;
+    var out = Object.create(null);
+    for (var specId in global) {
+      var gks = global[specId];
+      var hits = [];
+      for (var i = 0; i < gks.length; i++) if (allow[gks[i]]) hits.push(gks[i]);
+      out[specId] = hits;
+    }
+    return out;
+  }
+  function recomputeSpecHits() {
+    specHits = narrowSpecHits(M.matchDebateSpecs(model, agents));
+  }
+  /** spec ids whose hits include this key. */
+  function matchedSpecsOf(key) {
+    var out = [];
+    for (var specId in specHits) {
+      var ks = specHits[specId];
+      for (var i = 0; i < ks.length; i++) {
+        if (ks[i] === key) { out.push(specId); break; }
+      }
+    }
+    return out;
+  }
+  /** True when any debate-matched key lives in this session (hit-first ordering). */
+  function sessionHasHits(sessionId) {
+    for (var specId in specHits) {
+      var ks = specHits[specId];
+      for (var i = 0; i < ks.length; i++) {
+        var e = model.byKey[ks[i]];
+        if (e && e.sessionId === sessionId) return true;
+      }
+    }
+    return false;
+  }
+  /** True when a debate-matched SUB lives in this session (orchestrator badge:
+   *  only sessions with a hit sub get it \u2014 a rule-1 main-only hit does not). */
+  function sessionHasSubHits(sessionId) {
+    for (var specId in specHits) {
+      var ks = specHits[specId];
+      for (var i = 0; i < ks.length; i++) {
+        var e = model.byKey[ks[i]];
+        if (e && e.sessionId === sessionId && (e.kind === 'sub' || e.orphan)) return true;
+      }
+    }
+    return false;
+  }
+  /** Session rows: main entries first, subs after, each by lastSeen desc. */
+  function sessionEntries(sessionId) {
+    var mains = [], subs = [];
+    var keys = Object.keys(model.byKey);
+    for (var i = 0; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e.sessionId !== sessionId) continue;
+      if (e.kind === 'sub' || e.orphan) subs.push(e);
+      else mains.push(e);
+    }
+    function bySeenDesc(x, y) { return (y.lastSeen || 0) - (x.lastSeen || 0); }
+    mains.sort(bySeenDesc);
+    subs.sort(bySeenDesc);
+    return { mains: mains, subs: subs };
+  }
+  function sessionMaxSeen(sessionId) {
+    var max = 0;
+    var keys = Object.keys(model.byKey);
+    for (var i = 0; i < keys.length; i++) {
+      var e = model.byKey[keys[i]];
+      if (e.sessionId === sessionId && e.lastSeen > max) max = e.lastSeen;
+    }
+    return max;
+  }
+  /** Sessions with debate hits first, then by newest lastSeen (stable tie-break). */
+  function orderedSessionIds() {
+    var ids = model.sessionOrder.slice();
+    ids.sort(function (a, b) {
+      var ha = sessionHasHits(a), hb = sessionHasHits(b);
+      if (ha !== hb) return ha ? -1 : 1;
+      var ma = sessionMaxSeen(a), mb = sessionMaxSeen(b);
+      if (mb !== ma) return mb - ma;
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    });
+    return ids;
+  }
+  /** Subagent type name: parent's subagents[].name by subagentId; orphan uses subName. */
+  function subTypeName(entry) {
+    var parentKey = entry.parentKey;
+    var parent = parentKey ? model.byKey[parentKey] : null;
+    if (parent && Array.isArray(parent.subagents)) {
+      for (var i = 0; i < parent.subagents.length; i++) {
+        var s = parent.subagents[i];
+        if (s && typeof s === 'object' && s.subagentId === entry.agentId && typeof s.name === 'string' && s.name) {
+          return s.name;
+        }
+      }
+    }
+    return entry.subName ? String(entry.subName) : '\u2013';
   }
   function newRow() {
     var el = document.createElement('div');
@@ -38522,46 +40388,139 @@ ${LIB_JS}
       var c = document.createElement('span');
       if (i === 0) c.className = 'omkc-id';
       if (i === 3) c.className = 'omkc-tok';
+      if (i === 4) c.className = 'omkc-tool';
       el.appendChild(c);
     }
     return el;
   }
-  function upsertAgent(a) {
-    if (!a || typeof a !== 'object' || !a.agentId) return;
-    var key = omkcKey(a);
-    var el = omkcRows.get(key);
-    if (!el) {
-      el = newRow();
-      omkcRows.set(key, el);
-      var box = document.getElementById('omkcAgents');
-      box.insertBefore(el, box.firstChild);
+  function fillRow(el, entry, seed) {
+    var isSub = entry.kind === 'sub' || entry.orphan;
+    // Spec chips + highlight are a SUB-row treatment (C); a rule-1 match on a
+    // main row is still tracked for ordering/dots but renders as its badge.
+    var matched = isSub ? matchedSpecsOf(entry.key) : [];
+    el.className = 'omkc-row' + (isSub ? ' sub' : '') + (matched.length ? ' matched' : '');
+    if (entry.stale) el.classList.add('stale'); else el.classList.remove('stale');
+    var idCell = el.children[0];
+    idCell.textContent = '';
+    idCell.title = entry.sessionId + (entry.home ? ' @ ' + entry.home : '');
+    for (var i = 0; i < matched.length; i++) {
+      var chip = document.createElement('span');
+      chip.className = 'omkc-chip';
+      chip.textContent = matched[i];
+      idCell.appendChild(chip);
     }
-    fillAgentRow(el, a);
-    maybeLogTool(key, a, false);
+    if (isSub) {
+      var guide = document.createElement('span');
+      guide.className = 'omkc-guide';
+      guide.textContent = '\u2514';
+      idCell.appendChild(guide);
+      var type = document.createElement('span');
+      type.className = 'omkc-type';
+      type.textContent = subTypeName(entry);
+      idCell.appendChild(type);
+    } else {
+      var orch = sessionHasSubHits(entry.sessionId);
+      var badge = document.createElement('span');
+      badge.className = 'omkc-badge ' + (orch ? 'orchestrator' : 'main');
+      badge.textContent = orch ? tr('debate.orchestrator') : tr('debate.mainAgent');
+      idCell.appendChild(badge);
+    }
+    var name = document.createElement('span');
+    name.className = 'omkc-name';
+    name.textContent = entry.agentId;
+    idCell.appendChild(name);
+    el.children[1].textContent = entry.model || '\u2013';
+    var st = M.deriveStatus(entry);
+    el.children[2].className = 'omkc-st st-' + st.tone;
+    el.children[2].textContent = st.label ? st.label : tr('status.' + st.key);
+    el.children[3].textContent = entry.contextTokens != null ? fmtTok(entry.contextTokens) : '\u2013';
+    var tc = entry.lastToolCall;
+    if (tc && tc.name) {
+      el.children[4].textContent = String(tc.name) + (tc.isError ? ' \u2717' : '');
+      el.children[4].className = 'omkc-tool' + (tc.isError ? ' err' : '');
+    } else {
+      el.children[4].textContent = '\u2013';
+      el.children[4].className = 'omkc-tool';
+    }
+    maybeLogTool(entry.key, entry, seed);
   }
-  function applyOmkcSnapshot(snap) {
-    var list = (snap && snap.agents) || [];
-    if (!list.length) return;
-    omkcRows.clear();
+  function buildRow(entry, seed) {
+    var el = newRow();
+    fillRow(el, entry, seed);
+    return el;
+  }
+  function sessionHeadEl(sessionId) {
+    var head = document.createElement('div');
+    head.className = 'omkc-session';
+    var row = model.sessions[sessionId] || {};
+    if (typeof row.home === 'string' && row.home) {
+      var home = document.createElement('span');
+      home.className = 'omkc-home';
+      home.textContent = row.home;
+      head.appendChild(home);
+    }
+    var dir = document.createElement('span');
+    dir.className = 'omkc-session-dir';
+    var wd = row.workDir;
+    dir.textContent = (typeof wd === 'string' && wd) ? wd : shortId(sessionId);
+    dir.title = sessionId;
+    head.appendChild(dir);
+    // F7: ended (session-gone with surviving rows) marker on the group head.
+    if (row.gone === true) {
+      var ended = document.createElement('span');
+      ended.className = 'omkc-ended';
+      ended.textContent = tr('debate.sessionEnded');
+      head.appendChild(ended);
+    }
+    return head;
+  }
+  /** Full re-render from the model (the card is compact; rows are cheap). */
+  function renderOmkc(seed) {
+    omkcRenderedOnce = true;
+    recomputeSpecHits();
     var box = document.getElementById('omkcAgents');
-    box.textContent = '';
-    var sorted = [];
-    for (var i = 0; i < list.length; i++) {
-      var a = list[i];
-      if (a && typeof a === 'object' && a.agentId) sorted.push(a);
-    }
-    sorted.sort(function (x, y) { return (y.lastSeen || 0) - (x.lastSeen || 0); });
+    if (!box) return;
+    var counts = M.modelCounts(model);
+    document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: counts.agents });
+    var ids = orderedSessionIds();
     var frag = document.createDocumentFragment();
-    for (var j = 0; j < sorted.length; j++) {
-      var el = newRow();
-      omkcRows.set(omkcKey(sorted[j]), el);
-      fillAgentRow(el, sorted[j]);
-      frag.appendChild(el);
-      maybeLogTool(omkcKey(sorted[j]), sorted[j], true);
+    for (var i = 0; i < ids.length; i++) {
+      var sid = ids[i];
+      var parts = sessionEntries(sid);
+      if (parts.mains.length + parts.subs.length === 0) continue;
+      frag.appendChild(sessionHeadEl(sid));
+      for (var m = 0; m < parts.mains.length; m++) frag.appendChild(buildRow(parts.mains[m], seed));
+      for (var s = 0; s < parts.subs.length; s++) frag.appendChild(buildRow(parts.subs[s], seed));
     }
+    box.textContent = '';
     box.appendChild(frag);
-    document.getElementById('omkcCount').textContent = tr('debate.agentCount', { count: sorted.length });
-    setOmkcScan(!!(snap.scan && snap.scan.scanning === true));
+    updateDebaterDots();
+  }
+  /** Debaters chips: live-match status dot (busy=green / idle=gray via tone). */
+  function updateDebaterDots() {
+    var box = document.getElementById('agents');
+    if (!box) return;
+    var kids = box.children;
+    var hits = specHits || {};
+    for (var i = 0; i < kids.length; i++) {
+      var chip = kids[i];
+      if (!chip || typeof chip.getAttribute !== 'function') continue;
+      var specId = chip.getAttribute('data-spec-id');
+      if (specId == null) continue;
+      var ks = hits[specId] || [];
+      var any = false, busy = false;
+      for (var j = 0; j < ks.length; j++) {
+        var e = model.byKey[ks[j]];
+        if (!e) continue;
+        any = true;
+        if (M.deriveStatus(e).tone === 'busy') busy = true;
+      }
+      var dot = chip.querySelector ? chip.querySelector('.omkc-dot') : null;
+      if (dot) {
+        dot.hidden = !any;
+        dot.className = 'omkc-dot ' + (busy ? 'busy' : 'idle');
+      }
+    }
   }
   function maybeLogTool(key, a, seed) {
     var tc = a.lastToolCall;
@@ -38602,49 +40561,160 @@ ${LIB_JS}
     while (box.children.length > 150) box.removeChild(box.lastChild);
     document.getElementById('toolCount').textContent = tr('debate.toolCount', { count: box.children.length });
   }
-  function omkcConnect() {
-    if (omkcEs) { omkcEs.close(); omkcEs = null; }
-    omkcEs = new EventSource(OMKC + '/events');
-    omkcEs.addEventListener('snapshot', function (m) {
-      omkcFails = 0;
-      try { applyOmkcSnapshot(JSON.parse(m.data)); } catch (_) {}
-    });
-    omkcEs.addEventListener('agent', function (m) {
-      omkcFails = 0;
-      try { upsertAgent(JSON.parse(m.data)); } catch (_) {}
-    });
-    omkcEs.onerror = function () {
-      if (omkcEs) { omkcEs.close(); omkcEs = null; }
-      omkcFails++;
-      if (omkcFails < 3) { setTimeout(omkcConnect, 1000); return; }
-      omkcShow(false);
-      setOmkcScan(false);
-      if (!omkcReprobe) {
-        omkcReprobe = setInterval(function () {
-          probeOmkc().then(function () {
-            clearInterval(omkcReprobe);
-            omkcReprobe = null;
-            omkcFails = 0;
-            omkcShow(true);
-            omkcConnect();
-          }, function () {});
-        }, 30000);
+  /** Frame handling mirrors status-board.ts: snapshot -> applySnapshot, agent
+   *  gone -> removeAgent, live agent -> upsertAgent, session gone ->
+   *  removeSession (kept rows re-render from the model). F1: frames only
+   *  mutate the model; the actual render is batched \u2014 the first snapshot
+   *  renders synchronously (first-paint guarantee), later frames coalesce
+   *  into one render per animation frame (status-board flushFrames pattern),
+   *  so a sweep burst of N frames costs one render instead of N. */
+  function onOmkcFrame(data, type) {
+    queueOmkcFrame(data, type);
+  }
+  function queueOmkcFrame(data, type) {
+    omkcPendingFrames.push({ data: data, type: type });
+    if (omkcFlushScheduled) return;
+    if (type === 'snapshot' && !omkcRenderedOnce && omkcPendingFrames.length === 1) {
+      // First snapshot: paint now, don't wait for a rAF tick.
+      flushOmkcFrames();
+      return;
+    }
+    omkcFlushScheduled = true;
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flushOmkcFrames);
+    else setTimeout(flushOmkcFrames, 0);
+  }
+  function flushOmkcFrames() {
+    omkcFlushScheduled = false;
+    var frames = omkcPendingFrames;
+    omkcPendingFrames = [];
+    var changed = false, seed = false;
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      var type = f.type;
+      var data = f.data;
+      if (type === 'snapshot') {
+        M.applySnapshot(model, data);
+        setOmkcScan(!!(data && data.scan && data.scan.scanning === true));
+        omkcHidden = false;
+        omkcShow(true);
+        setOmkcStarting(false);
+        changed = true;
+        seed = true;
+        continue;
       }
-    };
+      if (type === 'session') {
+        if (data && data.gone === true && typeof data.sessionId === 'string') {
+          M.removeSession(model, data.sessionId);
+          changed = true;
+        }
+        continue;
+      }
+      if (type === 'agent' && data) {
+        var sid = typeof data.sessionId === 'string' ? data.sessionId : null;
+        if (sid) {
+          if (data.gone === true) M.removeAgent(model, sid, data.agentId);
+          else M.upsertAgent(model, data);
+          changed = true;
+        }
+      }
+    }
+    if (changed) renderOmkc(seed);
+  }
+  function connectOmkc() {
+    if (omkcSse) return;
+    omkcSse = window.__moaLib.connectSSE('/status/events', onOmkcFrame, onOmkcState, ['snapshot', 'agent', 'session']);
+  }
+  function onOmkcState(state) {
+    if (state === 'open') {
+      omkcFails = 0;
+      if (omkcReprobe) { clearInterval(omkcReprobe); omkcReprobe = null; }
+      if (omkcStartingTimer) { clearTimeout(omkcStartingTimer); omkcStartingTimer = null; }
+    } else if (state === 'error') {
+      // EventSource never exposes the HTTP status: probe /status to classify
+      // 503 status_not_ready (controller still starting) from a plain failure.
+      probeStatus();
+    }
+  }
+  function startScanPoll() {
+    if (omkcPoll) return;
+    omkcPoll = window.__moaLib.startPoll(function () {
+      fetch('/status').then(function (res) {
+        if (res.status !== 200) return null;
+        return res.json().catch(function () { return null; });
+      }).then(function (snap) {
+        if (snap) setOmkcScan(snap.scan && snap.scan.scanning === true);
+      }).catch(function () {});
+    }, window.__moaLib.POLL_MS.sseFallback);
+  }
+  /** GET /status probe: 200 -> show + connect SSE; 503 -> starting placeholder
+   *  (slow retry, never treated as a loss); other/network error -> the
+   *  historical 3-strike rule: hide the card and slow-probe every 30s. */
+  function probeStatus() {
+    try {
+      fetch('/status').then(function (res) {
+        if (res.status === 200) {
+          omkcFails = 0;
+          omkcHidden = false;
+          if (omkcReprobe) { clearInterval(omkcReprobe); omkcReprobe = null; }
+          if (omkcStartingTimer) { clearTimeout(omkcStartingTimer); omkcStartingTimer = null; }
+          return res.json().catch(function () { return null; }).then(function (snap) {
+            if (snap && typeof snap === 'object') {
+              M.applySnapshot(model, snap);
+              setOmkcScan(snap.scan && snap.scan.scanning === true);
+              renderOmkc(true);
+            }
+            omkcShow(true);
+            setOmkcStarting(false);
+            connectOmkc();
+            startScanPoll();
+            return null;
+          });
+        }
+        if (res.status === 503) {
+          // Controller still starting (Retry-After: 2). A 503 proves the bus
+          // is reachable, so it resets the failure counter (never a loss).
+          // F2: a card hidden by the 3-strike rule must NOT be re-shown by an
+          // in-flight 503 (only 200 / a snapshot frame re-shows it) \u2014 the 30s
+          // reprobe owns recovery; a visible card keeps the starting
+          // placeholder armed with the slow retry.
+          omkcFails = 0;
+          if (omkcHidden) return null;
+          omkcShow(true);
+          setOmkcStarting(true);
+          if (!omkcStartingTimer) {
+            omkcStartingTimer = setTimeout(function () {
+              omkcStartingTimer = null;
+              probeStatus();
+            }, 2000);
+          }
+          return null;
+        }
+        throw new Error('status HTTP ' + res.status);
+      }).catch(function () {
+        omkcFails++;
+        if (omkcFails >= 3) {
+          // 3-strike hide: disarm any in-flight starting retry so a late 503
+          // cannot re-show the card (F2).
+          if (omkcStartingTimer) { clearTimeout(omkcStartingTimer); omkcStartingTimer = null; }
+          omkcHidden = true;
+          omkcShow(false);
+          setOmkcStarting(false);
+          setOmkcScan(false);
+          stopOmkcSse();
+          stopScanPoll();
+          if (!omkcReprobe) {
+            omkcReprobe = setInterval(function () { probeStatus(); }, 30000);
+          }
+        } else {
+          setTimeout(probeStatus, 1000);
+        }
+      });
+    } catch (_) {}
   }
 
-  probeOmkc().then(function () {
-    omkcShow(true);
-    omkcConnect();
-    if (!omkcHealthPoll) {
-      omkcHealthPoll = setInterval(function () {
-        if (!omkcEs) return;
-        probeOmkc().then(function (h) { setOmkcScan(h.scanning === true); }, function () {});
-      }, 15000);
-    }
-  }, function () {});
+  probeStatus();
 
-  var sse = null, sseFails = 0, sseDelay = 800, gotAny = false, waitingShown = false;
+  var gotAny = false, waitingShown = false;
   function setConn(text) { document.getElementById('conn').textContent = text; }
   function showWaitingHint(force) {
     if (waitingShown && !force) return;
@@ -38679,6 +40749,12 @@ ${LIB_JS}
       for (var i = 0; i < signoffs.length; i++) signoffs[i].textContent = tr('debate.signoff');
       var errors = document.querySelectorAll('.tool-err');
       for (var j = 0; j < errors.length; j++) errors[j].textContent = tr('debate.error');
+      // F6: re-translate the scan chip with its current visibility.
+      var scanChip = document.getElementById('omkcScan');
+      if (scanChip) setOmkcScan(!scanChip.hidden);
+      // Agent Status tree rows carry dynamic translations (badges, status
+      // pills) \u2014 re-render from the model with the new locale.
+      renderOmkc(false);
     }
   });
   if (!taskId) { setBadge(tr('debate.pickTask'), '', 'debate.pickTask'); showPicker(); return; }
@@ -38686,33 +40762,22 @@ ${LIB_JS}
   renderAgents();
   setStage(0);
   setDebateLabel();
-  function connect() {
-    sse = new EventSource('/subscribe?task_id=' + encodeURIComponent(taskId));
-    sse.onopen = function () {
-      sseFails = 0;
-      sseDelay = 800;
-      setConn('\u25CF sse');
+  /* Shared lib.ts connectSSE: the same 3-fail backoff reconnect this page
+     used to hand-roll; the waiting hint still arms 3s after every open.
+     'connecting' is skipped so #conn stays empty until the stream opens
+     or errors, exactly as with the hand-rolled version. */
+  window.__moaLib.connectSSE('/subscribe?task_id=' + encodeURIComponent(taskId), function (data) {
+    gotAny = true;
+    onEvent(data);
+  }, function (state, msg) {
+    if (state === 'connecting') return;
+    setConn(msg);
+    if (state === 'open') {
       setTimeout(function () {
         if (!gotAny) showWaitingHint();
       }, 3000);
-    };
-    sse.onmessage = function (m) {
-      gotAny = true;
-      sseFails = 0;
-      try { onEvent(JSON.parse(m.data)); } catch (_) {}
-    };
-    sse.onerror = function () {
-      if (sse) { sse.close(); sse = null; }
-      sseFails++;
-      var delay = sseFails < 3 ? 800 : Math.min(15000, sseDelay * 2);
-      sseDelay = delay;
-      setConn(sseFails < 3
-        ? tr('debate.transient', { count: sseFails })
-        : tr('debate.backoff', { seconds: Math.round(delay / 100) / 10 }));
-      setTimeout(connect, delay);
-    };
-  }
-  connect();
+    }
+  });
 })();
 </script>
 </body>

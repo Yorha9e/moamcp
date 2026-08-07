@@ -51,8 +51,8 @@ Bus 只绑定 `127.0.0.1`（`src/bus.ts:333`）。默认端口 39813（`MOAMCP_B
 - status 枚举：`captured | exploring | planned | implemented | deferred | discarded | archived`
 - 响应：`{ workspace, tips: Array<{ id, title, summary, status, createdAt, updatedAt, module?, tags?, nextAction?, author? }> }`（列表项**不含** context/documentRefs 等大字段）
 
-**`POST /api/tips`**（创建，`control-plane.ts:372-380`，体上限 64KB）
-- 必：`workspace`, `title`, `summary`；选：`status`, `context`(≤8KB), `module`, `tags`, `nextAction`, `documentRefs[{path, section?, note?, contentHash?}]`, `sourceRefs`, `relatedTipIds`, `relatedProjects`, `sourceSessionId`, `author`
+**`POST /api/tips`**（创建，`control-plane.ts:372-380`，体上限 208KB = `BOARD_VALUE_MAX_BYTES`×2 + 16KB，覆盖 JSON 转义余量）
+- 必：`workspace`, `title`, `summary`；选：`status`, `context`(≤32KB), `module`, `tags`, `nextAction`, `documentRefs[{path, section?, note?, contentHash?}]`, `sourceRefs`, `relatedTipIds`, `relatedProjects`, `sourceSessionId`, `author`
 - **禁传** `id/createdAt/updatedAt/creator/cwd/path`（400）
 - 响应：完整 ProjectTip 对象
 
@@ -65,8 +65,8 @@ Bus 只绑定 `127.0.0.1`（`src/bus.ts:333`）。默认端口 39813（`MOAMCP_B
 **`POST /api/tips/:id/archive`** — 体 `{ workspace, actor? }` → 返回 status=archived 的完整 Tip
 
 **`GET /api/board`**（`control-plane.ts:405-432`）
-- 查询：`scope?`（`workspace` 默认 | `global`；**禁止 `task:<id>`**）, `workspace`（scope=workspace 时必）, `key?`（前缀）, `tag?`, `limit?`
-- 响应：`{ scope, workspace?, entries: Array<{ key, value, author, ts, tags, bytes }> }`
+- 查询：`scope?`（`workspace` 默认 | `global`；**禁止 `task:<id>`**）, `workspace`（scope=workspace 时必）, `key?`（前缀；`exact=1` 时改为精确单键读取，详情回取用——避免同 scope 更新的 `key/` 后代键遮蔽目标键）, `tag?`, `limit?`, `values?`（`1` 时携带完整 `value`）
+- 响应：`{ scope, workspace?, entries: Array<{ key, author, ts, tags, bytes }> }`——默认 **summary 模式**（每条仅元数据，不含 `value`，列表加载轻量）；仅传 `values=1` 时每条额外带 `value`
 
 统一错误：`400` 参数 / `403` Origin / `404` workspace 或资源不存在 / `405` 方法 / `413` 超限 / `415` Content-Type / `503` stores 未挂载。错误体均为 `{ "error": string }`。
 
@@ -117,7 +117,7 @@ Bus 只绑定 `127.0.0.1`（`src/bus.ts:333`）。默认端口 39813（`MOAMCP_B
 1. **仅回环**：Bus 绑定 `127.0.0.1`，不监听外部网卡。
 2. **Origin 校验**（`control-plane.ts:62-80`）：无 `Origin` 头（CLI/内部 fetch）放行；有则必须 `http:` + `127.0.0.1|localhost`，且与 `Host` 一致。作用于 `/publish` 与全部 `/api` 写操作。
 3. **Content-Type 校验**：所有写操作必须 `application/json`，否则 415。
-4. **体积上限**：API 请求体 64KB；Board value 32KB；Board key 512B；Tip context 8KB。
+4. **体积上限**：API 请求体 208KB（`BOARD_VALUE_MAX_BYTES`×2 + 16KB，为 JSON 转义预留）；Board value 96KB；Board key 512B；Tip context 32KB。
 5. **渲染纪律**（现有前端遵循，新前端必须继承）：不可信内容（transcript、board value、tip 字段、task_id）一律 `textContent`，**禁止 `innerHTML`**（有测试断言）。
 6. URL 中的 `task_id` 必须 `encodeURIComponent`。
 

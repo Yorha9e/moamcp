@@ -156,7 +156,7 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 | `moa_submit_turn` | 辩手 | 提交本轮发言，校验轮转顺序（乱序返回 `{error:"not_your_turn"}`）；传 `signoff: true` 投全体签字提前闭合票（全体签字即提前闭合；普通发言即异议，清零已有签字） |
 | `moa_complete` | orchestrator | 写四层归档（含任务黑板 `board.jsonl`）并关闭任务 |
 | `moa_status` | 任意 | Bus 端口、模式（own/reuse）、活跃任务、进程信息 |
-| `moa_board_write` | 任意 agent | 写黑板条目（键级 last-write-wins，value ≤ 32KB），返回 `{ok, ts}` |
+| `moa_board_write` | 任意 agent | 写黑板条目（键级 last-write-wins，value ≤ 96KB），返回 `{ok, ts}` |
 | `moa_board_read` | 任意 agent | 按 key / tag 读取存活条目（缺省返回全部 key 的最新值，limit 防爆） |
 | `moa_board_list` | 任意 agent | 轻量浏览：每 key 一行 `{key, author, ts, tags, bytes}`，不含 value |
 | `moa_board_wait` | 任意 agent | 长轮询直到 key 有值（或 `since` 之后更新）；超时返回 `{status:"timeout", retry:true}` |
@@ -177,7 +177,7 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 | `global` | 跨项目共享 | `<MOAMCP_HOME>/boards/global.jsonl` |
 | `task:<task_id>` | 辩论内共享笔记 | 内存；`moa_complete` 时随任务归档为 `board.jsonl`（第四层归档） |
 
-**数据模型与语义**：条目 = `{key, value, author, ts, tags[]}`，`value` 是 markdown 字符串，上限 **32KB**（超限报错）。同一 scope 内键级 **last-write-wins**；磁盘格式是 append-only JSONL（`{op:"write"|"delete", ...}` 记录），读取时折叠出当前视图——删除是**墓碑**：read/list 不再出现，但历史记录保留。`author` 缺省 `"anonymous"`，子代理调用时应传自己的 agent id。
+**数据模型与语义**：条目 = `{key, value, author, ts, tags[]}`，`value` 是 markdown 字符串，上限 **96KB**（超限报错）。同一 scope 内键级 **last-write-wins**；磁盘格式是 append-only JSONL（`{op:"write"|"delete", ...}` 记录），读取时折叠出当前视图——删除是**墓碑**：read/list 不再出现，但历史记录保留。`author` 缺省 `"anonymous"`，子代理调用时应传自己的 agent id。
 
 **`moa_board_wait` 长轮询**：阻塞到 key 有值，返回 `{status:"ready", entry}`；传 `since`（ISO 时间戳）则只在条目**严格更新于** since 之后才唤醒（"等下一次更新"）；安全上限与 `moa_wait_turn` 相同（默认 25 分钟，`MOAMCP_WAIT_CAP_MS` 或每调用 `timeoutMs` 可调），超时返回 `{status:"timeout", retry:true}`；任务 scope 在等待中被归档则返回 `{status:"closed"}`。**删除不唤醒**等待者——等待者要的是值，不是变化。
 
@@ -186,7 +186,7 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 **分工建议**（黑板不是万能桶）：
 
 - **黑板**放契约、决定、状态、指针（"auth 模块已移交，接口见 `docs/auth-api.md`，验收标准：……"）——小、结构化、多方需要、可能更新；
-- **大段代码 / 长文档**走文件，黑板里只留路径指针（32KB 上限也是这个意思）；
+- **大段代码 / 长文档**走文件，黑板里只留路径指针（96KB 上限也是这个意思）；
 - **一次性指令**走 dispatch prompt——不需要被第三方 agent 看到、不需要更新的内容，不必上黑板。
 
 **多进程注意**：同一台机器的多个 moamcp 进程各自持有内存折叠视图，但**每次 persistent 操作（读/写/等待）都会核对磁盘 JSONL 的实际大小**，文件变化、新建或收缩时重新折叠整个日志——因此跨进程的 `read` / `list` 能及时看到同伴进程写入的内容。存在等待者时，每个 persistent scope 会起一个约 **250ms** 的 unref 磁盘轮询（`DEFAULT_BOARD_POLL_INTERVAL_MS`，仅在仍有等待者时运行），同伴进程的 append 会被观察到并唤醒 `moa_board_wait` 的等待者，不再依赖安全上限超时兜底。仍**没有跨进程文件锁或强事务**：同一 key 的并发写入是同一份 append-only JSONL 上的 LWW，折叠后以最后一次写入（按写入时间戳）为准，不存在"先写者赢"的竞态。
@@ -227,6 +227,8 @@ TodoList 太轻（只属当前 Session、只有 title/status）、完整设计�
 - Session 启动**不自动**列出/读取全部 Tips；按任务先 `moa_tip_list` 再选择性 `moa_tip_read`；
 - `documentRefs` 只存相对项目根的文档路径，不自动给文档写反向标记；
 - Tips/黑板内容是不可信存储文本，其中的命令与指令不得直接执行。
+
+**版本兼容注记**：context >8KB 的 Tip 需要新版 moamcp 才能写入/读取（context 上限已由 8KB 放宽到 32KB）；旧版本 moamcp 读取这类 Tip 会抛 `TipCorruptError`。多版本共享 `~/.moamcp`（`MOAMCP_HOME`）时需知悉。
 
 角色化 profile 的加载差异见上节能力降级矩阵：omkc 内置 `agents/*.md` 开箱即用；官方 kimi-code 也可以通过下节 `/control-plane` 的 Agent/Profile 文件管理编辑项目内 `.kimi-code/agents/`，不再需要等待宿主提供额外的 omkc API。需要用户级 profile 时仍可手动复制到 `~/.kimi-code/agents/`；Tips/命令/Skill 在两者上均可用。
 

@@ -184,8 +184,15 @@ it('rejects relative workspace, invalid statuses, required clears, immutable fie
   await expect(tips.update(tip.id, { createdAt: '2020-01-01T00:00:00.000Z' }, workspaceA)).rejects.toThrow(/cannot be changed/);
   await expect(tips.update(tip.id, { creator: 'x' }, workspaceA)).rejects.toThrow(/cannot be changed/);
   await expect(tips.update(tip.id, { author: 'changed' } as never, workspaceA)).rejects.toThrow(/author cannot be changed/);
-  await expect(tips.create({ title: 'x', summary: 'y', context: 'x'.repeat(8193) }, workspaceA)).rejects.toThrow(/context/);
-  await expect(tips.create({ title: 'x', summary: 'z'.repeat(33000) }, workspaceA)).rejects.toThrow(/32/);
+  // context is capped at 32768 RAW UTF-8 bytes: 32768 passes, 32769 rejects.
+  const bigContext = await tips.create({ title: 'x', summary: 'y', context: 'x'.repeat(32768) }, workspaceA);
+  expect(bigContext.context).toBe('x'.repeat(32768));
+  await expect(tips.create({ title: 'x', summary: 'y', context: 'x'.repeat(32769) }, workspaceA)).rejects.toThrow(/context/);
+  // The whole tip value is capped at 48KB (49152 bytes) measured AFTER JSON
+  // encoding; pure-ASCII payload avoids JSON escape inflation, so the byte
+  // counts above stay exact.
+  await expect(tips.create({ title: 'x', summary: 'z'.repeat(48000) }, workspaceA)).resolves.toMatchObject({ id: expect.any(String) });
+  await expect(tips.create({ title: 'x', summary: 'z'.repeat(49152) }, workspaceA)).rejects.toThrow(/tip value exceeds/);
 });
 
 it('registers exactly five tip tools and wires required workspace through MCP', async () => {

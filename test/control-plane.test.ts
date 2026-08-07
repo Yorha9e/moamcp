@@ -456,6 +456,12 @@ describe('control plane HTTP surface', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: json({ workspace: idA, title: 'x', summary: 'y', context: 'z'.repeat(70 * 1024) }),
+    })).response.status).toBe(400);
+    // A 300KB body still trips the 208KB envelope (96KB value × 2 + 16KB).
+    expect((await request('/api/tips', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ workspace: idA, title: 'x', summary: 'y', context: 'z'.repeat(300 * 1024) }),
     })).response.status).toBe(413);
   });
 
@@ -527,7 +533,7 @@ describe('control plane HTTP surface', () => {
     expect(updatedOmitted.body.entry).toMatchObject({ author: 'alice', tags: ['tag1', 'tag2'] });
 
     // Verify stored state
-    const readStored = await request(`/api/board?scope=workspace&workspace=${idA}&key=test%2Fpreserve`);
+    const readStored = await request(`/api/board?scope=workspace&workspace=${idA}&key=test%2Fpreserve&values=1`);
     expect(readStored.body.entries[0]).toMatchObject({ author: 'alice', tags: ['tag1', 'tag2'], value: 'v2' });
 
     // 3. Explicit tags=[] clears tags while omitted author preserves 'alice'
@@ -578,7 +584,7 @@ describe('control plane HTTP surface', () => {
       body: json({ scope: 'workspace', workspace: idA, key: 'raw/contract', value: 'v2' }),
     });
     expect(updated.body.entry.ts).not.toBe(created.body.entry.ts);
-    expect((await request(`/api/board?scope=workspace&workspace=${idA}&key=raw%2Fcontract`)).body.entries[0]).toMatchObject({ value: 'v2' });
+    expect((await request(`/api/board?scope=workspace&workspace=${idA}&key=raw%2Fcontract&values=1`)).body.entries[0]).toMatchObject({ value: 'v2' });
     expect((await request(`/api/board?scope=workspace&workspace=${idB}&key=raw%2Fcontract`)).body.entries).toEqual([]);
 
     const global = await request('/api/board', {
@@ -587,7 +593,7 @@ describe('control plane HTTP surface', () => {
       body: json({ scope: 'global', key: 'raw/contract', value: 'global copy', author: 'agent-g' }),
     });
     expect(global.response.status).toBe(200);
-    expect((await request('/api/board?scope=global&key=raw%2Fcontract')).body.entries[0]).toMatchObject({ value: 'global copy' });
+    expect((await request('/api/board?scope=global&key=raw%2Fcontract&values=1')).body.entries[0]).toMatchObject({ value: 'global copy' });
 
     const deleted = await request('/api/board', {
       method: 'DELETE',
@@ -684,8 +690,8 @@ describe('control plane HTTP surface', () => {
     expect((await boardPost(json(valid), { 'content-type': 'text/plain' })).response.status).toBe(415);
     expect((await boardPost(json(valid), { 'content-type': 'application/json', origin: 'http://attacker.example' })).response.status).toBe(403);
     expect((await boardPost('{nope')).response.status).toBe(400);
-    expect((await boardPost(json({ ...valid, value: 'x'.repeat(70 * 1024) }))).response.status).toBe(413);
-    expect((await boardPost(json({ ...valid, value: 'x'.repeat(33 * 1024) }))).response.status).toBe(400);
+    expect((await boardPost(json({ ...valid, value: 'x'.repeat(300 * 1024) }))).response.status).toBe(413);
+    expect((await boardPost(json({ ...valid, value: 'x'.repeat(98305) }))).response.status).toBe(400);
 
     expect((await boardPost(json({ ...valid, scope: 'task:secret' }))).response.status).toBe(400);
     expect((await boardPost(json({ ...valid, cwd: workspaceA }))).response.status).toBe(400);
@@ -702,6 +708,59 @@ describe('control plane HTTP surface', () => {
       headers: { 'content-type': 'application/json' },
       body: json({ scope: 'global', key: 'guard/key', value: 'not allowed' }),
     })).response.status).toBe(400);
+  });
+
+  it('accepts Board values up to the 96KB cap over HTTP, including escape-heavy payloads; past the 208KB envelope still 413s', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    const boardPost = (value: string) => request('/api/board', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json({ scope: 'workspace', workspace: idA, key: 'boundary/key', value }),
+    });
+
+    // A 70KB value tripped the old 64KB envelope (413); with the 208KB envelope
+    // derived from 2× the 96KB board cap it now fits.
+    const formerly413 = await boardPost('x'.repeat(70 * 1024));
+    expect(formerly413.response.status).toBe(200);
+
+    // Exactly at the 96KB value cap: passes (no 413, no board validation error).
+    const atCap = await boardPost('x'.repeat(98304));
+    expect(atCap.response.status).toBe(200);
+    expect(atCap.body.entry.value).toHaveLength(98304);
+
+    // JSON string escaping doubles each newline on the wire: this value is
+    // exactly 98304 UTF-8 bytes but its JSON body (~118KB) still fits the 208KB
+    // envelope — the old 112KB envelope would have 413'd it.
+    const escaped = await boardPost('x'.repeat(78304) + '\n'.repeat(20000));
+    expect(escaped.response.status).toBe(200);
+    expect(escaped.body.entry.value).toHaveLength(98304);
+
+    // One byte over the board cap is rejected by board validation (400).
+    expect((await boardPost('x'.repeat(98305))).response.status).toBe(400);
+
+    // Past the 208KB envelope still returns 413.
+    expect((await boardPost('x'.repeat(300 * 1024))).response.status).toBe(413);
+  });
+
+  it('lists Board entries in summary mode by default and returns full values only with values=1', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    await board.write('summary/a', 'payload-a', ['tagA'], 'author-a', 'workspace', workspaceA);
+
+    const summary = await request(`/api/board?scope=workspace&workspace=${idA}`);
+    expect(summary.response.status).toBe(200);
+    expect(summary.body.entries).toHaveLength(1);
+    expect(summary.body.entries[0]).toEqual({
+      key: 'summary/a',
+      author: 'author-a',
+      ts: expect.any(String),
+      tags: ['tagA'],
+      bytes: Buffer.byteLength('payload-a', 'utf8'),
+    });
+    expect(summary.body.entries[0]).not.toHaveProperty('value');
+
+    const full = await request(`/api/board?scope=workspace&workspace=${idA}&values=1`);
+    expect(full.body.entries).toHaveLength(1);
+    expect(full.body.entries[0]).toMatchObject({ key: 'summary/a', value: 'payload-a', bytes: 9 });
   });
 
   it('enforces application/json and loopback origin on JSON mutations and POST /publish', async () => {
@@ -780,7 +839,7 @@ describe('control plane HTTP surface', () => {
     const chineseVal = '中文测试内容'; // 6 Chinese chars = 18 bytes in UTF-8
     await board.write('chinese/key', chineseVal, ['test'], 'author-zh', 'workspace', workspaceA);
 
-    const res = await request(`/api/board?scope=workspace&workspace=${idA}&key=chinese%2Fkey`);
+    const res = await request(`/api/board?scope=workspace&workspace=${idA}&key=chinese%2Fkey&values=1`);
     expect(res.response.status).toBe(200);
     expect(res.body.entries).toHaveLength(1);
     expect(res.body.entries[0]).toMatchObject({
@@ -806,6 +865,43 @@ describe('control plane HTTP surface', () => {
     const resXSlash = await request(`/api/board?scope=workspace&workspace=${idA}&key=ns%2F`);
     expect(resXSlash.response.status).toBe(200);
     expect(resXSlash.body.entries.map((e: any) => e.key).sort()).toEqual(['ns', 'ns/', 'ns/child']);
+  });
+
+  it('reads a single Board entry by exact key with exact=1 even when a newer descendant shadows it, and keeps key= prefix semantics', async () => {
+    const idA = workspaceIdForPath(workspaceA);
+    // Shadowing scenario (F1): tips/abc is written first, then the descendant
+    // tips/abc/notes is written (newer). A namespace read sorted newest-first
+    // with limit=1 returns only the descendant; the exact-key read must still
+    // return tips/abc in full, or the web detail pane shows a blank value.
+    await board.write('tips/abc', 'v-main', ['main'], 'agent-a', 'workspace', workspaceA);
+    await board.write('tips/abc/notes', 'v-notes', ['notes'], 'agent-b', 'workspace', workspaceA);
+
+    // key= keeps its documented prefix semantics: newest-first + limit=1 yields
+    // the newer descendant — exactly the shadowing the detail pane used to hit.
+    const prefixed = await request(`/api/board?scope=workspace&workspace=${idA}&key=tips%2Fabc&limit=1&values=1`);
+    expect(prefixed.response.status).toBe(200);
+    expect(prefixed.body.entries.map((e: any) => e.key)).toEqual(['tips/abc/notes']);
+
+    // exact=1 ignores descendants: only tips/abc, with its full value.
+    const exact = await request(`/api/board?scope=workspace&workspace=${idA}&key=tips%2Fabc&limit=1&values=1&exact=1`);
+    expect(exact.response.status).toBe(200);
+    expect(exact.body.entries).toHaveLength(1);
+    expect(exact.body.entries[0]).toMatchObject({ key: 'tips/abc', value: 'v-main', author: 'agent-a', tags: ['main'] });
+
+    // The exact read returns the exact key's own timestamp, not the descendant's.
+    const mainTs = (await board.read('tips/abc', undefined, 'workspace', 1, workspaceA))[0].ts;
+    expect(exact.body.entries[0].ts).toBe(mainTs);
+
+    // exact=1 on a missing key returns no rows (the frontend renders this as a
+    // not-found detail state instead of a value-less summary row).
+    const missing = await request(`/api/board?scope=workspace&workspace=${idA}&key=tips%2Fnope&exact=1&values=1`);
+    expect(missing.response.status).toBe(200);
+    expect(missing.body.entries).toEqual([]);
+
+    // exact=1 also reads the exact key when it is the newest (no regression
+    // for the plain single-key read path).
+    const exactWhenNewest = await request(`/api/board?scope=workspace&workspace=${idA}&key=tips%2Fabc&exact=1&values=1`);
+    expect(exactWhenNewest.body.entries.map((e: any) => e.key)).toEqual(['tips/abc']);
   });
 
   it('verifies frontend contract for SSE subscription lifecycle and channel switching', async () => {
@@ -851,7 +947,7 @@ describe('control plane HTTP surface', () => {
     expect(html).toContain('重新载入当前版本');
 
     // UTF-8 value size is live checked and guarded again during submit.
-    expect(html).toContain('BOARD_VALUE_MAX_BYTES = 32768');
+    expect(html).toContain('BOARD_VALUE_MAX_BYTES = 98304');
     expect(html).toContain("typeof TextEncoder === 'function'");
     expect(html).toContain('utf8Bytes(value) > BOARD_VALUE_MAX_BYTES');
     expect(html).toContain("addEventListener('input', updateBoardValueBytes)");

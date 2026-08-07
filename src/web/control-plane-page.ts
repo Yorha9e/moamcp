@@ -1024,7 +1024,14 @@ ${LIB_JS}
   var workspaceRenameInput = document.getElementById('workspaceRenameInput');
   var selectedTip = null;
   var editingId = '';
-  var BOARD_VALUE_MAX_BYTES = 32768;
+  // Mirrors the backend constant BOARD_VALUE_MAX_BYTES in
+  // src/core/store/board.ts (96 KB); v1 ships it client-side, there is no
+  // server-pushed constant mechanism.
+  var BOARD_VALUE_MAX_BYTES = 98304;
+  // The form's static "0 / N bytes" label derives from the same constant
+  // (updateBoardValueBytes() re-renders it on every form open).
+  var boardValueBytesLabel = document.getElementById('boardValueBytes');
+  if (boardValueBytesLabel) boardValueBytesLabel.textContent = '0 / ' + BOARD_VALUE_MAX_BYTES + ' bytes';
   var boardEntries = [];
   var selectedBoardKey = '';
   var boardEditing = null;
