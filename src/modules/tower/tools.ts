@@ -25,7 +25,7 @@ import type { MoaModule, MoaToolDef, MoaToolArgs } from '../types.js';
 import type { TowerController } from './controller.js';
 import * as git from './git.js';
 import { IDENTITY_BLOCK_THRESHOLD, foldView } from './identity.js';
-import { TOWER_NAME, normalizeTowerRoot, worktreePath } from './paths.js';
+import { DELEGATOR_NAME, TOWER_NAME, normalizeTowerRoot, worktreePath } from './paths.js';
 import {
   TowerProtocolError,
   TowerStore,
@@ -93,6 +93,28 @@ async function resolveCaller(
   return store.resolveCallerName(state, agentId);
 }
 
+/**
+ * M1 delegator gate: resolve the caller, then REJECT delegators. A caller
+ * whose roster kind is 'delegator' may ONLY call `moa_tower_send` (addressed
+ * to the tower) — every other tower tool refuses it with a clear
+ * TowerProtocolError. `moa_tower_send` uses `resolveCaller` directly and
+ * applies its own delegator→tower-only check; everything else funnels through
+ * this helper (requireTower already rejects delegators — they are not 'tower').
+ */
+async function resolveCallerNonDelegator(
+  store: TowerStore,
+  state: TowerState,
+  args: MoaToolArgs,
+): Promise<string> {
+  const caller = await resolveCaller(store, state, args);
+  if (store.findAgent(state, caller)?.kind === 'delegator') {
+    throw new TowerProtocolError(
+      `agent "${caller}" is a delegator — delegators may only call moa_tower_send addressed to "${TOWER_NAME}"`,
+    );
+  }
+  return caller;
+}
+
 /** Tower-only gate: plan/spawn/register/merge/teardown are the tower's levers. */
 async function requireTower(
   store: TowerStore,
@@ -149,7 +171,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_boot',
       description:
-        'Boot the tower workspace for a git repository: validates the repo (inside a git repo, ≥1 commit), writes the state + namespace identity docs to the shared board, and registers the tower roster entry (name "tower") with your orchestrator agent id. Idempotent lifecycle: repeated boot while booted errors; teardown clears the namespace so boot works again. No .tower/ directory is created inside the repo — state lives in the board, worktrees live in a sibling <repoName>-worktrees/ dir.',
+        'Boot the tower workspace for a git repository: validates the repo (inside a git repo, ≥1 commit), writes the state + namespace identity docs to the shared board, and registers the tower roster entry (name "tower") with your orchestrator agent id. Idempotent lifecycle: repeated boot while booted errors; teardown clears the namespace so boot works again. No .tower/ directory is created inside the repo — state lives in the board, worktrees live in a sibling <repoName>-worktrees/ dir. Optional delegator_agent_id (M1): registers a roster entry {name:"delegator", kind:"delegator", agentId} — the delegation channel, which may ONLY call moa_tower_send addressed to the tower.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -162,6 +184,11 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           tower_agent_id: {
             type: 'string',
             description: 'Your orchestrator agent id — the roster entry for the tower is registered with it.',
+          },
+          delegator_agent_id: {
+            type: 'string',
+            description:
+              'Optional delegator engine agent id (M1): registers the roster entry {name:"delegator", kind:"delegator", agentId}. A delegator may only call moa_tower_send addressed to the tower; every other tower tool rejects it.',
           },
           base: {
             type: 'string',
@@ -197,10 +224,14 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           const base = argString(args, 'base');
           const modeArg = argString(args, 'mode');
           const ciCommand = argString(args, 'ci_command');
+          const delegatorAgentId = argString(args, 'delegator_agent_id');
           const result = await store.boot(towerAgentId, {
             ...(base !== undefined ? { base } : {}),
             ...(modeArg !== undefined ? { mode: modeArg as 'branch' | 'pr' } : {}),
             ...(ciCommand !== undefined && ciCommand.trim().length > 0 ? { ciCommand: ciCommand.trim() } : {}),
+            ...(delegatorAgentId !== undefined && delegatorAgentId.trim().length > 0
+              ? { delegatorAgentId: delegatorAgentId.trim() }
+              : {}),
           });
           // B2 (decision 2): the booted towerAgentId goes through the same ①
           // fold-existence check (missing fold data → verified:false, never a
@@ -218,7 +249,12 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             workspace: repoRoot,
             tower_agent_id: towerAgentId,
             verified: outcome.entry.verified ?? false,
-            roster: ['tower'],
+            roster: [
+              'tower',
+              ...(delegatorAgentId !== undefined && delegatorAgentId.trim().length > 0
+                ? [DELEGATOR_NAME]
+                : []),
+            ],
           };
         }),
     },
@@ -536,7 +572,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store } = storeFor(controller, args);
           const state = await store.load();
-          const caller = await resolveCaller(store, state, args);
+          const caller = await resolveCallerNonDelegator(store, state, args);
           const id = argString(args, 'id');
           if (id === undefined || id.trim().length === 0) {
             throw new TowerProtocolError('mission id is required');
@@ -612,6 +648,13 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           if (to === undefined || subject === undefined || body === undefined) {
             throw new TowerProtocolError('send requires to, subject and body');
           }
+          // M1 delegator channel: a delegator's ONLY tower tool is send, and
+          // only addressed to the tower.
+          if (store.findAgent(state, caller)?.kind === 'delegator' && to !== TOWER_NAME) {
+            throw new TowerProtocolError(
+              `agent "${caller}" is a delegator — delegators may only send messages addressed to "${TOWER_NAME}"`,
+            );
+          }
           const rel = await store.send(caller, {
             to,
             subject,
@@ -641,7 +684,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store } = storeFor(controller, args);
           const state = await store.load();
-          const caller = await resolveCaller(store, state, args);
+          const caller = await resolveCallerNonDelegator(store, state, args);
           const rawLimit = args.limit;
           const limit =
             typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0
@@ -651,16 +694,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           return {
             caller,
             count: items.length,
-            messages: items.map((item) => ({
-              file: item.file,
-              from: item.from,
-              to: item.to,
-              subject: item.subject,
-              sent_at: item.sentAt,
-              ...(item.scope !== undefined ? { scope: item.scope } : {}),
-              ...(item.action !== undefined ? { action: item.action } : {}),
-              body: item.body,
-            })),
+            messages: renderInboxItems(items),
           };
         }),
     },
@@ -688,7 +722,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store } = storeFor(controller, args);
           const state = await store.load();
-          const caller = await resolveCaller(store, state, args);
+          const caller = await resolveCallerNonDelegator(store, state, args);
           const type = argString(args, 'type');
           const title = argString(args, 'title');
           const summary = argString(args, 'summary');
@@ -732,7 +766,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store, repoRoot } = storeFor(controller, args);
           const state = await store.load();
-          const caller = await resolveCaller(store, state, args);
+          const caller = await resolveCallerNonDelegator(store, state, args);
           const target = argString(args, 'target');
           const status = argString(args, 'status');
           const merge = argString(args, 'merge');
@@ -847,7 +881,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store } = storeFor(controller, args);
           const state = await store.load();
-          const caller = await resolveCaller(store, state, args);
+          const caller = await resolveCallerNonDelegator(store, state, args);
           const missions = await store.loadMissions(state);
           // B2-9: lazy identity re-verification while reading status — persist
           // verdicts (the register re-run is the other trigger). Cheap: the
@@ -895,7 +929,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_ci',
       description:
-        'Run the configured CI command (boot ci_command) in the mission branch\'s worktree (tower-only). The run is serialized per tower process (single-tower single-session assumption — no cross-process mutex, 风险台账 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The outcome is stored under ci/<branchSlug> {commit (tip at run time), exitCode, dirty, logRef, ranAt}; the run log is truncated (last 200 lines, ≤64KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.',
+        'Run the configured CI command (boot ci_command) in the mission branch\'s worktree (tower-only). M1 async: the CI process is SPAWNED and the tool returns IMMEDIATELY with {run_id, started_at, status:"started"} — the run continues in the background. The ci/<branchSlug> record that lands when the process exits {commit (tip at run time), exitCode, dirty, logRef, ranAt, runId} is the SOURCE OF TRUTH; await it with moa_tower_wait(wait={kind:"ci", branch}) before merging. Runs are serialized per worktree in-process (single-tower single-session assumption — no cross-process mutex, 风险台账 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The run log is truncated (last 200 lines, ≤64KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -923,10 +957,12 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
               isError: true,
             };
           }
-          // In-process serial queue (controller seam): CI runs against the same
-          // worktree can never overlap inside this process.
-          const result = await controller.runCiSerial(() => store.runCi(branch, ciCommand));
-          if (result.dirty) {
+          // M1 async: spawn + return immediately; the completion handler
+          // (detached) writes the ci/<branchSlug> record + log when the
+          // process exits — that landing record is the source of truth, and
+          // moa_tower_wait(kind='ci') is the intended way to await it.
+          const started = await store.startCi(branch, ciCommand);
+          if (started.status === 'dirty') {
             // B2-3 dirty-tree interception: error + dirty flag; a dirty failed
             // record was already persisted (merge gate rejects it).
             return {
@@ -934,24 +970,98 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
               isError: true,
               dirty: true,
               branch,
-              commit: result.commit,
-              ran_at: result.ranAt,
+              commit: started.record?.commit,
+              ran_at: started.startedAt,
             };
           }
           return {
-            ran: true,
+            run_id: started.runId,
+            started_at: started.startedAt,
+            status: 'started',
             branch,
-            commit: result.commit,
-            exit_code: result.exitCode,
-            dirty: false,
-            log_ref: result.logRef ?? null,
-            ...(result.logError !== undefined ? { log_error: result.logError } : {}),
-            ran_at: result.ranAt,
-            next:
-              result.exitCode === 0
-                ? 'CI green — the merge gate accepts this record while the branch tip stays put.'
-                : 'CI failed — fix the failures, commit, and re-run moa_tower_ci.',
+            next: 'CI is running asynchronously — the ci/<branchSlug> record is the source of truth when it lands; await it with moa_tower_wait(workspace, caller_agent_id, wait={kind:"ci", branch}).',
           };
+        }),
+    },
+    {
+      name: 'moa_tower_wait',
+      description:
+        'Long-poll wait primitive for the tower domain (M1), modeled on moa_board_wait / moa_wait_turn: block until the requested condition holds, then return {status:"ok", ...observed payload}; at the safety cap (default 25min, MOAMCP_WAIT_CAP_MS / timeoutMs tune it — timeoutMs is clamped to the cap) return {status:"timeout", retry:true}. wait.kind:"ci" → block until the ci/<branchSlug> record exists AND its commit matches the branch\'s CURRENT tip (a stale record from an older tip does NOT satisfy it); payload = the ci record. wait.kind:"inbox" → block until the caller\'s tower inbox has at least one message (same set moa_tower_inbox returns); payload = the messages. wait.kind:"mission" → block until the mission doc\'s status changes from what it was at call time; payload = the mission doc. Any registered roster member (tower/worker/reviewer/delegator is rejected — delegators may only call moa_tower_send) may wait.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          wait: {
+            type: 'object',
+            description: 'What to wait for. kind:"ci" needs branch; kind:"mission" needs id; kind:"inbox" needs nothing.',
+            properties: {
+              kind: { type: 'string', enum: ['ci', 'inbox', 'mission'], description: 'Wait target kind' },
+              branch: { type: 'string', description: 'kind=ci: the mission branch whose ci/<branchSlug> record to await (matched against the current tip)' },
+              id: { type: 'string', description: 'kind=mission: the mission id (e.g. "M1") whose status change to await' },
+            },
+            required: ['kind'],
+            additionalProperties: false,
+          },
+          timeoutMs: { type: 'number', description: 'Per-call cap override (clamped to the MOAMCP_WAIT_CAP_MS safety cap)' },
+        },
+        required: ['workspace', 'caller_agent_id', 'wait'],
+        additionalProperties: false,
+      },
+      handler: (args) =>
+        runTool(async () => {
+          const { store } = storeFor(controller, args);
+          const state = await store.load();
+          const caller = await resolveCallerNonDelegator(store, state, args);
+          const rawWait = args.wait as Record<string, unknown> | undefined;
+          if (rawWait === undefined || typeof rawWait !== 'object' || Array.isArray(rawWait)) {
+            throw new TowerProtocolError('moa_tower_wait needs a wait object ({kind:"ci"|"inbox"|"mission", ...})');
+          }
+          const kind = rawWait['kind'];
+          const timeoutMs = typeof args.timeoutMs === 'number' ? (args.timeoutMs as number) : undefined;
+          if (kind === 'ci') {
+            const branch = typeof rawWait['branch'] === 'string' ? (rawWait['branch'] as string) : undefined;
+            if (branch === undefined || branch.trim().length === 0) {
+              throw new TowerProtocolError('wait kind=ci needs the mission branch');
+            }
+            const outcome = await store.waitForCi(branch, timeoutMs);
+            if (outcome.status === 'timeout') return { status: 'timeout', retry: true };
+            const record = outcome.record;
+            return {
+              status: 'ok',
+              kind: 'ci',
+              branch: record.branch,
+              commit: record.commit,
+              exit_code: record.exitCode,
+              dirty: record.dirty,
+              log_ref: record.logRef ?? null,
+              ...(record.logError !== undefined ? { log_error: record.logError } : {}),
+              ran_at: record.ranAt,
+              ...(record.runId !== undefined ? { run_id: record.runId } : {}),
+            };
+          }
+          if (kind === 'inbox') {
+            const outcome = await store.waitForInbox(caller, timeoutMs);
+            if (outcome.status === 'timeout') return { status: 'timeout', retry: true };
+            return { status: 'ok', kind: 'inbox', caller, count: outcome.messages.length, messages: renderInboxItems(outcome.messages) };
+          }
+          if (kind === 'mission') {
+            const id = typeof rawWait['id'] === 'string' ? (rawWait['id'] as string) : undefined;
+            if (id === undefined || id.trim().length === 0) {
+              throw new TowerProtocolError('wait kind=mission needs the mission id');
+            }
+            const outcome = await store.waitForMission(id, timeoutMs);
+            if (outcome.status === 'timeout') return { status: 'timeout', retry: true };
+            const mission = outcome.mission;
+            return {
+              status: 'ok',
+              kind: 'mission',
+              mission_id: mission.id,
+              mission_status: mission.status,
+              mission,
+            };
+          }
+          throw new TowerProtocolError('wait.kind must be one of "ci" | "inbox" | "mission"');
         }),
     },
     {
@@ -973,7 +1083,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store } = storeFor(controller, args);
           const state = await store.load();
-          const caller = await resolveCaller(store, state, args);
+          const caller = await resolveCallerNonDelegator(store, state, args);
           const missionId = argString(args, 'mission_id');
           const note = argString(args, 'note');
           if (missionId === undefined || missionId.trim().length === 0) {
@@ -998,6 +1108,21 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
 // renderers (ported from official statusTool.ts, minus the rate limiter —
 // moamcp has no spawn-concurrency limiter in B1)
 // ---------------------------------------------------------------------------
+
+/** Shared inbox-item renderer — used by moa_tower_inbox AND the
+ *  moa_tower_wait kind=inbox payload (one shape, no drift). */
+function renderInboxItems(items: readonly import('./types.js').TowerInboxItem[]): Array<Record<string, unknown>> {
+  return items.map((item) => ({
+    file: item.file,
+    from: item.from,
+    to: item.to,
+    subject: item.subject,
+    sent_at: item.sentAt,
+    ...(item.scope !== undefined ? { scope: item.scope } : {}),
+    ...(item.action !== undefined ? { action: item.action } : {}),
+    body: item.body,
+  }));
+}
 
 function renderMissions(missions: readonly TowerMission[]): Array<Record<string, unknown>> {
   if (missions.length === 0) return [];
