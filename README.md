@@ -418,6 +418,7 @@ Bus 只绑定 `127.0.0.1`（环回），不对局域网暴露。
 | `MOAMCP_WAIT_CAP_MS` | 25 分钟 | `moa_wait_turn` / `moa_board_wait` 长轮询安全上限 |
 | `MOAMCP_BUS_WATCH_INTERVAL_MS` | `10000` | reuse 模式探活宿主 Bus 的间隔 |
 | `MOAMCP_BUS_WATCH_TIMEOUT_MS` | `1000` | 宿主探活请求超时 |
+| `MOAMCP_AUTO_OPEN` | 无 | 控制面自动在系统默认浏览器打开：`1` 打开默认页 `http://127.0.0.1:<port>/`；以 `/` 开头的值打开 `http://127.0.0.1:<port><值>`（如 `/tower`、`/status`）；缺省/空/其它值一律不拉起（默认关）。仅本进程新建 Bus（own 模式）时生效，reuse 复用已有 Bus 时跳过——多 session 去重；打开失败静默忽略，不影响启动 |
 | `MOAMCP_BUS_WATCH_FAILS` | `3` | 连续探活失败多少次判定宿主死亡并触发接管 |
 | `MOAMCP_DAEMON_VERSION_CHECK_MS` | `60000` | 生产 daemon 的版本自检间隔（磁盘新版本安装后自动让位） |
 | `MOAMCP_PACKAGE_JSON` | 无 | 仅测试注入用 seam：覆盖 package.json 路径（一般用户无需设置） |

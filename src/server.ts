@@ -14,6 +14,7 @@ import { request } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createServer } from './adapters/mcp.js';
 import { Bus, type BusStartResult } from './core/bus/bus.js';
+import { maybeAutoOpen } from './core/bus/auto-open.js';
 import { spawnBusDaemon } from './core/bus/daemon-spawn.js';
 import { BoardStore } from './core/store/board.js';
 import { DebateHub, defaultLogsDir, type DomainEvent } from './modules/debate/state.js';
@@ -163,6 +164,12 @@ async function main(): Promise<void> {
   // The status controller knows the Bus/owner port: the /status snapshot's
   // server.port, and the moa_status_agents reuse proxy target (batch 1c P5).
   statusController.setPort(startResult.port);
+  // MOAMCP_AUTO_OPEN (see src/core/bus/auto-open.ts): after the Bus settles,
+  // optionally open the Control Plane in the system default browser. Only when
+  // THIS process created the Bus (own mode) — reuse sessions are served by the
+  // owner's tab, so they never pop a second one. Best-effort: a failed open is
+  // silently ignored and can never affect server startup.
+  maybeAutoOpen(process.env.MOAMCP_AUTO_OPEN, startResult.mode, startResult.port);
   // Status module (batch 1a): watch the CLI session trees only when this
   // process owns the Bus. In reuse mode another process's watchers already
   // cover the homes — starting a second set here would double-tail every
