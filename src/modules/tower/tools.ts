@@ -807,7 +807,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_teardown',
       description:
-        'Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force), delete the guard mirror file, and clear the live tower namespace so a fresh boot is possible. The append-only board JSONL stays as the audit trail.',
+        'Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force) — root-level symlinks/junctions inside each worktree are unlinked first so junction targets are never touched (git for Windows follows junctions on recursive removal) — delete the guard mirror file, and clear the live tower namespace so a fresh boot is possible. The append-only board JSONL stays as the audit trail.',
       inputSchema: {
         type: 'object',
         properties: {

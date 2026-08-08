@@ -11,7 +11,7 @@
  * sharing one tower namespace (B1-1).
  */
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -670,6 +670,36 @@ it('row17b: teardown with force removes dirty worktrees', async () => {
   const report = await store.teardown({ force: true });
   expect(report.some((line) => line.includes('removed wt-1'))).toBe(true);
   await expect(readFile(join(worktreePath(repoRoot, 'wt-1'), 'dirty.txt'), 'utf8')).rejects.toThrow();
+});
+
+it('row17c: teardown unlinks root junctions first — the junction TARGET survives', async () => {
+  const { store, repoRoot } = await makeRepo();
+  await store.plan([{ title: 'A', scope: ['a/**'] }]);
+  const state = await store.load();
+  const missions = await store.loadMissions(state);
+  const m = missions[0]!;
+  await store.addWorktree(m.worktree, m.branch, state.base);
+  // Dogfood pattern: worktree node_modules is a junction at an EXTERNAL target
+  // (the main checkout's node_modules). git-for-Windows follows junctions on
+  // recursive removal, so teardown must drop the link before `worktree remove`.
+  // .gitignore keeps the junction invisible to `git status` (as in moamcp) so
+  // the worktree is clean enough to be removed rather than kept.
+  await commitInWorktree(repoRoot, 'wt-1', '.gitignore', 'node_modules\n', 'ignore node_modules');
+  const target = await mkdtemp(join(tmpdir(), 'tower-link-target-'));
+  homes.push(target);
+  await mkdir(join(target, 'pkg'), { recursive: true });
+  await writeFile(join(target, 'pkg', 'sentinel.txt'), 'keep\n');
+  await symlink(
+    target,
+    join(worktreePath(repoRoot, 'wt-1'), 'node_modules'),
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+
+  const report = await store.teardown();
+  expect(report.some((line) => line.includes('unlinked junctions in wt-1: node_modules'))).toBe(true);
+  expect(report.some((line) => line.includes('removed wt-1'))).toBe(true);
+  // The target's contents survived; the link inside the (removed) worktree is gone.
+  await expect(readFile(join(target, 'pkg', 'sentinel.txt'), 'utf8')).resolves.toBe('keep\n');
 });
 
 it('row18 (deviation): send/finding keys are random UUIDs, never date-based (no same-key LWW collisions)', async () => {

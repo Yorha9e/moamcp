@@ -25,7 +25,7 @@
 
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import picomatch from 'picomatch';
@@ -287,6 +287,34 @@ export function truncateTail(text: string, maxBytes: number): string {
 // ---------------------------------------------------------------------------
 
 const FENCE = '---';
+
+/**
+ * Unlink root-level symlinks/junctions inside `dir`, never their targets.
+ * Dirent.isSymbolicLink() is true for Windows directory junctions; unlink
+ * removes only the reparse point. Teardown calls this before git's recursive
+ * worktree removal because git for Windows FOLLOWS junctions and would delete
+ * the target's contents (observed 3× in dogfood: a junctioned node_modules got
+ * the main checkout's own node_modules gutted by `git worktree remove`).
+ */
+async function unlinkRootLinks(dir: string): Promise<readonly string[]> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const removed: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isSymbolicLink()) continue;
+    try {
+      await unlink(join(dir, entry.name));
+      removed.push(entry.name);
+    } catch {
+      // best-effort: a stubborn link must not fail the teardown
+    }
+  }
+  return removed;
+}
 
 function renderFrontmatter(fields: Readonly<Record<string, string>>): string {
   const lines = [FENCE];
@@ -1932,6 +1960,13 @@ export class TowerStore {
         }
       }
       try {
+        // Junction guard: drop root-level links (e.g. a junctioned
+        // node_modules) before git's recursive removal — git for Windows
+        // follows them and would delete the TARGET's contents.
+        const unlinked = await unlinkRootLinks(absPath);
+        if (unlinked.length > 0) {
+          report.push(`unlinked junctions in ${mission.worktree}: ${unlinked.join(', ')}`);
+        }
         await git.worktreeRemove(this.repoRoot, absPath, options.force === true);
         report.push(`removed ${mission.worktree}`);
         await this.appendLog(TOWER_NAME, 'worktree.remove', { worktree: mission.worktree });
