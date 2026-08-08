@@ -98,6 +98,50 @@ moamcp 本身（MCP 工具 + Bus + 卡片 + 归档）在两个版本上完全一
 
 > 官方版本备注：截至 0.29.0，上游官方仓库**尚不含**子代理模型绑定机制（相关 PR [#1928](https://github.com/MoonshotAI/kimi-code/pull/1928) / [#2034](https://github.com/MoonshotAI/kimi-code/pull/2034) 仍在 open 状态）。因此官方版本目前只支持单模型 MOA；多模型槽位绑定是 omkc 社区版独有的能力。
 
+## Tower workflow（塔台工作流）
+
+moamcp 的多 agent 塔台工作流（移植自 kimi-code `pr-2633-tower` 协议并 board 化）：一个 orchestrator 塔台（tower）把目标拆成互不重叠的 mission，为每个 mission 分配独立 worktree 与分支，spawn 出 worker / reviewer 组成名册分工施工与评审，最后由塔台按固定门禁顺序（依赖 → survey 零 diff → 评审 → 分支 tip 未变 → scope 包含 → CI 绿）把分支合回基分支。状态全部落在共享黑板的 `tower/<repoKey>/` 命名空间（无 `.tower/` 目录），真实 git worktree 建在仓库同级的 `<repoName>-worktrees/` 下。
+
+### `moa_tower_*` 工具（14 个）
+
+| 工具 | 一句话速览 |
+|---|---|
+| `moa_tower_boot` | 启动塔台：校验仓库（git 内、≥1 commit）、状态与命名空间写黑板、注册 tower 名册条目；`ci_command` 重 boot 可幂等重配 |
+| `moa_tower_plan` | 塔台专用：目标拆成 missions——`M<n>` id / `feat/M<n>-<slug>` 分支 / `wt-<n>` worktree 槽位，build scope 两两不相交 |
+| `moa_tower_spawn` | 塔台专用：建 mission 物理 worktree、登记 PENDING 名册条目（reviewer 记 `review_target`），等 register 补引擎 id |
+| `moa_tower_register` | 塔台专用：spawn 收尾——填引擎 agent id、跑 B2 身份交叉核验、重建写守卫镜像 `.tower-guard.json` |
+| `moa_tower_mission` | 读 / 改 mission：worker 只能改自己的；scope/owner 塔台专用；`blocker` 置 blocked，`task_done` 勾首个匹配任务 |
+| `moa_tower_send` | 给名册 agent / tower / `all` 发站内信（≤96KB、禁止自发） |
+| `moa_tower_inbox` | 读自己的收件箱（广播也收、tower 可见全部），最新在前 |
+| `moa_tower_finding` | 提交结构化 finding（`bug`/`improve`/`vuln`/`idea`）——scope 外发现走这里，不直接改 |
+| `moa_tower_review` | 评审人提交裁决 `clean` / `p1\|p2-Nitems` + `merge`/`fix-then-merge`/`hold`；分支 tip 由工具自行解析、不可自报 |
+| `moa_tower_merge` | 塔台专用：按门禁顺序全绿后 `git merge --no-ff`；survey 零 diff 直接收尾 |
+| `moa_tower_teardown` | 塔台专用：拆 worktrees（脏树除非 `force`）+ 守卫镜像 + 命名空间，board JSONL 留审计轨迹 |
+| `moa_tower_status` | 共享仪表盘：missions / roster（`verified`/`failed_count`/`blocked`）/ 评审门禁 / CI 摘要 / 收件箱数 / 最近活动日志 |
+| `moa_tower_ci` | 塔台专用：在 mission worktree 跑配置的 CI（脏工作树先拦），结果存 `ci/<branchSlug>` |
+| `moa_tower_progress` | 给 mission 贴进度便签（仅 owner / 塔台），按纪律保持稀疏 |
+
+### `/tower` 面板页与写守卫
+
+- `/tower`（GET 静态页）：repo 选择器（自动探测已 boot 的塔台，5s 轮询）；missions 表带状态 / CI 徽标（绿 `exitCode 0`、红失败、灰跳过）/ 评审门禁列；名册表带 `✓ verified` 标记（tower 行 agent id 打码）；活动日志（最近 100 行）；findings / reviews 两个折叠面板（展开时按需加载）。
+- 三个配套 profile 在 `agents/`：`tower-orchestrator`（塔台，唯一可跑塔台专用工具的成员）、`tower-worker`（在 worktree 里施工一个 mission，无 spawn/plan/merge 杠杆，其 profileName 是写守卫的匹配键）、`tower-reviewer`（只读评审一个分支）。官方 kimi-code 与 MOA 角色一样需复制到 agent 目录使用。
+- PreToolUse 写守卫 hook（`hooks/tower-write-guard.mjs`）：**只拦一种逃逸**——写向仓库根与已注册 worktree 之外的兄弟目录区（`dirname(repoRoot)`），其余一律放行（fail-open，镜像定位不到也放行）；真正的写纪律来自 profile 工具白名单与评审门禁。
+
+### 最小使用流程
+
+```text
+boot      moa_tower_boot(workspace=<repoRoot>, tower_agent_id=<引擎 id>[, ci_command="…"])
+plan      moa_tower_plan(missions=[{title, scope, tasks?, deps?}])  →  M1/M2/… 各得分支与 wt-<n>
+spawn     moa_tower_spawn(name=…, kind=worker|reviewer, mission_id=…)  →  建 worktree + PENDING 条目
+          └ 塔台用宿主 Agent 工具后台拉起该 agent
+register  moa_tower_register(name=…, agent_id=<Agent 工具返回的引擎 id>)  →  身份核验 + 守卫镜像
+施工      worker 在 wt-<n>：moa_tower_mission 读任务 → 写代码 → moa_tower_progress 报进度
+          → moa_tower_send/inbox 沟通 → scope 外走 moa_tower_finding → 完工 git add/commit
+ci        moa_tower_ci(branch="feat/M1-…")  ← 仅在 boot 配了 ci_command 时
+review    reviewer git diff 核验 → moa_tower_review(target, status, merge, findings, decision)
+merge     moa_tower_merge(branch=…) 全绿即 --no-ff 合入 base → 收尾 moa_tower_teardown
+```
+
 ## 使用
 
 ### 1. 配置命名槽位（仅 omkc）
