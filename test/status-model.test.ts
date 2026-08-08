@@ -462,7 +462,7 @@ describe('status-model: partitionSession DFS', () => {
     expect(part.inactive).toEqual([agentKey('s1', 'sub2'), agentKey('s1', 'lone')]);
   });
 
-  it('keeps DFS order across nested levels', () => {
+  it('keeps DFS order across nested levels (M1: inactive ancestors of a busy seed join the active side)', () => {
     const model = newModel();
     applySnapshot(model, snapshot([], [
       agent('s1', 'a', { busy: true }),
@@ -470,16 +470,26 @@ describe('status-model: partitionSession DFS', () => {
       agent('s1', 'c', { parentAgentId: 'b', busy: true }),
       agent('s1', 'd', { parentAgentId: 'b' }),
     ]));
+    // seeds = a, c; c's parentKey chain (b -> a) is effectively active, so b
+    // stays in the active zone (its own wire may be silent while c runs).
+    // d (a leaf under b with no active descendant) stays inactive.
     const part = partitionSession(model, 's1');
-    expect(part.active).toEqual([agentKey('s1', 'a'), agentKey('s1', 'c')]);
-    expect(part.inactive).toEqual([agentKey('s1', 'b'), agentKey('s1', 'd')]);
+    expect(part.active).toEqual([agentKey('s1', 'a'), agentKey('s1', 'b'), agentKey('s1', 'c')]);
+    expect(part.inactive).toEqual([agentKey('s1', 'd')]);
+    // effActive = seeds + ancestor closure (active-side membership)
+    expect(part.effActive).toEqual({
+      [agentKey('s1', 'a')]: true,
+      [agentKey('s1', 'b')]: true,
+      [agentKey('s1', 'c')]: true,
+    });
+    expect(part.effActive[agentKey('s1', 'd')]).toBeUndefined();
   });
 
   it('returns empty sides for a session with no roots', () => {
     const model = newModel();
-    expect(partitionSession(model, 'nope')).toEqual({ active: [], inactive: [] });
+    expect(partitionSession(model, 'nope')).toEqual({ active: [], inactive: [], effActive: {} });
     applySnapshot(model, snapshot([{ sessionId: 's1' }], []));
-    expect(partitionSession(model, 's1')).toEqual({ active: [], inactive: [] });
+    expect(partitionSession(model, 's1')).toEqual({ active: [], inactive: [], effActive: {} });
   });
 
   it('keeps orphan leaves on the inactive side even when subStatus=running', () => {
@@ -646,7 +656,11 @@ describe('status-model: activeAgentKeysWithAncestors (0.11.0)', () => {
       agent('s1', 'lone', { busy: true }),
       agent('s2', 'other', { busy: true }),
     ]));
+    // M1: the active partition carries the ancestor closure, so root/mid (not
+    // self-active, but ancestors of the busy leaf) are activeAgentKeys members.
     expect(activeAgentKeys(model)).toEqual([
+      agentKey('s1', 'root'),
+      agentKey('s1', 'mid'),
       agentKey('s1', 'leaf'),
       agentKey('s1', 'lone'),
       agentKey('s2', 'other'),
@@ -724,6 +738,161 @@ describe('status-model: activeAgentKeysWithAncestors (0.11.0)', () => {
     expect(got.length).toBeLessThanOrEqual(3);
     expect(new Set(got).size).toBe(got.length); // no duplicate emissions
     expect(got).toContain(agentKey('s1', 'c'));
+  });
+});
+
+describe('status-model: ancestor active inheritance (M1)', () => {
+  it('orchestrator with zero own activity stays in the active zone while its worker is busy (2 levels)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'orchestrator', { kind: 'main' }), // own wire silent (blocked on the worker)
+      agent('s1', 'worker', { parentAgentId: 'orchestrator', kind: 'sub', busy: true }),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([agentKey('s1', 'orchestrator'), agentKey('s1', 'worker')]);
+    expect(part.inactive).toEqual([]);
+    // activeAgentKeys carries the ancestor too (sticky section keeps the chain)
+    expect(activeAgentKeys(model)).toEqual([agentKey('s1', 'orchestrator'), agentKey('s1', 'worker')]);
+  });
+
+  it('works for 3+ levels of nesting: the FULL ancestor chain is effective-active', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'root', { kind: 'main' }),
+      agent('s1', 'mid', { parentAgentId: 'root', kind: 'sub' }),
+      agent('s1', 'leaf', { parentAgentId: 'mid', kind: 'sub', busy: true }),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([
+      agentKey('s1', 'root'),
+      agentKey('s1', 'mid'),
+      agentKey('s1', 'leaf'),
+    ]);
+    expect(part.inactive).toEqual([]);
+    // 4 levels too: every ancestor (grandparent, great-grandparent) inherits
+    const deep = newModel();
+    applySnapshot(deep, snapshot([], [
+      agent('d1', 'a0'),
+      agent('d1', 'a1', { parentAgentId: 'a0' }),
+      agent('d1', 'a2', { parentAgentId: 'a1' }),
+      agent('d1', 'a3', { parentAgentId: 'a2', busy: true }),
+    ]));
+    const deepPart = partitionSession(deep, 'd1');
+    expect(deepPart.active).toEqual([
+      agentKey('d1', 'a0'),
+      agentKey('d1', 'a1'),
+      agentKey('d1', 'a2'),
+      agentKey('d1', 'a3'),
+    ]);
+    expect(deepPart.inactive).toEqual([]);
+  });
+
+  it('keeps leaves and fully-inactive subtrees exactly as before', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'busyRoot', { busy: true }),
+      agent('s1', 'idleLeaf', { parentAgentId: 'busyRoot' }), // leaf under a busy parent: no active descendant -> inactive
+      agent('s1', 'quietRoot'), // fully-inactive subtree: nobody inherits anything
+      agent('s1', 'quietChild', { parentAgentId: 'quietRoot' }),
+      agent('s1', 'lone'),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([agentKey('s1', 'busyRoot')]);
+    expect(part.inactive).toEqual([
+      agentKey('s1', 'idleLeaf'),
+      agentKey('s1', 'quietRoot'),
+      agentKey('s1', 'quietChild'),
+      agentKey('s1', 'lone'),
+    ]);
+    expect(part.effActive[agentKey('s1', 'busyRoot')]).toBe(true);
+    expect(part.effActive[agentKey('s1', 'idleLeaf')]).toBeUndefined();
+    expect(part.effActive[agentKey('s1', 'quietRoot')]).toBeUndefined();
+  });
+
+  it('a seed that is also an ancestor stays a seed; shared ancestors are marked once', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'root', { busy: true }), // self-active AND ancestor of both leaves
+      agent('s1', 'mid', { parentAgentId: 'root' }), // inactive shared ancestor, pulled up once
+      agent('s1', 'l1', { parentAgentId: 'mid', busy: true }),
+      agent('s1', 'l2', { parentAgentId: 'mid', busy: true }),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([
+      agentKey('s1', 'root'),
+      agentKey('s1', 'mid'),
+      agentKey('s1', 'l1'),
+      agentKey('s1', 'l2'),
+    ]);
+    expect(part.inactive).toEqual([]);
+    // rollup flags: root/l1/l2 self-active, mid is a rollup ancestor (badge)
+    const byKey: Record<string, boolean> = {};
+    for (const x of activeAgentKeysWithAncestors(model)) byKey[x.key] = x.rollupActive;
+    expect(byKey[agentKey('s1', 'root')]).toBe(false);
+    expect(byKey[agentKey('s1', 'l1')]).toBe(false);
+    expect(byKey[agentKey('s1', 'l2')]).toBe(false);
+    expect(byKey[agentKey('s1', 'mid')]).toBe(true);
+  });
+
+  it('stale busy agents are not seeds and are not pulled up without an active descendant', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'staleBusy', { busy: true, stale: true }),
+      agent('s1', 'child', { parentAgentId: 'staleBusy' }),
+    ]));
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([]);
+    expect(part.inactive).toEqual([agentKey('s1', 'staleBusy'), agentKey('s1', 'child')]);
+    // ...but an ACTIVE descendant still pulls the stale ancestor up (it has a
+    // live subtree, so its zone must not be folded away)
+    const model2 = newModel();
+    applySnapshot(model2, snapshot([], [
+      agent('s1', 'staleBusy', { busy: true, stale: true }),
+      agent('s1', 'worker', { parentAgentId: 'staleBusy', busy: true }),
+    ]));
+    expect(partitionSession(model2, 's1').active).toEqual([
+      agentKey('s1', 'staleBusy'),
+      agentKey('s1', 'worker'),
+    ]);
+  });
+
+  it('orphan leaves stay on the inactive side even under an effective-active parent', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'main', { busy: false, subagents: [{ subagentId: 'leaf', status: 'running', ts: 1 }] }),
+      agent('s1', 'worker', { parentAgentId: 'main', kind: 'sub', busy: true }),
+    ]));
+    // main is pulled up by worker; the orphan leaf (busy=false, not a seed, not
+    // an ancestor) stays inactive — its subStatus=running is display-only.
+    const part = partitionSession(model, 's1');
+    expect(part.active).toEqual([agentKey('s1', 'main'), agentKey('s1', 'worker')]);
+    expect(part.inactive).toEqual([agentKey('s1', 'leaf')]);
+  });
+
+  it('visited-guards an injected parent cycle during the ancestor walk (no hang, no dupes)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([], [
+      agent('s1', 'a'),
+      agent('s1', 'b', { parentAgentId: 'a' }),
+      agent('s1', 'c', { parentAgentId: 'b', busy: true }),
+    ]));
+    model.byKey[agentKey('s1', 'a')].parentKey = agentKey('s1', 'c'); // inject a->c loop
+    const part = partitionSession(model, 's1');
+    expect(part.active.length).toBeLessThanOrEqual(3);
+    expect(new Set(part.active).size).toBe(part.active.length);
+    expect(part.active).toContain(agentKey('s1', 'c')); // the busy seed survives
+  });
+
+  it('listDirectories counts effectively-active ancestors in activeAgents (dir zone follows the partition)', () => {
+    const model = newModel();
+    applySnapshot(model, snapshot([{ sessionId: 's1', workDir: '/repo/app' }], [
+      agent('s1', 'root', { kind: 'main' }),
+      agent('s1', 'worker', { parentAgentId: 'root', busy: true }),
+    ]));
+    const dirs = listDirectories(model);
+    expect(dirs[0].hasActive).toBe(true);
+    expect(dirs[0].activeAgents).toBe(2); // root (ancestor) + worker (seed)
+    expect(dirs[0].hiddenSessions).toBe(0);
   });
 });
 
@@ -910,12 +1079,16 @@ describe('status-model: drift protection (D2)', () => {
     { op: 'snapshot', snap: snapshot([
       { sessionId: 's1', title: 'S', workDir: '/repo/app', workDirHash: 'h1hash1hash1' },
       { sessionId: 's2', workDir: '/repo/app' },
+      { sessionId: 's5', workDir: '/repo/m1' }, // M1: ancestor-inheritance chain
     ], [
       agent('s1', 'main', { kind: 'main', busy: true, workDirHash: 'h1hash1hash1', lastToolCall: { name: 'read', ts: 5, isError: false }, subagents: [{ subagentId: 'leaf', status: 'running', ts: 5 }] }),
       agent('s1', 'child', { parentAgentId: 'main', phase: 'thinking', lastToolCall: { name: 'grep', ts: 3, isError: true } }),
       agent('s2', 'lone', { stale: true, workDirHash: 'h2hash2hash2' }),
       agent('s3', 'late-child', { parentAgentId: 'late-parent', workDirHash: 'h3hash3hash3' }),
       agent('s4', 'ghost', { busy: true }),
+      agent('s5', 'root', { kind: 'main' }),
+      agent('s5', 'mid', { parentAgentId: 'root', kind: 'sub' }),
+      agent('s5', 'leaf', { parentAgentId: 'mid', kind: 'sub', busy: true }),
     ]) },
     { op: 'agent', agent: agent('s1', 'child', { parentAgentId: 'main', busy: false, lastTurnReason: 'completed' }) },
     { op: 'agent', agent: agent('s1', 'main', { parentAgentId: 'other', busy: false, lastFinishReason: 'end_turn', lastToolCall: { name: 'write', ts: 7, isError: false } }) },

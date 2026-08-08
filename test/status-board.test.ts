@@ -484,6 +484,96 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(page.el('sbCounts').textContent).toContain('2 agents');
   });
 
+  it('keeps an idle orchestrator in the active zone while its worker is busy (M1 ancestor inheritance)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // Orchestrator's own wire is silent (blocked on the worker) -> busy:false.
+    page.dispatch('snapshot', snap({
+      agents: [
+        { sessionId: 's1', agentId: 'main', kind: 'main', busy: false, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'worker', kind: 'sub', parentAgentId: 'main', busy: true, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2' },
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    // main is NOT folded away: both rows render on the active side in DFS order.
+    expect(rowIds(group)).toEqual(['s1:main', 's1:worker']);
+    // zero inactive rows -> no fold bar (the subtree did not disappear).
+    expect(group.querySelector('.sb-fold')!.hidden).toBe(true);
+    const rows = rowsOf(group);
+    expect(rows[0].classList.contains('busy')).toBe(false); // orchestrator's own state
+    expect(rows[1].classList.contains('busy')).toBe(true); // worker is the busy seed
+    // same-side nesting: the worker lives under main's subtree, not a side root.
+    const mainSubtree = subtreeOf(rows[0])!;
+    expect(mainSubtree.children.length).toBe(1);
+    expect(mainSubtree.children[0].getAttribute('data-key')).toBe('s1:worker');
+  });
+
+  it('renders the full 3-level ancestor chain on the active side (M1 inheritance)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        { sessionId: 's1', agentId: 'root', kind: 'main', busy: false, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'mid', kind: 'sub', parentAgentId: 'root', busy: false, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'leaf', kind: 'sub', parentAgentId: 'mid', busy: true, stale: false, lastSeen: 800, firstSeen: 300, subagents: [], model: 'kimi-k2' },
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(group)).toEqual(['s1:root', 's1:mid', 's1:leaf']);
+    expect(group.querySelector('.sb-fold')!.hidden).toBe(true);
+    // nesting follows the chain: root > mid > leaf
+    const rows = rowsOf(group);
+    const rootSubtree = subtreeOf(rows[0])!;
+    expect(rootSubtree.children.length).toBe(1);
+    expect(rootSubtree.children[0].getAttribute('data-key')).toBe('s1:mid');
+    const midSubtree = subtreeOf(rows[1])!;
+    expect(midSubtree.children.length).toBe(1);
+    expect(midSubtree.children[0].getAttribute('data-key')).toBe('s1:leaf');
+    expect(subtreeOf(rows[2])).toBeNull();
+  });
+
+  it('localechange re-render refreshes the effActive side closure from the recomputed partition (r1 p2-1)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        { sessionId: 's1', agentId: 'main', kind: 'main', busy: false, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'worker', kind: 'sub', parentAgentId: 'main', busy: true, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2' },
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    // render-time closure: main (ancestor) + worker (seed) on the active side.
+    expect(rowIds(group)).toEqual(['s1:main', 's1:worker']);
+
+    // The localechange handler recomputes M.partitionSession for every session
+    // and must re-stash that fresh closure (updateSessionEl is the chokepoint).
+    // Make the recompute disagree with the render-time closure — worker is no
+    // longer effectively active — so a STALE stash would keep the worker nested
+    // under main while the fresh closure must drop it.
+    const sandbox = page.sandbox as {
+      __moaStatusModel: {
+        partitionSession: (m: unknown, sid: string) => {
+          active: string[];
+          inactive: string[];
+          effActive: Record<string, boolean>;
+        };
+      };
+    };
+    const origPartition = sandbox.__moaStatusModel.partitionSession;
+    sandbox.__moaStatusModel.partitionSession = (m, sid) => {
+      const part = origPartition(m, sid);
+      if (sid !== 's1') return part;
+      return { active: part.active, inactive: part.inactive, effActive: { 's1:main': true } };
+    };
+
+    setLocale(page, 'zh-CN'); // fires moamcp:localechange -> recompute + updateSessionEl + refreshVisibleRows
+    // updateRowEl's tree-chrome sync reads the FRESH closure: main has no
+    // same-side child -> its .sb-subtree (worker row) is removed from the DOM.
+    expect(rowIds(group)).toEqual(['s1:main']);
+    // restore so later teardown renders behave normally
+    sandbox.__moaStatusModel.partitionSession = origPartition;
+  });
+
   it('shows the scanning bar when snapshot.scan.scanning is true (E6)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
     expect(page.el('sbScan').hidden).toBe(true);

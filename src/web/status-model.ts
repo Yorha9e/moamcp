@@ -791,14 +791,29 @@ export function sessionDirKey(model: StatusModel, sessionId: string): string {
 /**
  * 单 session 分区：按 model.roots[sessionId] DFS（visited 防环，与页面 resortSession 的遍历序
  * 一致），活跃/不活跃各自保持 DFS 序返回 key 数组。
+ *
+ * M1 (active-ancestor inheritance)：活跃判定不再只看自身 isActiveAgent —— 一个 agent
+ * 阻塞在长前台 subagent 调用里时（编排者等 worker 返回），其自身 wire 停更会被判为
+ * 不活跃并折进不活跃区、整棵子树消失（两次假断行）。现在：先 DFS 收集全部 key 序并
+ * 标记活跃种子（busy && !stale），再对每个种子沿 parentKey 链把祖先标记为有效活跃
+ * （effActive，visited/已标记即停 防环，复用 activeAgentKeysWithAncestors 的链走模式，
+ * 单遍、无递归重算），最后按 seed||effActive 分区。返回值多带一个 effActive ——
+ * 种子 + 祖先闭包（即活跃侧成员资格），页面渲染器的同侧子树/侧根判定直接消费它，
+ * 避免与 isActiveAgent 的原始语义分叉（否则活跃区会重复/错嵌行）。
  */
-export function partitionSession(model: StatusModel, sessionId: string): { active: string[]; inactive: string[] } {
+export function partitionSession(
+  model: StatusModel,
+  sessionId: string,
+): { active: string[]; inactive: string[]; effActive: Record<string, boolean> } {
   const active: string[] = [];
   const inactive: string[] = [];
+  const effActive: Record<string, boolean> = {};
   const visited: Record<string, boolean> = {};
+  const order: string[] = [];
   const stack: string[] = [];
   const rs = model.roots[sessionId] || [];
   for (let i = rs.length - 1; i >= 0; i--) stack.push(rs[i]);
+  // Pass 1: DFS 收集全部 key（保持遍历序）+ 标记活跃种子。
   while (stack.length) {
     const key = stack.pop();
     if (key === undefined) continue;
@@ -806,14 +821,31 @@ export function partitionSession(model: StatusModel, sessionId: string): { activ
     visited[key] = true;
     const e = model.byKey[key];
     if (!e) continue;
-    if (isActiveAgent(e)) active.push(key);
-    else inactive.push(key);
+    order.push(key);
+    if (isActiveAgent(e)) effActive[key] = true;
     const children = e.children;
     for (let j = children.length - 1; j >= 0; j--) {
       if (!visited[children[j]]) stack.push(children[j]);
     }
   }
-  return { active, inactive };
+  // Pass 2: 每个种子的 parentKey 祖先链标记为有效活跃（单遍；已标记即停 ——
+  // 任何节点被标记时其整条祖先链已随同一次链走上溯完毕，故可安全短路）。
+  for (let i = 0; i < order.length; i++) {
+    if (!effActive[order[i]]) continue;
+    let cur: string | null = model.byKey[order[i]].parentKey || null;
+    while (cur && !effActive[cur]) {
+      effActive[cur] = true;
+      const e = model.byKey[cur];
+      if (!e) break; // 断链：缺失的父项不渲染，停
+      cur = e.parentKey || null;
+    }
+  }
+  // Pass 3: 按 effActive（种子或有效活跃祖先）分区，保持 DFS 序。
+  for (let i = 0; i < order.length; i++) {
+    if (effActive[order[i]]) active.push(order[i]);
+    else inactive.push(order[i]);
+  }
+  return { active, inactive, effActive };
 }
 
 /** 一个目录分组的渲染数据（页顶活跃分区 + 目录树共用的分组源）。 */
@@ -911,12 +943,14 @@ export function activeAgentKeys(model: StatusModel): string[] {
 }
 
 /**
- * 活跃分区 + 祖先链闭包（B1，0.11.0）：对 activeAgentKeys 的每个活跃叶，沿 parentKey
- * 向上收集祖先（visited 防环，复用 wouldCycle 的链遍历基建）；输出序 = **每个活跃叶
- * 前插其祖先链**（祖先链反向序→叶），禁止全局重排（activeAgentKeys 是稳定序，跨 flush
- * 不抖动）。祖先项标记 `rollupActive=true`，与"自身活跃"严格区分——isActiveAgent 不动；
- * 一个既是活跃种子又是他人祖先的 key 保持其种子身份（rollupActive=false），因为 DFS 序
- * 保证祖先先于后代被处理。
+ * 活跃分区 + 祖先链闭包（B1，0.11.0；M1 更新）：M1 之后 partitionSession 的 active
+ * 已经包含"活跃种子 + 全部祖先"闭包（effActive），activeAgentKeys 亦然，所以这里
+ * 不再需要额外前插祖先链 —— 链走仍保留作为断链/防环的安全网（已 seen 即跳过），
+ * 输出序 = activeAgentKeys 序（DFS 序保证祖先先于后代，稳定序跨 flush 不抖动）。
+ * rollupActive 标记与 isActiveAgent 严格区分：成员自身 busy && !stale 为种子
+ * （rollupActive=false），仅因后代活跃而被带出的祖先为 rollupActive=true ——
+ * 页顶活跃分区据此显示"经子 agent 带出"徽标（B2，M1 后祖先也是活跃分区成员，
+ * 徽标语义不变）。
  */
 export function activeAgentKeysWithAncestors(
   model: StatusModel,
@@ -936,16 +970,18 @@ export function activeAgentKeysWithAncestors(
       ancestors.push(cur);
       cur = e.parentKey || null;
     }
-    // 祖先链反向序（根→叶）→ 叶子；已在前面输出的 key 不重复。
+    // 祖先链反向序（根→叶）→ 叶子；已在前面输出的 key 不重复。徽标跟随
+    // isActiveAgent（M1：一条链在注入环等病态下可能经此路径先于其种子身份被输出）。
     for (let j = ancestors.length - 1; j >= 0; j--) {
       const ak = ancestors[j];
       if (seen[ak]) continue;
       seen[ak] = true;
-      out.push({ key: ak, rollupActive: true });
+      out.push({ key: ak, rollupActive: !isActiveAgent(model.byKey[ak]) });
     }
     if (!seen[leaf]) {
       seen[leaf] = true;
-      out.push({ key: leaf, rollupActive: false });
+      // M1: activeAgentKeys 成员可能是被带出的祖先 —— 徽标跟随 isActiveAgent。
+      out.push({ key: leaf, rollupActive: !isActiveAgent(model.byKey[leaf]) });
     }
   }
   return out;
