@@ -6,11 +6,14 @@
  * at return time; the record lands after completion with the correct
  * exitCode/commit (the landing record is the source of truth); and the merge
  * gate refuses to merge until the record lands, then passes once it does.
+ * M2 (fix round r1 p2-1a): the async startCi path's CI-artifact self-clean —
+ * leftover dist/ + package-lock.json artifacts must NOT dirty-intercept the
+ * run, and the tree must be non-dirty after completion.
  *
  * Real git + node subprocesses → 30s file-level timeout.
  */
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -231,5 +234,41 @@ it('a failing async run records exit_code 1 after completion (the record still l
   });
   expect(blocked.isError).toBe(true);
   expect(blocked.output).toMatch(/not green/);
+  await env.close();
+});
+
+it('M2 artifact self-clean (async startCi): leftover dist/ + package-lock.json artifacts do NOT dirty-intercept — the run starts, artifacts are reverted, the tree is non-dirty after completion', async () => {
+  const env = await makeEnv('green');
+  const { client, repoRoot } = env;
+  const { branch, worktree } = await readyBranch(env);
+  // Tracked baselines for the two CI-generated paths (as in moamcp).
+  await commitFile(worktree, 'dist/server.js', 'v1\n', 'dist baseline');
+  await commitFile(worktree, 'package-lock.json', '{"v":1}\n', 'lock baseline');
+  // Leftover artifacts of a previous run (dogfood evidence: npm install +
+  // vitest rebuild dist/ and touch the lock).
+  await writeFile(join(worktree, 'dist', 'server.js'), 'v2\n');
+  await writeFile(join(worktree, 'package-lock.json'), '{"v":2}\n');
+  expect((await run(worktree, ['status', '--porcelain'])).trim().length).toBeGreaterThan(0);
+
+  // The pre-dirty-check clean in startCi (store.ts) reverts the artifacts, so
+  // the run STARTS instead of being dirty-intercepted (no isError/dirty).
+  const ci = await call(client, 'moa_tower_ci', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
+  });
+  expect(ci).toMatchObject({ status: 'started', branch });
+  expect(ci.isError).toBeUndefined();
+  expect(ci.dirty).toBeUndefined();
+
+  const rec = await call(client, 'moa_tower_wait', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', wait: { kind: 'ci', branch }, timeoutMs: 10_000,
+  });
+  expect(rec).toMatchObject({ status: 'ok', kind: 'ci', branch, exit_code: 0, dirty: false });
+
+  // Artifacts reverted to their committed baselines and the tree is non-dirty
+  // (post-run clean in completeCiRun) — teardown would not keep the worktree.
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  await expect(readFile(join(worktree, 'dist', 'server.js'), 'utf8').then(norm)).resolves.toBe('v1\n');
+  await expect(readFile(join(worktree, 'package-lock.json'), 'utf8').then(norm)).resolves.toBe('{"v":1}\n');
+  expect((await run(worktree, ['status', '--porcelain'])).trim()).toBe('');
   await env.close();
 });

@@ -261,7 +261,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_plan',
       description:
-        'Split a tower goal into missions (tower-only): each mission gets an id (M<n>), a branch (feat/M<n>-<slug> — id-prefixed so same-titled missions never collide), and a worktree slot (wt-<n>). Build scopes must be pairwise disjoint (merged missions reserve nothing); deps must reference known mission ids. Survey missions are read-only and reserve no scope.',
+        'Split a tower goal into missions (tower-only): each mission gets an id (M<n>), a branch (feat/M<n>-<slug> — id-prefixed so same-titled missions never collide), and a worktree slot (wt-<n>). Build scopes must be pairwise disjoint (merged missions reserve nothing); deps must reference known mission ids. Survey missions are read-only and reserve no scope. Required combo: workspace + caller_agent_id + missions (each item needs title + a non-empty scope; tasks/deps/kind are optional).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -347,7 +347,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_spawn',
       description:
-        'Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission\'s physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool in the FOREGROUND (never run_in_background=true — a backgrounded child cannot wake the tower when it completes): phase 1 does offline work only (workers: code + local commits; reviewers: read-only verdict draft) with no tower calls, then moa_tower_register(agent_id=…) completes the enrollment and a foreground resume (phase 2) lets the agent submit tower reports under its own identity. Reviewers take review_target (a branch to review) instead of a mission.',
+        'Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission\'s physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool in the FOREGROUND (never run_in_background=true — a backgrounded child cannot wake the tower when it completes): phase 1 does offline work only (workers: code + local commits; reviewers: read-only verdict draft) with no tower calls, then moa_tower_register(agent_id=…) completes the enrollment and a foreground resume (phase 2) lets the agent submit tower reports under its own identity. Argument combos: worker spawn = {name, kind:"worker", mission_id}; reviewer spawn = {name, kind:"reviewer", review_target} — the matching mission_id / review_target argument is REQUIRED for the chosen kind. Reviewers take review_target (a branch to review) instead of a mission.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -477,7 +477,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_register',
       description:
-        'Two-stage spawn completion (tower-only): fills the real engine agent id into the pending roster entry created by moa_tower_spawn, runs the B2 identity cross-validation (① fold entry exists; ② dual-channel parent-child: wire parentAgentId == towerAgentId OR the tower fold entry lists this agent as a subagent; ③ soft session-workDir check), and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json — name-keyed agents map with {name, worktree, agentId} + worktrees array). Missing fold data degrades to verified:false (never blocked); a hard mismatch increments failed_count (3 consecutive → blocked). Re-running register is allowed and re-verifies (B2-9).',
+        'Two-stage spawn completion (tower-only): fills the real engine agent id into the pending roster entry created by moa_tower_spawn, runs the B2 identity cross-validation (① fold entry exists; ② dual-channel parent-child: wire parentAgentId == towerAgentId OR the tower fold entry lists this agent as a subagent; ③ soft session-workDir check), and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json — name-keyed agents map with {name, worktree, agentId} + worktrees array). Missing fold data degrades to verified:false (never blocked); a hard mismatch increments failed_count (3 consecutive → blocked). Re-running register is allowed and re-verifies (B2-9). Required combo: {name, agent_id} — the roster name from moa_tower_spawn plus the engine agent id your Agent tool returned (mission_id/review_target/worktree/branch are optional backfills).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -551,13 +551,13 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_mission',
       description:
-        'Read or patch a mission. With only an id, returns the rendered mission view. Patches go through the store: workers may only patch their own mission; ownership assignment and scope changes are tower-only (scope changes re-run the disjoint check and are logged); a blocker sets the mission blocked; task_done marks the first open task containing that text done.',
+        'Read or patch a mission, addressed by its id — the argument is named `id` (e.g. "M1"), NOT `mission_id`. With only an id, returns the rendered mission view. Patches go through the store: workers may only patch their own mission; ownership assignment and scope changes are tower-only (scope changes re-run the disjoint check and are logged); a blocker sets the mission blocked; task_done marks the first open task containing that text done.',
       inputSchema: {
         type: 'object',
         properties: {
           workspace: WORKSPACE_ARG,
           caller_agent_id: CALLER_ARG,
-          id: { type: 'string', description: 'Mission id (e.g. "M1")' },
+          id: { type: 'string', description: 'Mission id (e.g. "M1") — pass it as `id`, not `mission_id`' },
           status: { type: 'string', enum: ['planned', 'active', 'completed', 'blocked', 'paused', 'merged'], description: 'New lifecycle status' },
           note: { type: 'string', description: 'Append a decision-log note' },
           blocker: { type: 'string', description: 'Report a blocker (also sets status to blocked)' },
@@ -575,7 +575,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           const caller = await resolveCallerNonDelegator(store, state, args);
           const id = argString(args, 'id');
           if (id === undefined || id.trim().length === 0) {
-            throw new TowerProtocolError('mission id is required');
+            throw new TowerProtocolError('mission id is required — pass it as the `id` argument (e.g. "M1"), not `mission_id`');
           }
           const hasPatch =
             argString(args, 'status') !== undefined ||
@@ -746,15 +746,15 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_review',
       description:
-        'Submit a review verdict for an assigned branch (reviewers and the tower only). The store assigns the round (your history + 1) and stamps the branch tip — the tool resolves the tip itself via git rev-parse, never trusting a self-reported commit. Only a "clean" review of the exact current tip passes the merge gate.',
+        'Submit a review verdict for an assigned branch (reviewers and the tower only). The store assigns the round (your history + 1) and stamps the branch tip — the tool resolves the tip itself via git rev-parse, never trusting a self-reported commit. Only a "clean" review of the exact current tip passes the merge gate; the gate consumes clean rounds only. The `merge` field (merge/fix-then-merge/hold) is ADVISORY for the tower only — it has NO gate effect: the gate never reads it, and a non-clean verdict blocks regardless of what `merge` says.',
       inputSchema: {
         type: 'object',
         properties: {
           workspace: WORKSPACE_ARG,
           caller_agent_id: CALLER_ARG,
           target: { type: 'string', description: 'The branch you were assigned to review' },
-          status: { type: 'string', pattern: '^(clean|p[12]-\\d+items)$', description: 'Verdict: "clean", or "p1-Nitems" / "p2-Nitems" with the number of findings at that priority' },
-          merge: { type: 'string', enum: ['merge', 'fix-then-merge', 'hold'], description: 'Merge recommendation for the tower' },
+          status: { type: 'string', pattern: '^(clean|p[12]-\\d+items)$', description: 'Verdict vocabulary — literal forms: "clean", or "p1-Nitems" / "p2-Nitems" with N the number of findings at that priority, e.g. "p1-2items", "p2-4items"' },
+          merge: { type: 'string', enum: ['merge', 'fix-then-merge', 'hold'], description: 'Merge recommendation for the tower (advisory only — no gate effect; the gate consumes only "clean" verdicts of the current tip)' },
           findings: { type: 'string', description: 'Full findings text (markdown); write "none" when clean' },
           checks: { type: 'array', items: { type: 'string' }, description: 'Checklist items you verified (e.g. "tests pass", "no secrets")' },
           decision: { type: 'string', description: 'The reasoning behind your verdict' },
@@ -841,7 +841,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_teardown',
       description:
-        'Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force) — root-level symlinks/junctions inside each worktree are unlinked first so junction targets are never touched (git for Windows follows junctions on recursive removal) — delete the guard mirror file, and clear the live tower namespace so a fresh boot is possible. The append-only board JSONL stays as the audit trail.',
+        'Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force) — root-level symlinks/junctions inside each worktree are unlinked first so junction targets are never touched (git for Windows follows junctions on recursive removal) — then, ONLY when every worktree was removed (or none exist), delete the guard mirror file and clear the live tower namespace so a fresh boot is possible. If any worktree was kept or failed to remove, the result reports each outcome truthfully with torn_down:false and the tower STAYS BOOTED so you can fix the worktrees and re-run (with or without force); nothing is deleted on a partial teardown. The append-only board JSONL stays as the audit trail.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -856,7 +856,16 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
         runTool(async () => {
           const { store } = storeFor(controller, args);
           await requireTower(store, args);
-          const report = await store.teardown({ force: args.force === true });
+          const { torn_down, report } = await store.teardown({ force: args.force === true });
+          if (!torn_down) {
+            return {
+              torn_down: false,
+              report,
+              isError: true,
+              output:
+                'teardown incomplete — some mission worktrees were kept or failed to remove (see report); the tower is still booted and nothing was deleted — fix the reported worktrees (commit or rerun with force) and re-run moa_tower_teardown.',
+            };
+          }
           return {
             torn_down: true,
             report,

@@ -131,6 +131,8 @@ moamcp 的多 agent 塔台工作流（移植自 kimi-code `pr-2633-tower` 协议
 | `moa_tower_ci` | 塔台专用：在 mission worktree 跑配置的 CI（脏工作树先拦），结果存 `ci/<branchSlug>` |
 | `moa_tower_progress` | 给 mission 贴进度便签（仅 owner / 塔台），按纪律保持稀疏 |
 
+无 `moa_tower_*` 工具面的子代理会话可用仓库根的 stdio 桥脚本 `scripts/tower-cli.mjs`（MCP 走 stdio 连 `dist/server.js`，payload 内联 JSON 或 `@file`）驱动塔台：`node scripts/tower-cli.mjs <tool> '<json>|@file' [timeoutMs]`。
+
 ### `/tower` 面板页与写守卫
 
 - `/tower`（GET 静态页）：repo 选择器（自动探测已 boot 的塔台，5s 轮询）；missions 表带状态 / CI 徽标（绿 `exitCode 0`、红失败、灰跳过）/ 评审门禁列；名册表带 `✓ verified` 标记（tower 行 agent id 打码）；活动日志（最近 100 行）；findings / reviews 两个折叠面板（展开时按需加载）。
