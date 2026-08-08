@@ -161,7 +161,7 @@ describe('board project management helpers (task 6b/6c)', () => {
     await b.close();
   });
 
-  it('detachProjectAlias removes the cwd and restores the migrated sidecar, keeping board data', async () => {
+  it('detachProjectAlias removes the cwd, restores the sidecar AND the pre-migration ws board, keeping project data', async () => {
     const cwd = join(home, 'detachable');
     const hash = workspaceIdForPath(cwd);
     const b = store(cwd);
@@ -170,9 +170,10 @@ describe('board project management helpers (task 6b/6c)', () => {
     const { projectId } = await migrateWorkspaceToProject(cwd, { homeDir: home, registry: b.registry });
 
     const result = await b.detachProjectAlias(projectId, hash);
-    expect(result).toEqual({ removedCwd: cwd, restoredSidecar: true });
+    expect(result).toEqual({ removedCwd: cwd, restoredSidecar: true, restoredBoard: true });
 
-    // The project keeps its migrated record; the directory is a workspace again.
+    // The project keeps its migrated record; the directory is a workspace
+    // again with its pre-migration ws board restored (plan c: rollback).
     expect((await b.read('detach/keep', undefined, `project:${projectId}`, 1))[0]).toMatchObject({ value: 'v1' });
     expect((await b.listWorkspaces()).some((w) => w.id === hash)).toBe(true);
     const meta = JSON.parse(await readFile(join(boardsDir(), `project-${projectId}.meta.json`), 'utf8'));
@@ -311,14 +312,16 @@ describe('control plane project management (task 6)', () => {
     expect(meta.cwds).toEqual([]);
     expect((await request('/api/workspaces')).body.workspaces.some((w: any) => w.id === idA)).toBe(true);
 
-    // The project keeps the migrated record; the next write to the directory
-    // lands in a fresh, independent workspace board.
+    // The project keeps the migrated record; the restored ws board means the
+    // directory's next write lands in the pre-migration snapshot (plan c:
+    // detach = rollback), independent of the project board.
     expect((await board.read('detach/keep', undefined, `project:${projectId}`, 1))[0]).toMatchObject({ value: 'v1' });
     await board.write('detach/after', 'v2', undefined, 'seed', 'workspace', workspaceA);
     const names = await readdir(join(home, 'boards'));
     expect(names).toContain(`ws-${idA}.jsonl`);
     const wsRows = await board.read(undefined, undefined, 'workspace', undefined, workspaceA);
-    expect(wsRows.map((r) => r.key)).toEqual(['detach/after']);
+    expect(wsRows.map((r) => r.key)).toEqual(['detach/after', 'detach/keep']); // restored record + the new one
+    expect(wsRows.find((r) => r.key === 'detach/keep')).toMatchObject({ value: 'v1' });
 
     // Detaching again is now a 404 (the alias no longer belongs to the project).
     expect((await request(`/api/projects/${projectId}/aliases/${idA}`, { method: 'DELETE' })).response.status).toBe(404);

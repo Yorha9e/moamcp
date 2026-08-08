@@ -889,8 +889,9 @@ export class BoardStore {
    * `ws-<hash>.meta.json.migrated-*` archive back to the live
    * `ws-<hash>.meta.json` so the directory reappears in the workspace list.
    * No archive (or a live sidecar already present) leaves the state untouched
-   * and returns false. The board file is deliberately NOT restored — the
-   * project keeps its records; the directory's next write starts a fresh board.
+   * and returns false. The board file is restored separately by
+   * `restoreWorkspaceBoard` — alias detach rolls the directory back to its
+   * pre-migration snapshot while the project keeps its records too.
    */
   async restoreWorkspaceSidecar(pathHash: unknown): Promise<boolean> {
     this.assertOpen();
@@ -918,17 +919,58 @@ export class BoardStore {
   }
 
   /**
+   * Restore a detached workspace's board file (un-merge, mailbox task 6b): the
+   * symmetric half of `restoreWorkspaceSidecar`. Renames the newest
+   * `ws-<hash>.jsonl.migrated-*` archive back to the live `ws-<hash>.jsonl` so
+   * the directory's pre-migration records (board writes and tips alike) are
+   * recovered — detach = rollback to the pre-merge snapshot. No archive (or a
+   * live board already present) leaves the state untouched and returns false;
+   * the directory's next write then starts a fresh board (legacy behavior).
+   * The rename runs under the board file's append lock so a concurrent
+   * appender can never write into a file mid-rename.
+   */
+  async restoreWorkspaceBoard(pathHash: unknown): Promise<boolean> {
+    this.assertOpen();
+    if (typeof pathHash !== 'string' || !/^[0-9a-f]{16}$/.test(pathHash)) {
+      throw new Error('pathHash must be a 16-hex workspace id');
+    }
+    const dir = this.boardsDir();
+    let names: string[];
+    try {
+      names = await readdir(dir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw err;
+    }
+    const liveName = `ws-${pathHash}.jsonl`;
+    if (names.includes(liveName)) return false; // already a live board
+    const prefix = `${liveName}.migrated-`;
+    const archives = names
+      .filter((name) => name.startsWith(prefix))
+      .sort((a, b) => archiveStamp(a, prefix) - archiveStamp(b, prefix));
+    if (archives.length === 0) return false; // no archive: next write starts fresh
+    const newest = archives[archives.length - 1];
+    // The lock file is created beside the board, so the boards dir must exist
+    // before acquisition (readdir above guarantees it; mirrors releaseWorkspace).
+    await withAppendLock(join(dir, liveName), async () => {
+      await rename(join(dir, newest), join(dir, liveName));
+    });
+    return true;
+  }
+
+  /**
    * Alias detach file work (un-merge, mailbox task 6b): the symmetric half of a
    * merge. Removes the detached directory's cwd from the project's `cwds[]`
-   * sidecar and restores its archived workspace sidecar so it reappears as an
-   * independent workspace. The caller has already dropped the registry alias
-   * (`registry.removeAlias`); the project's existing records stay in the
-   * project board — nothing is deleted.
+   * sidecar and restores its archived workspace sidecar + board file, so it
+   * reappears as an independent workspace with its pre-migration records back
+   * (rollback to the pre-merge snapshot). The caller has already dropped the
+   * registry alias (`registry.removeAlias`); the project's records stay in the
+   * project board — nothing is deleted, the merge records never flow back.
    */
   async detachProjectAlias(
     projectId: unknown,
     pathHash: unknown,
-  ): Promise<{ removedCwd?: string; restoredSidecar: boolean }> {
+  ): Promise<{ removedCwd?: string; restoredSidecar: boolean; restoredBoard: boolean }> {
     this.assertOpen();
     if (typeof projectId !== 'string' || !PROJECT_ID_PATTERN.test(projectId)) {
       throw new Error(`invalid projectId: ${String(projectId)} (expected p_<12 hex chars>)`);
@@ -955,7 +997,16 @@ export class BoardStore {
     }
     if (removedCwd !== undefined) await this.removeProjectCwd(projectId, removedCwd);
     const restoredSidecar = await this.restoreWorkspaceSidecar(pathHash);
-    return { ...(removedCwd !== undefined ? { removedCwd } : {}), restoredSidecar };
+    const restoredBoard = await this.restoreWorkspaceBoard(pathHash);
+    // A live scope may still believe the legacy files are gone: drop the flags
+    // so the next operation folds the restored board/sidecar instead of an
+    // empty view (mirrors releaseWorkspace).
+    const wsState = this.scopes.get(`workspace:${pathHash}`);
+    if (wsState !== undefined) {
+      wsState.metaWritten = false;
+      wsState.loaded = false;
+    }
+    return { ...(removedCwd !== undefined ? { removedCwd } : {}), restoredSidecar, restoredBoard };
   }
 
   /**
