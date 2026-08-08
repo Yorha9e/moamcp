@@ -29,6 +29,25 @@ ${COMPONENTS_CSS}
   box-shadow: var(--shadow-1);
 }
 .debate-context .badge { margin-left: auto; }
+/* Live dot: mirrors status-board's .sb-live (pulse when open, static grey when off). */
+.dc-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+  animation: dcPulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.dc-live.off {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
+@keyframes dcPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+}
 .debate-content {
   max-width: 960px;
   margin: 0 auto;
@@ -541,6 +560,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader('debate')}
   <div class="debate-context" aria-label="Current debate context" data-i18n-aria="debate.context">
     <span class="task" id="taskId"></span>
+    <span class="dc-live off" id="dcLive"></span>
     <span id="conn"></span>
     <span class="badge" id="badge" data-i18n="debate.connecting">connecting</span>
   </div>
@@ -1606,13 +1626,17 @@ ${STATUS_MODEL_JS}
   /* Shared lib.ts connectSSE: the same 3-fail backoff reconnect this page
      used to hand-roll; the waiting hint still arms 3s after every open.
      'connecting' is skipped so #conn stays empty until the stream opens
-     or errors, exactly as with the hand-rolled version. */
+     or errors, exactly as with the hand-rolled version. The #dcLive dot
+     mirrors status-board's .sb-live: off when disconnected/errored, pulsing
+     on open. */
   window.__moaLib.connectSSE('/subscribe?task_id=' + encodeURIComponent(taskId), function (data) {
     gotAny = true;
     onEvent(data);
   }, function (state, msg) {
     if (state === 'connecting') return;
     setConn(msg);
+    var liveEl = document.getElementById('dcLive');
+    if (liveEl) liveEl.className = 'dc-live' + (state === 'open' ? '' : ' off');
     if (state === 'open') {
       setTimeout(function () {
         if (!gotAny) showWaitingHint();
