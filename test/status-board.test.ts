@@ -484,6 +484,54 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(page.el('sbCounts').textContent).toContain('2 agents');
   });
 
+  it('keeps an idle orchestrator in the active zone while its worker is busy (M1 ancestor inheritance)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    // Orchestrator's own wire is silent (blocked on the worker) -> busy:false.
+    page.dispatch('snapshot', snap({
+      agents: [
+        { sessionId: 's1', agentId: 'main', kind: 'main', busy: false, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'worker', kind: 'sub', parentAgentId: 'main', busy: true, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2' },
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    // main is NOT folded away: both rows render on the active side in DFS order.
+    expect(rowIds(group)).toEqual(['s1:main', 's1:worker']);
+    // zero inactive rows -> no fold bar (the subtree did not disappear).
+    expect(group.querySelector('.sb-fold')!.hidden).toBe(true);
+    const rows = rowsOf(group);
+    expect(rows[0].classList.contains('busy')).toBe(false); // orchestrator's own state
+    expect(rows[1].classList.contains('busy')).toBe(true); // worker is the busy seed
+    // same-side nesting: the worker lives under main's subtree, not a side root.
+    const mainSubtree = subtreeOf(rows[0])!;
+    expect(mainSubtree.children.length).toBe(1);
+    expect(mainSubtree.children[0].getAttribute('data-key')).toBe('s1:worker');
+  });
+
+  it('renders the full 3-level ancestor chain on the active side (M1 inheritance)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        { sessionId: 's1', agentId: 'root', kind: 'main', busy: false, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'mid', kind: 'sub', parentAgentId: 'root', busy: false, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'leaf', kind: 'sub', parentAgentId: 'mid', busy: true, stale: false, lastSeen: 800, firstSeen: 300, subagents: [], model: 'kimi-k2' },
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    expect(rowIds(group)).toEqual(['s1:root', 's1:mid', 's1:leaf']);
+    expect(group.querySelector('.sb-fold')!.hidden).toBe(true);
+    // nesting follows the chain: root > mid > leaf
+    const rows = rowsOf(group);
+    const rootSubtree = subtreeOf(rows[0])!;
+    expect(rootSubtree.children.length).toBe(1);
+    expect(rootSubtree.children[0].getAttribute('data-key')).toBe('s1:mid');
+    const midSubtree = subtreeOf(rows[1])!;
+    expect(midSubtree.children.length).toBe(1);
+    expect(midSubtree.children[0].getAttribute('data-key')).toBe('s1:leaf');
+    expect(subtreeOf(rows[2])).toBeNull();
+  });
+
   it('shows the scanning bar when snapshot.scan.scanning is true (E6)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
     expect(page.el('sbScan').hidden).toBe(true);

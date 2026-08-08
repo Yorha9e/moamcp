@@ -632,16 +632,35 @@ ${STATUS_MODEL_JS}
     return cell;
   }
 
+  /** M1: whether entry sits on the ACTIVE partition side. Reads the partition's
+   *  effActive closure (seeds + ancestor inheritance) stashed on the session
+   *  info by renderFullSession/renderHeadOnly; falls back to the raw
+   *  isActiveAgent when no partition is stashed yet (defensive only). The side
+   *  logic MUST use this (not isActiveAgent) so an effectively-active ancestor
+   *  nests like an active row and its busy descendants are not duplicated. */
+  function isOnActiveSide(entry) {
+    if (!entry) return false;
+    var info = sessionEls[entry.sessionId];
+    var effActive = info ? info.effActive : null;
+    return effActive ? effActive[entry.key] === true : M.isActiveAgent(entry);
+  }
+
   /** Same-partition children of an entry (0.11.0): a row's chevron/subtree only
    *  covers children on its own side (active rows nest active descendants,
    *  inactive rows nest inactive descendants); the other side lives behind the
-   *  fold bar and is managed by the master inactiveOpen control. */
+   *  fold bar and is managed by the master inactiveOpen control. M1: side
+   *  membership follows the partition's effActive closure, not raw isActiveAgent. */
   function sameSideChildren(entry, sideActive) {
     var out = [];
     if (!entry || !entry.children) return out;
+    var info = sessionEls[entry.sessionId];
+    var effActive = info ? info.effActive : null;
     for (var i = 0; i < entry.children.length; i++) {
-      var ce = model.byKey[entry.children[i]];
-      if (ce && M.isActiveAgent(ce) === sideActive) out.push(entry.children[i]);
+      var ck = entry.children[i];
+      var ce = model.byKey[ck];
+      if (!ce) continue;
+      var onActive = effActive ? effActive[ck] === true : M.isActiveAgent(ce);
+      if (onActive === sideActive) out.push(ck);
     }
     return out;
   }
@@ -697,7 +716,7 @@ ${STATUS_MODEL_JS}
       // Subtree container INSIDE the row (grid-column 1/-1): removing the row
       // removes the whole subtree; collapse keeps the container empty + drops
       // the subtree keys from rowEls (anti-ghost), expand lazily rebuilds.
-      var sideActive = M.isActiveAgent(entry);
+      var sideActive = isOnActiveSide(entry);
       var kids = sameSideChildren(entry, sideActive);
       if (kids.length > 0) {
         chevron.hidden = false;
@@ -747,7 +766,7 @@ ${STATUS_MODEL_JS}
     // 0.11.0: tree chrome sync (chevron visibility/aria, subtree container,
     // collapse class). Skipped for active-section rows (flat, no nesting).
     if (map !== activeRowEls) {
-      var sideActive = M.isActiveAgent(entry);
+      var sideActive = isOnActiveSide(entry);
       var kids = sameSideChildren(entry, sideActive);
       var hasKids = kids.length > 0;
       if (row.__chevron) {
@@ -907,10 +926,10 @@ ${STATUS_MODEL_JS}
    *  under this container, so only those are removed. */
   function clearSubtreeRowEls(key) {
     var keys = M.subtreeKeys(model, key);
-    var sideActive = M.isActiveAgent(model.byKey[key]);
+    var sideActive = isOnActiveSide(model.byKey[key]);
     for (var i = 1; i < keys.length; i++) {
       var e = model.byKey[keys[i]];
-      if (e && M.isActiveAgent(e) === sideActive) delete rowEls[keys[i]];
+      if (e && isOnActiveSide(e) === sideActive) delete rowEls[keys[i]];
     }
   }
 
@@ -922,7 +941,11 @@ ${STATUS_MODEL_JS}
   function isSideRoot(entry, sideActive) {
     if (!entry || !entry.parentKey) return true;
     var p = model.byKey[entry.parentKey];
-    return !p || M.isActiveAgent(p) !== sideActive;
+    if (!p) return true;
+    var info = sessionEls[entry.sessionId];
+    var effActive = info ? info.effActive : null;
+    var parentActive = effActive ? effActive[entry.parentKey] === true : M.isActiveAgent(p);
+    return parentActive !== sideActive;
   }
 
   /** Append key's row into the given container and (when expanded) its
@@ -979,7 +1002,7 @@ ${STATUS_MODEL_JS}
       );
     }
     var subtree = row.__subtree;
-    var sideActive = M.isActiveAgent(entry);
+    var sideActive = isOnActiveSide(entry);
     if (collapsedSubtrees[key]) {
       while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
       clearSubtreeRowEls(key);
@@ -1019,6 +1042,10 @@ ${STATUS_MODEL_JS}
   function renderFullSession(sessionId, dirInfo) {
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
+    // M1: stash the partition's effective-active closure (seeds + ancestor
+    // inheritance) so sameSideChildren/isSideRoot/createRowEl side logic is
+    // consistent with the partition this render is built from.
+    info.effActive = part.effActive;
     applySessionMode(info, 'full');
     updateSessionEl(sessionId, part);
     var active = part.active;
@@ -1058,6 +1085,7 @@ ${STATUS_MODEL_JS}
   function renderHeadOnly(sessionId, dirInfo) {
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
+    info.effActive = part.effActive; // M1: keep the side closure consistent
     applySessionMode(info, 'head');
     updateSessionEl(sessionId, part);
     if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
@@ -1266,11 +1294,14 @@ ${STATUS_MODEL_JS}
     return out;
   }
   // B1 (0.11.0): ancestor-closure order derived directly from the shared
-  // listDirectories result (dirs order -> sessionIds order -> DFS active list),
-  // inserting each active leaf's ancestor chain before it (reverse chain order
-  // -> leaf). No global reorder — activeAgentKeys is the stable order. The
-  // serialized model function activeAgentKeysWithAncestors is the API twin of
-  // this page-local derivation (kept in sync by tests / D2).
+  // listDirectories result (dirs order -> sessionIds order -> DFS active list).
+  // M1: partitionSession.active already carries the seeds + ancestor closure, so
+  // the chain-walk below is only a safety net (entries are already seen); the
+  // rollup badge follows isActiveAgent — members brought out only by a live
+  // descendant keep rollupActive=true (B2). No global reorder — activeAgentKeys
+  // is the stable order. The serialized model function
+  // activeAgentKeysWithAncestors is the API twin of this page-local derivation
+  // (kept in sync by tests / D2).
   function activeKeysWithAncestorsFromDirs(dirs) {
     var seeds = activeKeysFromDirs(dirs);
     var out = []; // { key, rollupActive }
@@ -1291,11 +1322,11 @@ ${STATUS_MODEL_JS}
         var ak = ancestors[j];
         if (seen[ak]) continue;
         seen[ak] = true;
-        out.push({ key: ak, rollupActive: true });
+        out.push({ key: ak, rollupActive: !M.isActiveAgent(model.byKey[ak]) });
       }
       if (!seen[leaf]) {
         seen[leaf] = true;
-        out.push({ key: leaf, rollupActive: false });
+        out.push({ key: leaf, rollupActive: !M.isActiveAgent(model.byKey[leaf]) });
       }
     }
     return out;
