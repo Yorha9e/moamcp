@@ -46,6 +46,7 @@ ${COMPONENTS_CSS}
   height: 8px;
   border-radius: 50%;
   background: var(--accent-green);
+  color: var(--accent-green);
   box-shadow: var(--glow-ring);
   animation: twPulse 2s ease-in-out infinite;
   flex: 0 0 auto;
@@ -56,8 +57,8 @@ ${COMPONENTS_CSS}
   animation: none;
 }
 @keyframes twPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
-  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 5px transparent; }
 }
 .tw-conn {
   color: var(--text-dim);
@@ -184,8 +185,16 @@ ${COMPONENTS_CSS}
 .tw-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tw-cell.tw-agent { font-family: var(--font-mono); color: var(--accent-blue); }
 .tw-mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); }
-.tw-status { justify-self: start; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
-.tw-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-status, .tw-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-status { justify-self: start; }
+.tw-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.tw-status.tw-st-planned { background: var(--tint-amber); color: var(--accent-amber); }
+.tw-status.tw-st-active { background: var(--tint-blue); color: var(--accent-blue); }
+.tw-status.tw-st-active .tw-status-dot { animation: twPulse 2s ease-in-out infinite; }
+.tw-status.tw-st-completed { background: var(--tint-green); color: var(--accent-green); }
+.tw-status.tw-st-blocked { background: var(--tint-red); color: var(--accent-red); }
+.tw-status.tw-st-paused { background: var(--tint-purple); color: var(--accent-purple); }
+.tw-status.tw-st-merged { background: var(--tint-green); color: var(--accent-green); }
 .tw-badge.tw-ci-ok { background: var(--tint-green); color: var(--accent-green); }
 .tw-badge.tw-ci-fail { background: var(--tint-red); color: var(--accent-red); }
 .tw-badge.tw-ci-skip { background: var(--tint-amber); color: var(--accent-amber); }
@@ -291,8 +300,6 @@ ${LIB_JS}
   var api = lib.api;
   var POLL_MS = (lib.POLL_MS && lib.POLL_MS.tower) || 5000;
   var REPO_KEY = 'moamcp-tower-repo';
-
-  var STATUS_EMOJI = { planned: '🟡', active: '🔵', completed: '🟢', blocked: '🔴', paused: '⏸️', merged: '✅' };
 
   var liveEl = document.getElementById('twLive');
   var connEl = document.getElementById('twConn');
@@ -400,8 +407,11 @@ ${LIB_JS}
       var status = document.createElement('div');
       status.className = 'tw-cell';
       var badge = document.createElement('span');
-      badge.className = 'tw-status';
-      badge.textContent = (STATUS_EMOJI[m.status] || '') + ' ' + m.status;
+      badge.className = 'tw-status' + (m.status ? ' tw-st-' + m.status : '');
+      var dot = document.createElement('span');
+      dot.className = 'tw-status-dot';
+      badge.appendChild(dot);
+      badge.appendChild(document.createTextNode(m.status || ''));
       status.appendChild(badge);
       row.appendChild(status);
       row.appendChild(makeCell(m.owner || '—'));
@@ -529,7 +539,7 @@ ${LIB_JS}
   function refresh() {
     if (!current) return;
     var ws = encodeURIComponent(current.cwd);
-    setConn('open', '● ' + tr('tower.connecting'));
+    setConn('open', tr('tower.connecting'));
     Promise.all([
       api('/api/tower/state?workspace=' + ws),
       api('/api/tower/missions?workspace=' + ws),
@@ -539,7 +549,7 @@ ${LIB_JS}
       lastMissions = results[1];
       lastLog = results[2];
       renderAll();
-      setConn('open', '● ' + tr('tower.connecting'));
+      setConn('open', tr('tower.connecting'));
       if (findingsOpen) loadFindings();
       if (reviewsOpen) loadReviews();
     }).catch(function (err) {
@@ -585,7 +595,7 @@ ${LIB_JS}
     findingsPanel.className = 'tw-panel collapsed';
     reviewsPanel.className = 'tw-panel collapsed';
     notReadyEl.hidden = true;
-    setConn('open', '● ' + tr('tower.connecting'));
+    setConn('open', tr('tower.connecting'));
     refresh();
   }
   function discover() {
