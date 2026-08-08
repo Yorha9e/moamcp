@@ -560,7 +560,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader('debate')}
   <div class="debate-context" aria-label="Current debate context" data-i18n-aria="debate.context">
     <span class="task" id="taskId"></span>
-    <span class="dc-live" id="dcLive"></span>
+    <span class="dc-live off" id="dcLive"></span>
     <span id="conn"></span>
     <span class="badge" id="badge" data-i18n="debate.connecting">connecting</span>
   </div>
