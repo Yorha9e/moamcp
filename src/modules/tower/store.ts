@@ -1160,6 +1160,13 @@ export class TowerStore {
       ranAt: ctx.ranAt,
       runId: ctx.runId,
     };
+    // M2 CI artifact self-clean (option (b), see cleanCiArtifacts): the run
+    // itself dirties the worktree (npm install → package-lock.json, vitest →
+    // dist/) — revert those known CI-generated paths so the NEXT ci/teardown/
+    // merge sees a clean tree. Runs even on a failed command: CI artifacts are
+    // CI artifacts regardless of the outcome, and the record is written after,
+    // so the exitCode/dirty verdict is unaffected.
+    await git.cleanCiArtifacts(ctx.absPath);
     return this.persistCiRecord(branch, record);
   }
 
@@ -1176,6 +1183,11 @@ export class TowerStore {
    */
   async runCi(branch: string, ciCommand: string): Promise<TowerCiResult> {
     const { absPath } = await this.ciContext(branch);
+    // M2 CI artifact self-clean BEFORE the dirty check (option (b), see
+    // cleanCiArtifacts): leftovers of a previous run (rebuilt dist/, touched
+    // package-lock.json) must not block THIS run. The dirty check itself is
+    // unchanged — real uncommitted edits anywhere else still intercept.
+    await git.cleanCiArtifacts(absPath);
     const dirty = await git.isWorktreeDirty(absPath);
     // Branch tips are repo-global refs — resolve from the main checkout (a
     // worktree slot may be a plain dir in tests / between spawns).
@@ -1203,6 +1215,11 @@ export class TowerStore {
    */
   async startCi(branch: string, ciCommand: string): Promise<TowerCiStarted> {
     const { absPath } = await this.ciContext(branch);
+    // M2 CI artifact self-clean BEFORE the dirty check (option (b), see
+    // cleanCiArtifacts): leftovers of a previous run (rebuilt dist/, touched
+    // package-lock.json) must not block THIS run. The dirty check itself is
+    // unchanged — real uncommitted edits anywhere else still intercept.
+    await git.cleanCiArtifacts(absPath);
     const dirty = await git.isWorktreeDirty(absPath);
     const tip = await git.branchTip(this.repoRoot, branch);
     const startedAt = new Date().toISOString();
@@ -2153,7 +2170,7 @@ export class TowerStore {
     if (dirty !== undefined) {
       throw await block(
         'not-clean',
-        `merge blocked: latest review round ${String(maxRound)} is not fully clean ("${dirty.status}" by ${dirty.reviewer}; round = ${latest.map((r) => `${r.reviewer}=${r.status}`).join(', ')}) — a clean round is required`,
+        `merge blocked: latest review round ${String(maxRound)} is not fully clean ("${dirty.status}" by ${dirty.reviewer}; round = ${latest.map((r) => `${r.reviewer}=${r.status}`).join(', ')}) — a clean review round at the current tip is required`,
       );
     }
     // Step 6 — tip-moved: every clean review of the highest round must match
@@ -2273,16 +2290,42 @@ export class TowerStore {
    * the guard mirror file, and (row 3 landing) clear the live board namespace
    * so a fresh boot is possible. The append-only board JSONL remains the audit
    * trail either way (documented deviation: official kept `.tower/comms/`).
+   *
+   * M2 teardown-consistency fix (dogfood evidence: teardown reported `kept`
+   * yet STILL deleted the guard mirror and cleared the namespace, leaving a
+   * dead "tower is not booted" board — a retry was impossible). Lifecycle is
+   * now: worktree removal FIRST (junction guard preserved); the boot state
+   * (guard mirror + live namespace) is torn down ONLY when every mission
+   * worktree was removed (or none exist). If ANY worktree was kept (dirty, no
+   * force) or failed to remove, the report lists each outcome truthfully
+   * (`removed <slot>` / `kept <slot> (<reason>)` /
+   * `failed to remove <slot>: <err>`) and the tower STAYS BOOTED
+   * (`torn_down:false`) so the caller can fix and retry (with or without
+   * force). A planned-but-never-spawned mission has no physical worktree —
+   * nothing is kept and nothing failed, so it counts as removed.
    */
-  async teardown(options: { readonly force?: boolean } = {}): Promise<readonly string[]> {
+  async teardown(options: { readonly force?: boolean } = {}): Promise<{
+    readonly torn_down: boolean;
+    readonly report: readonly string[];
+  }> {
     const state = await this.load();
     const missions = await this.loadMissions(state);
     const report: string[] = [];
+    let tornDown = true;
     for (const mission of missions) {
       const absPath = worktreePath(this.repoRoot, mission.worktree);
+      // A mission may be planned-but-never-spawned (or its worktree already
+      // removed): no physical tree exists — nothing to keep, nothing failed.
+      try {
+        await access(absPath);
+      } catch {
+        report.push(`removed ${mission.worktree} (no worktree found)`);
+        continue;
+      }
       if (await git.isWorktreeDirty(absPath)) {
         if (options.force !== true) {
           report.push(`kept ${mission.worktree} (uncommitted changes — rerun with force to remove)`);
+          tornDown = false;
           continue;
         }
       }
@@ -2301,7 +2344,19 @@ export class TowerStore {
         report.push(
           `failed to remove ${mission.worktree}: ${error instanceof Error ? error.message : String(error)}`,
         );
+        tornDown = false;
       }
+    }
+    if (!tornDown) {
+      // M2: keep the boot state intact so the caller can fix the kept/failed
+      // worktrees and re-run teardown (with or without force). A tool that
+      // reports `kept` must not destroy the ability to retry.
+      await this.appendLog(TOWER_NAME, 'teardown.partial', {
+        kept: report.filter((line) => line.startsWith('kept ')).length,
+        failed: report.filter((line) => line.startsWith('failed to remove ')).length,
+        force: options.force === true ? 'yes' : undefined,
+      });
+      return { torn_down: false, report };
     }
     // Row 17 deviation: we additionally delete the guard mirror file.
     await this.deleteGuardMirror();
@@ -2319,7 +2374,7 @@ export class TowerStore {
       },
       this.repoRoot,
     );
-    return report;
+    return { torn_down: true, report };
   }
 
   /** Every log line mentioning `merge.blocked` (status/route convenience). */

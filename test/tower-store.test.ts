@@ -636,7 +636,7 @@ it('row16g: full gate pass — mergeNoFf lands the branch and reports conflictsW
 // rows 17-18 — teardown / UUID keys
 // ---------------------------------------------------------------------------
 
-it('row17: teardown keeps dirty worktrees unless force; deletes the guard mirror; clears the live namespace', async () => {
+it('row17: teardown keeps dirty worktrees unless force; M2 — a partial teardown PRESERVES the boot state so a retry is possible', async () => {
   const { store, repoRoot } = await makeRepo();
   await store.plan([{ title: 'A', scope: ['a/**'] }]);
   const state = await store.load();
@@ -650,8 +650,22 @@ it('row17: teardown keeps dirty worktrees unless force; deletes the guard mirror
   const mirror = join(repoRoot, '.tower-guard.json');
   await expect(readFile(mirror, 'utf8')).resolves.toContain('"worktrees"');
 
-  const report = await store.teardown();
-  expect(report.some((line) => line.includes('kept wt-1'))).toBe(true);
+  // First teardown: the dirty worktree is KEPT, the report is truthful, and
+  // the boot state is PRESERVED (M2 — previously the guard mirror was deleted
+  // and the namespace cleared despite the "kept" report, killing the retry).
+  const first = await store.teardown();
+  expect(first.torn_down).toBe(false);
+  expect(
+    first.report.some((line) => line.includes('kept wt-1 (uncommitted changes — rerun with force to remove)')),
+  ).toBe(true);
+  // Boot state intact: status still works, the guard mirror is still there.
+  await expect(readFile(mirror, 'utf8')).resolves.toContain('"worktrees"');
+  await expect(store.load()).resolves.toMatchObject({ missions: ['M1'] });
+
+  // Retry with force succeeds — and ONLY THEN does the namespace clear.
+  const second = await store.teardown({ force: true });
+  expect(second.torn_down).toBe(true);
+  expect(second.report.some((line) => line.includes('removed wt-1'))).toBe(true);
   // Guard mirror deleted + live namespace cleared (row 3: boot works again).
   await expect(readFile(mirror, 'utf8')).rejects.toThrow();
   await expect(store.load()).rejects.toThrow(/not booted/);
@@ -667,7 +681,8 @@ it('row17b: teardown with force removes dirty worktrees', async () => {
   const m = missions[0]!;
   await store.addWorktree(m.worktree, m.branch, state.base);
   await writeFile(join(worktreePath(repoRoot, 'wt-1'), 'dirty.txt'), 'd\n');
-  const report = await store.teardown({ force: true });
+  const { torn_down, report } = await store.teardown({ force: true });
+  expect(torn_down).toBe(true);
   expect(report.some((line) => line.includes('removed wt-1'))).toBe(true);
   await expect(readFile(join(worktreePath(repoRoot, 'wt-1'), 'dirty.txt'), 'utf8')).rejects.toThrow();
 });
@@ -695,11 +710,115 @@ it('row17c: teardown unlinks root junctions first — the junction TARGET surviv
     process.platform === 'win32' ? 'junction' : 'dir',
   );
 
-  const report = await store.teardown();
+  const { torn_down, report } = await store.teardown();
+  expect(torn_down).toBe(true);
   expect(report.some((line) => line.includes('unlinked junctions in wt-1: node_modules'))).toBe(true);
   expect(report.some((line) => line.includes('removed wt-1'))).toBe(true);
   // The target's contents survived; the link inside the (removed) worktree is gone.
   await expect(readFile(join(target, 'pkg', 'sentinel.txt'), 'utf8')).resolves.toBe('keep\n');
+});
+
+it('M2 teardown consistency: a worktree that FAILS to remove preserves the boot state (torn_down:false)', async () => {
+  const { store, repoRoot } = await makeRepo();
+  await store.plan([{ title: 'A', scope: ['a/**'] }]);
+  const state = await store.load();
+  const missions = await store.loadMissions(state);
+  const m = missions[0]!;
+  // Simulate a broken slot: the path exists but is NOT a registered git
+  // worktree (e.g. a leftover dir after a crash) — `git worktree remove`
+  // refuses it, so the removal genuinely fails.
+  await mkdir(worktreePath(repoRoot, 'wt-1'), { recursive: true });
+  await writeFile(join(worktreePath(repoRoot, 'wt-1'), 'stuck.txt'), 'stuck\n');
+  await store.syncGuardMirror();
+  const mirror = join(repoRoot, '.tower-guard.json');
+
+  const result = await store.teardown();
+  expect(result.torn_down).toBe(false);
+  expect(result.report.some((line) => line.includes('failed to remove wt-1'))).toBe(true);
+  // Boot state preserved — the caller can investigate and retry.
+  await expect(readFile(mirror, 'utf8')).resolves.toContain('"worktrees"');
+  await expect(store.load()).resolves.toMatchObject({ missions: ['M1'] });
+});
+
+it('M2 teardown consistency: a planned-but-never-spawned mission (no worktree) does not block teardown', async () => {
+  const { store, repoRoot } = await makeRepo();
+  // M1 planned, never spawned → the wt-1 slot never exists on disk.
+  await store.plan([{ title: 'A', scope: ['a/**'] }]);
+  await store.syncGuardMirror();
+  const mirror = join(repoRoot, '.tower-guard.json');
+
+  const result = await store.teardown();
+  expect(result.torn_down).toBe(true);
+  expect(result.report.some((line) => line.includes('removed wt-1 (no worktree found)'))).toBe(true);
+  // Full teardown still happened: mirror gone, namespace cleared.
+  await expect(readFile(mirror, 'utf8')).rejects.toThrow();
+  await expect(store.load()).rejects.toThrow(/not booted/);
+});
+
+it('M2 CI artifact self-clean (option b): a CI run that rebuilds dist/ and touches package-lock.json leaves the worktree clean — teardown is unblocked', async () => {
+  const { store, repoRoot } = await makeRepo();
+  await store.plan([{ title: 'A', scope: ['a/**'] }]);
+  const state = await store.load();
+  const missions = await store.loadMissions(state);
+  const m = missions[0]!;
+  await store.addWorktree(m.worktree, m.branch, state.base);
+  const wt = worktreePath(repoRoot, 'wt-1');
+  // dist/ + package-lock.json are TRACKED and committed (as in moamcp).
+  await commitInWorktree(repoRoot, 'wt-1', 'dist/server.js', 'v1\n', 'dist baseline');
+  await commitInWorktree(repoRoot, 'wt-1', 'package-lock.json', '{"v":1}\n', 'lock baseline');
+  // A CI command that mimics `npm install && vitest` (dogfood evidence):
+  // rebuilds dist/ and touches the lock file. Script file (not `node -e`)
+  // avoids cmd /c quote-pass-through on Windows.
+  await writeFile(
+    join(repoRoot, 'ci-dirty.js'),
+    "require('node:fs').writeFileSync('dist/server.js', 'v2\\n'); require('node:fs').writeFileSync('package-lock.json', '{\"v\":2}\\n');\n",
+  );
+
+  const rec = await store.runCi(m.branch, 'node ../../repo/ci-dirty.js');
+  expect(rec).toMatchObject({ exitCode: 0, dirty: false });
+  // The run dirtied the tree; the CI path reverted the artifacts (option (b),
+  // post-run cleanup): the NEXT teardown sees a clean tree.
+  expect(await git.isWorktreeDirty(wt)).toBe(false);
+  // (git autocrlf on Windows checks files out with CRLF — normalize before comparing.)
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  await expect(readFile(join(wt, 'dist', 'server.js'), 'utf8').then(norm)).resolves.toBe('v1\n');
+  await expect(readFile(join(wt, 'package-lock.json'), 'utf8').then(norm)).resolves.toBe('{"v":1}\n');
+
+  const torn = await store.teardown();
+  expect(torn.torn_down).toBe(true);
+  expect(torn.report.some((line) => line.includes('removed wt-1'))).toBe(true);
+});
+
+it('M2 CI artifact self-clean (option b): leftover artifacts do NOT block the next CI run, but real edits still do', async () => {
+  const { store, repoRoot } = await makeRepo();
+  await store.plan([{ title: 'A', scope: ['a/**'] }]);
+  const state = await store.load();
+  const missions = await store.loadMissions(state);
+  const m = missions[0]!;
+  await store.addWorktree(m.worktree, m.branch, state.base);
+  const wt = worktreePath(repoRoot, 'wt-1');
+  await commitInWorktree(repoRoot, 'wt-1', 'dist/server.js', 'v1\n', 'dist baseline');
+  await commitInWorktree(repoRoot, 'wt-1', 'package-lock.json', '{"v":1}\n', 'lock baseline');
+  await writeFile(join(repoRoot, 'ci-pass.js'), 'process.exit(0);\n');
+  const ciCommand = 'node ../../repo/ci-pass.js';
+
+  // Simulate artifacts a PREVIOUS run left behind (the dogfood evidence).
+  await writeFile(join(wt, 'dist', 'server.js'), 'v2\n');
+  await writeFile(join(wt, 'package-lock.json'), '{"v":2}\n');
+  expect(await git.isWorktreeDirty(wt)).toBe(true);
+
+  // The CI path cleans the artifacts BEFORE the dirty check → the run proceeds.
+  const rec = await store.runCi(m.branch, ciCommand);
+  expect(rec).toMatchObject({ exitCode: 0, dirty: false });
+  expect(await git.isWorktreeDirty(wt)).toBe(false);
+
+  // Dirty-check semantics unchanged: a REAL edit anywhere still intercepts,
+  // and the artifact cleanup never discards it (write at the worktree root —
+  // only README.md/dist/package-lock.json exist in this fixture).
+  await writeFile(join(wt, 'real-edit.txt'), 'real\n');
+  const blocked = await store.runCi(m.branch, ciCommand);
+  expect(blocked).toMatchObject({ dirty: true, exitCode: null });
+  await expect(readFile(join(wt, 'real-edit.txt'), 'utf8')).resolves.toBe('real\n');
 });
 
 it('row18 (deviation): send/finding keys are random UUIDs, never date-based (no same-key LWW collisions)', async () => {

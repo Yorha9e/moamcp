@@ -97,6 +97,27 @@ export async function isWorktreeDirty(path: string): Promise<boolean> {
   return status !== null && status.trim().length > 0;
 }
 
+/**
+ * M2 CI artifact self-clean: revert the worktree's known CI-generated paths
+ * (`dist/` and `package-lock.json`) to HEAD. Dogfood evidence: `npm install`
+ * touches package-lock.json and the vitest suite rebuilds `dist/`, so a CI
+ * run dirties its own worktree and the NEXT ci/teardown/merge sees a dirty
+ * tree. The CI path calls this BEFORE the dirty check (clearing leftovers of
+ * a previous run) and AFTER the run completes (leaving the tree clean for
+ * teardown / the next CI / the merge gate).
+ *
+ * Chosen over option (a) — exempting these paths from the dirty check — for
+ * safety: the dirty check stays strict, so real uncommitted edits ANYWHERE
+ * (including dist/) are still caught and reported; only the two known
+ * CI-generated paths are physically reverted, never hidden. Errors are
+ * tolerated: a repo without `dist/`/package-lock.json (or with them untracked)
+ * makes `git checkout -- <path>` fail with a pathspec error — that is a no-op
+ * here, and the strict dirty check still sees any untracked artifacts.
+ */
+export async function cleanCiArtifacts(cwd: string): Promise<void> {
+  await tryGit(cwd, ['checkout', '--quiet', '--', 'dist/', 'package-lock.json']);
+}
+
 export async function mergeNoFf(cwd: string, branch: string): Promise<string> {
   await git(cwd, ['merge', '--no-ff', branch]);
   return branchTip(cwd, 'HEAD');
