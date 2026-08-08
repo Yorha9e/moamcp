@@ -10,7 +10,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import vm from 'node:vm';
-import { LIB_JS, RUNS_POLL_MS, SSE_FALLBACK_POLL_MS, SYSTEM_POLL_MS } from '../src/web/lib.js';
+import { LIB_JS, RUNS_POLL_MS, SSE_FALLBACK_POLL_MS, SYSTEM_POLL_MS, TOWER_POLL_MS } from '../src/web/lib.js';
 
 class FakeEventSource {
   static instances: FakeEventSource[] = [];
@@ -63,11 +63,13 @@ describe('shared refresh layer (lib.ts POLL_MS / startPoll / subscribeWithPoll)'
     expect(SSE_FALLBACK_POLL_MS).toBe(15000);
     expect(RUNS_POLL_MS).toBe(5000);
     expect(SYSTEM_POLL_MS).toBe(10000);
+    expect(TOWER_POLL_MS).toBe(5000); // B4 tower panel cadence
     const lib = runLib().__moaLib;
     expect(lib.POLL_MS).toEqual({
       sseFallback: SSE_FALLBACK_POLL_MS,
       runs: RUNS_POLL_MS,
       system: SYSTEM_POLL_MS,
+      tower: TOWER_POLL_MS,
     });
   });
 

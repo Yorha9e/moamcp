@@ -16,6 +16,7 @@ import { THEMES, THEME_STORAGE_KEY } from './tokens.js';
 export const SSE_FALLBACK_POLL_MS = 15000;
 export const RUNS_POLL_MS = 5000;
 export const SYSTEM_POLL_MS = 10000;
+export const TOWER_POLL_MS = 5000;
 
 export const LIB_JS = `
 (function(window) {
@@ -264,7 +265,8 @@ export const LIB_JS = `
   var POLL_MS = {
     sseFallback: ${SSE_FALLBACK_POLL_MS},
     runs: ${RUNS_POLL_MS},
-    system: ${SYSTEM_POLL_MS}
+    system: ${SYSTEM_POLL_MS},
+    tower: ${TOWER_POLL_MS}
   };
 
   /**

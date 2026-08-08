@@ -41,6 +41,7 @@ import type { TipsAuthority } from '../core/store/tips-authority.js';
 import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
 import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
 import { STATUS_BOARD_HTML } from '../web/status-board.js';
+import { TOWER_PAGE_HTML } from '../web/pages/tower.js';
 import {
   HANDOFF_ID_PATTERN,
   HANDOFF_STATES,
@@ -626,6 +627,20 @@ export class ControlPlane {
         'content-type': 'text/html; charset=utf-8',
       });
       res.end(STATUS_BOARD_HTML);
+      return true;
+    }
+
+    // B4: tower workflow panel — same static exact-path precedent.
+    if (path === '/tower') {
+      if (req.method !== 'GET') {
+        methodNotAllowed(res, 'GET');
+        return true;
+      }
+      res.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'text/html; charset=utf-8',
+      });
+      res.end(TOWER_PAGE_HTML);
       return true;
     }
 

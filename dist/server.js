@@ -31404,6 +31404,65 @@ function createStatusModule(controller, opts = {}) {
   };
 }
 
+// src/modules/tower/paths.ts
+import { createHash as createHash3 } from "node:crypto";
+import { basename, dirname as dirname3, join as join7, resolve as resolve4 } from "node:path";
+var TOWER_NAME = "tower";
+var BROADCAST_NAME = "all";
+function worktreesRoot(repoRoot) {
+  return join7(dirname3(repoRoot), `${basename(repoRoot)}-worktrees`);
+}
+function worktreePath(repoRoot, slot) {
+  return join7(worktreesRoot(repoRoot), slot);
+}
+function normalizeTowerRoot(repoRoot) {
+  if (typeof repoRoot !== "string" || repoRoot.length === 0 || !/^[a-zA-Z]:[\\/]|^\//.test(repoRoot)) {
+    throw new Error(`repoRoot must be an absolute path, got: ${JSON.stringify(repoRoot)}`);
+  }
+  return resolve4(repoRoot);
+}
+function towerRepoKey(repoRoot) {
+  return createHash3("sha1").update(normalizeTowerRoot(repoRoot)).digest("hex").slice(0, 12);
+}
+function towerNamespace(repoRoot) {
+  return `tower/${towerRepoKey(repoRoot)}`;
+}
+function towerKeys(repoRoot) {
+  const ns = towerNamespace(repoRoot);
+  return {
+    ns,
+    repo: () => `${ns}/repo`,
+    state: () => `${ns}/state`,
+    mission: (id) => `${ns}/mission/${id}`,
+    inbox: (msgId) => `${ns}/inbox/${msgId}`,
+    finding: (id) => `${ns}/finding/${id}`,
+    review: (targetSlugged, reviewer, round) => `${ns}/review/${targetSlugged}/${reviewer}-r${round}`,
+    log: (ts, rand) => `${ns}/log/${ts}-${rand}`,
+    ci: (branch) => `${ns}/ci/${targetSlug(branch)}`,
+    ciLog: (branch, ts, rand) => `${ns}/ci/${targetSlug(branch)}/${ts}-${rand}`,
+    progress: (missionId) => `${ns}/progress/${missionId}`,
+    prefix: (kind) => `${ns}/${kind}/`
+  };
+}
+function dateStamp(now = /* @__PURE__ */ new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+function dateDash(now = /* @__PURE__ */ new Date()) {
+  const stamp = dateStamp(now);
+  return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`;
+}
+function slugify2(text, maxLength = 60) {
+  const slug = text.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "").slice(0, maxLength).replaceAll(/-+$/g, "");
+  return slug.length > 0 ? slug : "item";
+}
+function targetSlug(target) {
+  const cleaned = target.trim().replace(/^#/, "pr");
+  return slugify2(cleaned.replaceAll(/[/#]+/g, "-"));
+}
+
 // src/modules/tower/store.ts
 var import_picomatch = __toESM(require_picomatch2(), 1);
 import { spawn } from "node:child_process";
@@ -31489,7 +31548,7 @@ async function diffNameOnly(cwd, base, ref) {
 }
 
 // src/modules/tower/identity.ts
-import { resolve as resolve4 } from "node:path";
+import { resolve as resolve5 } from "node:path";
 var IDENTITY_BLOCK_THRESHOLD = 3;
 function foldView(fold) {
   if (fold === void 0) return void 0;
@@ -31537,7 +31596,7 @@ function checkWorkdirSoft(fold, workerAgentId, repoRoot, worktree) {
   if (session === void 0 || typeof session.workDir !== "string" || session.workDir.trim().length === 0) {
     return { ok: false, missing: true, reason: "session-workdir-missing" };
   }
-  const normalize = (p) => resolve4(p).toLowerCase();
+  const normalize = (p) => resolve5(p).toLowerCase();
   const actual = normalize(session.workDir);
   const candidates = [normalize(repoRoot)];
   if (worktree !== void 0) candidates.push(normalize(worktree));
@@ -31609,65 +31668,6 @@ function evaluateIdentity(fold, workerAgentId, towerAgentId, repoRoot, worktree)
     parentChild: pc,
     workdir: wd
   };
-}
-
-// src/modules/tower/paths.ts
-import { createHash as createHash3 } from "node:crypto";
-import { basename, dirname as dirname3, join as join7, resolve as resolve5 } from "node:path";
-var TOWER_NAME = "tower";
-var BROADCAST_NAME = "all";
-function worktreesRoot(repoRoot) {
-  return join7(dirname3(repoRoot), `${basename(repoRoot)}-worktrees`);
-}
-function worktreePath(repoRoot, slot) {
-  return join7(worktreesRoot(repoRoot), slot);
-}
-function normalizeTowerRoot(repoRoot) {
-  if (typeof repoRoot !== "string" || repoRoot.length === 0 || !/^[a-zA-Z]:[\\/]|^\//.test(repoRoot)) {
-    throw new Error(`repoRoot must be an absolute path, got: ${JSON.stringify(repoRoot)}`);
-  }
-  return resolve5(repoRoot);
-}
-function towerRepoKey(repoRoot) {
-  return createHash3("sha1").update(normalizeTowerRoot(repoRoot)).digest("hex").slice(0, 12);
-}
-function towerNamespace(repoRoot) {
-  return `tower/${towerRepoKey(repoRoot)}`;
-}
-function towerKeys(repoRoot) {
-  const ns = towerNamespace(repoRoot);
-  return {
-    ns,
-    repo: () => `${ns}/repo`,
-    state: () => `${ns}/state`,
-    mission: (id) => `${ns}/mission/${id}`,
-    inbox: (msgId) => `${ns}/inbox/${msgId}`,
-    finding: (id) => `${ns}/finding/${id}`,
-    review: (targetSlugged, reviewer, round) => `${ns}/review/${targetSlugged}/${reviewer}-r${round}`,
-    log: (ts, rand) => `${ns}/log/${ts}-${rand}`,
-    ci: (branch) => `${ns}/ci/${targetSlug(branch)}`,
-    ciLog: (branch, ts, rand) => `${ns}/ci/${targetSlug(branch)}/${ts}-${rand}`,
-    progress: (missionId) => `${ns}/progress/${missionId}`,
-    prefix: (kind) => `${ns}/${kind}/`
-  };
-}
-function dateStamp(now = /* @__PURE__ */ new Date()) {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}${m}${d}`;
-}
-function dateDash(now = /* @__PURE__ */ new Date()) {
-  const stamp = dateStamp(now);
-  return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`;
-}
-function slugify2(text, maxLength = 60) {
-  const slug = text.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "").slice(0, maxLength).replaceAll(/-+$/g, "");
-  return slug.length > 0 ? slug : "item";
-}
-function targetSlug(target) {
-  const cleaned = target.trim().replace(/^#/, "pr");
-  return slugify2(cleaned.replaceAll(/[/#]+/g, "-"));
 }
 
 // src/modules/tower/store.ts
@@ -32802,6 +32802,42 @@ ${input.body.trim()}
     );
     return rel;
   }
+  /**
+   * B4: enumerate every filed finding (newest first) for the panel's
+   * `GET /api/tower/findings` route. Findings are plain markdown — `fileFinding`
+   * renders `**Field**: value` lines (no YAML frontmatter), so the fields are
+   * extracted from those lines; the title is pulled from the `# Finding:`
+   * heading. Board keys are random UUIDs (row 18 deviation) — ordering is by
+   * date, newest first, then key for a stable tiebreak.
+   */
+  async listFindings() {
+    const entries = await this.board.readNamespace(
+      this.keys.prefix("finding"),
+      void 0,
+      "workspace",
+      1e3,
+      this.repoRoot
+    );
+    const findings = [];
+    for (const row of entries) {
+      const field = (name) => {
+        const match = new RegExp(`^\\*\\*${name}\\*\\*:\\s*(.+)$`, "m").exec(row.value);
+        return match === null ? "" : match[1].trim();
+      };
+      const titleMatch = /^#\s+Finding:\s*(.+)$/m.exec(row.value);
+      findings.push({
+        file: row.key,
+        date: field("Date"),
+        agent: field("Agent") || "unknown",
+        type: field("Type"),
+        severity: field("Severity") || "medium",
+        mission: field("Mission") || "(none)",
+        title: titleMatch !== null ? titleMatch[1].trim() : "(untitled)"
+      });
+    }
+    findings.sort((a, b) => b.date.localeCompare(a.date) || a.file.localeCompare(b.file));
+    return findings;
+  }
   // ---------------------------------------------------------------------
   // Reviews
   // ---------------------------------------------------------------------
@@ -32919,6 +32955,29 @@ ${input.body.trim()}
     if (reviews.length === 0) return [];
     const maxRound = Math.max(...reviews.map((r) => r.round));
     return reviews.filter((r) => r.round === maxRound);
+  }
+  /**
+   * B4: per-mission review-gate summary — the SHARED implementation behind the
+   * status tool's `review_gate` rows and the `/api/tower/missions` route's
+   * per-mission `review_gate` field (one source, no drift). Semantics match
+   * the status tool verbatim: no reviews → `{review:'none'}`; otherwise the
+   * highest round's reviewers/status and a sync verdict comparing each
+   * review's `reviewedCommit` against the live branch tip.
+   */
+  async reviewGateForMission(mission) {
+    const latestReviews = await this.latestReviewRound(mission.branch);
+    if (latestReviews.length === 0) {
+      return { branch: mission.branch, mission: mission.id, review: "none" };
+    }
+    const tip = await branchExists(this.repoRoot, mission.branch) ? await branchTip(this.repoRoot, mission.branch) : void 0;
+    return {
+      branch: mission.branch,
+      mission: mission.id,
+      round: latestReviews[0].round,
+      reviewers: latestReviews.map((r) => r.reviewer).join(", "),
+      status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(", "),
+      sync: tip === void 0 ? "branch-not-created" : latestReviews.every((r) => r.reviewedCommit === tip) ? "reviewed-commit-matches-tip" : `stale \u2014 tip moved to ${tip.slice(0, 7)}, re-review required`
+    };
   }
   // ---------------------------------------------------------------------
   // Merge — the hard gate. The tower LLM decides WHEN to call this; the gate
@@ -33172,20 +33231,23 @@ function towerRoutes(controller) {
         mode: state.mode,
         createdAt: state.createdAt,
         worktreesRoot: repo?.worktreesRoot ?? null,
-        roster: state.roster.agents.map((a) => ({
-          name: a.name,
-          agentId: a.agentId === "" ? null : a.agentId,
-          kind: a.kind,
-          verified: a.verified ?? false,
-          ...a.verifiedAt !== void 0 ? { verifiedAt: a.verifiedAt } : {},
-          failedCount: a.failedCount ?? 0,
-          // B2: blocked is derived from consecutive hard mismatches (缺失≠不匹配).
-          blocked: (a.failedCount ?? 0) >= 3,
-          ...a.missionId !== void 0 ? { missionId: a.missionId } : {},
-          ...a.reviewTarget !== void 0 ? { reviewTarget: a.reviewTarget } : {},
-          ...a.worktree !== void 0 ? { worktree: a.worktree } : {},
-          ...a.branch !== void 0 ? { branch: a.branch } : {}
-        })),
+        roster: state.roster.agents.map((a) => {
+          const isTower = a.kind === "tower" || a.name === TOWER_NAME;
+          return {
+            name: a.name,
+            ...isTower ? {} : { agentId: a.agentId === "" ? null : a.agentId },
+            kind: a.kind,
+            verified: a.verified ?? false,
+            ...a.verifiedAt !== void 0 ? { verifiedAt: a.verifiedAt } : {},
+            failedCount: a.failedCount ?? 0,
+            // B2: blocked is derived from consecutive hard mismatches (缺失≠不匹配).
+            blocked: (a.failedCount ?? 0) >= 3,
+            ...a.missionId !== void 0 ? { missionId: a.missionId } : {},
+            ...a.reviewTarget !== void 0 ? { reviewTarget: a.reviewTarget } : {},
+            ...a.worktree !== void 0 ? { worktree: a.worktree } : {},
+            ...a.branch !== void 0 ? { branch: a.branch } : {}
+          };
+        }),
         missions: state.missions
       });
     } catch (error2) {
@@ -33201,9 +33263,10 @@ function towerRoutes(controller) {
     try {
       const state = await store.load();
       const missions = await store.loadMissions(state);
-      ctx.sendJson(200, {
-        booted: true,
-        missions: missions.map((m) => ({
+      const rows = [];
+      for (const m of missions) {
+        const ci = await store.loadCiResult(m.branch);
+        rows.push({
           id: m.id,
           title: m.title,
           kind: m.kind,
@@ -33215,9 +33278,12 @@ function towerRoutes(controller) {
           owner: m.owner ?? null,
           tasks: m.tasks.map((t) => ({ text: t.text, done: t.done })),
           notes: [...m.notes],
-          blockers: [...m.blockers]
-        }))
-      });
+          blockers: [...m.blockers],
+          ci: ci === void 0 ? null : { commit: ci.commit, exitCode: ci.exitCode, ranAt: ci.ranAt },
+          review_gate: await store.reviewGateForMission(m)
+        });
+      }
+      ctx.sendJson(200, { booted: true, missions: rows });
     } catch (error2) {
       if (error2 instanceof TowerProtocolError) {
         ctx.sendJson(200, { booted: false, error: error2.message });
@@ -33242,10 +33308,44 @@ function towerRoutes(controller) {
       throw error2;
     }
   };
+  const readFindings = async (ctx) => {
+    const store = storeFor2(ctx);
+    try {
+      await store.load();
+      const findings = await store.listFindings();
+      ctx.sendJson(200, { booted: true, findings });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
+  const readReviews = async (ctx) => {
+    const store = storeFor2(ctx);
+    const branch = ctx.url.searchParams.get("branch");
+    if (branch === null || branch.trim().length === 0) {
+      ctx.badRequest("tower reviews require a ?branch=<target branch> query parameter");
+    }
+    try {
+      await store.load();
+      const reviews = await store.reviewsFor(branch);
+      ctx.sendJson(200, { booted: true, branch, reviews });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
   return [
     { method: "GET", path: "/api/tower/state", handler: (ctx) => readState(ctx) },
     { method: "GET", path: "/api/tower/missions", handler: (ctx) => readMissions(ctx) },
-    { method: "GET", path: "/api/tower/log", handler: (ctx) => readLog(ctx) }
+    { method: "GET", path: "/api/tower/log", handler: (ctx) => readLog(ctx) },
+    { method: "GET", path: "/api/tower/findings", handler: (ctx) => readFindings(ctx) },
+    { method: "GET", path: "/api/tower/reviews", handler: (ctx) => readReviews(ctx) }
   ];
 }
 
@@ -33962,20 +34062,7 @@ function towerTools(controller) {
         const latest = await store.load();
         const reviewGate = [];
         for (const mission of missions.filter((m) => m.status !== "merged")) {
-          const latestReviews = await store.latestReviewRound(mission.branch);
-          if (latestReviews.length === 0) {
-            reviewGate.push({ branch: mission.branch, mission: mission.id, review: "none" });
-            continue;
-          }
-          const tip = await branchExists(store.repoRoot, mission.branch) ? await branchTip(store.repoRoot, mission.branch) : void 0;
-          reviewGate.push({
-            branch: mission.branch,
-            mission: mission.id,
-            round: latestReviews[0].round,
-            reviewers: latestReviews.map((r) => r.reviewer).join(", "),
-            status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(", "),
-            sync: tip === void 0 ? "branch-not-created" : latestReviews.every((r) => r.reviewedCommit === tip) ? "reviewed-commit-matches-tip" : `stale \u2014 tip moved to ${tip.slice(0, 7)}, re-review required`
-          });
+          reviewGate.push(await store.reviewGateForMission(mission));
         }
         const inbox = await store.readInbox(caller, INBOX_COUNT_LIMIT);
         const log = await store.recentLog(RECENT_LOG_LINES);
@@ -34106,21 +34193,24 @@ function renderMissions(missions) {
   }));
 }
 function renderRoster(state) {
-  return state.roster.agents.map((a) => ({
-    name: a.name,
-    kind: a.kind,
-    agentId: a.agentId === "" ? null : a.agentId,
-    // B2 identity columns: verified / failed_count / blocked (derived from
-    // consecutive hard mismatches — missing data never counts, decision 2).
-    verified: a.verified ?? false,
-    ...a.verifiedAt !== void 0 ? { verified_at: a.verifiedAt } : {},
-    failed_count: a.failedCount ?? 0,
-    blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
-    ...a.missionId !== void 0 ? { mission_id: a.missionId } : {},
-    ...a.reviewTarget !== void 0 ? { review_target: a.reviewTarget } : {},
-    ...a.branch !== void 0 ? { branch: a.branch } : {},
-    ...a.worktree !== void 0 ? { worktree: a.worktree } : {}
-  }));
+  return state.roster.agents.map((a) => {
+    const isTower = a.kind === "tower" || a.name === TOWER_NAME;
+    return {
+      name: a.name,
+      kind: a.kind,
+      ...isTower ? {} : { agentId: a.agentId === "" ? null : a.agentId },
+      // B2 identity columns: verified / failed_count / blocked (derived from
+      // consecutive hard mismatches — missing data never counts, decision 2).
+      verified: a.verified ?? false,
+      ...a.verifiedAt !== void 0 ? { verified_at: a.verifiedAt } : {},
+      failed_count: a.failedCount ?? 0,
+      blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
+      ...a.missionId !== void 0 ? { mission_id: a.missionId } : {},
+      ...a.reviewTarget !== void 0 ? { review_target: a.reviewTarget } : {},
+      ...a.branch !== void 0 ? { branch: a.branch } : {},
+      ...a.worktree !== void 0 ? { worktree: a.worktree } : {}
+    };
+  });
 }
 function worktreePathOf(repoRoot, slot) {
   return worktreePath(repoRoot, slot);
@@ -35749,6 +35839,7 @@ select option {
 var SSE_FALLBACK_POLL_MS = 15e3;
 var RUNS_POLL_MS = 5e3;
 var SYSTEM_POLL_MS = 1e4;
+var TOWER_POLL_MS = 5e3;
 var LIB_JS = `
 (function(window) {
   'use strict';
@@ -35996,7 +36087,8 @@ var LIB_JS = `
   var POLL_MS = {
     sseFallback: ${SSE_FALLBACK_POLL_MS},
     runs: ${RUNS_POLL_MS},
-    system: ${SYSTEM_POLL_MS}
+    system: ${SYSTEM_POLL_MS},
+    tower: ${TOWER_POLL_MS}
   };
 
   /**
@@ -36451,6 +36543,7 @@ var I18N_DICTIONARIES = {
     "app.memory": "Workspace Memory",
     "app.runs": "MoA Runs",
     "app.status": "Agent Status",
+    "app.tower": "Tower Workflow",
     "app.system": "System Health",
     "locale.group": "Language",
     "locale.zh": "\u4E2D\u6587",
@@ -36798,7 +36891,58 @@ var I18N_DICTIONARIES = {
     "status.unknown": "unknown",
     "status.ancestorBadge": "via sub-agent",
     "status.subtreeCollapse": "Collapse subtree",
-    "status.subtreeExpand": "Expand subtree"
+    "status.subtreeExpand": "Expand subtree",
+    "tower.title": "Tower Workflow",
+    "tower.connecting": "connected",
+    "tower.scanning": "Scanning workspaces\u2026",
+    "tower.noBooted": "No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.",
+    "tower.notReady": "Tower controller is not running. Start or reuse a session to begin monitoring.",
+    "tower.repo": "Repo",
+    "tower.selectRepo": "Select a booted tower repo\u2026",
+    "tower.missions": "Missions",
+    "tower.roster": "Roster",
+    "tower.activity": "Activity log",
+    "tower.findings": "Findings",
+    "tower.reviews": "Reviews",
+    "tower.colMission": "Mission",
+    "tower.colTitle": "Title",
+    "tower.colKind": "Kind",
+    "tower.colStatus": "Status",
+    "tower.colOwner": "Owner",
+    "tower.colBranch": "Branch",
+    "tower.colCi": "CI",
+    "tower.colReview": "Review gate",
+    "tower.colName": "Name",
+    "tower.colVerified": "Verified",
+    "tower.colAgentId": "Agent id",
+    "tower.colRole": "Role",
+    "tower.colDetail": "Detail",
+    "tower.colDate": "Date",
+    "tower.colSeverity": "Severity",
+    "tower.colAgent": "Agent",
+    "tower.colRound": "Round",
+    "tower.colReviewer": "Reviewer",
+    "tower.colMerge": "Merge",
+    "tower.colCommit": "Commit",
+    "tower.ciNone": "\u2014",
+    "tower.ciPass": "pass",
+    "tower.ciFail": "fail",
+    "tower.ciSkip": "skipped",
+    "tower.ciAt": "{commit} \xB7 {time}",
+    "tower.reviewNone": "none",
+    "tower.verifiedYes": "verified",
+    "tower.verifiedNo": "unverified",
+    "tower.masked": "(masked)",
+    "tower.noMissions": "No missions yet.",
+    "tower.noRoster": "No roster entries yet.",
+    "tower.noLog": "No activity yet.",
+    "tower.noFindings": "No findings filed.",
+    "tower.noReviews": "No reviews for this branch.",
+    "tower.empty": "No data yet.",
+    "tower.expand": "Expand",
+    "tower.collapse": "Collapse",
+    "tower.reviewsFor": "Reviews for {branch}",
+    "tower.updatedAt": "Updated {time}"
   },
   "zh-CN": {
     "app.brand": "MOA \u5DE5\u4F5C\u533A",
@@ -37154,7 +37298,59 @@ var I18N_DICTIONARIES = {
     "status.unknown": "\u672A\u77E5",
     "status.ancestorBadge": "\u7ECF\u5B50 agent \u5E26\u51FA",
     "status.subtreeCollapse": "\u6536\u8D77\u5B50\u6811",
-    "status.subtreeExpand": "\u5C55\u5F00\u5B50\u6811"
+    "status.subtreeExpand": "\u5C55\u5F00\u5B50\u6811",
+    "app.tower": "\u5854\u53F0\u5DE5\u4F5C\u6D41",
+    "tower.title": "\u5854\u53F0\u5DE5\u4F5C\u6D41",
+    "tower.connecting": "\u5DF2\u8FDE\u63A5",
+    "tower.scanning": "\u626B\u63CF\u5DE5\u4F5C\u533A\u4E2D\u2026",
+    "tower.noBooted": "\u5DF2\u6CE8\u518C\u7684\u5DE5\u4F5C\u533A\u4E2D\u672A\u627E\u5230\u5DF2 boot \u7684\u5854\u53F0\u3002\u8BF7\u5148\u7528 moa_tower_boot \u542F\u52A8\uFF0C\u518D\u5237\u65B0\u672C\u9875\u3002",
+    "tower.notReady": "\u5854\u53F0\u63A7\u5236\u5668\u672A\u542F\u52A8\u3002\u8BF7\u542F\u52A8\u6216\u590D\u7528\u4F1A\u8BDD\u540E\u5F00\u59CB\u76D1\u63A7\u3002",
+    "tower.repo": "\u4ED3\u5E93",
+    "tower.selectRepo": "\u9009\u62E9\u5DF2 boot \u7684\u5854\u53F0\u4ED3\u5E93\u2026",
+    "tower.missions": "\u4EFB\u52A1",
+    "tower.roster": "\u540D\u518C",
+    "tower.activity": "\u6D3B\u52A8\u65E5\u5FD7",
+    "tower.findings": "\u53D1\u73B0",
+    "tower.reviews": "\u8BC4\u5BA1",
+    "tower.colMission": "\u4EFB\u52A1",
+    "tower.colTitle": "\u6807\u9898",
+    "tower.colKind": "\u7C7B\u578B",
+    "tower.colStatus": "\u72B6\u6001",
+    "tower.colOwner": "\u5C5E\u4E3B",
+    "tower.colBranch": "\u5206\u652F",
+    "tower.colCi": "CI",
+    "tower.colReview": "\u8BC4\u5BA1\u95E8\u7981",
+    "tower.colName": "\u540D\u79F0",
+    "tower.colVerified": "\u5DF2\u9A8C\u8BC1",
+    "tower.colAgentId": "Agent id",
+    "tower.colRole": "\u89D2\u8272",
+    "tower.colDetail": "\u8BE6\u60C5",
+    "tower.colDate": "\u65E5\u671F",
+    "tower.colSeverity": "\u4E25\u91CD\u5EA6",
+    "tower.colAgent": "\u4EE3\u7406",
+    "tower.colRound": "\u8F6E\u6B21",
+    "tower.colReviewer": "\u8BC4\u5BA1",
+    "tower.colMerge": "\u5408\u5E76",
+    "tower.colCommit": "\u63D0\u4EA4",
+    "tower.ciNone": "\u2014",
+    "tower.ciPass": "\u901A\u8FC7",
+    "tower.ciFail": "\u5931\u8D25",
+    "tower.ciSkip": "\u5DF2\u8DF3\u8FC7",
+    "tower.ciAt": "{commit} \xB7 {time}",
+    "tower.reviewNone": "\u65E0",
+    "tower.verifiedYes": "\u5DF2\u9A8C\u8BC1",
+    "tower.verifiedNo": "\u672A\u9A8C\u8BC1",
+    "tower.masked": "\uFF08\u5DF2\u63A9\u7801\uFF09",
+    "tower.noMissions": "\u5C1A\u65E0\u4EFB\u52A1\u3002",
+    "tower.noRoster": "\u5C1A\u65E0\u540D\u518C\u6761\u76EE\u3002",
+    "tower.noLog": "\u6682\u65E0\u6D3B\u52A8\u3002",
+    "tower.noFindings": "\u6682\u65E0\u53D1\u73B0\u3002",
+    "tower.noReviews": "\u8BE5\u5206\u652F\u6682\u65E0\u8BC4\u5BA1\u3002",
+    "tower.empty": "\u6682\u65E0\u6570\u636E\u3002",
+    "tower.expand": "\u5C55\u5F00",
+    "tower.collapse": "\u6536\u8D77",
+    "tower.reviewsFor": "{branch} \u7684\u8BC4\u5BA1",
+    "tower.updatedAt": "\u66F4\u65B0\u4E8E {time}"
   }
 };
 var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
@@ -37246,6 +37442,7 @@ var NAV_ITEMS = [
   { id: "memoryNav", section: "memory", label: "Workspace Memory", i18n: "app.memory", href: "/control-plane?section=memory" },
   { id: "runsNav", section: "runs", label: "MoA Runs", i18n: "app.runs", href: "/control-plane?section=runs" },
   { id: "statusNav", section: "status", label: "Agent Status", i18n: "app.status", href: "/status-board" },
+  { id: "towerNav", section: "tower", label: "Tower Workflow", i18n: "app.tower", href: "/tower" },
   { id: "systemNav", section: "system", label: "System Health", i18n: "app.system", href: "/control-plane?section=system" }
 ];
 function renderAppHeader(active) {
@@ -42448,6 +42645,632 @@ ${STATUS_MODEL_JS}
 </html>
 `;
 
+// src/web/pages/tower.ts
+var TOWER_PAGE_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="tower.title">Tower Workflow</title>
+<style>
+${TOKENS_CSS}
+${COMPONENTS_CSS}
+
+/* Tower Workflow page specific styles (status-board design language). */
+.tw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+.tw-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+  animation: twPulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.tw-live.off {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
+@keyframes twPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+}
+.tw-conn {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.tw-conn.ok { color: var(--accent-green); }
+.tw-conn.err { color: var(--accent-red); }
+.tw-counts {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tw-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  font-size: 11px;
+}
+.tw-scan[hidden] { display: none; }
+.tw-scan .spin {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+}
+.tw-notready {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--tint-amber);
+  border: 1px solid var(--tint-amber-border);
+  border-radius: var(--r-md);
+  color: var(--accent-amber);
+  font-size: 13px;
+}
+.tw-notready[hidden] { display: none; }
+.tw-panel {
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.tw-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.tw-panel-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13px;
+}
+.tw-panel-sub {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tw-chevron {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.tw-panel.collapsed .tw-chevron { transform: rotate(-90deg); }
+.tw-panel-body { padding: 4px 14px 12px; }
+.tw-panel.collapsed .tw-panel-body { display: none; }
+.tw-colhead {
+  display: grid;
+  grid-template-columns: 64px minmax(160px, 2fr) 72px 90px 90px minmax(150px, 1.5fr) 90px minmax(170px, 1.5fr);
+  gap: 10px;
+  padding: 6px 14px;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+.tw-colhead.tw-colhead-roster {
+  grid-template-columns: minmax(140px, 1.5fr) 80px 110px minmax(130px, 1fr) minmax(160px, 1.5fr);
+}
+.tw-colhead.tw-colhead-findings,
+.tw-row.tw-row-findings {
+  grid-template-columns: 90px 72px 80px minmax(120px, 1fr) minmax(120px, 1fr) minmax(180px, 2fr);
+}
+.tw-colhead.tw-colhead-reviews,
+.tw-row.tw-row-reviews {
+  grid-template-columns: 56px minmax(120px, 1fr) 110px 110px 80px 90px;
+}
+.tw-row {
+  display: grid;
+  grid-template-columns: 64px minmax(160px, 2fr) 72px 90px 90px minmax(150px, 1.5fr) 90px minmax(170px, 1.5fr);
+  gap: 10px;
+  align-items: center;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.tw-row.tw-row-roster {
+  grid-template-columns: minmax(140px, 1.5fr) 80px 110px minmax(130px, 1fr) minmax(160px, 1.5fr);
+}
+.tw-row:last-child { border-bottom: none; }
+.tw-row:hover { background: var(--hover-tint-subtle); }
+.tw-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-cell.tw-agent { font-family: var(--font-mono); color: var(--accent-blue); }
+.tw-mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); }
+.tw-status { justify-self: start; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-badge.tw-ci-ok { background: var(--tint-green); color: var(--accent-green); }
+.tw-badge.tw-ci-fail { background: var(--tint-red); color: var(--accent-red); }
+.tw-badge.tw-ci-skip { background: var(--tint-amber); color: var(--accent-amber); }
+.tw-badge-sub { font-family: var(--font-mono); font-size: 10.5px; opacity: 0.8; }
+.tw-verified { color: var(--accent-green); }
+.tw-log {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 14px;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.tw-log-line { white-space: pre-wrap; word-break: break-all; }
+.tw-empty { padding: 16px 14px; text-align: center; color: var(--text-faint); }
+.tw-body[hidden] { display: none; }
+</style>
+${THEME_BOOTSTRAP}
+${I18N_BOOTSTRAP}
+</head>
+<body>
+<div class="aurora-bg"></div>
+<div class="shell">
+  ${renderAppHeader("tower")}
+  <div class="tw-toolbar">
+    <span class="tw-live" id="twLive"></span>
+    <span class="tw-conn" id="twConn" data-i18n="tower.connecting">connected</span>
+    <label for="twRepo" class="tw-repo-label" data-i18n="tower.repo">Repo</label>
+    <select id="twRepo" aria-label="Booted tower repo"></select>
+    <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces\u2026</span></span>
+    <span class="tw-counts" id="twCounts"></span>
+  </div>
+  <div class="tw-notready" id="twNotReady" hidden data-i18n="tower.noBooted">No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.</div>
+  <div class="tw-panel" id="twMissionsPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.missions">Missions</span>
+      <span class="tw-panel-sub" id="twMissionsCount"></span>
+    </div>
+    <div class="tw-colhead">
+      <span data-i18n="tower.colMission">Mission</span>
+      <span data-i18n="tower.colTitle">Title</span>
+      <span data-i18n="tower.colKind">Kind</span>
+      <span data-i18n="tower.colStatus">Status</span>
+      <span data-i18n="tower.colOwner">Owner</span>
+      <span data-i18n="tower.colBranch">Branch</span>
+      <span data-i18n="tower.colCi">CI</span>
+      <span data-i18n="tower.colReview">Review gate</span>
+    </div>
+    <div id="twMissionsBody"></div>
+  </div>
+  <div class="tw-panel" id="twRosterPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.roster">Roster</span>
+      <span class="tw-panel-sub" id="twRosterCount"></span>
+    </div>
+    <div class="tw-colhead tw-colhead-roster">
+      <span data-i18n="tower.colName">Name</span>
+      <span data-i18n="tower.colRole">Role</span>
+      <span data-i18n="tower.colVerified">Verified</span>
+      <span data-i18n="tower.colAgentId">Agent id</span>
+      <span data-i18n="tower.colDetail">Detail</span>
+    </div>
+    <div id="twRosterBody"></div>
+  </div>
+  <div class="tw-panel" id="twLogPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.activity">Activity log</span>
+      <span class="tw-panel-sub" id="twLogCount"></span>
+    </div>
+    <div class="tw-log" id="twLog"></div>
+  </div>
+  <div class="tw-panel collapsed" id="twFindingsPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.findings">Findings</span>
+      <span class="tw-panel-sub" id="twFindingsCount"></span>
+    </div>
+    <div class="tw-panel-body" id="twFindingsBody"></div>
+  </div>
+  <div class="tw-panel collapsed" id="twReviewsPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.reviews">Reviews</span>
+      <span class="tw-panel-sub tw-reviews-branch" id="twReviewsBranchLabel"></span>
+      <span class="tw-panel-sub" id="twReviewsCount"></span>
+    </div>
+    <div class="tw-panel-body" id="twReviewsBody"></div>
+  </div>
+</div>
+<script>
+${I18N_JS}
+${LIB_JS}
+(function () {
+  'use strict';
+  var tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
+  var lib = window.__moaLib;
+  var api = lib.api;
+  var POLL_MS = (lib.POLL_MS && lib.POLL_MS.tower) || 5000;
+  var REPO_KEY = 'moamcp-tower-repo';
+
+  var STATUS_EMOJI = { planned: '\u{1F7E1}', active: '\u{1F535}', completed: '\u{1F7E2}', blocked: '\u{1F534}', paused: '\u23F8\uFE0F', merged: '\u2705' };
+
+  var liveEl = document.getElementById('twLive');
+  var connEl = document.getElementById('twConn');
+  var countsEl = document.getElementById('twCounts');
+  var scanEl = document.getElementById('twScan');
+  var notReadyEl = document.getElementById('twNotReady');
+  var repoSelect = document.getElementById('twRepo');
+  var missionsBody = document.getElementById('twMissionsBody');
+  var rosterBody = document.getElementById('twRosterBody');
+  var logEl = document.getElementById('twLog');
+  var findingsPanel = document.getElementById('twFindingsPanel');
+  var findingsBody = document.getElementById('twFindingsBody');
+  var reviewsPanel = document.getElementById('twReviewsPanel');
+  var reviewsBody = document.getElementById('twReviewsBody');
+  var reviewsBranchLabel = document.getElementById('twReviewsBranchLabel');
+
+  var bootedRepos = [];
+  var current = null; // { cwd, name }
+  var lastState = null;
+  var lastMissions = null;
+  var lastLog = null;
+  var findingsOpen = false;
+  var reviewsOpen = false;
+  var poll = null;
+
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmt(iso) { return lib.fmtClock ? lib.fmtClock(iso) : (iso || '\u2013'); }
+  function setConn(state, msg) {
+    connEl.textContent = msg;
+    connEl.className = 'tw-conn' + (state === 'open' ? ' ok' : (state === 'error' ? ' err' : ''));
+    liveEl.className = 'tw-live' + (state === 'open' ? '' : ' off');
+  }
+  function setScan(on) { if (scanEl) scanEl.hidden = !on; }
+  function makeCell(text, cls) {
+    var cell = document.createElement('div');
+    cell.className = 'tw-cell' + (cls ? ' ' + cls : '');
+    cell.textContent = text;
+    return cell;
+  }
+  function appendEmpty(container, key) {
+    var none = document.createElement('div');
+    none.className = 'tw-empty';
+    none.textContent = tr(key);
+    container.appendChild(none);
+  }
+  function stateUrl() { return '/api/tower/state?workspace=' + encodeURIComponent(current.cwd); }
+
+  // \u2500\u2500 Roster (tower row's agentId is masked by the route; the page never
+  //    falls back to rendering a real id). \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function renderRoster() {
+    rosterBody.textContent = '';
+    var rows = (lastState && lastState.roster) || [];
+    if (!rows.length) { appendEmpty(rosterBody, 'tower.noRoster'); return; }
+    for (var i = 0; i < rows.length; i++) {
+      var a = rows[i];
+      var row = document.createElement('div');
+      row.className = 'tw-row tw-row-roster';
+      var isTower = a.kind === 'tower' || a.name === 'tower';
+      row.appendChild(makeCell(a.name, 'tw-agent'));
+      row.appendChild(makeCell(a.kind));
+      var verified = document.createElement('div');
+      verified.className = 'tw-cell' + (a.verified ? ' tw-verified' : '');
+      verified.textContent = (a.verified ? '\u2713 ' : '') + (a.verified ? tr('tower.verifiedYes') : tr('tower.verifiedNo'));
+      row.appendChild(verified);
+      row.appendChild(makeCell(isTower ? tr('tower.masked') : (a.agentId === undefined || a.agentId === null ? '\u2014' : a.agentId), 'tw-mono'));
+      var detail = a.missionId ? 'mission ' + a.missionId : (a.reviewTarget ? 'review ' + a.reviewTarget : '\u2014');
+      row.appendChild(makeCell(detail, 'tw-mono'));
+      rosterBody.appendChild(row);
+    }
+  }
+
+  // \u2500\u2500 Missions table with CI badge + review gate. \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function ciBadge(ci) {
+    var badge = document.createElement('span');
+    badge.className = 'tw-badge';
+    if (!ci) { badge.textContent = tr('tower.ciNone'); return badge; }
+    if (ci.exitCode === 0) { badge.className += ' tw-ci-ok'; badge.textContent = tr('tower.ciPass'); }
+    else if (ci.exitCode === null) { badge.className += ' tw-ci-skip'; badge.textContent = tr('tower.ciSkip'); }
+    else { badge.className += ' tw-ci-fail'; badge.textContent = tr('tower.ciFail'); }
+    var sub = document.createElement('span');
+    sub.className = 'tw-badge-sub';
+    sub.textContent = tr('tower.ciAt', { commit: String(ci.commit).slice(0, 7), time: fmt(ci.ranAt) });
+    badge.appendChild(sub);
+    return badge;
+  }
+  function reviewGateText(g) {
+    if (!g || g.review === 'none') return tr('tower.reviewNone');
+    return 'r' + g.round + ' \xB7 ' + g.status + ' \xB7 ' + g.sync;
+  }
+  function renderMissions() {
+    missionsBody.textContent = '';
+    var missions = (lastMissions && lastMissions.missions) || [];
+    if (!missions.length) { appendEmpty(missionsBody, 'tower.noMissions'); return; }
+    for (var i = 0; i < missions.length; i++) {
+      var m = missions[i];
+      var row = document.createElement('div');
+      row.className = 'tw-row';
+      row.appendChild(makeCell(m.id, 'tw-mono'));
+      row.appendChild(makeCell(m.title));
+      row.appendChild(makeCell(m.kind));
+      var status = document.createElement('div');
+      status.className = 'tw-cell';
+      var badge = document.createElement('span');
+      badge.className = 'tw-status';
+      badge.textContent = (STATUS_EMOJI[m.status] || '') + ' ' + m.status;
+      status.appendChild(badge);
+      row.appendChild(status);
+      row.appendChild(makeCell(m.owner || '\u2014'));
+      row.appendChild(makeCell(m.branch, 'tw-mono'));
+      var ciCell = document.createElement('div');
+      ciCell.className = 'tw-cell';
+      ciCell.appendChild(ciBadge(m.ci));
+      row.appendChild(ciCell);
+      row.appendChild(makeCell(reviewGateText(m.review_gate), 'tw-mono'));
+      missionsBody.appendChild(row);
+    }
+  }
+  function renderLog() {
+    logEl.textContent = '';
+    var lines = (lastLog && lastLog.lines) || [];
+    if (!lines.length) { appendEmpty(logEl, 'tower.noLog'); return; }
+    for (var i = 0; i < lines.length; i++) {
+      var line = document.createElement('div');
+      line.className = 'tw-log-line';
+      line.textContent = lines[i];
+      logEl.appendChild(line);
+    }
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function renderCounts() {
+    var missions = (lastMissions && lastMissions.missions) || [];
+    var roster = (lastState && lastState.roster) || [];
+    var updated = new Date().toISOString();
+    countsEl.textContent = missions.length + ' missions \xB7 ' + roster.length + ' agents \xB7 ' + tr('tower.updatedAt', { time: fmt(updated) });
+  }
+  function renderAll() {
+    renderRoster();
+    renderMissions();
+    renderLog();
+    renderCounts();
+  }
+
+  // \u2500\u2500 Findings / reviews panels (B4 route faces; loaded when expanded). \u2500\u2500\u2500
+  function loadFindings() {
+    if (!current) return;
+    api('/api/tower/findings?workspace=' + encodeURIComponent(current.cwd)).then(function (data) {
+      var findings = (data && data.findings) || [];
+      var count = document.getElementById('twFindingsCount');
+      if (count) count.textContent = findings.length ? findings.length + '' : '';
+      if (!findingsOpen) return;
+      findingsBody.textContent = '';
+      if (!findings.length) { appendEmpty(findingsBody, 'tower.noFindings'); return; }
+      var table = document.createElement('div');
+      table.className = 'tw-colhead tw-colhead-findings';
+      [tr('tower.colDate'), tr('tower.colKind'), tr('tower.colSeverity'), tr('tower.colAgent'), tr('tower.colMission'), tr('tower.colTitle')].forEach(function (h) {
+        var span = document.createElement('span');
+        span.textContent = h;
+        table.appendChild(span);
+      });
+      findingsBody.appendChild(table);
+      for (var i = 0; i < findings.length; i++) {
+        var f = findings[i];
+        var row = document.createElement('div');
+        row.className = 'tw-row tw-row-findings';
+        row.appendChild(makeCell(f.date || '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(f.type || '\u2014'));
+        row.appendChild(makeCell(f.severity || '\u2014'));
+        row.appendChild(makeCell(f.agent || '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(f.mission || '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(f.title || '\u2014'));
+        findingsBody.appendChild(row);
+      }
+    }).catch(function () {
+      findingsBody.textContent = '';
+      appendEmpty(findingsBody, 'tower.noFindings');
+    });
+  }
+  function reviewBranches() {
+    var branches = [];
+    var missions = (lastMissions && lastMissions.missions) || [];
+    for (var i = 0; i < missions.length; i++) {
+      if (missions[i].status !== 'merged') branches.push(missions[i].branch);
+    }
+    return branches;
+  }
+  function loadReviews() {
+    if (!current) return;
+    var branches = reviewBranches();
+    var branch = branches.length ? branches[0] : '';
+    if (reviewsBranchLabel) reviewsBranchLabel.textContent = branch ? tr('tower.reviewsFor', { branch: branch }) : '';
+    if (!branch) {
+      reviewsBody.textContent = '';
+      appendEmpty(reviewsBody, 'tower.noReviews');
+      return;
+    }
+    api('/api/tower/reviews?workspace=' + encodeURIComponent(current.cwd) + '&branch=' + encodeURIComponent(branch)).then(function (data) {
+      var reviews = (data && data.reviews) || [];
+      var count = document.getElementById('twReviewsCount');
+      if (count) count.textContent = reviews.length ? reviews.length + '' : '';
+      if (!reviewsOpen) return;
+      reviewsBody.textContent = '';
+      if (!reviews.length) { appendEmpty(reviewsBody, 'tower.noReviews'); return; }
+      var table = document.createElement('div');
+      table.className = 'tw-colhead tw-colhead-reviews';
+      [tr('tower.colRound'), tr('tower.colReviewer'), tr('tower.colStatus'), tr('tower.colMerge'), tr('tower.colCommit'), tr('tower.colDate')].forEach(function (h) {
+        var span = document.createElement('span');
+        span.textContent = h;
+        table.appendChild(span);
+      });
+      reviewsBody.appendChild(table);
+      for (var i = 0; i < reviews.length; i++) {
+        var r = reviews[i];
+        var row = document.createElement('div');
+        row.className = 'tw-row tw-row-reviews';
+        row.appendChild(makeCell('r' + r.round, 'tw-mono'));
+        row.appendChild(makeCell(r.reviewer, 'tw-agent'));
+        row.appendChild(makeCell(r.status, 'tw-mono'));
+        row.appendChild(makeCell(r.merge, 'tw-mono'));
+        row.appendChild(makeCell(r.reviewedCommit ? String(r.reviewedCommit).slice(0, 7) : '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(r.date || '\u2014', 'tw-mono'));
+        reviewsBody.appendChild(row);
+      }
+    }).catch(function () {
+      reviewsBody.textContent = '';
+      appendEmpty(reviewsBody, 'tower.noReviews');
+    });
+  }
+
+  // \u2500\u2500 Refresh + polling (shared startPoll, TOWER_POLL_MS). \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function refresh() {
+    if (!current) return;
+    var ws = encodeURIComponent(current.cwd);
+    setConn('open', '\u25CF ' + tr('tower.connecting'));
+    Promise.all([
+      api('/api/tower/state?workspace=' + ws),
+      api('/api/tower/missions?workspace=' + ws),
+      api('/api/tower/log?workspace=' + ws + '&lines=100')
+    ]).then(function (results) {
+      lastState = results[0];
+      lastMissions = results[1];
+      lastLog = results[2];
+      renderAll();
+      setConn('open', '\u25CF ' + tr('tower.connecting'));
+      if (findingsOpen) loadFindings();
+      if (reviewsOpen) loadReviews();
+    }).catch(function (err) {
+      setConn('error', '\u2717 ' + (err && err.message ? err.message : 'error'));
+    });
+  }
+  function startPolling() {
+    if (poll) poll.stop();
+    poll = lib.startPoll(refresh, POLL_MS);
+  }
+
+  // \u2500\u2500 Repo discovery: /api/workspaces + per-workspace boot probe. \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function fillRepoOptions() {
+    repoSelect.textContent = '';
+    if (!bootedRepos.length) {
+      var opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = tr('tower.noBooted');
+      repoSelect.appendChild(opt);
+      repoSelect.disabled = true;
+      return;
+    }
+    repoSelect.disabled = false;
+    var saved = '';
+    try { saved = localStorage.getItem(REPO_KEY) || ''; } catch (_) {}
+    var foundSaved = false;
+    for (var i = 0; i < bootedRepos.length; i++) {
+      var o = document.createElement('option');
+      o.value = bootedRepos[i].cwd;
+      o.textContent = bootedRepos[i].name;
+      repoSelect.appendChild(o);
+      if (saved && bootedRepos[i].cwd === saved) foundSaved = true;
+    }
+    var pick = foundSaved ? saved : bootedRepos[0].cwd;
+    repoSelect.value = pick;
+    selectRepo(pick);
+  }
+  function selectRepo(cwd) {
+    current = { cwd: cwd };
+    try { localStorage.setItem(REPO_KEY, cwd); } catch (_) {}
+    lastState = lastMissions = lastLog = null;
+    findingsOpen = reviewsOpen = false;
+    findingsPanel.className = 'tw-panel collapsed';
+    reviewsPanel.className = 'tw-panel collapsed';
+    notReadyEl.hidden = true;
+    setConn('open', '\u25CF ' + tr('tower.connecting'));
+    refresh();
+  }
+  function discover() {
+    setScan(true);
+    api('/api/workspaces').then(function (data) {
+      var workspaces = (data && data.workspaces) || [];
+      var found = [];
+      var probes = workspaces.map(function (w) {
+        return api('/api/tower/state?workspace=' + encodeURIComponent(w.cwd))
+          .then(function (st) {
+            if (st && st.booted) found.push({ cwd: w.cwd, name: w.name || w.cwd });
+          })
+          .catch(function () {});
+      });
+      return Promise.all(probes).then(function () { return found; });
+    }).then(function (found) {
+      bootedRepos = found;
+      setScan(false);
+      if (!bootedRepos.length) {
+        notReadyEl.hidden = false;
+        setConn('connecting', '\u25CB ' + tr('tower.noBooted'));
+        return;
+      }
+      fillRepoOptions();
+      startPolling();
+    }).catch(function () {
+      setScan(false);
+      notReadyEl.hidden = false;
+      setConn('error', '\u2717 ' + tr('tower.notReady'));
+    });
+  }
+
+  if (repoSelect) repoSelect.addEventListener('change', function () {
+    if (repoSelect.value) selectRepo(repoSelect.value);
+  });
+  if (findingsPanel) findingsPanel.querySelector('.tw-panel-head').addEventListener('click', function () {
+    findingsOpen = !findingsOpen;
+    findingsPanel.className = 'tw-panel' + (findingsOpen ? '' : ' collapsed');
+    if (findingsOpen) loadFindings();
+  });
+  if (reviewsPanel) reviewsPanel.querySelector('.tw-panel-head').addEventListener('click', function () {
+    reviewsOpen = !reviewsOpen;
+    reviewsPanel.className = 'tw-panel' + (reviewsOpen ? '' : ' collapsed');
+    if (reviewsOpen) loadReviews();
+  });
+  if (window.addEventListener) window.addEventListener('moamcp:localechange', function () {
+    tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
+    renderAll();
+  });
+
+  discover();
+})();
+</script>
+</body>
+</html>
+`;
+
 // src/adapters/control-plane.ts
 var CONTROL_PLANE_BODY_MAX_BYTES = BOARD_VALUE_MAX_BYTES * 2 + 16 * 1024;
 var WORKSPACE_ID = /^[0-9a-f]{16}$/;
@@ -42888,6 +43711,18 @@ var ControlPlane = class {
         "content-type": "text/html; charset=utf-8"
       });
       res.end(STATUS_BOARD_HTML);
+      return true;
+    }
+    if (path2 === "/tower") {
+      if (req.method !== "GET") {
+        methodNotAllowed(res, "GET");
+        return true;
+      }
+      res.writeHead(200, {
+        "cache-control": "no-store",
+        "content-type": "text/html; charset=utf-8"
+      });
+      res.end(TOWER_PAGE_HTML);
       return true;
     }
     let route;

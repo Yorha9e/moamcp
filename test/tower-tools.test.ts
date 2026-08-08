@@ -579,7 +579,9 @@ it('routes: /api/tower/* serves state/missions/log from the shared board', async
   const stateBody = await stateRes.json();
   expect(stateBody).toMatchObject({ booted: true, base: 'main', mode: 'branch', missions: ['M1'] });
   expect(stateBody.roster).toHaveLength(1);
-  expect(stateBody.roster[0]).toMatchObject({ name: 'tower', agentId: 'agent-orch', kind: 'tower' });
+  // B4 masking: the tower row's agentId is hidden on the routes face too.
+  expect(stateBody.roster[0]).toMatchObject({ name: 'tower', kind: 'tower' });
+  expect(stateBody.roster[0].agentId).toBeUndefined();
   expect(typeof stateBody.worktreesRoot).toBe('string');
 
   const missionsRes = await q(`/api/tower/missions?workspace=${encodeURIComponent(repoRoot)}`);
@@ -606,4 +608,167 @@ it('routes: 503 tower_not_ready while the tower has no board mounted', async () 
   expect(res.status).toBe(503);
   expect(res.headers.get('retry-after')).toBe('2');
   expect(await res.json()).toEqual({ error: 'tower_not_ready', started: false });
+});
+
+it('B4 masking: status tool hides the tower agentId but keeps worker agentIds', async () => {
+  const env = await makeToolEnv();
+  const { client, repoRoot } = env;
+  await bootPlanSpawnRegister(env);
+  const status = await call(client, 'moa_tower_status', { workspace: repoRoot, caller_agent_id: 'agent-orch' });
+  const roster = status.roster as Array<Record<string, unknown>>;
+  const towerRow = roster.find((r) => r.name === 'tower');
+  const workerRow = roster.find((r) => r.name === 'w1');
+  expect(towerRow).toBeDefined();
+  expect(towerRow).toMatchObject({ name: 'tower', kind: 'tower' });
+  // B4 masking: the tower row carries NO agentId field; workers keep theirs.
+  expect('agentId' in (towerRow as object)).toBe(false);
+  expect(workerRow).toMatchObject({ name: 'w1', kind: 'worker', agentId: 'agent-w1' });
+  expect(workerRow?.mission_id).toBe('M1');
+});
+
+it('B4 routes: state masks the tower agentId while workers stay visible', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'moamcp-tower-mask-route-'));
+  homes.push(home);
+  const repoRoot = join(home, 'repo');
+  await mkdir(repoRoot, { recursive: true });
+  await run(repoRoot, ['init', '-b', 'main']);
+  await run(repoRoot, ['config', 'user.email', 'tower-test@example.com']);
+  await run(repoRoot, ['config', 'user.name', 'Tower Test']);
+  await writeFile(join(repoRoot, 'README.md'), '# mask\n');
+  await run(repoRoot, ['add', '-A']);
+  await run(repoRoot, ['commit', '-m', 'initial']);
+  const board = new BoardStore({ homeDir: home, workspaceCwd: join(home, 'cwd'), waitCapMs: 200, pollIntervalMs: 15 });
+  const controller = createTowerController();
+  controller.mountBoard(board);
+  const bus = new Bus({ port: 0, cwd: home, instancesDir: join(home, 'instances'), logsDir: join(home, 'logs'), towerController: controller });
+  buses.push(bus);
+  const port = await bus.start();
+  bus.mountControlPlane(board, new TipStore(board));
+  const q = (path: string) => fetch(`http://127.0.0.1:${port}${path}`);
+
+  const store = new TowerStore(repoRoot, board);
+  await store.boot('agent-orch');
+  await store.registerAgent({
+    name: 'w1',
+    agentId: 'agent-w1',
+    kind: 'worker',
+    missionId: 'M1',
+    worktree: 'wt-1',
+    branch: 'feat/M1-mask',
+    spawnedAt: new Date().toISOString(),
+  });
+  const body = await (await q(`/api/tower/state?workspace=${encodeURIComponent(repoRoot)}`)).json();
+  const towerRow = body.roster.find((r: { name: string }) => r.name === 'tower');
+  const workerRow = body.roster.find((r: { name: string }) => r.name === 'w1');
+  expect(towerRow).toMatchObject({ name: 'tower', kind: 'tower' });
+  expect('agentId' in towerRow).toBe(false);
+  expect(workerRow).toMatchObject({ name: 'w1', kind: 'worker', agentId: 'agent-w1', missionId: 'M1' });
+});
+
+it('B4 routes: missions carry ci + review_gate; findings/reviews endpoints serve the panel', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'moamcp-tower-b4routes-'));
+  homes.push(home);
+  const repoRoot = join(home, 'repo');
+  await mkdir(repoRoot, { recursive: true });
+  await run(repoRoot, ['init', '-b', 'main']);
+  await run(repoRoot, ['config', 'user.email', 'tower-test@example.com']);
+  await run(repoRoot, ['config', 'user.name', 'Tower Test']);
+  await writeFile(join(repoRoot, 'README.md'), '# b4 routes\n');
+  await run(repoRoot, ['add', '-A']);
+  await run(repoRoot, ['commit', '-m', 'initial']);
+  // Fake CI script inside the repo root; the ci command runs with the
+  // worktree as cwd, so `../../repo` reaches the main checkout (Windows-safe
+  // — no `node -e` quote pass-through). Committed on main so the later
+  // `git checkout main` (after the branch dance) does not remove it.
+  await writeFile(join(repoRoot, 'ci-green.js'), 'process.exit(0);\n');
+  await run(repoRoot, ['add', '-A']);
+  await run(repoRoot, ['commit', '-m', 'ci script']);
+
+  const board = new BoardStore({ homeDir: home, workspaceCwd: join(home, 'cwd'), waitCapMs: 200, pollIntervalMs: 15 });
+  const controller = createTowerController();
+  controller.mountBoard(board);
+  const bus = new Bus({ port: 0, cwd: home, instancesDir: join(home, 'instances'), logsDir: join(home, 'logs'), towerController: controller });
+  buses.push(bus);
+  const port = await bus.start();
+  bus.mountControlPlane(board, new TipStore(board));
+  const q = (path: string) => fetch(`http://127.0.0.1:${port}${path}`);
+
+  const store = new TowerStore(repoRoot, board);
+  await store.boot('agent-orch', { ciCommand: 'node ../../repo/ci-green.js' });
+  await store.plan([{ title: 'B4 mission', scope: ['src/**'] }]);
+  await store.fileFinding('tower', {
+    type: 'bug',
+    title: 'Bad thing',
+    severity: 'high',
+    summary: 'summary',
+    details: 'details',
+    suggestedFix: 'fix it',
+  });
+
+  // Before any CI/review: ci is null, review_gate is 'none'.
+  const m1 = await (await q(`/api/tower/missions?workspace=${encodeURIComponent(repoRoot)}`)).json();
+  expect(m1.booted).toBe(true);
+  expect(m1.missions[0]).toMatchObject({ id: 'M1', branch: 'feat/M1-b4-mission', status: 'planned' });
+  expect(m1.missions[0].ci).toBeNull();
+  expect(m1.missions[0].review_gate).toMatchObject({ mission: 'M1', review: 'none' });
+
+  // Real CI record + a review (tower may review any target), then re-read.
+  const branch = 'feat/M1-b4-mission';
+  await mkdir(join(home, 'repo-worktrees', 'wt-1'), { recursive: true });
+  await run(repoRoot, ['checkout', '-b', branch]);
+  await writeFile(join(repoRoot, 'work.js'), '// b4 work\n');
+  await run(repoRoot, ['add', '-A']);
+  await run(repoRoot, ['commit', '-m', 'work']);
+  const tip = (await run(repoRoot, ['rev-parse', branch])).trim();
+  await run(repoRoot, ['checkout', 'main']);
+  await store.runCi(branch, 'node ../../repo/ci-green.js');
+  await store.submitReview(
+    'tower',
+    { target: branch, status: 'clean', merge: 'merge', findings: 'looks good', checks: ['a'], decision: 'merge' },
+    tip,
+  );
+
+  const m2 = await (await q(`/api/tower/missions?workspace=${encodeURIComponent(repoRoot)}`)).json();
+  expect(m2.missions[0].ci).toMatchObject({ commit: tip, exitCode: 0 });
+  expect(typeof m2.missions[0].ci.ranAt).toBe('string');
+  expect(m2.missions[0].review_gate).toMatchObject({
+    mission: 'M1',
+    round: 1,
+    reviewers: 'tower',
+    status: 'tower=clean',
+    sync: 'reviewed-commit-matches-tip',
+  });
+
+  const findings = await (await q(`/api/tower/findings?workspace=${encodeURIComponent(repoRoot)}`)).json();
+  expect(findings.booted).toBe(true);
+  expect(findings.findings).toHaveLength(1);
+  expect(findings.findings[0]).toMatchObject({
+    type: 'bug',
+    severity: 'high',
+    agent: 'tower',
+    mission: '(none)',
+    title: 'Bad thing',
+  });
+  expect(typeof findings.findings[0].file).toBe('string');
+
+  const reviews = await (
+    await q(`/api/tower/reviews?workspace=${encodeURIComponent(repoRoot)}&branch=${encodeURIComponent(branch)}`)
+  ).json();
+  expect(reviews.booted).toBe(true);
+  expect(reviews.branch).toBe(branch);
+  expect(reviews.reviews).toHaveLength(1);
+  expect(reviews.reviews[0]).toMatchObject({
+    reviewer: 'tower',
+    target: branch,
+    round: 1,
+    status: 'clean',
+    merge: 'merge',
+    reviewedCommit: tip,
+  });
+
+  // Unknown branch → empty list; missing branch param → 400.
+  const none = await (await q(`/api/tower/reviews?workspace=${encodeURIComponent(repoRoot)}&branch=${encodeURIComponent('feat/nope')}`)).json();
+  expect(none.reviews).toEqual([]);
+  const noBranch = await q(`/api/tower/reviews?workspace=${encodeURIComponent(repoRoot)}`);
+  expect(noBranch.status).toBe(400);
 });

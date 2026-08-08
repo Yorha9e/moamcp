@@ -1490,6 +1490,61 @@ export class TowerStore {
     return rel;
   }
 
+  /**
+   * B4: enumerate every filed finding (newest first) for the panel's
+   * `GET /api/tower/findings` route. Findings are plain markdown — `fileFinding`
+   * renders `**Field**: value` lines (no YAML frontmatter), so the fields are
+   * extracted from those lines; the title is pulled from the `# Finding:`
+   * heading. Board keys are random UUIDs (row 18 deviation) — ordering is by
+   * date, newest first, then key for a stable tiebreak.
+   */
+  async listFindings(): Promise<
+    ReadonlyArray<{
+      file: string;
+      date: string;
+      agent: string;
+      type: string;
+      severity: string;
+      mission: string;
+      title: string;
+    }>
+  > {
+    const entries = await this.board.readNamespace(
+      this.keys.prefix('finding'),
+      undefined,
+      'workspace',
+      1000,
+      this.repoRoot,
+    );
+    const findings: Array<{
+      file: string;
+      date: string;
+      agent: string;
+      type: string;
+      severity: string;
+      mission: string;
+      title: string;
+    }> = [];
+    for (const row of entries) {
+      const field = (name: string): string => {
+        const match = new RegExp(`^\\*\\*${name}\\*\\*:\\s*(.+)$`, 'm').exec(row.value);
+        return match === null ? '' : match[1]!.trim();
+      };
+      const titleMatch = /^#\s+Finding:\s*(.+)$/m.exec(row.value);
+      findings.push({
+        file: row.key,
+        date: field('Date'),
+        agent: field('Agent') || 'unknown',
+        type: field('Type'),
+        severity: field('Severity') || 'medium',
+        mission: field('Mission') || '(none)',
+        title: titleMatch !== null ? titleMatch[1]!.trim() : '(untitled)',
+      });
+    }
+    findings.sort((a, b) => b.date.localeCompare(a.date) || a.file.localeCompare(b.file));
+    return findings;
+  }
+
   // ---------------------------------------------------------------------
   // Reviews
   // ---------------------------------------------------------------------
@@ -1621,6 +1676,37 @@ export class TowerStore {
     if (reviews.length === 0) return [];
     const maxRound = Math.max(...reviews.map((r) => r.round));
     return reviews.filter((r) => r.round === maxRound);
+  }
+
+  /**
+   * B4: per-mission review-gate summary — the SHARED implementation behind the
+   * status tool's `review_gate` rows and the `/api/tower/missions` route's
+   * per-mission `review_gate` field (one source, no drift). Semantics match
+   * the status tool verbatim: no reviews → `{review:'none'}`; otherwise the
+   * highest round's reviewers/status and a sync verdict comparing each
+   * review's `reviewedCommit` against the live branch tip.
+   */
+  async reviewGateForMission(mission: { id: string; branch: string }): Promise<Record<string, unknown>> {
+    const latestReviews = await this.latestReviewRound(mission.branch);
+    if (latestReviews.length === 0) {
+      return { branch: mission.branch, mission: mission.id, review: 'none' };
+    }
+    const tip = (await git.branchExists(this.repoRoot, mission.branch))
+      ? await git.branchTip(this.repoRoot, mission.branch)
+      : undefined;
+    return {
+      branch: mission.branch,
+      mission: mission.id,
+      round: latestReviews[0]!.round,
+      reviewers: latestReviews.map((r) => r.reviewer).join(', '),
+      status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(', '),
+      sync:
+        tip === undefined
+          ? 'branch-not-created'
+          : latestReviews.every((r) => r.reviewedCommit === tip)
+            ? 'reviewed-commit-matches-tip'
+            : `stale — tip moved to ${tip.slice(0, 7)}, re-review required`,
+    };
   }
 
   // ---------------------------------------------------------------------

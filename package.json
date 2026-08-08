@@ -10,6 +10,7 @@
     "dist",
     "kimi.plugin.json",
     "agents",
+    "hooks",
     "skills",
     "commands"
   ],

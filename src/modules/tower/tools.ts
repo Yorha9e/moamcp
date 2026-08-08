@@ -861,27 +861,9 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           const latest = await store.load();
           const reviewGate: Array<Record<string, unknown>> = [];
           for (const mission of missions.filter((m) => m.status !== 'merged')) {
-            const latestReviews = await store.latestReviewRound(mission.branch);
-            if (latestReviews.length === 0) {
-              reviewGate.push({ branch: mission.branch, mission: mission.id, review: 'none' });
-              continue;
-            }
-            const tip = (await git.branchExists(store.repoRoot, mission.branch))
-              ? await git.branchTip(store.repoRoot, mission.branch)
-              : undefined;
-            reviewGate.push({
-              branch: mission.branch,
-              mission: mission.id,
-              round: latestReviews[0]!.round,
-              reviewers: latestReviews.map((r) => r.reviewer).join(', '),
-              status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(', '),
-              sync:
-                tip === undefined
-                  ? 'branch-not-created'
-                  : latestReviews.every((r) => r.reviewedCommit === tip)
-                    ? 'reviewed-commit-matches-tip'
-                    : `stale — tip moved to ${tip.slice(0, 7)}, re-review required`,
-            });
+            // Shared with the /api/tower/missions route (B4) — one
+            // implementation, no drift between the tool and the panel.
+            reviewGate.push(await store.reviewGateForMission(mission));
           }
           const inbox = await store.readInbox(caller, INBOX_COUNT_LIMIT);
           const log = await store.recentLog(RECENT_LOG_LINES);
@@ -1033,21 +1015,28 @@ function renderMissions(missions: readonly TowerMission[]): Array<Record<string,
 }
 
 function renderRoster(state: TowerState): Array<Record<string, unknown>> {
-  return state.roster.agents.map((a) => ({
-    name: a.name,
-    kind: a.kind,
-    agentId: a.agentId === '' ? null : a.agentId,
-    // B2 identity columns: verified / failed_count / blocked (derived from
-    // consecutive hard mismatches — missing data never counts, decision 2).
-    verified: a.verified ?? false,
-    ...(a.verifiedAt !== undefined ? { verified_at: a.verifiedAt } : {}),
-    failed_count: a.failedCount ?? 0,
-    blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
-    ...(a.missionId !== undefined ? { mission_id: a.missionId } : {}),
-    ...(a.reviewTarget !== undefined ? { review_target: a.reviewTarget } : {}),
-    ...(a.branch !== undefined ? { branch: a.branch } : {}),
-    ...(a.worktree !== undefined ? { worktree: a.worktree } : {}),
-  }));
+  return state.roster.agents.map((a) => {
+    // B4 masking (携带项 F1): the tower row's agentId is the tier-2 re-boot
+    // channel key (B2R-2) — mask it wherever the roster is exposed (status
+    // tool here, /api/tower/state in routes.ts; the panel consumes both).
+    // Worker/reviewer rows keep their agentId.
+    const isTower = a.kind === 'tower' || a.name === TOWER_NAME;
+    return {
+      name: a.name,
+      kind: a.kind,
+      ...(isTower ? {} : { agentId: a.agentId === '' ? null : a.agentId }),
+      // B2 identity columns: verified / failed_count / blocked (derived from
+      // consecutive hard mismatches — missing data never counts, decision 2).
+      verified: a.verified ?? false,
+      ...(a.verifiedAt !== undefined ? { verified_at: a.verifiedAt } : {}),
+      failed_count: a.failedCount ?? 0,
+      blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
+      ...(a.missionId !== undefined ? { mission_id: a.missionId } : {}),
+      ...(a.reviewTarget !== undefined ? { review_target: a.reviewTarget } : {}),
+      ...(a.branch !== undefined ? { branch: a.branch } : {}),
+      ...(a.worktree !== undefined ? { worktree: a.worktree } : {}),
+    };
+  });
 }
 
 /** Absolute worktree path for a slot (spawn output helper; 基准 decision 8 layout). */
