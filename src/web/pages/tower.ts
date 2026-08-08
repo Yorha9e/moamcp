@@ -224,7 +224,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader('tower')}
   <div class="tw-toolbar">
     <span class="tw-live" id="twLive"></span>
-    <span class="tw-conn" id="twConn" data-i18n="tower.connecting">connected</span>
+    <span class="tw-conn" id="twConn" data-i18n="tower.polling">live · 5s poll</span>
     <label for="twRepo" class="tw-repo-label" data-i18n="tower.repo">Repo</label>
     <select id="twRepo" aria-label="Booted tower repo"></select>
     <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces…</span></span>
