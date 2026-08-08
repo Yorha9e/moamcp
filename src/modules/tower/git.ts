@@ -25,7 +25,7 @@ export async function git(cwd: string, args: readonly string[]): Promise<string>
     execFile(
       'git',
       [...args],
-      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024, windowsHide: true },
       (error, stdout, stderr) => {
         if (error !== null) {
           reject(new GitError(args, stderr || error.message));
