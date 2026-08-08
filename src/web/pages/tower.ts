@@ -224,7 +224,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader('tower')}
   <div class="tw-toolbar">
     <span class="tw-live" id="twLive"></span>
-    <span class="tw-conn" id="twConn" data-i18n="tower.connecting">connected</span>
+    <span class="tw-conn" id="twConn" data-i18n="tower.polling">live · 5s poll</span>
     <label for="twRepo" class="tw-repo-label" data-i18n="tower.repo">Repo</label>
     <select id="twRepo" aria-label="Booted tower repo"></select>
     <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces…</span></span>
@@ -539,7 +539,7 @@ ${LIB_JS}
   function refresh() {
     if (!current) return;
     var ws = encodeURIComponent(current.cwd);
-    setConn('open', tr('tower.connecting'));
+    setConn('open', tr('tower.polling'));
     Promise.all([
       api('/api/tower/state?workspace=' + ws),
       api('/api/tower/missions?workspace=' + ws),
@@ -549,7 +549,7 @@ ${LIB_JS}
       lastMissions = results[1];
       lastLog = results[2];
       renderAll();
-      setConn('open', tr('tower.connecting'));
+      setConn('open', tr('tower.polling'));
       if (findingsOpen) loadFindings();
       if (reviewsOpen) loadReviews();
     }).catch(function (err) {
@@ -595,7 +595,7 @@ ${LIB_JS}
     findingsPanel.className = 'tw-panel collapsed';
     reviewsPanel.className = 'tw-panel collapsed';
     notReadyEl.hidden = true;
-    setConn('open', tr('tower.connecting'));
+    setConn('open', tr('tower.polling'));
     refresh();
   }
   function discover() {
