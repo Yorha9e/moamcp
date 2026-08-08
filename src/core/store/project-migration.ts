@@ -13,7 +13,7 @@
  *   4. The legacy files are NOT deleted: they are renamed to
  *      `*.migrated-<epoch-ms>` so the original records stay recoverable.
  */
-import { appendFile, mkdir, readFile, rename, stat, truncate, unlink, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rename, stat, truncate, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { moamcpHome } from '../bus/registry.js';
@@ -62,6 +62,27 @@ async function archiveRename(from: string, to: string): Promise<void> {
     await rename(from, to);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
+}
+
+/**
+ * Migrated-archive rotation: keep only the newest `ws-<hash>.jsonl.migrated-*`
+ * and `ws-<hash>.meta.json.migrated-*` copy for this hash. Older copies (e.g.
+ * leftovers a pre-rotation detach left behind when it restored only the newest
+ * archive) are unlinked so the archives never stack — detach always finds
+ * exactly one recoverable snapshot per legacy file.
+ */
+async function pruneOlderMigratedArchives(boardsDir: string, pathHash: string, keepStamp: number): Promise<void> {
+  const prefixes = [`ws-${pathHash}.jsonl.migrated-`, `ws-${pathHash}.meta.json.migrated-`];
+  const names = await readdir(boardsDir).catch(() => [] as string[]);
+  for (const name of names) {
+    const prefix = prefixes.find((candidate) => name.startsWith(candidate));
+    if (prefix === undefined) continue;
+    const stamp = Number(name.slice(prefix.length));
+    if (!Number.isFinite(stamp) || stamp === keepStamp) continue;
+    await unlink(join(boardsDir, name)).catch((err) => {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    });
   }
 }
 
@@ -218,6 +239,10 @@ export async function migrateWorkspaceToProject(
     try {
       await archiveRename(sourceFile, `${sourceFile}.migrated-${stamp}`);
       await archiveRename(sourceMeta, `${sourceMeta}.migrated-${stamp}`);
+      // Rotation: this hash keeps only the newest migrated archive per legacy
+      // file; older copies from earlier migrations are pruned so a later
+      // detach always rolls back to exactly one pre-migration snapshot.
+      await pruneOlderMigratedArchives(boardsDir, pathHash, stamp);
     } catch (err) {
       await registry.removeAlias(pathHash).catch(() => {});
       await rollbackToSize(targetFile, beforeSize);
