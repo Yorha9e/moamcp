@@ -208,7 +208,8 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'tower.noLog': 'No activity yet.', 'tower.noFindings': 'No findings filed.',
     'tower.noReviews': 'No reviews for this branch.', 'tower.empty': 'No data yet.',
     'tower.expand': 'Expand', 'tower.collapse': 'Collapse',
-    'tower.reviewsFor': 'Reviews for {branch}', 'tower.updatedAt': 'Updated {time}'
+    'tower.reviewsFor': 'Reviews for {branch}', 'tower.updatedAt': 'Updated {time}',
+    'tower.countsMissions': 'missions', 'tower.countsAgents': 'agents'
   },
   'zh-CN': {
     'app.brand': 'MOA 工作区', 'app.nav': '主导航', 'app.debate': 'MOA 辩论', 'app.memory': '工作区记忆', 'app.runs': 'MoA 运行', 'app.status': 'Agent 状态', 'app.system': '系统健康',
