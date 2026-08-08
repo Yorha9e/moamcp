@@ -5,6 +5,9 @@ MOA（Multi-Agent Orchestration，多代理辩论）MCP 插件，为 [Kimi Code 
 - **邮箱式辩论枢纽**：辩手通过 MCP 工具收发轮次（`moa_wait_turn` 长轮询 / `moa_submit_turn` 提交），状态机保证严格的轮转顺序，辩手之间互不串供。
 - **共享黑板**：结构化、按需拉取、可阻塞等待的跨 agent 信息通道（`moa_board_*` 五工具）。三级作用域——`workspace`（跨会话模块移交，持久化）、`global`（跨项目，持久化）、`task:<id>`（辩论内共享笔记，随任务归档），键级 last-write-wins + append-only 历史 + 墓碑删除。
 - **Project Tips**：项目级、跨 Session 持久化的功能想法与上下文卡片（`moa_tip_*` 五工具 + `/moamcp:*` 命令），与共享黑板共用同一 BoardStore——底层合一、上层分型；完整管理界面是 `/control-plane` 工作区控制面（Web）。
+- **定向交接（Mailbox / Handoff）**：跨项目、跨 Session 的拉取式消息（`moa_handoff_*` 五工具）——给指定项目或全局收件箱发送结构化交接（标题/摘要/上下文），接收方按需读取、消费或归档；支持 agent 级寻址（`<label>:<sessionId>:<agentId>`）。不参与召回索引，适合模块移交、跨目录协作。
+- **Agent Status 隶属树**：只读扫描 CLI 会话树（`wire.jsonl`/`state.json`/`tasks/*.json`）折叠 `parentAgentId` 血缘，`/status-board` 面板按 session 分组展示主/子代理嵌套树、busy 状态与来源标记；嵌套子代理同样入树。
+- **Tower 工作流**：多代理工程编排（`moa_tower_*` 十四工具 + `/tower` 面板）——目标拆分为互不相交的 mission，orchestrator 派 worker 在独立 git worktree 施工、reviewer 对抗审查，过硬性合并门合回主干；worker 写权限由双引擎策略 + 插件钩子三重守卫限制在 worktree 内。
 - **辩论卡片**：同进程拉起一个本地 HTTP Bus（SSE + 静态页面），`moa_init` 返回 `card_url`，浏览器打开即可实时观看进度条（共识 → Reference → 辩论 R N/M → 聚合 → 结论）、preset/配置快照、辩手阵容、逐轮 transcript 与裁决 + findings；探测到 omkc-status 时还会多出 agent 状态墙与工具调用日志两个可选面板（见下）。不带 `task_id` 打开是任务选择页（每 3s 静默刷新任务列表，无任务时不闪屏）。
 - **四层归档**：`moa_complete` 落盘 `probe.json`（辩手档案）/ `events.jsonl`（全量事件流）/ `result.json`（裁决）/ `board.jsonl`（任务黑板笔记），事后可完整回放。
 - **多实例共存**：实例注册表 + 端口退让 + Bus 复用，同机开多个 CLI 会话不会端口打架，也不会留下孤儿 Bus。
@@ -86,8 +89,11 @@ moamcp 本身（MCP 工具 + Bus + 卡片 + 归档）在两个版本上完全一
 
 | 能力 | 官方 kimi-code | omkc（社区版） |
 |---|---|---|
-| MCP 工具全集（辩论 6 + 黑板 5 + Tips 5） | ✅ | ✅ |
-| 共享黑板（`moa_board_*` 五个，三级 scope） | ✅ | ✅ |
+| MCP 工具全集（37 个：辩论 5 + 黑板 6 + Tips 5 + 交接 5 + 状态 2 + tower 14） | ✅ | ✅ |
+| 共享黑板（`moa_board_*` 六个，三级 scope） | ✅ | ✅ |
+| 定向交接（`moa_handoff_*` 五个，mailbox） | ✅ | ✅ |
+| Agent Status 隶属树（`moa_status_agents`、`/status-board`） | ✅ | ✅ |
+| Tower 工作流（`moa_tower_*` 十四个、`/tower` 面板） | ✅（写守卫走插件 PreToolUse 钩子） | ✅（钩子 + v1/v2 引擎内策略双兜底） |
 | 辩论 Bus、浏览器卡片、SSE、四层归档 | ✅ | ✅ |
 | 辩手模型 | **继承主代理模型**（单模型 MOA） | `binding_slot` 命名槽位 → 每个辩手可绑定不同模型与思考强度（多模型 MOA） |
 | 角色化 profile（orchestrator / critic / synthesizer） | 需手动把本仓库 `agents/*.md` 复制到 agent 目录（`~/.kimi-code/agents/` 或项目 `.kimi-code/agents/`） | 内置，开箱即用 |
@@ -96,7 +102,7 @@ moamcp 本身（MCP 工具 + Bus + 卡片 + 归档）在两个版本上完全一
 
 即：官方 kimi 上可以完整跑通 MOA 辩论流程，但所有辩手共用主代理的模型（单模型多视角）；omkc 上才是完整形态——不同辩手由不同模型扮演（如强模型正方 / 强模型反方 / 快模型魔鬼代言人），配合角色化 profile 与桌面卡片。
 
-> 官方版本备注：截至 0.29.0，上游官方仓库**尚不含**子代理模型绑定机制（相关 PR [#1928](https://github.com/MoonshotAI/kimi-code/pull/1928) / [#2034](https://github.com/MoonshotAI/kimi-code/pull/2034) 仍在 open 状态）。因此官方版本目前只支持单模型 MOA；多模型槽位绑定是 omkc 社区版独有的能力。
+> 官方版本备注：截至官方 0.34.0，上游仍未合入命名槽位 / per-workspace 子代理绑定机制——v1 侧 PR [#1928](https://github.com/MoonshotAI/kimi-code/pull/1928) 仍 open，v2 侧 [#2034](https://github.com/MoonshotAI/kimi-code/pull/2034) 已关闭；官方自研路线为 secondary model 与自定义 agent 文件。因此官方版本跑 MOA 时辩手只能继承主代理模型；多模型槽位绑定是 omkc 社区版独有能力。
 
 ## Tower workflow（塔台工作流）
 
@@ -234,6 +240,29 @@ omkc 中也可以用 `/subagent-model set slot debate-strong` 交互式配置。
 - **一次性指令**走 dispatch prompt——不需要被第三方 agent 看到、不需要更新的内容，不必上黑板。
 
 **多进程注意**：同一台机器的多个 moamcp 进程各自持有内存折叠视图，但**每次 persistent 操作（读/写/等待）都会核对磁盘 JSONL 的实际大小**，文件变化、新建或收缩时重新折叠整个日志——因此跨进程的 `read` / `list` 能及时看到同伴进程写入的内容。存在等待者时，每个 persistent scope 会起一个约 **250ms** 的 unref 磁盘轮询（`DEFAULT_BOARD_POLL_INTERVAL_MS`，仅在仍有等待者时运行），同伴进程的 append 会被观察到并唤醒 `moa_board_wait` 的等待者，不再依赖安全上限超时兜底。仍**没有跨进程文件锁或强事务**：同一 key 的并发写入是同一份 append-only JSONL 上的 LWW，折叠后以最后一次写入（按写入时间戳）为准，不存在"先写者赢"的竞态。
+
+### 定向交接（Handoff / Mailbox）
+
+跨项目 / 跨 Session 的**拉取式**消息通道：发送方写进目标项目的收件箱，接收方 Session 需要时显式消费。不广播、不打扰——接收方不主动查就不会看到，适合"模块移交、代码审阅请求、跨项目接力"这类有明确收件人的交接。
+
+| 工具 | 作用 |
+|---|---|
+| `moa_handoff_send` | 发送交接（title/summary/可选 context）；`toProject` 支持项目 id（`p_<12hex>`）或 `"user-global"`（跨项目全局收件箱）；v2 可带 `toAgent`/`fromAgent`（形如 `<label>:<sessionId>:<agentId>` 的 agent 级寻址） |
+| `moa_handoff_inbox` | 列出收件箱（缺省只看 pending；传 `agent` 按 agent 地址过滤） |
+| `moa_handoff_read` | 读取单个交接完整内容（含 context 载荷） |
+| `moa_handoff_consume` | 标记已消费（终态） |
+| `moa_handoff_archive` | 归档（终态，默认收件箱视图中隐藏） |
+
+约定：交接**不参与召回 / 索引**（纯消息，不是知识）；所有调用传 `workspace`（当前项目绝对路径，发送方身份与收件箱归属都由它确定）；跨项目投递前可用 `moa_projects_list` 查目标项目 id。
+
+### Agent Status（隶属树面板）
+
+对当前机器上所有 kimi / omkc 的**主 agent 与子 agent 层级关系**做常驻探测：
+
+- `moa_status` — Bus 状态：端口、own/reuse 模式、活跃任务、进程信息；查卡片 URL 端口也用它。
+- `moa_status_agents` — 从 CLI home 的 session 树（`wire.jsonl` / `state.json` / `tasks/*.json`）折叠出 agent 快照：父子血缘（`parentAgentId`）、busy、local/remote 来源，按 `lastSeen` 排序，默认上限 100（可 `limit`/`sessionId` 过滤）；嵌套子代理同样入树。
+
+前端落在 `/status-board` 页：按 session 分组的嵌套隶属树，活跃 agent 自动置顶、不活跃折叠。数据源是 omkc 内嵌的 loopback SSE（探测 127.0.0.1:39631 `/health`），**零写盘**、纯只读。
 
 ### Project Tips（功能想法卡片）
 
