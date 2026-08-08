@@ -15,7 +15,7 @@
  *    boot).
  */
 
-export type TowerAgentKind = 'tower' | 'worker' | 'reviewer';
+export type TowerAgentKind = 'tower' | 'worker' | 'reviewer' | 'delegator';
 
 export interface TowerRosterEntry {
   /** Display/route name, e.g. `tower`, `agent-build`, `reviewer-a`. Unique per workspace. */

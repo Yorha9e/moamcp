@@ -32,6 +32,14 @@ import { basename, dirname, join, resolve } from 'node:path';
 export const TOWER_NAME = 'tower';
 /** Broadcast inbox recipient. */
 export const BROADCAST_NAME = 'all';
+/**
+ * Reserved roster name for the optional boot-registered delegator (M1 — the
+ * delegation channel). A delegator may ONLY call `moa_tower_send` addressed
+ * to the tower; every other tower tool rejects it (see tools.ts). The name
+ * slug is reserved for spawned agents too (assertNameAvailable) so a
+ * worker/reviewer can never be registered as "delegator".
+ */
+export const DELEGATOR_NAME = 'delegator';
 
 /**
  * Worktree slots live in a sibling directory `<repoName>-worktrees/` of the
