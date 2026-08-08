@@ -12760,7 +12760,7 @@ function targetSlug(target) {
 var import_picomatch = __toESM(require_picomatch2(), 1);
 import { spawn } from "node:child_process";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { access, mkdir as mkdir5, readFile as readFile5, rename as rename3, rm, writeFile as writeFile2 } from "node:fs/promises";
+import { access, mkdir as mkdir5, readFile as readFile5, readdir as readdir5, rename as rename3, rm, unlink as unlink5, writeFile as writeFile2 } from "node:fs/promises";
 import { dirname as dirname4, isAbsolute as isAbsolute3, join as join7 } from "node:path";
 
 // src/core/store/board.ts
@@ -14785,6 +14785,24 @@ function truncateTail(text, maxBytes) {
   return kept.join("\n");
 }
 var FENCE = "---";
+async function unlinkRootLinks(dir) {
+  let entries;
+  try {
+    entries = await readdir5(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const removed = [];
+  for (const entry of entries) {
+    if (!entry.isSymbolicLink()) continue;
+    try {
+      await unlink5(join7(dir, entry.name));
+      removed.push(entry.name);
+    } catch {
+    }
+  }
+  return removed;
+}
 function renderFrontmatter(fields) {
   const lines = [FENCE];
   for (const [key, value] of Object.entries(fields)) {
@@ -16172,6 +16190,10 @@ ${input.body.trim()}
         }
       }
       try {
+        const unlinked = await unlinkRootLinks(absPath);
+        if (unlinked.length > 0) {
+          report.push(`unlinked junctions in ${mission.worktree}: ${unlinked.join(", ")}`);
+        }
         await worktreeRemove(this.repoRoot, absPath, options.force === true);
         report.push(`removed ${mission.worktree}`);
         await this.appendLog(TOWER_NAME, "worktree.remove", { worktree: mission.worktree });
@@ -16593,7 +16615,7 @@ function towerTools(controller) {
     },
     {
       name: "moa_tower_spawn",
-      description: "Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission's physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool (run_in_background=true) and completes the enrollment with moa_tower_register(agent_id=\u2026). Reviewers take review_target (a branch to review) instead of a mission.",
+      description: "Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission's physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool in the FOREGROUND (never run_in_background=true \u2014 a backgrounded child cannot wake the tower when it completes): phase 1 does offline work only (workers: code + local commits; reviewers: read-only verdict draft) with no tower calls, then moa_tower_register(agent_id=\u2026) completes the enrollment and a foreground resume (phase 2) lets the agent submit tower reports under its own identity. Reviewers take review_target (a branch to review) instead of a mission.",
       inputSchema: {
         type: "object",
         properties: {
@@ -16696,7 +16718,7 @@ function towerTools(controller) {
           agent_id: "",
           status: "pending-register",
           notes,
-          next: `Launch the ${kind} with your Agent tool (run_in_background=true), then complete enrollment: moa_tower_register(workspace, name="${name}", agent_id=<the engine agent id>).`
+          next: `Launch the ${kind} with your Agent tool in the FOREGROUND (phase 1: offline work only, no tower calls \u2014 a backgrounded child cannot wake you), then complete enrollment: moa_tower_register(workspace, name="${name}", agent_id=<the engine agent id>), and resume it (foreground, phase 2) so it submits tower calls under its own identity.`
         };
       })
     },
@@ -17031,7 +17053,7 @@ function towerTools(controller) {
     },
     {
       name: "moa_tower_teardown",
-      description: "Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force), delete the guard mirror file, and clear the live tower namespace so a fresh boot is possible. The append-only board JSONL stays as the audit trail.",
+      description: "Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force) \u2014 root-level symlinks/junctions inside each worktree are unlinked first so junction targets are never touched (git for Windows follows junctions on recursive removal) \u2014 delete the guard mirror file, and clear the live tower namespace so a fresh boot is possible. The append-only board JSONL stays as the audit trail.",
       inputSchema: {
         type: "object",
         properties: {
@@ -17272,7 +17294,7 @@ function createTowerModule(controller) {
 }
 
 // src/core/store/project-migration.ts
-import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile6, rename as rename4, stat as stat4, truncate, unlink as unlink5, writeFile as writeFile3 } from "node:fs/promises";
+import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile6, rename as rename4, stat as stat4, truncate, unlink as unlink6, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join8 } from "node:path";
 async function fileSizeOrZero(file) {
   try {
@@ -17284,7 +17306,7 @@ async function fileSizeOrZero(file) {
 }
 async function rollbackToSize(file, size) {
   if (size === 0) {
-    await unlink5(file).catch(() => {
+    await unlink6(file).catch(() => {
     });
     return;
   }
@@ -19046,12 +19068,12 @@ var LIB_JS = `
     function connect() {
       if (stopped) return;
       sse = new EventSource(url);
-      if (onState) onState('connecting', '\u25CF sse');
+      if (onState) onState('connecting', 'sse');
 
       sse.onopen = function() {
         fails = 0;
         delay = 800;
-        if (onState) onState('open', '\u25CF sse');
+        if (onState) onState('open', 'sse');
       };
 
       sse.onmessage = function(ev) {
@@ -19909,7 +19931,7 @@ var I18N_DICTIONARIES = {
     "status.subtreeCollapse": "Collapse subtree",
     "status.subtreeExpand": "Expand subtree",
     "tower.title": "Tower Workflow",
-    "tower.connecting": "connected",
+    "tower.polling": "live \xB7 5s poll",
     "tower.scanning": "Scanning workspaces\u2026",
     "tower.noBooted": "No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.",
     "tower.notReady": "Tower controller is not running. Start or reuse a session to begin monitoring.",
@@ -19958,7 +19980,9 @@ var I18N_DICTIONARIES = {
     "tower.expand": "Expand",
     "tower.collapse": "Collapse",
     "tower.reviewsFor": "Reviews for {branch}",
-    "tower.updatedAt": "Updated {time}"
+    "tower.updatedAt": "Updated {time}",
+    "tower.countsMissions": "missions",
+    "tower.countsAgents": "agents"
   },
   "zh-CN": {
     "app.brand": "MOA \u5DE5\u4F5C\u533A",
@@ -20317,7 +20341,7 @@ var I18N_DICTIONARIES = {
     "status.subtreeExpand": "\u5C55\u5F00\u5B50\u6811",
     "app.tower": "\u5854\u53F0\u5DE5\u4F5C\u6D41",
     "tower.title": "\u5854\u53F0\u5DE5\u4F5C\u6D41",
-    "tower.connecting": "\u5DF2\u8FDE\u63A5",
+    "tower.polling": "live \xB7 5 \u79D2\u8F6E\u8BE2",
     "tower.scanning": "\u626B\u63CF\u5DE5\u4F5C\u533A\u4E2D\u2026",
     "tower.noBooted": "\u5DF2\u6CE8\u518C\u7684\u5DE5\u4F5C\u533A\u4E2D\u672A\u627E\u5230\u5DF2 boot \u7684\u5854\u53F0\u3002\u8BF7\u5148\u7528 moa_tower_boot \u542F\u52A8\uFF0C\u518D\u5237\u65B0\u672C\u9875\u3002",
     "tower.notReady": "\u5854\u53F0\u63A7\u5236\u5668\u672A\u542F\u52A8\u3002\u8BF7\u542F\u52A8\u6216\u590D\u7528\u4F1A\u8BDD\u540E\u5F00\u59CB\u76D1\u63A7\u3002",
@@ -20366,7 +20390,9 @@ var I18N_DICTIONARIES = {
     "tower.expand": "\u5C55\u5F00",
     "tower.collapse": "\u6536\u8D77",
     "tower.reviewsFor": "{branch} \u7684\u8BC4\u5BA1",
-    "tower.updatedAt": "\u66F4\u65B0\u4E8E {time}"
+    "tower.updatedAt": "\u66F4\u65B0\u4E8E {time}",
+    "tower.countsMissions": "\u4E2A\u4EFB\u52A1",
+    "tower.countsAgents": "\u4E2A\u4EE3\u7406"
   }
 };
 var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
@@ -25690,6 +25716,7 @@ ${COMPONENTS_CSS}
   height: 8px;
   border-radius: 50%;
   background: var(--accent-green);
+  color: var(--accent-green);
   box-shadow: var(--glow-ring);
   animation: twPulse 2s ease-in-out infinite;
   flex: 0 0 auto;
@@ -25700,8 +25727,8 @@ ${COMPONENTS_CSS}
   animation: none;
 }
 @keyframes twPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
-  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 5px transparent; }
 }
 .tw-conn {
   color: var(--text-dim);
@@ -25828,8 +25855,16 @@ ${COMPONENTS_CSS}
 .tw-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tw-cell.tw-agent { font-family: var(--font-mono); color: var(--accent-blue); }
 .tw-mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); }
-.tw-status { justify-self: start; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
-.tw-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-status, .tw-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-status { justify-self: start; }
+.tw-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.tw-status.tw-st-planned { background: var(--tint-amber); color: var(--accent-amber); }
+.tw-status.tw-st-active { background: var(--tint-blue); color: var(--accent-blue); }
+.tw-status.tw-st-active .tw-status-dot { animation: twPulse 2s ease-in-out infinite; }
+.tw-status.tw-st-completed { background: var(--tint-green); color: var(--accent-green); }
+.tw-status.tw-st-blocked { background: var(--tint-red); color: var(--accent-red); }
+.tw-status.tw-st-paused { background: var(--tint-purple); color: var(--accent-purple); }
+.tw-status.tw-st-merged { background: var(--tint-green); color: var(--accent-green); }
 .tw-badge.tw-ci-ok { background: var(--tint-green); color: var(--accent-green); }
 .tw-badge.tw-ci-fail { background: var(--tint-red); color: var(--accent-red); }
 .tw-badge.tw-ci-skip { background: var(--tint-amber); color: var(--accent-amber); }
@@ -25859,7 +25894,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader("tower")}
   <div class="tw-toolbar">
     <span class="tw-live" id="twLive"></span>
-    <span class="tw-conn" id="twConn" data-i18n="tower.connecting">connected</span>
+    <span class="tw-conn" id="twConn" data-i18n="tower.polling">live \xB7 5s poll</span>
     <label for="twRepo" class="tw-repo-label" data-i18n="tower.repo">Repo</label>
     <select id="twRepo" aria-label="Booted tower repo"></select>
     <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces\u2026</span></span>
@@ -25935,8 +25970,6 @@ ${LIB_JS}
   var api = lib.api;
   var POLL_MS = (lib.POLL_MS && lib.POLL_MS.tower) || 5000;
   var REPO_KEY = 'moamcp-tower-repo';
-
-  var STATUS_EMOJI = { planned: '\u{1F7E1}', active: '\u{1F535}', completed: '\u{1F7E2}', blocked: '\u{1F534}', paused: '\u23F8\uFE0F', merged: '\u2705' };
 
   var liveEl = document.getElementById('twLive');
   var connEl = document.getElementById('twConn');
@@ -26044,8 +26077,11 @@ ${LIB_JS}
       var status = document.createElement('div');
       status.className = 'tw-cell';
       var badge = document.createElement('span');
-      badge.className = 'tw-status';
-      badge.textContent = (STATUS_EMOJI[m.status] || '') + ' ' + m.status;
+      badge.className = 'tw-status' + (m.status ? ' tw-st-' + m.status : '');
+      var dot = document.createElement('span');
+      dot.className = 'tw-status-dot';
+      badge.appendChild(dot);
+      badge.appendChild(document.createTextNode(m.status || ''));
       status.appendChild(badge);
       row.appendChild(status);
       row.appendChild(makeCell(m.owner || '\u2014'));
@@ -26074,7 +26110,7 @@ ${LIB_JS}
     var missions = (lastMissions && lastMissions.missions) || [];
     var roster = (lastState && lastState.roster) || [];
     var updated = new Date().toISOString();
-    countsEl.textContent = missions.length + ' missions \xB7 ' + roster.length + ' agents \xB7 ' + tr('tower.updatedAt', { time: fmt(updated) });
+    countsEl.textContent = missions.length + ' ' + tr('tower.countsMissions') + ' \xB7 ' + roster.length + ' ' + tr('tower.countsAgents') + ' \xB7 ' + tr('tower.updatedAt', { time: fmt(updated) });
   }
   function renderAll() {
     renderRoster();
@@ -26173,7 +26209,7 @@ ${LIB_JS}
   function refresh() {
     if (!current) return;
     var ws = encodeURIComponent(current.cwd);
-    setConn('open', '\u25CF ' + tr('tower.connecting'));
+    setConn('open', tr('tower.polling'));
     Promise.all([
       api('/api/tower/state?workspace=' + ws),
       api('/api/tower/missions?workspace=' + ws),
@@ -26183,7 +26219,7 @@ ${LIB_JS}
       lastMissions = results[1];
       lastLog = results[2];
       renderAll();
-      setConn('open', '\u25CF ' + tr('tower.connecting'));
+      setConn('open', tr('tower.polling'));
       if (findingsOpen) loadFindings();
       if (reviewsOpen) loadReviews();
     }).catch(function (err) {
@@ -26229,7 +26265,7 @@ ${LIB_JS}
     findingsPanel.className = 'tw-panel collapsed';
     reviewsPanel.className = 'tw-panel collapsed';
     notReadyEl.hidden = true;
-    setConn('open', '\u25CF ' + tr('tower.connecting'));
+    setConn('open', tr('tower.polling'));
     refresh();
   }
   function discover() {
@@ -26289,7 +26325,7 @@ ${LIB_JS}
 
 // src/modules/handoff/handoff.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
-import { readdir as readdir5 } from "node:fs/promises";
+import { readdir as readdir6 } from "node:fs/promises";
 import { isAbsolute as isAbsolute4 } from "node:path";
 var HANDOFF_USER_GLOBAL = "user-global";
 var HANDOFF_STATES = ["pending", "consumed", "archived"];
@@ -26648,7 +26684,7 @@ var HandoffStore = class {
     const scopes = [{ scope: "global" }];
     let names;
     try {
-      names = await readdir5(this.board.boardsDir());
+      names = await readdir6(this.board.boardsDir());
     } catch (err) {
       if (err.code === "ENOENT") return scopes;
       throw err;
@@ -28257,6 +28293,25 @@ ${COMPONENTS_CSS}
   box-shadow: var(--shadow-1);
 }
 .debate-context .badge { margin-left: auto; }
+/* Live dot: mirrors status-board's .sb-live (pulse when open, static grey when off). */
+.dc-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+  animation: dcPulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.dc-live.off {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
+@keyframes dcPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+}
 .debate-content {
   max-width: 960px;
   margin: 0 auto;
@@ -28769,6 +28824,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader("debate")}
   <div class="debate-context" aria-label="Current debate context" data-i18n-aria="debate.context">
     <span class="task" id="taskId"></span>
+    <span class="dc-live off" id="dcLive"></span>
     <span id="conn"></span>
     <span class="badge" id="badge" data-i18n="debate.connecting">connecting</span>
   </div>
@@ -29834,13 +29890,17 @@ ${STATUS_MODEL_JS}
   /* Shared lib.ts connectSSE: the same 3-fail backoff reconnect this page
      used to hand-roll; the waiting hint still arms 3s after every open.
      'connecting' is skipped so #conn stays empty until the stream opens
-     or errors, exactly as with the hand-rolled version. */
+     or errors, exactly as with the hand-rolled version. The #dcLive dot
+     mirrors status-board's .sb-live: off when disconnected/errored, pulsing
+     on open. */
   window.__moaLib.connectSSE('/subscribe?task_id=' + encodeURIComponent(taskId), function (data) {
     gotAny = true;
     onEvent(data);
   }, function (state, msg) {
     if (state === 'connecting') return;
     setConn(msg);
+    var liveEl = document.getElementById('dcLive');
+    if (liveEl) liveEl.className = 'dc-live' + (state === 'open' ? '' : ' off');
     if (state === 'open') {
       setTimeout(function () {
         if (!gotAny) showWaitingHint();
