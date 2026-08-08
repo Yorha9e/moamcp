@@ -1,13 +1,17 @@
 /**
- * Tower CI (B2) — moa_tower_ci over a REAL git temp repo with a fake `node -e`
- * CI command. Covers (基准 B2 list): green run + merge pass, red run blocks
- * the merge gate (reason=ci-failed), dirty-worktree interception (error +
- * dirty flag + gate block), 64KB log truncation (tail 200 lines + single-line
- * cap + ≤64KB total), gate commit-mismatch interception (recorded commit ≠
- * current tip → block; re-run unblocks), and the not-configured skip
- * (reason=ci-not-configured). Plus the B2-4 idempotent ci_command re-boot and
- * the B2R-2 caller-verified re-boot channel (non-tower id rejected) + B2R-8
- * non-tower moa_tower_ci rejection.
+ * Tower CI (B2 + M1 async) — moa_tower_ci over a REAL git temp repo with a
+ * fake `node -e` CI command. Covers (基准 B2 list): green run + merge pass,
+ * red run blocks the merge gate (reason=ci-failed), dirty-worktree
+ * interception (error + dirty flag + gate block), 64KB log truncation (tail
+ * 200 lines + single-line cap + ≤64KB total), gate commit-mismatch
+ * interception (recorded commit ≠ current tip → block; re-run unblocks), and
+ * the not-configured skip (reason=ci-not-configured). M1 async: moa_tower_ci
+ * returns {run_id, started_at, status:"started"} immediately and the
+ * ci/<branchSlug> record lands when the background process exits — the tests
+ * await it with moa_tower_wait(kind="ci") (the intended await channel). Plus
+ * the B2-4 idempotent ci_command re-boot and the B2R-2 caller-verified
+ * re-boot channel (non-tower id rejected) + B2R-8 non-tower moa_tower_ci
+ * rejection.
  *
  * Real git + node subprocesses → 30s file-level timeout.
  */
@@ -104,6 +108,21 @@ async function call(client: Client, name: string, args: Record<string, unknown>)
   return JSON.parse((response.content as Array<{ type: string; text: string }>)[0].text);
 }
 
+/** Await the async CI record via moa_tower_wait(kind='ci') — the intended
+ *  channel (returns {status:'ok', ...record}); a timeout here is a failure. */
+async function waitForCi(env: CiEnv, branch: string, timeoutMs = 10_000): Promise<any> {
+  const { client, repoRoot } = env;
+  const outcome = await call(client, 'moa_tower_wait', {
+    workspace: repoRoot,
+    caller_agent_id: 'agent-orch',
+    wait: { kind: 'ci', branch },
+    timeoutMs,
+  });
+  expect(outcome.status).toBe('ok');
+  expect(outcome.kind).toBe('ci');
+  return outcome;
+}
+
 async function commitFile(worktree: string, relPath: string, content: string, message: string): Promise<void> {
   const file = join(worktree, relPath);
   await mkdir(join(file, '..'), { recursive: true });
@@ -155,7 +174,7 @@ async function expectBlockedLog(env: CiEnv, reason: string): Promise<void> {
   expect(lines.some((line) => line.includes('merge.blocked') && line.includes(`reason=${reason}`))).toBe(true);
 }
 
-it('green CI: moa_tower_ci records exit 0 + tip commit + logRef; status shows it; merge passes', async () => {
+it('green CI: moa_tower_ci starts async (run_id/started_at) and the landed record is green + tip commit + logRef; status shows it; merge passes', async () => {
   const env = await makeEnv('green');
   const { client, repoRoot } = env;
   const { branch } = await readyBranch(env);
@@ -163,10 +182,15 @@ it('green CI: moa_tower_ci records exit 0 + tip commit + logRef; status shows it
   const ci = await call(client, 'moa_tower_ci', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
-  expect(ci).toMatchObject({ ran: true, branch, exit_code: 0, dirty: false });
-  expect(ci.commit).toBe(tip);
-  expect(typeof ci.log_ref).toBe('string');
-  expect(ci.log_ref).toMatch(/\/ci\/feat-m1-build-the-parser\/\d+-[0-9a-f]{8}$/);
+  expect(ci).toMatchObject({ status: 'started', branch });
+  expect(typeof ci.run_id).toBe('string');
+  expect(typeof ci.started_at).toBe('string');
+
+  const rec = await waitForCi(env, branch);
+  expect(rec).toMatchObject({ branch, commit: tip, exit_code: 0, dirty: false });
+  expect(typeof rec.log_ref).toBe('string');
+  expect(rec.log_ref).toMatch(/\/ci\/feat-m1-build-the-parser\/\d+-[0-9a-f]{8}$/);
+  expect(rec.run_id).toBe(ci.run_id); // the started call correlates with the record
 
   const status = await call(client, 'moa_tower_status', { workspace: repoRoot, caller_agent_id: 'agent-orch' });
   expect(status.ci.configured).toBe(true);
@@ -186,8 +210,9 @@ it('red CI: exit 1 records a failed result and the merge gate blocks (reason=ci-
   const ci = await call(client, 'moa_tower_ci', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
-  expect(ci.ran).toBe(true);
-  expect(ci.exit_code).toBe(1);
+  expect(ci.status).toBe('started');
+  const rec = await waitForCi(env, branch);
+  expect(rec.exit_code).toBe(1);
   const blocked = await call(client, 'moa_tower_merge', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
@@ -225,7 +250,9 @@ it('dirty-tree interception: dirty worktree errors with a commit-first hint + di
   const clean = await call(client, 'moa_tower_ci', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
-  expect(clean).toMatchObject({ ran: true, exit_code: 0, dirty: false });
+  expect(clean).toMatchObject({ status: 'started' });
+  const cleanRec = await waitForCi(env, branch);
+  expect(cleanRec).toMatchObject({ exit_code: 0, dirty: false });
   const merged = await call(client, 'moa_tower_merge', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
@@ -240,8 +267,9 @@ it('64KB truncation: the stored run log is ≤64KB, ≤200 lines, and every line
   const ci = await call(client, 'moa_tower_ci', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
-  expect(ci.ran).toBe(true);
-  const rows = await env.board.read(ci.log_ref, undefined, 'workspace', 1, repoRoot);
+  expect(ci.status).toBe('started');
+  const rec = await waitForCi(env, branch);
+  const rows = await env.board.read(rec.log_ref, undefined, 'workspace', 1, repoRoot);
   expect(rows).toHaveLength(1);
   const value = rows[0]!.value;
   expect(Buffer.byteLength(value, 'utf8')).toBeLessThanOrEqual(64 * 1024);
@@ -260,7 +288,9 @@ it('gate commit mismatch: CI green on an old tip cannot merge after the tip move
   const first = await call(client, 'moa_tower_ci', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
-  expect(first.exit_code).toBe(0);
+  expect(first.status).toBe('started');
+  const firstRec = await waitForCi(env, branch);
+  expect(firstRec.exit_code).toBe(0);
   // Move the tip, then re-review clean (so the review gate passes and the CI
   // gate is the one that must catch the stale record).
   await commitFile(worktree, 'src/parser2.ts', 'more\n', 'more work');
@@ -275,10 +305,11 @@ it('gate commit mismatch: CI green on an old tip cannot merge after the tip move
   expect(blocked.output).toMatch(/not green/);
   await expectBlockedLog(env, 'ci-failed');
   // Re-run CI on the new tip → merge goes through.
-  const second = await call(client, 'moa_tower_ci', {
+  await call(client, 'moa_tower_ci', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
-  expect(second.commit).not.toBe(first.commit);
+  const secondRec = await waitForCi(env, branch);
+  expect(secondRec.commit).not.toBe(firstRec.commit);
   const merged = await call(client, 'moa_tower_merge', {
     workspace: repoRoot, caller_agent_id: 'agent-orch', branch,
   });
