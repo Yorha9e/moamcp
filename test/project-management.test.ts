@@ -301,7 +301,7 @@ describe('control plane project management (task 6)', () => {
     // The real detach succeeds and reports the restored sidecar.
     const detached = await request(`/api/projects/${projectId}/aliases/${idA}`, { method: 'DELETE' });
     expect(detached.response.status).toBe(200);
-    expect(detached.body).toEqual({ ok: true, projectId, pathHash: idA, removedCwd: workspaceA, restoredSidecar: true });
+    expect(detached.body).toEqual({ ok: true, projectId, pathHash: idA, removedCwd: workspaceA, restoredSidecar: true, restoredBoard: true });
 
     // Alias gone, the project survives with an empty cwds list, and the
     // directory is back in the workspace listing (sidecar restored).
@@ -325,6 +325,20 @@ describe('control plane project management (task 6)', () => {
 
     // Detaching again is now a 404 (the alias no longer belongs to the project).
     expect((await request(`/api/projects/${projectId}/aliases/${idA}`, { method: 'DELETE' })).response.status).toBe(404);
+  });
+
+  it('detaches an alias with no board archive: sidecar restored, restoredBoard false (6b)', async () => {
+    const idB = workspaceIdForPath(workspaceB);
+    // workspaceB is registered (so it HAS a sidecar) but never written to, so no
+    // `ws-<idB>.jsonl` board exists; migration skips the absent file and detach
+    // has no board archive to restore.
+    const migrated = await request('/api/projects/migrate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json({ workspace: idB, name: 'EmptyB' }) });
+    expect(migrated.response.status).toBe(200);
+    const projectId = migrated.body.projectId;
+
+    const detached = await request(`/api/projects/${projectId}/aliases/${idB}`, { method: 'DELETE' });
+    expect(detached.response.status).toBe(200);
+    expect(detached.body).toEqual({ ok: true, projectId, pathHash: idB, removedCwd: workspaceB, restoredSidecar: true, restoredBoard: false });
   });
 
   it('archives a project over HTTP: hidden, files archived, aliases dropped, browse/second-archive 404 (6c)', async () => {

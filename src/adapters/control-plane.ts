@@ -1077,6 +1077,7 @@ export class ControlPlane {
       pathHash,
       removedCwd: result.removedCwd ?? null,
       restoredSidecar: result.restoredSidecar,
+      restoredBoard: result.restoredBoard,
     });
   }
 
