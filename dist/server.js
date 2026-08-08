@@ -31462,6 +31462,7 @@ import { createHash as createHash3 } from "node:crypto";
 import { basename, dirname as dirname3, join as join7, resolve as resolve4 } from "node:path";
 var TOWER_NAME = "tower";
 var BROADCAST_NAME = "all";
+var DELEGATOR_NAME = "delegator";
 function worktreesRoot(repoRoot) {
   return join7(dirname3(repoRoot), `${basename(repoRoot)}-worktrees`);
 }
@@ -31745,6 +31746,27 @@ var CI_LOG_MAX_LINES = 200;
 var CI_LOG_LINE_MAX_CHARS = 1e3;
 var CI_LOG_MAX_BYTES = 64 * 1024;
 var CI_OUTPUT_CAP_BYTES = 2 * 1024 * 1024;
+var WAIT_INBOX_POLL_MS = 100;
+function sleep3(ms) {
+  return new Promise((resolve7) => {
+    setTimeout(resolve7, ms);
+  });
+}
+function towerWaitCapMs() {
+  const env = Number(process.env.MOAMCP_WAIT_CAP_MS);
+  return Number.isFinite(env) && env > 0 ? env : DEFAULT_WAIT_CAP_MS;
+}
+var ciRunChains = /* @__PURE__ */ new Map();
+function chainCiRun(key, task) {
+  const previous = ciRunChains.get(key) ?? Promise.resolve();
+  const completion = previous.then(task);
+  const tail = completion.then(() => void 0, () => void 0);
+  ciRunChains.set(key, tail);
+  void tail.then(() => {
+    if (ciRunChains.get(key) === tail) ciRunChains.delete(key);
+  });
+  return completion;
+}
 var PROGRESS_MAX_BYTES = 80 * 1024;
 function truncateCiLog(raw) {
   const lines = raw.split(/\r?\n/).slice(-CI_LOG_MAX_LINES).map(
@@ -31766,29 +31788,29 @@ function truncateCiLog(raw) {
   }
   return text;
 }
-function execCiCommand(cwd, command) {
-  return new Promise((resolve7) => {
-    const isWindows = process.platform === "win32";
-    const child = spawn(isWindows ? "cmd" : "/bin/sh", isWindows ? ["/c", command] : ["-c", command], {
-      cwd,
-      windowsHide: true,
-      env: process.env
-      // env 继承
-    });
-    let out = "";
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill();
-    }, CI_TIMEOUT_MS);
-    const append = (chunk) => {
-      out += chunk.toString("utf8");
-      if (Buffer.byteLength(out, "utf8") > CI_OUTPUT_CAP_BYTES) {
-        out = out.slice(out.length - CI_OUTPUT_CAP_BYTES);
-      }
-    };
-    child.stdout.on("data", append);
-    child.stderr.on("data", append);
+function spawnCiCommand(cwd, command) {
+  const isWindows = process.platform === "win32";
+  const child = spawn(isWindows ? "cmd" : "/bin/sh", isWindows ? ["/c", command] : ["-c", command], {
+    cwd,
+    windowsHide: true,
+    env: process.env
+    // env 继承
+  });
+  let out = "";
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill();
+  }, CI_TIMEOUT_MS);
+  const append = (chunk) => {
+    out += chunk.toString("utf8");
+    if (Buffer.byteLength(out, "utf8") > CI_OUTPUT_CAP_BYTES) {
+      out = out.slice(out.length - CI_OUTPUT_CAP_BYTES);
+    }
+  };
+  child.stdout.on("data", append);
+  child.stderr.on("data", append);
+  const done = new Promise((resolve7) => {
     child.on("error", (error2) => {
       clearTimeout(timer);
       resolve7({ exitCode: null, output: `${out}
@@ -31801,6 +31823,10 @@ function execCiCommand(cwd, command) {
       resolve7({ exitCode: timedOut ? null : code, output: `${out}${suffix}` });
     });
   });
+  return { done };
+}
+function execCiCommand(cwd, command) {
+  return spawnCiCommand(cwd, command).done;
 }
 function truncateTail(text, maxBytes) {
   if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
@@ -31969,7 +31995,10 @@ var TowerStore = class {
       mode,
       createdAt,
       roster: {
-        agents: [{ name: TOWER_NAME, agentId: towerAgentId, kind: "tower", spawnedAt: createdAt }]
+        agents: [
+          { name: TOWER_NAME, agentId: towerAgentId, kind: "tower", spawnedAt: createdAt },
+          ...opts.delegatorAgentId !== void 0 && opts.delegatorAgentId.trim().length > 0 ? [{ name: DELEGATOR_NAME, agentId: opts.delegatorAgentId.trim(), kind: "delegator", spawnedAt: createdAt }] : []
+        ]
       },
       missions: []
     };
@@ -31994,7 +32023,8 @@ var TowerStore = class {
     await this.appendLog(TOWER_NAME, "boot", {
       base,
       mode,
-      ci: opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0 ? "configured" : void 0
+      ci: opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0 ? "configured" : void 0,
+      delegator: opts.delegatorAgentId !== void 0 && opts.delegatorAgentId.trim().length > 0 ? "registered" : void 0
     });
     return { base, created: true };
   }
@@ -32158,15 +32188,16 @@ var TowerStore = class {
   /**
    * Shared roster-name collision judgment (B1R-1), read-only over `state`:
    * rejects an exact duplicate, a slug collision with an existing roster
-   * member, or a reserved slug ("tower" / "all"). Throws the canonical
-   * TowerProtocolError naming the conflicting object.
+   * member, or a reserved slug ("tower" / "all" / "delegator"). Throws the
+   * canonical TowerProtocolError naming the conflicting object.
    *
    * B1R-1: review keys embed `slugify(name)` (`review/<targetSlug>/<slug>-r<n>`),
    * so names that normalize to the SAME slug ("Reviewer A" vs "reviewer-a")
    * would silently LWW-overwrite each other's review doc on the same
    * target+round and bypass the merge gate. Registration therefore rejects any
    * name whose slug collides with an existing roster member or with the
-   * reserved tower/broadcast names — the error names the conflicting object.
+   * reserved tower/broadcast/delegator names — the error names the
+   * conflicting object.
    *
    * Single source of truth: `registerAgent` runs it inside its board mutate
    * (defense in depth against concurrent spawns) AND the spawn tool runs it
@@ -32185,8 +32216,8 @@ var TowerStore = class {
         );
       }
     }
-    if (slug === slugify2(TOWER_NAME, 30) || slug === slugify2(BROADCAST_NAME, 30)) {
-      const reserved = slug === slugify2(TOWER_NAME, 30) ? TOWER_NAME : BROADCAST_NAME;
+    if (slug === slugify2(TOWER_NAME, 30) || slug === slugify2(BROADCAST_NAME, 30) || slug === slugify2(DELEGATOR_NAME, 30)) {
+      const reserved = slug === slugify2(TOWER_NAME, 30) ? TOWER_NAME : slug === slugify2(BROADCAST_NAME, 30) ? BROADCAST_NAME : DELEGATOR_NAME;
       throw new TowerProtocolError(
         `tower agent name "${name}" collides with reserved name "${reserved}" \u2014 review slug "${slug}" is reserved; choose a distinct name`
       );
@@ -32358,27 +32389,21 @@ var TowerStore = class {
     }
   }
   // ---------------------------------------------------------------------
-  // CI (B2) — `moa_tower_ci` runs the repo doc's ci_command in the mission's
-  // worktree and records `ci/<branchSlug>`; the merge gate reads it back
-  // (store.ts merge step 7b). The in-process serial queue lives on the
-  // controller (单塔台单会话 assumption — 风险台账 9/11: no cross-process
-  // mutex; a multi-tower v2 must add one).
+  // CI (B2 + M1 async) — `moa_tower_ci` runs the repo doc's ci_command in
+  // the mission's worktree and records `ci/<branchSlug>`; the merge gate
+  // reads it back (store.ts merge step 7b). M1: the tool spawns the process
+  // and returns immediately with {runId, startedAt, status:'started'}; the
+  // record that lands when the process exits is the SOURCE OF TRUTH, and
+  // `moa_tower_wait(wait={kind:'ci', branch})` is the intended way to await
+  // it. Runs are serialized per worktree (module-level chain — 单塔台单会话
+  // assumption, 风险台账 9/11: no cross-process mutex; a multi-tower v2 must
+  // add one).
   // ---------------------------------------------------------------------
-  /**
-   * Run the CI command for a branch's mission worktree and persist the result
-   * under `ci/<branchSlug>` (LWW latest run — the run itself is serialized by
-   * the controller queue).
-   *
-   * Dirty-tree interception (B2-3): a dirty worktree is checked BEFORE any
-   * execution; the run is recorded as failed (exitCode null, dirty true) and
-   * the caller reports an error telling the tower to commit first. The merge
-   * gate requires a clean (dirty:false, exitCode:0) record.
-   *
-   * The run log is truncated (tail 200 lines + single-line truncation + ≤64KB
-   * total — B2-5) and stored under `ci/<branchSlug>/<ts>-<rand>`; if that log
-   * write fails the ci record still lands with `logError` set.
-   */
-  async runCi(branch, ciCommand) {
+  /** Shared CI preflight: the branch must belong to a mission whose worktree
+   *  exists. Returns the absolute worktree path (both the blocking `runCi`
+   *  and the async `startCi` use it; `moa_tower_wait(kind='ci')` uses it for
+   *  the branch-tip comparison). */
+  async ciContext(branch) {
     const state = await this.load();
     const missions = await this.loadMissions(state);
     const mission = missions.find((m) => m.branch === branch);
@@ -32393,31 +32418,12 @@ var TowerStore = class {
         `worktree ${mission.worktree} does not exist \u2014 spawn the mission (moa_tower_spawn) before running CI`
       );
     }
-    const dirty = await isWorktreeDirty(absPath);
-    const tip = await branchTip(this.repoRoot, branch);
-    const ranAt = (/* @__PURE__ */ new Date()).toISOString();
-    let exitCode = null;
-    let logRef;
-    let logError;
-    if (!dirty) {
-      const outcome = await execCiCommand(absPath, ciCommand);
-      exitCode = outcome.exitCode;
-      const truncated = truncateCiLog(outcome.output);
-      try {
-        const logKey = this.keys.ciLog(branch, Date.now(), randomUUID4().slice(0, 8));
-        await this.board.mutate(
-          "workspace",
-          (entries, ts) => {
-            entries.set(logKey, boardEntry(logKey, truncated, TOWER_NAME, ts, ["ci-log"]));
-          },
-          this.repoRoot
-        );
-        logRef = logKey;
-      } catch (error2) {
-        logError = error2 instanceof Error ? error2.message : String(error2);
-      }
-    }
-    const record2 = { branch, commit: tip, exitCode, dirty, logRef, logError, ranAt };
+    return { absPath };
+  }
+  /** Write one `ci/<branchSlug>` record + activity-log line (single writer —
+   *  shared by the dirty path, the blocking `runCi`, and the async completion
+   *  handler, so the record shape is identical everywhere). */
+  async persistCiRecord(branch, record2) {
     await this.board.mutate(
       "workspace",
       (entries, ts) => {
@@ -32430,17 +32436,208 @@ var TowerStore = class {
     );
     await this.appendLog(TOWER_NAME, "ci.run", {
       branch,
-      exit_code: exitCode === null ? void 0 : exitCode,
-      dirty: dirty ? "yes" : void 0,
-      commit: tip.slice(0, 7)
+      exit_code: record2.exitCode === null ? void 0 : record2.exitCode,
+      dirty: record2.dirty ? "yes" : void 0,
+      commit: record2.commit.slice(0, 7),
+      ...record2.runId !== void 0 ? { run_id: record2.runId } : {}
     });
     return record2;
+  }
+  /** Execute one CI run to completion and persist its record + log. Never
+   *  rejects: spawn/exec failures and log-write failures are written INTO the
+   *  record (`exitCode:null` / `logError`), so the detached completion handler
+   *  cannot produce an unhandled rejection. */
+  async completeCiRun(branch, ciCommand, ctx) {
+    let exitCode = null;
+    let logRef;
+    let logError;
+    const outcome = await execCiCommand(ctx.absPath, ciCommand);
+    exitCode = outcome.exitCode;
+    const truncated = truncateCiLog(outcome.output);
+    try {
+      const logKey = this.keys.ciLog(branch, Date.now(), randomUUID4().slice(0, 8));
+      await this.board.mutate(
+        "workspace",
+        (entries, ts) => {
+          entries.set(logKey, boardEntry(logKey, truncated, TOWER_NAME, ts, ["ci-log"]));
+        },
+        this.repoRoot
+      );
+      logRef = logKey;
+    } catch (error2) {
+      logError = error2 instanceof Error ? error2.message : String(error2);
+    }
+    const record2 = {
+      branch,
+      commit: ctx.tip,
+      exitCode,
+      dirty: false,
+      logRef,
+      logError,
+      ranAt: ctx.ranAt,
+      runId: ctx.runId
+    };
+    return this.persistCiRecord(branch, record2);
+  }
+  /**
+   * Blocking CI run — kept for direct store callers that want the synchronous
+   * contract (e.g. tower-tools tests; the tool itself uses the async
+   * `startCi`). Runs to completion, persists the record, returns it. Runs are
+   * serialized against in-flight async runs on the same worktree.
+   *
+   * Dirty-tree interception (B2-3): a dirty worktree is checked BEFORE any
+   * execution; the run is recorded as failed (exitCode null, dirty true) and
+   * the caller reports an error telling the tower to commit first. The merge
+   * gate requires a clean (dirty:false, exitCode:0) record.
+   */
+  async runCi(branch, ciCommand) {
+    const { absPath } = await this.ciContext(branch);
+    const dirty = await isWorktreeDirty(absPath);
+    const tip = await branchTip(this.repoRoot, branch);
+    const ranAt = (/* @__PURE__ */ new Date()).toISOString();
+    const runId = `${Date.now()}-${randomUUID4().slice(0, 8)}`;
+    if (dirty) {
+      const record2 = { branch, commit: tip, exitCode: null, dirty: true, ranAt, runId };
+      return this.persistCiRecord(branch, record2);
+    }
+    return this.runChainedCi(absPath, () => this.completeCiRun(branch, ciCommand, { absPath, tip, ranAt, runId }));
+  }
+  /**
+   * M1 async CI: validate + dirty-check, then SPAWN the CI process and return
+   * immediately with `{runId, startedAt, status:'started'}`. The completion
+   * handler (detached — after the tool call has returned) writes the usual
+   * `ci/<branchSlug>` record + per-run log key when the process exits; errors
+   * are caught and written into the record/log, never unhandled. The landing
+   * record is the source of truth — `moa_tower_wait(kind='ci')` is the
+   * intended way to await it.
+   *
+   * A dirty worktree (B2-3) never spawns: a dirty-failed record is written
+   * synchronously and the caller reports it as an error (status:'dirty').
+   */
+  async startCi(branch, ciCommand) {
+    const { absPath } = await this.ciContext(branch);
+    const dirty = await isWorktreeDirty(absPath);
+    const tip = await branchTip(this.repoRoot, branch);
+    const startedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const runId = `${Date.now()}-${randomUUID4().slice(0, 8)}`;
+    if (dirty) {
+      const record2 = { branch, commit: tip, exitCode: null, dirty: true, ranAt: startedAt, runId };
+      await this.persistCiRecord(branch, record2);
+      return { runId, startedAt, status: "dirty", record: record2 };
+    }
+    const completion = this.runChainedCi(
+      absPath,
+      () => this.completeCiRun(branch, ciCommand, { absPath, tip, ranAt: startedAt, runId })
+    );
+    void completion.catch((error2) => {
+      void this.appendLog(TOWER_NAME, "ci.run-error", {
+        branch,
+        run_id: runId,
+        error: error2 instanceof Error ? error2.message : String(error2)
+      }).catch(() => void 0);
+    });
+    return { runId, startedAt, status: "started" };
+  }
+  /** Chain one CI completion after in-flight runs on the same worktree. */
+  runChainedCi(absPath, task) {
+    return chainCiRun(absPath, task);
   }
   /** The latest `ci/<branchSlug>` result record, or undefined when none ran. */
   async loadCiResult(branch) {
     const rows = await this.board.read(this.keys.ci(branch), void 0, "workspace", 1, this.repoRoot);
     if (rows.length === 0) return void 0;
     return JSON.parse(rows[0].value);
+  }
+  // ---------------------------------------------------------------------
+  // Wait (M1) — the tower long-poll primitive behind `moa_tower_wait`.
+  // Modeled on moa_board_wait / moa_wait_turn: event/emit-based wakeup for
+  // fixed keys (ci record, mission doc — via BoardStore.wait, which also
+  // polls persistent scopes), poll fallback for the random-UUID inbox keys.
+  // Every kind returns {status:'ok', ...payload} on wake or
+  // {status:'timeout', retry:true} at the cap (timeoutMs clamped to the
+  // MOAMCP_WAIT_CAP_MS safety cap — see towerWaitCapMs).
+  // ---------------------------------------------------------------------
+  /** Validate + clamp a per-call timeoutMs against the wait safety cap. */
+  waitTimeout(timeoutMs) {
+    if (timeoutMs === void 0 || timeoutMs === null) return towerWaitCapMs();
+    if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      throw new TowerProtocolError("timeoutMs must be a positive number");
+    }
+    return Math.min(timeoutMs, towerWaitCapMs());
+  }
+  /**
+   * Wait kind=ci: block until the `ci/<branchSlug>` record exists AND its
+   * `commit` matches the branch's CURRENT tip. The tip is re-resolved from
+   * git on every check (the wait call itself rev-parses the branch in the
+   * mission worktree), so a stale record from an older tip NEVER satisfies
+   * the wait. Event-based: BoardStore.wait on the exact ci key wakes us when
+   * a new record lands (its persistent poller covers cross-process writers);
+   * the loop re-checks record + tip on every wake.
+   */
+  async waitForCi(branch, timeoutMs) {
+    await this.ciContext(branch);
+    const effectiveTimeout = this.waitTimeout(timeoutMs);
+    const deadline = Date.now() + effectiveTimeout;
+    let since;
+    for (; ; ) {
+      const rows = await this.board.read(this.keys.ci(branch), void 0, "workspace", 1, this.repoRoot);
+      const tip = await branchTip(this.repoRoot, branch);
+      if (rows.length > 0) {
+        const record2 = JSON.parse(rows[0].value);
+        if (record2.commit === tip) return { status: "ok", record: record2 };
+        since = rows[0].ts;
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return { status: "timeout", retry: true };
+      const wake = await this.board.wait(this.keys.ci(branch), "workspace", remaining, since, this.repoRoot);
+      if (wake.status !== "ready") continue;
+    }
+  }
+  /**
+   * Wait kind=inbox: block until the caller's tower inbox has at least one
+   * message (the same message set `moa_tower_inbox` would return). Inbox keys
+   * are random UUIDs — there is no fixed key to wait on, so this polls
+   * `readInbox` at WAIT_INBOX_POLL_MS (the poll-fallback path).
+   */
+  async waitForInbox(callerName, timeoutMs) {
+    const effectiveTimeout = this.waitTimeout(timeoutMs);
+    const deadline = Date.now() + effectiveTimeout;
+    for (; ; ) {
+      const messages = await this.readInbox(callerName, 1e3);
+      if (messages.length > 0) return { status: "ok", messages };
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return { status: "timeout", retry: true };
+      await sleep3(Math.min(WAIT_INBOX_POLL_MS, remaining));
+    }
+  }
+  /**
+   * Wait kind=mission: block until the mission doc's `status` field changes
+   * from what it was at call time (baseline captured first, then compared).
+   * Event-based: BoardStore.wait on the exact mission key with `since` =
+   * baseline ts wakes us on the next mission write; a write that leaves the
+   * status unchanged (e.g. a note) loops with the new ts. A board 'closed'
+   * result (the task scope was archived/closed out from under the waiter) is
+   * surfaced distinctly as {status:'closed'} — it is NOT a retryable timeout.
+   */
+  async waitForMission(id, timeoutMs) {
+    const baselineRows = await this.board.read(this.keys.mission(id), void 0, "workspace", 1, this.repoRoot);
+    if (baselineRows.length === 0) {
+      throw new TowerProtocolError(`unknown mission "${id}" \u2014 known missions require moa_tower_plan first`);
+    }
+    const baselineStatus = JSON.parse(baselineRows[0].value).status;
+    const effectiveTimeout = this.waitTimeout(timeoutMs);
+    const deadline = Date.now() + effectiveTimeout;
+    let since = baselineRows[0].ts;
+    for (; ; ) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return { status: "timeout", retry: true };
+      const wake = await this.board.wait(this.keys.mission(id), "workspace", remaining, since, this.repoRoot);
+      if (wake.status === "closed") return { status: "closed" };
+      if (wake.status !== "ready") continue;
+      const mission = JSON.parse(wake.entry.value);
+      if (mission.status !== baselineStatus) return { status: "ok", mission };
+      since = wake.entry.ts;
+    }
   }
   // ---------------------------------------------------------------------
   // Missions
@@ -33468,6 +33665,15 @@ async function resolveCaller(store, state, args) {
   }
   return store.resolveCallerName(state, agentId);
 }
+async function resolveCallerNonDelegator(store, state, args) {
+  const caller = await resolveCaller(store, state, args);
+  if (store.findAgent(state, caller)?.kind === "delegator") {
+    throw new TowerProtocolError(
+      `agent "${caller}" is a delegator \u2014 delegators may only call moa_tower_send addressed to "${TOWER_NAME}"`
+    );
+  }
+  return caller;
+}
 async function requireTower(store, args) {
   const state = await store.load();
   const caller = await resolveCaller(store, state, args);
@@ -33500,7 +33706,7 @@ function towerTools(controller) {
   return [
     {
       name: "moa_tower_boot",
-      description: 'Boot the tower workspace for a git repository: validates the repo (inside a git repo, \u22651 commit), writes the state + namespace identity docs to the shared board, and registers the tower roster entry (name "tower") with your orchestrator agent id. Idempotent lifecycle: repeated boot while booted errors; teardown clears the namespace so boot works again. No .tower/ directory is created inside the repo \u2014 state lives in the board, worktrees live in a sibling <repoName>-worktrees/ dir.',
+      description: 'Boot the tower workspace for a git repository: validates the repo (inside a git repo, \u22651 commit), writes the state + namespace identity docs to the shared board, and registers the tower roster entry (name "tower") with your orchestrator agent id. Idempotent lifecycle: repeated boot while booted errors; teardown clears the namespace so boot works again. No .tower/ directory is created inside the repo \u2014 state lives in the board, worktrees live in a sibling <repoName>-worktrees/ dir. Optional delegator_agent_id (M1): registers a roster entry {name:"delegator", kind:"delegator", agentId} \u2014 the delegation channel, which may ONLY call moa_tower_send addressed to the tower.',
       inputSchema: {
         type: "object",
         properties: {
@@ -33512,6 +33718,10 @@ function towerTools(controller) {
           tower_agent_id: {
             type: "string",
             description: "Your orchestrator agent id \u2014 the roster entry for the tower is registered with it."
+          },
+          delegator_agent_id: {
+            type: "string",
+            description: 'Optional delegator engine agent id (M1): registers the roster entry {name:"delegator", kind:"delegator", agentId}. A delegator may only call moa_tower_send addressed to the tower; every other tower tool rejects it.'
           },
           base: {
             type: "string",
@@ -33545,10 +33755,12 @@ function towerTools(controller) {
         const base = argString(args, "base");
         const modeArg = argString(args, "mode");
         const ciCommand = argString(args, "ci_command");
+        const delegatorAgentId = argString(args, "delegator_agent_id");
         const result = await store.boot(towerAgentId, {
           ...base !== void 0 ? { base } : {},
           ...modeArg !== void 0 ? { mode: modeArg } : {},
-          ...ciCommand !== void 0 && ciCommand.trim().length > 0 ? { ciCommand: ciCommand.trim() } : {}
+          ...ciCommand !== void 0 && ciCommand.trim().length > 0 ? { ciCommand: ciCommand.trim() } : {},
+          ...delegatorAgentId !== void 0 && delegatorAgentId.trim().length > 0 ? { delegatorAgentId: delegatorAgentId.trim() } : {}
         });
         const outcome = await store.verifyAgentIdentity(
           TOWER_NAME,
@@ -33563,7 +33775,10 @@ function towerTools(controller) {
           workspace: repoRoot,
           tower_agent_id: towerAgentId,
           verified: outcome.entry.verified ?? false,
-          roster: ["tower"]
+          roster: [
+            "tower",
+            ...delegatorAgentId !== void 0 && delegatorAgentId.trim().length > 0 ? [DELEGATOR_NAME] : []
+          ]
         };
       })
     },
@@ -33846,7 +34061,7 @@ function towerTools(controller) {
       handler: (args) => runTool(async () => {
         const { store } = storeFor(controller, args);
         const state = await store.load();
-        const caller = await resolveCaller(store, state, args);
+        const caller = await resolveCallerNonDelegator(store, state, args);
         const id = argString(args, "id");
         if (id === void 0 || id.trim().length === 0) {
           throw new TowerProtocolError("mission id is required");
@@ -33912,6 +34127,11 @@ function towerTools(controller) {
         if (to === void 0 || subject === void 0 || body === void 0) {
           throw new TowerProtocolError("send requires to, subject and body");
         }
+        if (store.findAgent(state, caller)?.kind === "delegator" && to !== TOWER_NAME) {
+          throw new TowerProtocolError(
+            `agent "${caller}" is a delegator \u2014 delegators may only send messages addressed to "${TOWER_NAME}"`
+          );
+        }
         const rel = await store.send(caller, {
           to,
           subject,
@@ -33939,23 +34159,14 @@ function towerTools(controller) {
       handler: (args) => runTool(async () => {
         const { store } = storeFor(controller, args);
         const state = await store.load();
-        const caller = await resolveCaller(store, state, args);
+        const caller = await resolveCallerNonDelegator(store, state, args);
         const rawLimit = args.limit;
         const limit = typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 20;
         const items = await store.readInbox(caller, limit);
         return {
           caller,
           count: items.length,
-          messages: items.map((item) => ({
-            file: item.file,
-            from: item.from,
-            to: item.to,
-            subject: item.subject,
-            sent_at: item.sentAt,
-            ...item.scope !== void 0 ? { scope: item.scope } : {},
-            ...item.action !== void 0 ? { action: item.action } : {},
-            body: item.body
-          }))
+          messages: renderInboxItems(items)
         };
       })
     },
@@ -33981,7 +34192,7 @@ function towerTools(controller) {
       handler: (args) => runTool(async () => {
         const { store } = storeFor(controller, args);
         const state = await store.load();
-        const caller = await resolveCaller(store, state, args);
+        const caller = await resolveCallerNonDelegator(store, state, args);
         const type = argString(args, "type");
         const title = argString(args, "title");
         const summary = argString(args, "summary");
@@ -34023,7 +34234,7 @@ function towerTools(controller) {
       handler: (args) => runTool(async () => {
         const { store, repoRoot } = storeFor(controller, args);
         const state = await store.load();
-        const caller = await resolveCaller(store, state, args);
+        const caller = await resolveCallerNonDelegator(store, state, args);
         const target = argString(args, "target");
         const status = argString(args, "status");
         const merge2 = argString(args, "merge");
@@ -34127,7 +34338,7 @@ function towerTools(controller) {
       handler: (args) => runTool(async () => {
         const { store } = storeFor(controller, args);
         const state = await store.load();
-        const caller = await resolveCaller(store, state, args);
+        const caller = await resolveCallerNonDelegator(store, state, args);
         const missions = await store.loadMissions(state);
         const towerAgentId = state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? "";
         const fold = foldView(controller.getFold());
@@ -34166,7 +34377,7 @@ function towerTools(controller) {
     },
     {
       name: "moa_tower_ci",
-      description: "Run the configured CI command (boot ci_command) in the mission branch's worktree (tower-only). The run is serialized per tower process (single-tower single-session assumption \u2014 no cross-process mutex, \u98CE\u9669\u53F0\u8D26 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The outcome is stored under ci/<branchSlug> {commit (tip at run time), exitCode, dirty, logRef, ranAt}; the run log is truncated (last 200 lines, \u226464KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.",
+      description: `Run the configured CI command (boot ci_command) in the mission branch's worktree (tower-only). M1 async: the CI process is SPAWNED and the tool returns IMMEDIATELY with {run_id, started_at, status:"started"} \u2014 the run continues in the background. The ci/<branchSlug> record that lands when the process exits {commit (tip at run time), exitCode, dirty, logRef, ranAt, runId} is the SOURCE OF TRUTH; await it with moa_tower_wait(wait={kind:"ci", branch}) before merging. Runs are serialized per worktree in-process (single-tower single-session assumption \u2014 no cross-process mutex, \u98CE\u9669\u53F0\u8D26 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The run log is truncated (last 200 lines, \u226464KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -34192,28 +34403,104 @@ function towerTools(controller) {
             isError: true
           };
         }
-        const result = await controller.runCiSerial(() => store.runCi(branch, ciCommand));
-        if (result.dirty) {
+        const started = await store.startCi(branch, ciCommand);
+        if (started.status === "dirty") {
           return {
             output: `ci skipped: the worktree for ${branch} has uncommitted changes \u2014 commit them first and re-run moa_tower_ci (a dirty run is recorded as failed)`,
             isError: true,
             dirty: true,
             branch,
-            commit: result.commit,
-            ran_at: result.ranAt
+            commit: started.record?.commit,
+            ran_at: started.startedAt
           };
         }
         return {
-          ran: true,
+          run_id: started.runId,
+          started_at: started.startedAt,
+          status: "started",
           branch,
-          commit: result.commit,
-          exit_code: result.exitCode,
-          dirty: false,
-          log_ref: result.logRef ?? null,
-          ...result.logError !== void 0 ? { log_error: result.logError } : {},
-          ran_at: result.ranAt,
-          next: result.exitCode === 0 ? "CI green \u2014 the merge gate accepts this record while the branch tip stays put." : "CI failed \u2014 fix the failures, commit, and re-run moa_tower_ci."
+          next: 'CI is running asynchronously \u2014 the ci/<branchSlug> record is the source of truth when it lands; await it with moa_tower_wait(workspace, caller_agent_id, wait={kind:"ci", branch}).'
         };
+      })
+    },
+    {
+      name: "moa_tower_wait",
+      description: `Long-poll wait primitive for the tower domain (M1), modeled on moa_board_wait / moa_wait_turn: block until the requested condition holds, then return {status:"ok", ...observed payload}; at the safety cap (default 25min, MOAMCP_WAIT_CAP_MS / timeoutMs tune it \u2014 timeoutMs is clamped to the cap) return {status:"timeout", retry:true}. wait.kind:"ci" \u2192 block until the ci/<branchSlug> record exists AND its commit matches the branch's CURRENT tip (a stale record from an older tip does NOT satisfy it); payload = the ci record. wait.kind:"inbox" \u2192 block until the caller's tower inbox has at least one message (same set moa_tower_inbox returns); payload = the messages. wait.kind:"mission" \u2192 block until the mission doc's status changes from what it was at call time; payload = the mission doc (a closed task scope returns {status:"closed"} instead of timing out). Any registered roster member (tower/worker/reviewer) may wait; a delegator is rejected \u2014 delegators may only call moa_tower_send addressed to the tower.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          wait: {
+            type: "object",
+            description: 'What to wait for. kind:"ci" needs branch; kind:"mission" needs id; kind:"inbox" needs nothing.',
+            properties: {
+              kind: { type: "string", enum: ["ci", "inbox", "mission"], description: "Wait target kind" },
+              branch: { type: "string", description: "kind=ci: the mission branch whose ci/<branchSlug> record to await (matched against the current tip)" },
+              id: { type: "string", description: 'kind=mission: the mission id (e.g. "M1") whose status change to await' }
+            },
+            required: ["kind"],
+            additionalProperties: false
+          },
+          timeoutMs: { type: "number", description: "Per-call cap override (clamped to the MOAMCP_WAIT_CAP_MS safety cap)" }
+        },
+        required: ["workspace", "caller_agent_id", "wait"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCallerNonDelegator(store, state, args);
+        const rawWait = args.wait;
+        if (rawWait === void 0 || typeof rawWait !== "object" || Array.isArray(rawWait)) {
+          throw new TowerProtocolError('moa_tower_wait needs a wait object ({kind:"ci"|"inbox"|"mission", ...})');
+        }
+        const kind = rawWait["kind"];
+        const timeoutMs = typeof args.timeoutMs === "number" ? args.timeoutMs : void 0;
+        if (kind === "ci") {
+          const branch = typeof rawWait["branch"] === "string" ? rawWait["branch"] : void 0;
+          if (branch === void 0 || branch.trim().length === 0) {
+            throw new TowerProtocolError("wait kind=ci needs the mission branch");
+          }
+          const outcome = await store.waitForCi(branch, timeoutMs);
+          if (outcome.status === "timeout") return { status: "timeout", retry: true };
+          const record2 = outcome.record;
+          return {
+            status: "ok",
+            kind: "ci",
+            branch: record2.branch,
+            commit: record2.commit,
+            exit_code: record2.exitCode,
+            dirty: record2.dirty,
+            log_ref: record2.logRef ?? null,
+            ...record2.logError !== void 0 ? { log_error: record2.logError } : {},
+            ran_at: record2.ranAt,
+            ...record2.runId !== void 0 ? { run_id: record2.runId } : {}
+          };
+        }
+        if (kind === "inbox") {
+          const outcome = await store.waitForInbox(caller, timeoutMs);
+          if (outcome.status === "timeout") return { status: "timeout", retry: true };
+          return { status: "ok", kind: "inbox", caller, count: outcome.messages.length, messages: renderInboxItems(outcome.messages) };
+        }
+        if (kind === "mission") {
+          const id = typeof rawWait["id"] === "string" ? rawWait["id"] : void 0;
+          if (id === void 0 || id.trim().length === 0) {
+            throw new TowerProtocolError("wait kind=mission needs the mission id");
+          }
+          const outcome = await store.waitForMission(id, timeoutMs);
+          if (outcome.status === "timeout") return { status: "timeout", retry: true };
+          if (outcome.status === "closed") return { status: "closed", kind: "mission", mission_id: id };
+          const mission = outcome.mission;
+          return {
+            status: "ok",
+            kind: "mission",
+            mission_id: mission.id,
+            mission_status: mission.status,
+            mission
+          };
+        }
+        throw new TowerProtocolError('wait.kind must be one of "ci" | "inbox" | "mission"');
       })
     },
     {
@@ -34233,7 +34520,7 @@ function towerTools(controller) {
       handler: (args) => runTool(async () => {
         const { store } = storeFor(controller, args);
         const state = await store.load();
-        const caller = await resolveCaller(store, state, args);
+        const caller = await resolveCallerNonDelegator(store, state, args);
         const missionId = argString(args, "mission_id");
         const note = argString(args, "note");
         if (missionId === void 0 || missionId.trim().length === 0) {
@@ -34252,6 +34539,18 @@ function towerTools(controller) {
       })
     }
   ];
+}
+function renderInboxItems(items) {
+  return items.map((item) => ({
+    file: item.file,
+    from: item.from,
+    to: item.to,
+    subject: item.subject,
+    sent_at: item.sentAt,
+    ...item.scope !== void 0 ? { scope: item.scope } : {},
+    ...item.action !== void 0 ? { action: item.action } : {},
+    body: item.body
+  }));
 }
 function renderMissions(missions) {
   if (missions.length === 0) return [];
@@ -34296,7 +34595,6 @@ function createTowerController(opts = {}) {
   let started = false;
   let board = opts.board;
   const foldAccessor = opts.foldAccessor ?? (() => void 0);
-  let ciTail = Promise.resolve();
   return {
     start() {
       started = true;
@@ -34311,11 +34609,6 @@ function createTowerController(opts = {}) {
     getBoard: () => board,
     mountBoard: (mounted) => {
       board = mounted;
-    },
-    runCiSerial(task) {
-      const run = ciTail.then(() => task());
-      ciTail = run.then(() => void 0, () => void 0);
-      return run;
     }
   };
 }
