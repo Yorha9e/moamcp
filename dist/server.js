@@ -40,9 +40,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/codegen/code.js
+// node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+  "node_modules/ajv/dist/compile/codegen/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
@@ -194,9 +194,9 @@ var require_code = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/codegen/scope.js
+// node_modules/ajv/dist/compile/codegen/scope.js
 var require_scope = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+  "node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
@@ -339,9 +339,9 @@ var require_scope = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/codegen/index.js
+// node_modules/ajv/dist/compile/codegen/index.js
 var require_codegen = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+  "node_modules/ajv/dist/compile/codegen/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
@@ -1059,9 +1059,9 @@ var require_codegen = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/util.js
+// node_modules/ajv/dist/compile/util.js
 var require_util = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/util.js"(exports) {
+  "node_modules/ajv/dist/compile/util.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
@@ -1226,9 +1226,9 @@ var require_util = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/names.js
+// node_modules/ajv/dist/compile/names.js
 var require_names = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/names.js"(exports) {
+  "node_modules/ajv/dist/compile/names.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -1265,9 +1265,9 @@ var require_names = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/errors.js
+// node_modules/ajv/dist/compile/errors.js
 var require_errors = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/errors.js"(exports) {
+  "node_modules/ajv/dist/compile/errors.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
@@ -1387,9 +1387,9 @@ var require_errors = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/boolSchema.js
+// node_modules/ajv/dist/compile/validate/boolSchema.js
 var require_boolSchema = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
@@ -1438,9 +1438,9 @@ var require_boolSchema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/rules.js
+// node_modules/ajv/dist/compile/rules.js
 var require_rules = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/rules.js"(exports) {
+  "node_modules/ajv/dist/compile/rules.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getRules = exports.isJSONType = void 0;
@@ -1469,9 +1469,9 @@ var require_rules = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/applicability.js
+// node_modules/ajv/dist/compile/validate/applicability.js
 var require_applicability = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
@@ -1492,9 +1492,9 @@ var require_applicability = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/dataType.js
+// node_modules/ajv/dist/compile/validate/dataType.js
 var require_dataType = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
@@ -1676,9 +1676,9 @@ var require_dataType = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/defaults.js
+// node_modules/ajv/dist/compile/validate/defaults.js
 var require_defaults = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assignDefaults = void 0;
@@ -1713,9 +1713,9 @@ var require_defaults = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/code.js
+// node_modules/ajv/dist/vocabularies/code.js
 var require_code2 = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/code.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
@@ -1846,9 +1846,9 @@ var require_code2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/keyword.js
+// node_modules/ajv/dist/compile/validate/keyword.js
 var require_keyword = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
@@ -1964,9 +1964,9 @@ var require_keyword = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/subschema.js
+// node_modules/ajv/dist/compile/validate/subschema.js
 var require_subschema = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
@@ -2047,9 +2047,9 @@ var require_subschema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/fast-deep-equal@3.1.3/node_modules/fast-deep-equal/index.js
+// node_modules/fast-deep-equal/index.js
 var require_fast_deep_equal = __commonJS({
-  "node_modules/.pnpm/fast-deep-equal@3.1.3/node_modules/fast-deep-equal/index.js"(exports, module) {
+  "node_modules/fast-deep-equal/index.js"(exports, module) {
     "use strict";
     module.exports = function equal(a, b) {
       if (a === b) return true;
@@ -2082,9 +2082,9 @@ var require_fast_deep_equal = __commonJS({
   }
 });
 
-// node_modules/.pnpm/json-schema-traverse@1.0.0/node_modules/json-schema-traverse/index.js
+// node_modules/json-schema-traverse/index.js
 var require_json_schema_traverse = __commonJS({
-  "node_modules/.pnpm/json-schema-traverse@1.0.0/node_modules/json-schema-traverse/index.js"(exports, module) {
+  "node_modules/json-schema-traverse/index.js"(exports, module) {
     "use strict";
     var traverse = module.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
@@ -2170,9 +2170,9 @@ var require_json_schema_traverse = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/resolve.js
+// node_modules/ajv/dist/compile/resolve.js
 var require_resolve = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/resolve.js"(exports) {
+  "node_modules/ajv/dist/compile/resolve.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
@@ -2326,9 +2326,9 @@ var require_resolve = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/index.js
+// node_modules/ajv/dist/compile/validate/index.js
 var require_validate = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/validate/index.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
@@ -2834,9 +2834,9 @@ var require_validate = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/validation_error.js
+// node_modules/ajv/dist/runtime/validation_error.js
 var require_validation_error = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+  "node_modules/ajv/dist/runtime/validation_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var ValidationError = class extends Error {
@@ -2850,9 +2850,9 @@ var require_validation_error = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/ref_error.js
+// node_modules/ajv/dist/compile/ref_error.js
 var require_ref_error = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/ref_error.js"(exports) {
+  "node_modules/ajv/dist/compile/ref_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve();
@@ -2867,9 +2867,9 @@ var require_ref_error = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/index.js
+// node_modules/ajv/dist/compile/index.js
 var require_compile = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/compile/index.js"(exports) {
+  "node_modules/ajv/dist/compile/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
@@ -2991,7 +2991,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve5.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3018,7 +3018,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve5(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3091,9 +3091,9 @@ var require_compile = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/refs/data.json
+// node_modules/ajv/dist/refs/data.json
 var require_data = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/refs/data.json"(exports, module) {
+  "node_modules/ajv/dist/refs/data.json"(exports, module) {
     module.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
@@ -3110,9 +3110,9 @@ var require_data = __commonJS({
   }
 });
 
-// node_modules/.pnpm/fast-uri@3.1.5/node_modules/fast-uri/lib/utils.js
+// node_modules/fast-uri/lib/utils.js
 var require_utils = __commonJS({
-  "node_modules/.pnpm/fast-uri@3.1.5/node_modules/fast-uri/lib/utils.js"(exports, module) {
+  "node_modules/fast-uri/lib/utils.js"(exports, module) {
     "use strict";
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
@@ -3423,9 +3423,9 @@ var require_utils = __commonJS({
   }
 });
 
-// node_modules/.pnpm/fast-uri@3.1.5/node_modules/fast-uri/lib/schemes.js
+// node_modules/fast-uri/lib/schemes.js
 var require_schemes = __commonJS({
-  "node_modules/.pnpm/fast-uri@3.1.5/node_modules/fast-uri/lib/schemes.js"(exports, module) {
+  "node_modules/fast-uri/lib/schemes.js"(exports, module) {
     "use strict";
     var { isUUID } = require_utils();
     var URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu;
@@ -3633,9 +3633,9 @@ var require_schemes = __commonJS({
   }
 });
 
-// node_modules/.pnpm/fast-uri@3.1.5/node_modules/fast-uri/index.js
+// node_modules/fast-uri/index.js
 var require_fast_uri = __commonJS({
-  "node_modules/.pnpm/fast-uri@3.1.5/node_modules/fast-uri/index.js"(exports, module) {
+  "node_modules/fast-uri/index.js"(exports, module) {
     "use strict";
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
@@ -3649,14 +3649,9 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve5(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-      const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions);
-      const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions);
-      if (baseMalformed || relativeMalformed) {
-        throw new Error(baseParsed.error || relativeParsed.error || "URI is malformed.");
-      }
-      const resolved = resolveComponent(baseParsed, relativeParsed, schemelessOptions, true);
+      const resolved = resolveComponent(parse4(baseURI, schemelessOptions), parse4(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
@@ -3782,7 +3777,6 @@ var require_fast_uri = __commonJS({
     }
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
     var AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
-    var AUTHORITY_INTRODUCER_REGION = /^(?:[^#/:?]+:)?([/\\\t\n\r]*)/;
     function getParseError(parsed, matches) {
       if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
         return 'URI path must start with "/" when authority is present.';
@@ -3816,20 +3810,6 @@ var require_fast_uri = __commonJS({
       if (authorityMatch !== null && authorityMatch[1].indexOf("\\") !== -1) {
         parsed.error = "URI authority must not contain a literal backslash.";
         malformedAuthorityOrPort = true;
-      }
-      const introducerMatch = uri.match(AUTHORITY_INTRODUCER_REGION);
-      if (introducerMatch !== null) {
-        const region = introducerMatch[1];
-        const normalizedRegion = region.replace(/[\t\n\r]/g, "");
-        if (normalizedRegion.length >= 2) {
-          if (normalizedRegion.slice(0, 2) !== "//") {
-            parsed.error = parsed.error || "URI authority must not contain a literal backslash.";
-            malformedAuthorityOrPort = true;
-          } else if (region.length !== normalizedRegion.length) {
-            parsed.error = parsed.error || "URI authority introducer must not contain whitespace.";
-            malformedAuthorityOrPort = true;
-          }
-        }
       }
       const matches = uri.match(URI_PARSE);
       if (matches) {
@@ -3933,7 +3913,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve5,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
@@ -3945,9 +3925,9 @@ var require_fast_uri = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/uri.js
+// node_modules/ajv/dist/runtime/uri.js
 var require_uri = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/uri.js"(exports) {
+  "node_modules/ajv/dist/runtime/uri.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var uri = require_fast_uri();
@@ -3956,9 +3936,9 @@ var require_uri = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/core.js
+// node_modules/ajv/dist/core.js
 var require_core = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/core.js"(exports) {
+  "node_modules/ajv/dist/core.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
@@ -4567,9 +4547,9 @@ var require_core = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/core/id.js
+// node_modules/ajv/dist/vocabularies/core/id.js
 var require_id = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var def = {
@@ -4582,9 +4562,9 @@ var require_id = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/core/ref.js
+// node_modules/ajv/dist/vocabularies/core/ref.js
 var require_ref = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.callRef = exports.getValidate = void 0;
@@ -4704,9 +4684,9 @@ var require_ref = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/core/index.js
+// node_modules/ajv/dist/vocabularies/core/index.js
 var require_core2 = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var id_1 = require_id();
@@ -4725,9 +4705,9 @@ var require_core2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitNumber.js
+// node_modules/ajv/dist/vocabularies/validation/limitNumber.js
 var require_limitNumber = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -4757,9 +4737,9 @@ var require_limitNumber = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/multipleOf.js
+// node_modules/ajv/dist/vocabularies/validation/multipleOf.js
 var require_multipleOf = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -4785,9 +4765,9 @@ var require_multipleOf = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/ucs2length.js
+// node_modules/ajv/dist/runtime/ucs2length.js
 var require_ucs2length = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+  "node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function ucs2length(str) {
@@ -4811,9 +4791,9 @@ var require_ucs2length = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitLength.js
+// node_modules/ajv/dist/vocabularies/validation/limitLength.js
 var require_limitLength = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -4843,9 +4823,9 @@ var require_limitLength = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/pattern.js
+// node_modules/ajv/dist/vocabularies/validation/pattern.js
 var require_pattern = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -4880,9 +4860,9 @@ var require_pattern = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitProperties.js
+// node_modules/ajv/dist/vocabularies/validation/limitProperties.js
 var require_limitProperties = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -4909,9 +4889,9 @@ var require_limitProperties = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/required.js
+// node_modules/ajv/dist/vocabularies/validation/required.js
 var require_required = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -4991,9 +4971,9 @@ var require_required = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitItems.js
+// node_modules/ajv/dist/vocabularies/validation/limitItems.js
 var require_limitItems = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5020,9 +5000,9 @@ var require_limitItems = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/equal.js
+// node_modules/ajv/dist/runtime/equal.js
 var require_equal = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/runtime/equal.js"(exports) {
+  "node_modules/ajv/dist/runtime/equal.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var equal = require_fast_deep_equal();
@@ -5031,9 +5011,9 @@ var require_equal = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
+// node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
 var require_uniqueItems = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var dataType_1 = require_dataType();
@@ -5098,9 +5078,9 @@ var require_uniqueItems = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/const.js
+// node_modules/ajv/dist/vocabularies/validation/const.js
 var require_const = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5127,9 +5107,9 @@ var require_const = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/enum.js
+// node_modules/ajv/dist/vocabularies/validation/enum.js
 var require_enum = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5176,9 +5156,9 @@ var require_enum = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/index.js
+// node_modules/ajv/dist/vocabularies/validation/index.js
 var require_validation = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var limitNumber_1 = require_limitNumber();
@@ -5214,9 +5194,9 @@ var require_validation = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
+// node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
 var require_additionalItems = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateAdditionalItems = void 0;
@@ -5267,9 +5247,9 @@ var require_additionalItems = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/items.js
+// node_modules/ajv/dist/vocabularies/applicator/items.js
 var require_items = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateTuple = void 0;
@@ -5324,9 +5304,9 @@ var require_items = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
+// node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
 var require_prefixItems = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var items_1 = require_items();
@@ -5341,9 +5321,9 @@ var require_prefixItems = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/items2020.js
+// node_modules/ajv/dist/vocabularies/applicator/items2020.js
 var require_items2020 = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5376,9 +5356,9 @@ var require_items2020 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/contains.js
+// node_modules/ajv/dist/vocabularies/applicator/contains.js
 var require_contains = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5470,9 +5450,9 @@ var require_contains = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/dependencies.js
+// node_modules/ajv/dist/vocabularies/applicator/dependencies.js
 var require_dependencies = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
@@ -5564,9 +5544,9 @@ var require_dependencies = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
+// node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
 var require_propertyNames = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5607,9 +5587,9 @@ var require_propertyNames = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
+// node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
 var require_additionalProperties = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5713,9 +5693,9 @@ var require_additionalProperties = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/properties.js
+// node_modules/ajv/dist/vocabularies/applicator/properties.js
 var require_properties = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var validate_1 = require_validate();
@@ -5771,9 +5751,9 @@ var require_properties = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
+// node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
 var require_patternProperties = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5845,9 +5825,9 @@ var require_patternProperties = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/not.js
+// node_modules/ajv/dist/vocabularies/applicator/not.js
 var require_not = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -5876,9 +5856,9 @@ var require_not = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/anyOf.js
+// node_modules/ajv/dist/vocabularies/applicator/anyOf.js
 var require_anyOf = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5893,9 +5873,9 @@ var require_anyOf = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/oneOf.js
+// node_modules/ajv/dist/vocabularies/applicator/oneOf.js
 var require_oneOf = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5951,9 +5931,9 @@ var require_oneOf = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/allOf.js
+// node_modules/ajv/dist/vocabularies/applicator/allOf.js
 var require_allOf = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -5978,9 +5958,9 @@ var require_allOf = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/if.js
+// node_modules/ajv/dist/vocabularies/applicator/if.js
 var require_if = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6047,9 +6027,9 @@ var require_if = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/thenElse.js
+// node_modules/ajv/dist/vocabularies/applicator/thenElse.js
 var require_thenElse = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6065,9 +6045,9 @@ var require_thenElse = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/index.js
+// node_modules/ajv/dist/vocabularies/applicator/index.js
 var require_applicator = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var additionalItems_1 = require_additionalItems();
@@ -6113,9 +6093,9 @@ var require_applicator = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/format/format.js
+// node_modules/ajv/dist/vocabularies/format/format.js
 var require_format = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6203,9 +6183,9 @@ var require_format = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/format/index.js
+// node_modules/ajv/dist/vocabularies/format/index.js
 var require_format2 = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var format_1 = require_format();
@@ -6214,9 +6194,9 @@ var require_format2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/metadata.js
+// node_modules/ajv/dist/vocabularies/metadata.js
 var require_metadata = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.contentVocabulary = exports.metadataVocabulary = void 0;
@@ -6237,9 +6217,9 @@ var require_metadata = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/draft7.js
+// node_modules/ajv/dist/vocabularies/draft7.js
 var require_draft7 = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var core_1 = require_core2();
@@ -6259,9 +6239,9 @@ var require_draft7 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/discriminator/types.js
+// node_modules/ajv/dist/vocabularies/discriminator/types.js
 var require_types = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DiscrError = void 0;
@@ -6273,9 +6253,9 @@ var require_types = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/discriminator/index.js
+// node_modules/ajv/dist/vocabularies/discriminator/index.js
 var require_discriminator = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6378,9 +6358,9 @@ var require_discriminator = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/refs/json-schema-draft-07.json
+// node_modules/ajv/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
+  "node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
     module.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
@@ -6535,9 +6515,9 @@ var require_json_schema_draft_07 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/ajv.js
+// node_modules/ajv/dist/ajv.js
 var require_ajv = __commonJS({
-  "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/dist/ajv.js"(exports, module) {
+  "node_modules/ajv/dist/ajv.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
@@ -6605,9 +6585,9 @@ var require_ajv = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats/dist/formats.js
+// node_modules/ajv-formats/dist/formats.js
 var require_formats = __commonJS({
-  "node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats/dist/formats.js"(exports) {
+  "node_modules/ajv-formats/dist/formats.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatNames = exports.fastFormats = exports.fullFormats = void 0;
@@ -6808,9 +6788,9 @@ var require_formats = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats/dist/limit.js
+// node_modules/ajv-formats/dist/limit.js
 var require_limit = __commonJS({
-  "node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats/dist/limit.js"(exports) {
+  "node_modules/ajv-formats/dist/limit.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatLimitDefinition = void 0;
@@ -6880,9 +6860,9 @@ var require_limit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats/dist/index.js
+// node_modules/ajv-formats/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats/dist/index.js"(exports, module) {
+  "node_modules/ajv-formats/dist/index.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var formats_1 = require_formats();
@@ -6922,9 +6902,9 @@ var require_dist = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js
+// node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js"(exports) {
+  "node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
     var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
     var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
@@ -6979,9 +6959,9 @@ var require_identity = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js
+// node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js"(exports) {
+  "node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     var identity = require_identity();
     var BREAK = /* @__PURE__ */ Symbol("break visit");
@@ -7137,9 +7117,9 @@ var require_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js
+// node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js"(exports) {
+  "node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit = require_visit();
@@ -7308,9 +7288,9 @@ var require_directives = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js
+// node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js"(exports) {
+  "node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit = require_visit();
@@ -7378,9 +7358,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js
+// node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+  "node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
     function applyReviver(reviver, obj, key, val) {
       if (val && typeof val === "object") {
@@ -7428,9 +7408,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js
+// node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js"(exports) {
+  "node_modules/yaml/dist/nodes/toJS.js"(exports) {
     "use strict";
     var identity = require_identity();
     function toJS(value, arg, ctx) {
@@ -7458,9 +7438,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js
+// node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js"(exports) {
+  "node_modules/yaml/dist/nodes/Node.js"(exports) {
     "use strict";
     var applyReviver = require_applyReviver();
     var identity = require_identity();
@@ -7499,9 +7479,9 @@ var require_Node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js
+// node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js"(exports) {
+  "node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var visit = require_visit();
@@ -7615,9 +7595,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js
+// node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+  "node_modules/yaml/dist/nodes/Scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Node = require_Node();
@@ -7645,9 +7625,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js
+// node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js"(exports) {
+  "node_modules/yaml/dist/doc/createNode.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -7720,9 +7700,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js
+// node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js"(exports) {
+  "node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var identity = require_identity();
@@ -7863,9 +7843,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js
+// node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
@@ -7880,9 +7860,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js
+// node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+  "node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
     "use strict";
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
@@ -8016,9 +7996,9 @@ ${indent}${text.slice(fold + 1, end2)}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js
+// node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var foldFlowLines = require_foldFlowLines();
@@ -8299,9 +8279,9 @@ ${indent}`);
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js
+// node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringify.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var identity = require_identity();
@@ -8423,9 +8403,9 @@ ${ctx.indent}${str}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js
+// node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -8556,9 +8536,9 @@ ${ctx.indent}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js
+// node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js"(exports) {
+  "node_modules/yaml/dist/log.js"(exports) {
     "use strict";
     var node_process = __require("node:process");
     function debug(logLevel, ...messages) {
@@ -8578,9 +8558,9 @@ var require_log = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -8638,9 +8618,9 @@ var require_merge = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+  "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
@@ -8702,9 +8682,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js
+// node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js"(exports) {
+  "node_modules/yaml/dist/nodes/Pair.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyPair = require_stringifyPair();
@@ -8742,9 +8722,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js
+// node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify2 = require_stringify();
@@ -8893,9 +8873,9 @@ ${indent}${end}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js
+// node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+  "node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
     "use strict";
     var stringifyCollection = require_stringifyCollection();
     var addPairToJSMap = require_addPairToJSMap();
@@ -9037,9 +9017,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js
+// node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js"(exports) {
+  "node_modules/yaml/dist/schema/common/map.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLMap = require_YAMLMap();
@@ -9059,9 +9039,9 @@ var require_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js
+// node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+  "node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyCollection = require_stringifyCollection();
@@ -9175,9 +9155,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js
+// node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js"(exports) {
+  "node_modules/yaml/dist/schema/common/seq.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLSeq = require_YAMLSeq();
@@ -9197,9 +9177,9 @@ var require_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js
+// node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js"(exports) {
+  "node_modules/yaml/dist/schema/common/string.js"(exports) {
     "use strict";
     var stringifyString = require_stringifyString();
     var string3 = {
@@ -9216,9 +9196,9 @@ var require_string = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js
+// node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js"(exports) {
+  "node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var nullTag = {
@@ -9234,9 +9214,9 @@ var require_null = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js
+// node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js"(exports) {
+  "node_modules/yaml/dist/schema/core/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var boolTag = {
@@ -9258,9 +9238,9 @@ var require_bool = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js
+// node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
       if (typeof value === "bigint")
@@ -9285,9 +9265,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js
+// node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js"(exports) {
+  "node_modules/yaml/dist/schema/core/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -9331,9 +9311,9 @@ var require_float = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js
+// node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js"(exports) {
+  "node_modules/yaml/dist/schema/core/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -9376,9 +9356,9 @@ var require_int = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js
+// node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js"(exports) {
+  "node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     var map = require_map();
     var _null4 = require_null();
@@ -9404,9 +9384,9 @@ var require_schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js
+// node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js"(exports) {
+  "node_modules/yaml/dist/schema/json/schema.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var map = require_map();
@@ -9471,9 +9451,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
     "use strict";
     var node_buffer = __require("buffer");
     var Scalar = require_Scalar();
@@ -9537,9 +9517,9 @@ var require_binary = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -9615,9 +9595,9 @@ ${cn.comment}` : item.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
     "use strict";
     var identity = require_identity();
     var toJS = require_toJS();
@@ -9693,9 +9673,9 @@ var require_omap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function boolStringify({ value, source }, ctx) {
@@ -9725,9 +9705,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -9774,9 +9754,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -9853,9 +9833,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -9942,9 +9922,9 @@ var require_set = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     function parseSexagesimal(str, asBigInt) {
@@ -10030,9 +10010,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+  "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     var map = require_map();
     var _null4 = require_null();
@@ -10074,9 +10054,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js
+// node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js"(exports) {
+  "node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     var map = require_map();
     var _null4 = require_null();
@@ -10168,9 +10148,9 @@ var require_tags = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js
+// node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js"(exports) {
+  "node_modules/yaml/dist/schema/Schema.js"(exports) {
     "use strict";
     var identity = require_identity();
     var map = require_map();
@@ -10200,9 +10180,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js
+// node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+  "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify2 = require_stringify();
@@ -10280,9 +10260,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js
+// node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js"(exports) {
+  "node_modules/yaml/dist/doc/Document.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var Collection = require_Collection();
@@ -10589,9 +10569,9 @@ var require_Document = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js
+// node_modules/yaml/dist/errors.js
 var require_errors2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js"(exports) {
+  "node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
       constructor(name, pos, code, message) {
@@ -10654,9 +10634,9 @@ ${pointer}
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js
+// node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
     function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
       let spaceBefore = false;
@@ -10788,9 +10768,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js
+// node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+  "node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
     function containsNewline(key) {
       if (!key)
@@ -10830,9 +10810,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+  "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
     function flowIndentCheck(indent, fc, onError) {
@@ -10848,9 +10828,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js
+// node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+  "node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
     var identity = require_identity();
     function mapIncludes(ctx, items, search) {
@@ -10864,9 +10844,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js
+// node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
@@ -10972,9 +10952,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js
+// node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
     "use strict";
     var YAMLSeq = require_YAMLSeq();
     var resolveProps = require_resolve_props();
@@ -11023,9 +11003,9 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js
+// node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment = "";
@@ -11066,9 +11046,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -11260,9 +11240,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js
+// node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+  "node_modules/yaml/dist/compose/compose-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -11325,9 +11305,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
@@ -11508,9 +11488,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+  "node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
@@ -11728,9 +11708,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js
+// node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+  "node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -11809,9 +11789,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+  "node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
     "use strict";
     function emptyScalarPosition(offset, before, pos) {
       if (before) {
@@ -11839,9 +11819,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js
+// node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js"(exports) {
+  "node_modules/yaml/dist/compose/compose-node.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -11945,9 +11925,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js
+// node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+  "node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
     var Document = require_Document();
     var composeNode = require_compose_node();
@@ -11988,9 +11968,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js
+// node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js"(exports) {
+  "node_modules/yaml/dist/compose/composer.js"(exports) {
     "use strict";
     var node_process = __require("node:process");
     var directives = require_directives();
@@ -12196,9 +12176,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js
+// node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+  "node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
     "use strict";
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
@@ -12381,9 +12361,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js
+// node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+  "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
     var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
@@ -12442,9 +12422,9 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js
+// node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+  "node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP = /* @__PURE__ */ Symbol("skip children");
@@ -12504,9 +12484,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js
+// node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js"(exports) {
+  "node_modules/yaml/dist/parse/cst.js"(exports) {
     "use strict";
     var cstScalar = require_cst_scalar();
     var cstStringify = require_cst_stringify();
@@ -12606,9 +12586,9 @@ var require_cst = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js
+// node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js"(exports) {
+  "node_modules/yaml/dist/parse/lexer.js"(exports) {
     "use strict";
     var cst = require_cst();
     function isEmpty(ch) {
@@ -13195,9 +13175,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js
+// node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js"(exports) {
+  "node_modules/yaml/dist/parse/line-counter.js"(exports) {
     "use strict";
     var LineCounter = class {
       constructor() {
@@ -13226,9 +13206,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js
+// node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js"(exports) {
+  "node_modules/yaml/dist/parse/parser.js"(exports) {
     "use strict";
     var node_process = __require("node:process");
     var cst = require_cst();
@@ -14100,9 +14080,9 @@ var require_parser = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js
+// node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js"(exports) {
+  "node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -14197,9 +14177,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js
+// node_modules/yaml/dist/index.js
 var require_dist2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js"(exports) {
+  "node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -14249,10 +14229,1777 @@ var require_dist2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+// node_modules/picomatch/lib/constants.js
+var require_constants = __commonJS({
+  "node_modules/picomatch/lib/constants.js"(exports, module) {
+    "use strict";
+    var WIN_SLASH = "\\\\/";
+    var WIN_NO_SLASH = `[^${WIN_SLASH}]`;
+    var DEFAULT_MAX_EXTGLOB_RECURSION = 0;
+    var DOT_LITERAL = "\\.";
+    var PLUS_LITERAL = "\\+";
+    var QMARK_LITERAL = "\\?";
+    var SLASH_LITERAL = "\\/";
+    var ONE_CHAR = "(?=.)";
+    var QMARK = "[^/]";
+    var END_ANCHOR = `(?:${SLASH_LITERAL}|$)`;
+    var START_ANCHOR = `(?:^|${SLASH_LITERAL})`;
+    var DOTS_SLASH = `${DOT_LITERAL}{1,2}${END_ANCHOR}`;
+    var NO_DOT = `(?!${DOT_LITERAL})`;
+    var NO_DOTS = `(?!${START_ANCHOR}${DOTS_SLASH})`;
+    var NO_DOT_SLASH = `(?!${DOT_LITERAL}{0,1}${END_ANCHOR})`;
+    var NO_DOTS_SLASH = `(?!${DOTS_SLASH})`;
+    var QMARK_NO_DOT = `[^.${SLASH_LITERAL}]`;
+    var STAR = `${QMARK}*?`;
+    var SEP = "/";
+    var POSIX_CHARS = {
+      DOT_LITERAL,
+      PLUS_LITERAL,
+      QMARK_LITERAL,
+      SLASH_LITERAL,
+      ONE_CHAR,
+      QMARK,
+      END_ANCHOR,
+      DOTS_SLASH,
+      NO_DOT,
+      NO_DOTS,
+      NO_DOT_SLASH,
+      NO_DOTS_SLASH,
+      QMARK_NO_DOT,
+      STAR,
+      START_ANCHOR,
+      SEP
+    };
+    var WINDOWS_CHARS = {
+      ...POSIX_CHARS,
+      SLASH_LITERAL: `[${WIN_SLASH}]`,
+      QMARK: WIN_NO_SLASH,
+      STAR: `${WIN_NO_SLASH}*?`,
+      DOTS_SLASH: `${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$)`,
+      NO_DOT: `(?!${DOT_LITERAL})`,
+      NO_DOTS: `(?!(?:^|[${WIN_SLASH}])${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$))`,
+      NO_DOT_SLASH: `(?!${DOT_LITERAL}{0,1}(?:[${WIN_SLASH}]|$))`,
+      NO_DOTS_SLASH: `(?!${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$))`,
+      QMARK_NO_DOT: `[^.${WIN_SLASH}]`,
+      START_ANCHOR: `(?:^|[${WIN_SLASH}])`,
+      END_ANCHOR: `(?:[${WIN_SLASH}]|$)`,
+      SEP: "\\"
+    };
+    var POSIX_REGEX_SOURCE = {
+      __proto__: null,
+      alnum: "a-zA-Z0-9",
+      alpha: "a-zA-Z",
+      ascii: "\\x00-\\x7F",
+      blank: " \\t",
+      cntrl: "\\x00-\\x1F\\x7F",
+      digit: "0-9",
+      graph: "\\x21-\\x7E",
+      lower: "a-z",
+      print: "\\x20-\\x7E ",
+      punct: "\\-!\"#$%&'()\\*+,./:;<=>?@[\\]^_`{|}~",
+      space: " \\t\\r\\n\\v\\f",
+      upper: "A-Z",
+      word: "A-Za-z0-9_",
+      xdigit: "A-Fa-f0-9"
+    };
+    module.exports = {
+      DEFAULT_MAX_EXTGLOB_RECURSION,
+      MAX_LENGTH: 1024 * 64,
+      POSIX_REGEX_SOURCE,
+      // regular expressions
+      REGEX_BACKSLASH: /\\(?![*+?^${}(|)[\]])/g,
+      REGEX_NON_SPECIAL_CHARS: /^[^@![\].,$*+?^{}()|\\/]+/,
+      REGEX_SPECIAL_CHARS: /[-*+?.^${}(|)[\]]/,
+      REGEX_SPECIAL_CHARS_BACKREF: /(\\?)((\W)(\3*))/g,
+      REGEX_SPECIAL_CHARS_GLOBAL: /([-*+?.^${}(|)[\]])/g,
+      REGEX_REMOVE_BACKSLASH: /(?:\[.*?[^\\]\]|\\(?=.))/g,
+      // Replace globs with equivalent patterns to reduce parsing time.
+      REPLACEMENTS: {
+        __proto__: null,
+        "***": "*",
+        "**/**": "**",
+        "**/**/**": "**"
+      },
+      // Digits
+      CHAR_0: 48,
+      /* 0 */
+      CHAR_9: 57,
+      /* 9 */
+      // Alphabet chars.
+      CHAR_UPPERCASE_A: 65,
+      /* A */
+      CHAR_LOWERCASE_A: 97,
+      /* a */
+      CHAR_UPPERCASE_Z: 90,
+      /* Z */
+      CHAR_LOWERCASE_Z: 122,
+      /* z */
+      CHAR_LEFT_PARENTHESES: 40,
+      /* ( */
+      CHAR_RIGHT_PARENTHESES: 41,
+      /* ) */
+      CHAR_ASTERISK: 42,
+      /* * */
+      // Non-alphabetic chars.
+      CHAR_AMPERSAND: 38,
+      /* & */
+      CHAR_AT: 64,
+      /* @ */
+      CHAR_BACKWARD_SLASH: 92,
+      /* \ */
+      CHAR_CARRIAGE_RETURN: 13,
+      /* \r */
+      CHAR_CIRCUMFLEX_ACCENT: 94,
+      /* ^ */
+      CHAR_COLON: 58,
+      /* : */
+      CHAR_COMMA: 44,
+      /* , */
+      CHAR_DOT: 46,
+      /* . */
+      CHAR_DOUBLE_QUOTE: 34,
+      /* " */
+      CHAR_EQUAL: 61,
+      /* = */
+      CHAR_EXCLAMATION_MARK: 33,
+      /* ! */
+      CHAR_FORM_FEED: 12,
+      /* \f */
+      CHAR_FORWARD_SLASH: 47,
+      /* / */
+      CHAR_GRAVE_ACCENT: 96,
+      /* ` */
+      CHAR_HASH: 35,
+      /* # */
+      CHAR_HYPHEN_MINUS: 45,
+      /* - */
+      CHAR_LEFT_ANGLE_BRACKET: 60,
+      /* < */
+      CHAR_LEFT_CURLY_BRACE: 123,
+      /* { */
+      CHAR_LEFT_SQUARE_BRACKET: 91,
+      /* [ */
+      CHAR_LINE_FEED: 10,
+      /* \n */
+      CHAR_NO_BREAK_SPACE: 160,
+      /* \u00A0 */
+      CHAR_PERCENT: 37,
+      /* % */
+      CHAR_PLUS: 43,
+      /* + */
+      CHAR_QUESTION_MARK: 63,
+      /* ? */
+      CHAR_RIGHT_ANGLE_BRACKET: 62,
+      /* > */
+      CHAR_RIGHT_CURLY_BRACE: 125,
+      /* } */
+      CHAR_RIGHT_SQUARE_BRACKET: 93,
+      /* ] */
+      CHAR_SEMICOLON: 59,
+      /* ; */
+      CHAR_SINGLE_QUOTE: 39,
+      /* ' */
+      CHAR_SPACE: 32,
+      /*   */
+      CHAR_TAB: 9,
+      /* \t */
+      CHAR_UNDERSCORE: 95,
+      /* _ */
+      CHAR_VERTICAL_LINE: 124,
+      /* | */
+      CHAR_ZERO_WIDTH_NOBREAK_SPACE: 65279,
+      /* \uFEFF */
+      /**
+       * Create EXTGLOB_CHARS
+       */
+      extglobChars(chars) {
+        return {
+          "!": { type: "negate", open: "(?:(?!(?:", close: `))${chars.STAR})` },
+          "?": { type: "qmark", open: "(?:", close: ")?" },
+          "+": { type: "plus", open: "(?:", close: ")+" },
+          "*": { type: "star", open: "(?:", close: ")*" },
+          "@": { type: "at", open: "(?:", close: ")" }
+        };
+      },
+      /**
+       * Create GLOB_CHARS
+       */
+      globChars(win32) {
+        return win32 === true ? WINDOWS_CHARS : POSIX_CHARS;
+      }
+    };
+  }
+});
+
+// node_modules/picomatch/lib/utils.js
+var require_utils2 = __commonJS({
+  "node_modules/picomatch/lib/utils.js"(exports) {
+    "use strict";
+    var {
+      REGEX_BACKSLASH,
+      REGEX_REMOVE_BACKSLASH,
+      REGEX_SPECIAL_CHARS,
+      REGEX_SPECIAL_CHARS_GLOBAL
+    } = require_constants();
+    exports.isObject = (val) => val !== null && typeof val === "object" && !Array.isArray(val);
+    exports.hasRegexChars = (str) => REGEX_SPECIAL_CHARS.test(str);
+    exports.isRegexChar = (str) => str.length === 1 && exports.hasRegexChars(str);
+    exports.escapeRegex = (str) => str.replace(REGEX_SPECIAL_CHARS_GLOBAL, "\\$1");
+    exports.toPosixSlashes = (str) => str.replace(REGEX_BACKSLASH, "/");
+    exports.isWindows = () => {
+      if (typeof navigator !== "undefined" && navigator.platform) {
+        const platform = navigator.platform.toLowerCase();
+        return platform === "win32" || platform === "windows";
+      }
+      if (typeof process !== "undefined" && process.platform) {
+        return process.platform === "win32";
+      }
+      return false;
+    };
+    exports.removeBackslashes = (str) => {
+      return str.replace(REGEX_REMOVE_BACKSLASH, (match) => {
+        return match === "\\" ? "" : match;
+      });
+    };
+    exports.escapeLast = (input, char, lastIdx) => {
+      const idx = input.lastIndexOf(char, lastIdx);
+      if (idx === -1) return input;
+      if (input[idx - 1] === "\\") return exports.escapeLast(input, char, idx - 1);
+      return `${input.slice(0, idx)}\\${input.slice(idx)}`;
+    };
+    exports.removePrefix = (input, state = {}) => {
+      let output = input;
+      if (output.startsWith("./")) {
+        output = output.slice(2);
+        state.prefix = "./";
+      }
+      return output;
+    };
+    exports.wrapOutput = (input, state = {}, options = {}) => {
+      const prepend = options.contains ? "" : "^";
+      const append = options.contains ? "" : "$";
+      let output = `${prepend}(?:${input})${append}`;
+      if (state.negated === true) {
+        output = `(?:^(?!${output}).*$)`;
+      }
+      return output;
+    };
+    exports.basename = (path2, { windows } = {}) => {
+      const segs = path2.split(windows ? /[\\/]/ : "/");
+      const last = segs[segs.length - 1];
+      if (last === "") {
+        return segs[segs.length - 2];
+      }
+      return last;
+    };
+  }
+});
+
+// node_modules/picomatch/lib/scan.js
+var require_scan = __commonJS({
+  "node_modules/picomatch/lib/scan.js"(exports, module) {
+    "use strict";
+    var utils = require_utils2();
+    var {
+      CHAR_ASTERISK,
+      /* * */
+      CHAR_AT,
+      /* @ */
+      CHAR_BACKWARD_SLASH,
+      /* \ */
+      CHAR_COMMA,
+      /* , */
+      CHAR_DOT,
+      /* . */
+      CHAR_EXCLAMATION_MARK,
+      /* ! */
+      CHAR_FORWARD_SLASH,
+      /* / */
+      CHAR_LEFT_CURLY_BRACE,
+      /* { */
+      CHAR_LEFT_PARENTHESES,
+      /* ( */
+      CHAR_LEFT_SQUARE_BRACKET,
+      /* [ */
+      CHAR_PLUS,
+      /* + */
+      CHAR_QUESTION_MARK,
+      /* ? */
+      CHAR_RIGHT_CURLY_BRACE,
+      /* } */
+      CHAR_RIGHT_PARENTHESES,
+      /* ) */
+      CHAR_RIGHT_SQUARE_BRACKET
+      /* ] */
+    } = require_constants();
+    var isPathSeparator = (code) => {
+      return code === CHAR_FORWARD_SLASH || code === CHAR_BACKWARD_SLASH;
+    };
+    var depth = (token) => {
+      if (token.isPrefix !== true) {
+        token.depth = token.isGlobstar ? Infinity : 1;
+      }
+    };
+    var scan = (input, options) => {
+      const opts = options || {};
+      const length = input.length - 1;
+      const scanToEnd = opts.parts === true || opts.scanToEnd === true;
+      const slashes = [];
+      const tokens = [];
+      const parts = [];
+      let str = input;
+      let index = -1;
+      let start = 0;
+      let lastIndex = 0;
+      let isBrace = false;
+      let isBracket = false;
+      let isGlob = false;
+      let isExtglob = false;
+      let isGlobstar = false;
+      let braceEscaped = false;
+      let backslashes = false;
+      let negated = false;
+      let negatedExtglob = false;
+      let finished = false;
+      let braces = 0;
+      let prev;
+      let code;
+      let token = { value: "", depth: 0, isGlob: false };
+      const eos = () => index >= length;
+      const peek = () => str.charCodeAt(index + 1);
+      const advance = () => {
+        prev = code;
+        return str.charCodeAt(++index);
+      };
+      while (index < length) {
+        code = advance();
+        let next;
+        if (code === CHAR_BACKWARD_SLASH) {
+          backslashes = token.backslashes = true;
+          code = advance();
+          if (code === CHAR_LEFT_CURLY_BRACE) {
+            braceEscaped = true;
+          }
+          continue;
+        }
+        if (braceEscaped === true || code === CHAR_LEFT_CURLY_BRACE) {
+          braces++;
+          while (eos() !== true && (code = advance())) {
+            if (code === CHAR_BACKWARD_SLASH) {
+              backslashes = token.backslashes = true;
+              advance();
+              continue;
+            }
+            if (code === CHAR_LEFT_CURLY_BRACE) {
+              braces++;
+              continue;
+            }
+            if (braceEscaped !== true && code === CHAR_DOT && (code = advance()) === CHAR_DOT) {
+              isBrace = token.isBrace = true;
+              isGlob = token.isGlob = true;
+              finished = true;
+              if (scanToEnd === true) {
+                continue;
+              }
+              break;
+            }
+            if (braceEscaped !== true && code === CHAR_COMMA) {
+              isBrace = token.isBrace = true;
+              isGlob = token.isGlob = true;
+              finished = true;
+              if (scanToEnd === true) {
+                continue;
+              }
+              break;
+            }
+            if (code === CHAR_RIGHT_CURLY_BRACE) {
+              braces--;
+              if (braces === 0) {
+                braceEscaped = false;
+                isBrace = token.isBrace = true;
+                finished = true;
+                break;
+              }
+            }
+          }
+          if (scanToEnd === true) {
+            continue;
+          }
+          break;
+        }
+        if (code === CHAR_FORWARD_SLASH) {
+          slashes.push(index);
+          tokens.push(token);
+          token = { value: "", depth: 0, isGlob: false };
+          if (finished === true) continue;
+          if (prev === CHAR_DOT && index === start + 1) {
+            start += 2;
+            continue;
+          }
+          lastIndex = index + 1;
+          continue;
+        }
+        if (opts.noext !== true) {
+          const isExtglobChar = code === CHAR_PLUS || code === CHAR_AT || code === CHAR_ASTERISK || code === CHAR_QUESTION_MARK || code === CHAR_EXCLAMATION_MARK;
+          if (isExtglobChar === true && peek() === CHAR_LEFT_PARENTHESES) {
+            isGlob = token.isGlob = true;
+            isExtglob = token.isExtglob = true;
+            finished = true;
+            if (code === CHAR_EXCLAMATION_MARK && index === start) {
+              negatedExtglob = true;
+            }
+            if (scanToEnd === true) {
+              while (eos() !== true && (code = advance())) {
+                if (code === CHAR_BACKWARD_SLASH) {
+                  backslashes = token.backslashes = true;
+                  code = advance();
+                  continue;
+                }
+                if (code === CHAR_RIGHT_PARENTHESES) {
+                  isGlob = token.isGlob = true;
+                  finished = true;
+                  break;
+                }
+              }
+              continue;
+            }
+            break;
+          }
+        }
+        if (code === CHAR_ASTERISK) {
+          if (prev === CHAR_ASTERISK) isGlobstar = token.isGlobstar = true;
+          isGlob = token.isGlob = true;
+          finished = true;
+          if (scanToEnd === true) {
+            continue;
+          }
+          break;
+        }
+        if (code === CHAR_QUESTION_MARK) {
+          isGlob = token.isGlob = true;
+          finished = true;
+          if (scanToEnd === true) {
+            continue;
+          }
+          break;
+        }
+        if (code === CHAR_LEFT_SQUARE_BRACKET) {
+          while (eos() !== true && (next = advance())) {
+            if (next === CHAR_BACKWARD_SLASH) {
+              backslashes = token.backslashes = true;
+              advance();
+              continue;
+            }
+            if (next === CHAR_RIGHT_SQUARE_BRACKET) {
+              isBracket = token.isBracket = true;
+              isGlob = token.isGlob = true;
+              finished = true;
+              break;
+            }
+          }
+          if (scanToEnd === true) {
+            continue;
+          }
+          break;
+        }
+        if (opts.nonegate !== true && code === CHAR_EXCLAMATION_MARK && index === start) {
+          negated = token.negated = true;
+          start++;
+          continue;
+        }
+        if (opts.noparen !== true && code === CHAR_LEFT_PARENTHESES) {
+          isGlob = token.isGlob = true;
+          if (scanToEnd === true) {
+            while (eos() !== true && (code = advance())) {
+              if (code === CHAR_LEFT_PARENTHESES) {
+                backslashes = token.backslashes = true;
+                code = advance();
+                continue;
+              }
+              if (code === CHAR_RIGHT_PARENTHESES) {
+                finished = true;
+                break;
+              }
+            }
+            continue;
+          }
+          break;
+        }
+        if (isGlob === true) {
+          finished = true;
+          if (scanToEnd === true) {
+            continue;
+          }
+          break;
+        }
+      }
+      if (opts.noext === true) {
+        isExtglob = false;
+        isGlob = false;
+      }
+      let base = str;
+      let prefix = "";
+      let glob = "";
+      if (start > 0) {
+        prefix = str.slice(0, start);
+        str = str.slice(start);
+        lastIndex -= start;
+      }
+      if (base && isGlob === true && lastIndex > 0) {
+        base = str.slice(0, lastIndex);
+        glob = str.slice(lastIndex);
+      } else if (isGlob === true) {
+        base = "";
+        glob = str;
+      } else {
+        base = str;
+      }
+      if (base && base !== "" && base !== "/" && base !== str) {
+        if (isPathSeparator(base.charCodeAt(base.length - 1))) {
+          base = base.slice(0, -1);
+        }
+      }
+      if (opts.unescape === true) {
+        if (glob) glob = utils.removeBackslashes(glob);
+        if (base && backslashes === true) {
+          base = utils.removeBackslashes(base);
+        }
+      }
+      const state = {
+        prefix,
+        input,
+        start,
+        base,
+        glob,
+        isBrace,
+        isBracket,
+        isGlob,
+        isExtglob,
+        isGlobstar,
+        negated,
+        negatedExtglob
+      };
+      if (opts.tokens === true) {
+        state.maxDepth = 0;
+        if (!isPathSeparator(code)) {
+          tokens.push(token);
+        }
+        state.tokens = tokens;
+      }
+      if (opts.parts === true || opts.tokens === true) {
+        let prevIndex;
+        for (let idx = 0; idx < slashes.length; idx++) {
+          const n = prevIndex ? prevIndex + 1 : start;
+          const i = slashes[idx];
+          const value = input.slice(n, i);
+          if (opts.tokens) {
+            if (idx === 0 && start !== 0) {
+              tokens[idx].isPrefix = true;
+              tokens[idx].value = prefix;
+            } else {
+              tokens[idx].value = value;
+            }
+            depth(tokens[idx]);
+            state.maxDepth += tokens[idx].depth;
+          }
+          if (idx !== 0 || value !== "") {
+            parts.push(value);
+          }
+          prevIndex = i;
+        }
+        if (prevIndex && prevIndex + 1 < input.length) {
+          const value = input.slice(prevIndex + 1);
+          parts.push(value);
+          if (opts.tokens) {
+            tokens[tokens.length - 1].value = value;
+            depth(tokens[tokens.length - 1]);
+            state.maxDepth += tokens[tokens.length - 1].depth;
+          }
+        }
+        state.slashes = slashes;
+        state.parts = parts;
+      }
+      return state;
+    };
+    module.exports = scan;
+  }
+});
+
+// node_modules/picomatch/lib/parse.js
+var require_parse = __commonJS({
+  "node_modules/picomatch/lib/parse.js"(exports, module) {
+    "use strict";
+    var constants2 = require_constants();
+    var utils = require_utils2();
+    var {
+      MAX_LENGTH,
+      POSIX_REGEX_SOURCE,
+      REGEX_NON_SPECIAL_CHARS,
+      REGEX_SPECIAL_CHARS_BACKREF,
+      REPLACEMENTS
+    } = constants2;
+    var expandRange = (args, options) => {
+      if (typeof options.expandRange === "function") {
+        return options.expandRange(...args, options);
+      }
+      args.sort();
+      const value = `[${args.join("-")}]`;
+      try {
+        new RegExp(value);
+      } catch (ex) {
+        return args.map((v) => utils.escapeRegex(v)).join("..");
+      }
+      return value;
+    };
+    var syntaxError = (type, char) => {
+      return `Missing ${type}: "${char}" - use "\\\\${char}" to match literal characters`;
+    };
+    var splitTopLevel = (input) => {
+      const parts = [];
+      let bracket = 0;
+      let paren = 0;
+      let quote = 0;
+      let value = "";
+      let escaped = false;
+      for (const ch of input) {
+        if (escaped === true) {
+          value += ch;
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          value += ch;
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          quote = quote === 1 ? 0 : 1;
+          value += ch;
+          continue;
+        }
+        if (quote === 0) {
+          if (ch === "[") {
+            bracket++;
+          } else if (ch === "]" && bracket > 0) {
+            bracket--;
+          } else if (bracket === 0) {
+            if (ch === "(") {
+              paren++;
+            } else if (ch === ")" && paren > 0) {
+              paren--;
+            } else if (ch === "|" && paren === 0) {
+              parts.push(value);
+              value = "";
+              continue;
+            }
+          }
+        }
+        value += ch;
+      }
+      parts.push(value);
+      return parts;
+    };
+    var isPlainBranch = (branch) => {
+      let escaped = false;
+      for (const ch of branch) {
+        if (escaped === true) {
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (/[?*+@!()[\]{}]/.test(ch)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    var normalizeSimpleBranch = (branch) => {
+      let value = branch.trim();
+      let changed = true;
+      while (changed === true) {
+        changed = false;
+        if (/^@\([^\\()[\]{}|]+\)$/.test(value)) {
+          value = value.slice(2, -1);
+          changed = true;
+        }
+      }
+      if (!isPlainBranch(value)) {
+        return;
+      }
+      return value.replace(/\\(.)/g, "$1");
+    };
+    var hasRepeatedCharPrefixOverlap = (branches) => {
+      const values = branches.map(normalizeSimpleBranch).filter(Boolean);
+      for (let i = 0; i < values.length; i++) {
+        for (let j = i + 1; j < values.length; j++) {
+          const a = values[i];
+          const b = values[j];
+          const char = a[0];
+          if (!char || a !== char.repeat(a.length) || b !== char.repeat(b.length)) {
+            continue;
+          }
+          if (a === b || a.startsWith(b) || b.startsWith(a)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    var parseRepeatedExtglob = (pattern, requireEnd = true) => {
+      if (pattern[0] !== "+" && pattern[0] !== "*" || pattern[1] !== "(") {
+        return;
+      }
+      let bracket = 0;
+      let paren = 0;
+      let quote = 0;
+      let escaped = false;
+      for (let i = 1; i < pattern.length; i++) {
+        const ch = pattern[i];
+        if (escaped === true) {
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          quote = quote === 1 ? 0 : 1;
+          continue;
+        }
+        if (quote === 1) {
+          continue;
+        }
+        if (ch === "[") {
+          bracket++;
+          continue;
+        }
+        if (ch === "]" && bracket > 0) {
+          bracket--;
+          continue;
+        }
+        if (bracket > 0) {
+          continue;
+        }
+        if (ch === "(") {
+          paren++;
+          continue;
+        }
+        if (ch === ")") {
+          paren--;
+          if (paren === 0) {
+            if (requireEnd === true && i !== pattern.length - 1) {
+              return;
+            }
+            return {
+              type: pattern[0],
+              body: pattern.slice(2, i),
+              end: i
+            };
+          }
+        }
+      }
+    };
+    var buildCharClassStar = (chars) => {
+      const source = chars.length === 1 ? utils.escapeRegex(chars[0]) : `[${chars.map((ch) => utils.escapeRegex(ch)).join("")}]`;
+      return `${source}*`;
+    };
+    var getStarExtglobSequenceChars = (pattern) => {
+      let index = 0;
+      const chars = [];
+      while (index < pattern.length) {
+        const match = parseRepeatedExtglob(pattern.slice(index), false);
+        if (!match || match.type !== "*") {
+          return;
+        }
+        const branches = splitTopLevel(match.body).map((branch2) => branch2.trim());
+        if (branches.length !== 1) {
+          return;
+        }
+        const branch = normalizeSimpleBranch(branches[0]);
+        if (!branch || branch.length !== 1) {
+          return;
+        }
+        chars.push(branch);
+        index += match.end + 1;
+      }
+      if (chars.length < 1) {
+        return;
+      }
+      return chars;
+    };
+    var repeatedExtglobRecursion = (pattern) => {
+      let depth = 0;
+      let value = pattern.trim();
+      let match = parseRepeatedExtglob(value);
+      while (match) {
+        depth++;
+        value = match.body.trim();
+        match = parseRepeatedExtglob(value);
+      }
+      return depth;
+    };
+    var analyzeRepeatedExtglob = (body, options) => {
+      if (options.maxExtglobRecursion === false) {
+        return { risky: false };
+      }
+      const max = typeof options.maxExtglobRecursion === "number" ? options.maxExtglobRecursion : constants2.DEFAULT_MAX_EXTGLOB_RECURSION;
+      const branches = splitTopLevel(body).map((branch) => branch.trim());
+      if (branches.length > 1) {
+        if (branches.some((branch) => branch === "") || branches.some((branch) => /^[*?]+$/.test(branch)) || hasRepeatedCharPrefixOverlap(branches)) {
+          return { risky: true };
+        }
+      }
+      const safeChars = [];
+      let sawStarSequence = false;
+      let combinable = true;
+      for (const branch of branches) {
+        const chars = getStarExtglobSequenceChars(branch);
+        if (chars) {
+          sawStarSequence = true;
+          safeChars.push(...chars);
+          continue;
+        }
+        const literal2 = normalizeSimpleBranch(branch);
+        if (literal2 && literal2.length === 1) {
+          safeChars.push(literal2);
+          continue;
+        }
+        combinable = false;
+        if (repeatedExtglobRecursion(branch) > max) {
+          return { risky: true };
+        }
+      }
+      if (sawStarSequence) {
+        return combinable ? { risky: true, safeOutput: buildCharClassStar([...new Set(safeChars)]) } : { risky: true };
+      }
+      return { risky: false };
+    };
+    var parse4 = (input, options) => {
+      if (typeof input !== "string") {
+        throw new TypeError("Expected a string");
+      }
+      input = REPLACEMENTS[input] || input;
+      const opts = { ...options };
+      const max = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
+      let len = input.length;
+      if (len > max) {
+        throw new SyntaxError(`Input length: ${len}, exceeds maximum allowed length: ${max}`);
+      }
+      const bos = { type: "bos", value: "", output: opts.prepend || "" };
+      const tokens = [bos];
+      const capture = opts.capture ? "" : "?:";
+      const PLATFORM_CHARS = constants2.globChars(opts.windows);
+      const EXTGLOB_CHARS = constants2.extglobChars(PLATFORM_CHARS);
+      const {
+        DOT_LITERAL,
+        PLUS_LITERAL,
+        SLASH_LITERAL,
+        ONE_CHAR,
+        DOTS_SLASH,
+        NO_DOT,
+        NO_DOT_SLASH,
+        NO_DOTS_SLASH,
+        QMARK,
+        QMARK_NO_DOT,
+        STAR,
+        START_ANCHOR
+      } = PLATFORM_CHARS;
+      const globstar = (opts2) => {
+        return `(${capture}(?:(?!${START_ANCHOR}${opts2.dot ? DOTS_SLASH : DOT_LITERAL}).)*?)`;
+      };
+      const nodot = opts.dot ? "" : NO_DOT;
+      const qmarkNoDot = opts.dot ? QMARK : QMARK_NO_DOT;
+      let star = opts.bash === true ? globstar(opts) : STAR;
+      if (opts.capture) {
+        star = `(${star})`;
+      }
+      if (typeof opts.noext === "boolean") {
+        opts.noextglob = opts.noext;
+      }
+      const state = {
+        input,
+        index: -1,
+        start: 0,
+        dot: opts.dot === true,
+        consumed: "",
+        output: "",
+        prefix: "",
+        backtrack: false,
+        negated: false,
+        brackets: 0,
+        braces: 0,
+        parens: 0,
+        quotes: 0,
+        globstar: false,
+        tokens
+      };
+      input = utils.removePrefix(input, state);
+      len = input.length;
+      const extglobs = [];
+      const braces = [];
+      const stack = [];
+      let prev = bos;
+      let value;
+      const eos = () => state.index === len - 1;
+      const peek = state.peek = (n = 1) => input[state.index + n];
+      const advance = state.advance = () => input[++state.index] || "";
+      const remaining = () => input.slice(state.index + 1);
+      const consume = (value2 = "", num = 0) => {
+        state.consumed += value2;
+        state.index += num;
+      };
+      const append = (token) => {
+        state.output += token.output != null ? token.output : token.value;
+        consume(token.value);
+      };
+      const negate = () => {
+        let count = 1;
+        while (peek() === "!" && (peek(2) !== "(" || peek(3) === "?")) {
+          advance();
+          state.start++;
+          count++;
+        }
+        if (count % 2 === 0) {
+          return false;
+        }
+        state.negated = true;
+        state.start++;
+        return true;
+      };
+      const increment = (type) => {
+        state[type]++;
+        stack.push(type);
+      };
+      const decrement = (type) => {
+        state[type]--;
+        stack.pop();
+      };
+      const push = (tok) => {
+        if (prev.type === "globstar") {
+          const isBrace = state.braces > 0 && (tok.type === "comma" || tok.type === "brace");
+          const isExtglob = tok.extglob === true || extglobs.length && (tok.type === "pipe" || tok.type === "paren");
+          if (tok.type !== "slash" && tok.type !== "paren" && !isBrace && !isExtglob) {
+            state.output = state.output.slice(0, -prev.output.length);
+            prev.type = "star";
+            prev.value = "*";
+            prev.output = star;
+            state.output += prev.output;
+          }
+        }
+        if (extglobs.length && tok.type !== "paren") {
+          extglobs[extglobs.length - 1].inner += tok.value;
+        }
+        if (tok.value || tok.output) append(tok);
+        if (prev && prev.type === "text" && tok.type === "text") {
+          prev.output = (prev.output || prev.value) + tok.value;
+          prev.value += tok.value;
+          return;
+        }
+        tok.prev = prev;
+        tokens.push(tok);
+        prev = tok;
+      };
+      const extglobOpen = (type, value2) => {
+        const token = { ...EXTGLOB_CHARS[value2], conditions: 1, inner: "" };
+        token.prev = prev;
+        token.parens = state.parens;
+        token.output = state.output;
+        token.startIndex = state.index;
+        token.tokensIndex = tokens.length;
+        const output = (opts.capture ? "(" : "") + token.open;
+        increment("parens");
+        push({ type, value: value2, output: state.output ? "" : ONE_CHAR });
+        push({ type: "paren", extglob: true, value: advance(), output });
+        extglobs.push(token);
+      };
+      const extglobClose = (token) => {
+        const literal2 = input.slice(token.startIndex, state.index + 1);
+        const body = input.slice(token.startIndex + 2, state.index);
+        const analysis = analyzeRepeatedExtglob(body, opts);
+        if ((token.type === "plus" || token.type === "star") && analysis.risky) {
+          const safeOutput = analysis.safeOutput ? (token.output ? "" : ONE_CHAR) + (opts.capture ? `(${analysis.safeOutput})` : analysis.safeOutput) : void 0;
+          const open4 = tokens[token.tokensIndex];
+          open4.type = "text";
+          open4.value = literal2;
+          open4.output = safeOutput || utils.escapeRegex(literal2);
+          for (let i = token.tokensIndex + 1; i < tokens.length; i++) {
+            tokens[i].value = "";
+            tokens[i].output = "";
+            delete tokens[i].suffix;
+          }
+          state.output = token.output + open4.output;
+          state.backtrack = true;
+          push({ type: "paren", extglob: true, value, output: "" });
+          decrement("parens");
+          return;
+        }
+        let output = token.close + (opts.capture ? ")" : "");
+        let rest;
+        if (token.type === "negate") {
+          let extglobStar = star;
+          if (token.inner && token.inner.length > 1 && token.inner.includes("/")) {
+            extglobStar = globstar(opts);
+          }
+          if (extglobStar !== star || eos() || /^\)+$/.test(remaining())) {
+            output = token.close = `)$))${extglobStar}`;
+          }
+          if (token.inner.includes("*") && (rest = remaining()) && /^\.[^\\/.]+$/.test(rest)) {
+            const expression = parse4(rest, { ...options, fastpaths: false }).output;
+            output = token.close = `)${expression})${extglobStar})`;
+          }
+          if (token.prev.type === "bos") {
+            state.negatedExtglob = true;
+          }
+        }
+        push({ type: "paren", extglob: true, value, output });
+        decrement("parens");
+      };
+      if (opts.fastpaths !== false && !/(^[*!]|[/()[\]{}"])/.test(input)) {
+        let backslashes = false;
+        let output = input.replace(REGEX_SPECIAL_CHARS_BACKREF, (m, esc2, chars, first, rest, index) => {
+          if (first === "\\") {
+            backslashes = true;
+            return m;
+          }
+          if (first === "?") {
+            if (esc2) {
+              return esc2 + first + (rest ? QMARK.repeat(rest.length) : "");
+            }
+            if (index === 0) {
+              return qmarkNoDot + (rest ? QMARK.repeat(rest.length) : "");
+            }
+            return QMARK.repeat(chars.length);
+          }
+          if (first === ".") {
+            return DOT_LITERAL.repeat(chars.length);
+          }
+          if (first === "*") {
+            if (esc2) {
+              return esc2 + first + (rest ? star : "");
+            }
+            return star;
+          }
+          return esc2 ? m : `\\${m}`;
+        });
+        if (backslashes === true) {
+          if (opts.unescape === true) {
+            output = output.replace(/\\/g, "");
+          } else {
+            output = output.replace(/\\+/g, (m) => {
+              return m.length % 2 === 0 ? "\\\\" : m ? "\\" : "";
+            });
+          }
+        }
+        if (output === input && opts.contains === true) {
+          state.output = input;
+          return state;
+        }
+        state.output = utils.wrapOutput(output, state, options);
+        return state;
+      }
+      while (!eos()) {
+        value = advance();
+        if (value === "\0") {
+          continue;
+        }
+        if (value === "\\") {
+          const next = peek();
+          if (next === "/" && opts.bash !== true) {
+            continue;
+          }
+          if (next === "." || next === ";") {
+            continue;
+          }
+          if (!next) {
+            value += "\\";
+            push({ type: "text", value });
+            continue;
+          }
+          const match = /^\\+/.exec(remaining());
+          let slashes = 0;
+          if (match && match[0].length > 2) {
+            slashes = match[0].length;
+            state.index += slashes;
+            if (slashes % 2 !== 0) {
+              value += "\\";
+            }
+          }
+          if (opts.unescape === true) {
+            value = advance();
+          } else {
+            value += advance();
+          }
+          if (state.brackets === 0) {
+            push({ type: "text", value });
+            continue;
+          }
+        }
+        if (state.brackets > 0 && (value !== "]" || prev.value === "[" || prev.value === "[^")) {
+          if (opts.posix !== false && value === ":") {
+            const inner = prev.value.slice(1);
+            if (inner.includes("[")) {
+              prev.posix = true;
+              if (inner.includes(":")) {
+                const idx = prev.value.lastIndexOf("[");
+                const pre = prev.value.slice(0, idx);
+                const rest2 = prev.value.slice(idx + 2);
+                const posix = POSIX_REGEX_SOURCE[rest2];
+                if (posix) {
+                  prev.value = pre + posix;
+                  state.backtrack = true;
+                  advance();
+                  if (!bos.output && tokens.indexOf(prev) === 1) {
+                    bos.output = ONE_CHAR;
+                  }
+                  continue;
+                }
+              }
+            }
+          }
+          if (value === "[" && peek() !== ":" || value === "-" && peek() === "]") {
+            value = `\\${value}`;
+          }
+          if (value === "]" && (prev.value === "[" || prev.value === "[^")) {
+            value = `\\${value}`;
+          }
+          if (opts.posix === true && value === "!" && prev.value === "[") {
+            value = "^";
+          }
+          prev.value += value;
+          append({ value });
+          continue;
+        }
+        if (state.quotes === 1 && value !== '"') {
+          value = utils.escapeRegex(value);
+          prev.value += value;
+          append({ value });
+          continue;
+        }
+        if (value === '"') {
+          state.quotes = state.quotes === 1 ? 0 : 1;
+          if (opts.keepQuotes === true) {
+            push({ type: "text", value });
+          }
+          continue;
+        }
+        if (value === "(") {
+          increment("parens");
+          push({ type: "paren", value });
+          continue;
+        }
+        if (value === ")") {
+          if (state.parens === 0 && opts.strictBrackets === true) {
+            throw new SyntaxError(syntaxError("opening", "("));
+          }
+          const extglob = extglobs[extglobs.length - 1];
+          if (extglob && state.parens === extglob.parens + 1) {
+            extglobClose(extglobs.pop());
+            continue;
+          }
+          push({ type: "paren", value, output: state.parens ? ")" : "\\)" });
+          decrement("parens");
+          continue;
+        }
+        if (value === "[") {
+          if (opts.nobracket === true || !remaining().includes("]")) {
+            if (opts.nobracket !== true && opts.strictBrackets === true) {
+              throw new SyntaxError(syntaxError("closing", "]"));
+            }
+            value = `\\${value}`;
+          } else {
+            increment("brackets");
+          }
+          push({ type: "bracket", value });
+          continue;
+        }
+        if (value === "]") {
+          if (opts.nobracket === true || prev && prev.type === "bracket" && prev.value.length === 1) {
+            push({ type: "text", value, output: `\\${value}` });
+            continue;
+          }
+          if (state.brackets === 0) {
+            if (opts.strictBrackets === true) {
+              throw new SyntaxError(syntaxError("opening", "["));
+            }
+            push({ type: "text", value, output: `\\${value}` });
+            continue;
+          }
+          decrement("brackets");
+          const prevValue = prev.value.slice(1);
+          if (prev.posix !== true && prevValue[0] === "^" && !prevValue.includes("/")) {
+            value = `/${value}`;
+          }
+          prev.value += value;
+          append({ value });
+          if (opts.literalBrackets === false || utils.hasRegexChars(prevValue)) {
+            continue;
+          }
+          const escaped = utils.escapeRegex(prev.value);
+          state.output = state.output.slice(0, -prev.value.length);
+          if (opts.literalBrackets === true) {
+            state.output += escaped;
+            prev.value = escaped;
+            continue;
+          }
+          prev.value = `(${capture}${escaped}|${prev.value})`;
+          state.output += prev.value;
+          continue;
+        }
+        if (value === "{" && opts.nobrace !== true) {
+          increment("braces");
+          const open4 = {
+            type: "brace",
+            value,
+            output: "(",
+            outputIndex: state.output.length,
+            tokensIndex: state.tokens.length
+          };
+          braces.push(open4);
+          push(open4);
+          continue;
+        }
+        if (value === "}") {
+          const brace = braces[braces.length - 1];
+          if (opts.nobrace === true || !brace) {
+            push({ type: "text", value, output: value });
+            continue;
+          }
+          let output = ")";
+          if (brace.dots === true) {
+            const arr = tokens.slice();
+            const range = [];
+            for (let i = arr.length - 1; i >= 0; i--) {
+              tokens.pop();
+              if (arr[i].type === "brace") {
+                break;
+              }
+              if (arr[i].type !== "dots") {
+                range.unshift(arr[i].value);
+              }
+            }
+            output = expandRange(range, opts);
+            state.backtrack = true;
+          }
+          if (brace.comma !== true && brace.dots !== true) {
+            const out = state.output.slice(0, brace.outputIndex);
+            const toks = state.tokens.slice(brace.tokensIndex);
+            brace.value = brace.output = "\\{";
+            value = output = "\\}";
+            state.output = out;
+            for (const t of toks) {
+              state.output += t.output || t.value;
+            }
+          }
+          push({ type: "brace", value, output });
+          decrement("braces");
+          braces.pop();
+          continue;
+        }
+        if (value === "|") {
+          if (extglobs.length > 0) {
+            extglobs[extglobs.length - 1].conditions++;
+          }
+          push({ type: "text", value });
+          continue;
+        }
+        if (value === ",") {
+          let output = value;
+          const brace = braces[braces.length - 1];
+          if (brace && stack[stack.length - 1] === "braces") {
+            brace.comma = true;
+            output = "|";
+          }
+          push({ type: "comma", value, output });
+          continue;
+        }
+        if (value === "/") {
+          if (prev.type === "dot" && state.index === state.start + 1) {
+            state.start = state.index + 1;
+            state.consumed = "";
+            state.output = "";
+            tokens.pop();
+            prev = bos;
+            continue;
+          }
+          push({ type: "slash", value, output: SLASH_LITERAL });
+          continue;
+        }
+        if (value === ".") {
+          if (state.braces > 0 && prev.type === "dot") {
+            if (prev.value === ".") prev.output = DOT_LITERAL;
+            const brace = braces[braces.length - 1];
+            prev.type = "dots";
+            prev.output += value;
+            prev.value += value;
+            brace.dots = true;
+            continue;
+          }
+          if (state.braces + state.parens === 0 && prev.type !== "bos" && prev.type !== "slash") {
+            push({ type: "text", value, output: DOT_LITERAL });
+            continue;
+          }
+          push({ type: "dot", value, output: DOT_LITERAL });
+          continue;
+        }
+        if (value === "?") {
+          const isGroup = prev && prev.value === "(";
+          if (!isGroup && opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+            extglobOpen("qmark", value);
+            continue;
+          }
+          if (prev && prev.type === "paren") {
+            const next = peek();
+            let output = value;
+            if (prev.value === "(" && !/[!=<:]/.test(next) || next === "<" && !/<([!=]|\w+>)/.test(remaining())) {
+              output = `\\${value}`;
+            }
+            push({ type: "text", value, output });
+            continue;
+          }
+          if (opts.dot !== true && (prev.type === "slash" || prev.type === "bos")) {
+            push({ type: "qmark", value, output: QMARK_NO_DOT });
+            continue;
+          }
+          push({ type: "qmark", value, output: QMARK });
+          continue;
+        }
+        if (value === "!") {
+          if (opts.noextglob !== true && peek() === "(") {
+            if (peek(2) !== "?" || !/[!=<:]/.test(peek(3))) {
+              extglobOpen("negate", value);
+              continue;
+            }
+          }
+          if (opts.nonegate !== true && state.index === 0) {
+            negate();
+            continue;
+          }
+        }
+        if (value === "+") {
+          if (opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+            extglobOpen("plus", value);
+            continue;
+          }
+          if (prev && prev.value === "(" || opts.regex === false) {
+            push({ type: "plus", value, output: PLUS_LITERAL });
+            continue;
+          }
+          if (prev && (prev.type === "bracket" || prev.type === "paren" || prev.type === "brace") || state.parens > 0) {
+            push({ type: "plus", value });
+            continue;
+          }
+          push({ type: "plus", value: PLUS_LITERAL });
+          continue;
+        }
+        if (value === "@") {
+          if (opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+            push({ type: "at", extglob: true, value, output: "" });
+            continue;
+          }
+          push({ type: "text", value });
+          continue;
+        }
+        if (value !== "*") {
+          if (value === "$" || value === "^") {
+            value = `\\${value}`;
+          }
+          const match = REGEX_NON_SPECIAL_CHARS.exec(remaining());
+          if (match) {
+            value += match[0];
+            state.index += match[0].length;
+          }
+          push({ type: "text", value });
+          continue;
+        }
+        if (prev && (prev.type === "globstar" || prev.star === true)) {
+          prev.type = "star";
+          prev.star = true;
+          prev.value += value;
+          prev.output = star;
+          state.backtrack = true;
+          state.globstar = true;
+          consume(value);
+          continue;
+        }
+        let rest = remaining();
+        if (opts.noextglob !== true && /^\([^?]/.test(rest)) {
+          extglobOpen("star", value);
+          continue;
+        }
+        if (prev.type === "star") {
+          if (opts.noglobstar === true) {
+            consume(value);
+            continue;
+          }
+          const prior = prev.prev;
+          const before = prior.prev;
+          const isStart = prior.type === "slash" || prior.type === "bos";
+          const afterStar = before && (before.type === "star" || before.type === "globstar");
+          if (opts.bash === true && (!isStart || rest[0] && rest[0] !== "/")) {
+            push({ type: "star", value, output: "" });
+            continue;
+          }
+          const isBrace = state.braces > 0 && (prior.type === "comma" || prior.type === "brace");
+          const isExtglob = extglobs.length && (prior.type === "pipe" || prior.type === "paren");
+          if (!isStart && prior.type !== "paren" && !isBrace && !isExtglob) {
+            push({ type: "star", value, output: "" });
+            continue;
+          }
+          while (rest.slice(0, 3) === "/**") {
+            const after = input[state.index + 4];
+            if (after && after !== "/") {
+              break;
+            }
+            rest = rest.slice(3);
+            consume("/**", 3);
+          }
+          if (prior.type === "bos" && eos()) {
+            prev.type = "globstar";
+            prev.value += value;
+            prev.output = globstar(opts);
+            state.output = prev.output;
+            state.globstar = true;
+            consume(value);
+            continue;
+          }
+          if (prior.type === "slash" && prior.prev.type !== "bos" && !afterStar && eos()) {
+            state.output = state.output.slice(0, -(prior.output + prev.output).length);
+            prior.output = `(?:${prior.output}`;
+            prev.type = "globstar";
+            prev.output = globstar(opts) + (opts.strictSlashes ? ")" : "|$)");
+            prev.value += value;
+            state.globstar = true;
+            state.output += prior.output + prev.output;
+            consume(value);
+            continue;
+          }
+          if (prior.type === "slash" && prior.prev.type !== "bos" && rest[0] === "/") {
+            const end = rest[1] !== void 0 ? "|$" : "";
+            state.output = state.output.slice(0, -(prior.output + prev.output).length);
+            prior.output = `(?:${prior.output}`;
+            prev.type = "globstar";
+            prev.output = `${globstar(opts)}${SLASH_LITERAL}|${SLASH_LITERAL}${end})`;
+            prev.value += value;
+            state.output += prior.output + prev.output;
+            state.globstar = true;
+            consume(value + advance());
+            push({ type: "slash", value: "/", output: "" });
+            continue;
+          }
+          if (prior.type === "bos" && rest[0] === "/") {
+            prev.type = "globstar";
+            prev.value += value;
+            prev.output = `(?:^|${SLASH_LITERAL}|${globstar(opts)}${SLASH_LITERAL})`;
+            state.output = prev.output;
+            state.globstar = true;
+            consume(value + advance());
+            push({ type: "slash", value: "/", output: "" });
+            continue;
+          }
+          state.output = state.output.slice(0, -prev.output.length);
+          prev.type = "globstar";
+          prev.output = globstar(opts);
+          prev.value += value;
+          state.output += prev.output;
+          state.globstar = true;
+          consume(value);
+          continue;
+        }
+        const token = { type: "star", value, output: star };
+        if (opts.bash === true) {
+          token.output = ".*?";
+          if (prev.type === "bos" || prev.type === "slash") {
+            token.output = nodot + token.output;
+          }
+          push(token);
+          continue;
+        }
+        if (prev && (prev.type === "bracket" || prev.type === "paren") && opts.regex === true) {
+          token.output = value;
+          push(token);
+          continue;
+        }
+        if (state.index === state.start || prev.type === "slash" || prev.type === "dot") {
+          if (prev.type === "dot") {
+            state.output += NO_DOT_SLASH;
+            prev.output += NO_DOT_SLASH;
+          } else if (opts.dot === true) {
+            state.output += NO_DOTS_SLASH;
+            prev.output += NO_DOTS_SLASH;
+          } else {
+            state.output += nodot;
+            prev.output += nodot;
+          }
+          if (peek() !== "*") {
+            state.output += ONE_CHAR;
+            prev.output += ONE_CHAR;
+          }
+        }
+        push(token);
+      }
+      while (state.brackets > 0) {
+        if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "]"));
+        state.output = utils.escapeLast(state.output, "[");
+        decrement("brackets");
+      }
+      while (state.parens > 0) {
+        if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", ")"));
+        state.output = utils.escapeLast(state.output, "(");
+        decrement("parens");
+      }
+      while (state.braces > 0) {
+        if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "}"));
+        state.output = utils.escapeLast(state.output, "{");
+        decrement("braces");
+      }
+      if (opts.strictSlashes !== true && (prev.type === "star" || prev.type === "bracket")) {
+        push({ type: "maybe_slash", value: "", output: `${SLASH_LITERAL}?` });
+      }
+      if (state.backtrack === true) {
+        state.output = "";
+        for (const token of state.tokens) {
+          state.output += token.output != null ? token.output : token.value;
+          if (token.suffix) {
+            state.output += token.suffix;
+          }
+        }
+      }
+      return state;
+    };
+    parse4.fastpaths = (input, options) => {
+      const opts = { ...options };
+      const max = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
+      const len = input.length;
+      if (len > max) {
+        throw new SyntaxError(`Input length: ${len}, exceeds maximum allowed length: ${max}`);
+      }
+      input = REPLACEMENTS[input] || input;
+      const {
+        DOT_LITERAL,
+        SLASH_LITERAL,
+        ONE_CHAR,
+        DOTS_SLASH,
+        NO_DOT,
+        NO_DOTS,
+        NO_DOTS_SLASH,
+        STAR,
+        START_ANCHOR
+      } = constants2.globChars(opts.windows);
+      const nodot = opts.dot ? NO_DOTS : NO_DOT;
+      const slashDot = opts.dot ? NO_DOTS_SLASH : NO_DOT;
+      const capture = opts.capture ? "" : "?:";
+      const state = { negated: false, prefix: "" };
+      let star = opts.bash === true ? ".*?" : STAR;
+      if (opts.capture) {
+        star = `(${star})`;
+      }
+      const globstar = (opts2) => {
+        if (opts2.noglobstar === true) return star;
+        return `(${capture}(?:(?!${START_ANCHOR}${opts2.dot ? DOTS_SLASH : DOT_LITERAL}).)*?)`;
+      };
+      const create = (str) => {
+        switch (str) {
+          case "*":
+            return `${nodot}${ONE_CHAR}${star}`;
+          case ".*":
+            return `${DOT_LITERAL}${ONE_CHAR}${star}`;
+          case "*.*":
+            return `${nodot}${star}${DOT_LITERAL}${ONE_CHAR}${star}`;
+          case "*/*":
+            return `${nodot}${star}${SLASH_LITERAL}${ONE_CHAR}${slashDot}${star}`;
+          case "**":
+            return nodot + globstar(opts);
+          case "**/*":
+            return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${slashDot}${ONE_CHAR}${star}`;
+          case "**/*.*":
+            return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${slashDot}${star}${DOT_LITERAL}${ONE_CHAR}${star}`;
+          case "**/.*":
+            return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${DOT_LITERAL}${ONE_CHAR}${star}`;
+          default: {
+            const match = /^(.*?)\.(\w+)$/.exec(str);
+            if (!match) return;
+            const source2 = create(match[1]);
+            if (!source2) return;
+            return source2 + DOT_LITERAL + match[2];
+          }
+        }
+      };
+      const output = utils.removePrefix(input, state);
+      let source = create(output);
+      if (source && opts.strictSlashes !== true) {
+        source += `${SLASH_LITERAL}?`;
+      }
+      return source;
+    };
+    module.exports = parse4;
+  }
+});
+
+// node_modules/picomatch/lib/picomatch.js
+var require_picomatch = __commonJS({
+  "node_modules/picomatch/lib/picomatch.js"(exports, module) {
+    "use strict";
+    var scan = require_scan();
+    var parse4 = require_parse();
+    var utils = require_utils2();
+    var constants2 = require_constants();
+    var isObject2 = (val) => val && typeof val === "object" && !Array.isArray(val);
+    var picomatch2 = (glob, options, returnState = false) => {
+      if (Array.isArray(glob)) {
+        const fns = glob.map((input) => picomatch2(input, options, returnState));
+        const arrayMatcher = (str) => {
+          for (const isMatch of fns) {
+            const state2 = isMatch(str);
+            if (state2) return state2;
+          }
+          return false;
+        };
+        return arrayMatcher;
+      }
+      const isState = isObject2(glob) && glob.tokens && glob.input;
+      if (glob === "" || typeof glob !== "string" && !isState) {
+        throw new TypeError("Expected pattern to be a non-empty string");
+      }
+      const opts = options || {};
+      const posix = opts.windows;
+      const regex = isState ? picomatch2.compileRe(glob, options) : picomatch2.makeRe(glob, options, false, true);
+      const state = regex.state;
+      delete regex.state;
+      let isIgnored = () => false;
+      if (opts.ignore) {
+        const ignoreOpts = { ...options, ignore: null, onMatch: null, onResult: null };
+        isIgnored = picomatch2(opts.ignore, ignoreOpts, returnState);
+      }
+      const matcher = (input, returnObject = false) => {
+        const { isMatch, match, output } = picomatch2.test(input, regex, options, { glob, posix });
+        const result = { glob, state, regex, posix, input, output, match, isMatch };
+        if (typeof opts.onResult === "function") {
+          opts.onResult(result);
+        }
+        if (isMatch === false) {
+          result.isMatch = false;
+          return returnObject ? result : false;
+        }
+        if (isIgnored(input)) {
+          if (typeof opts.onIgnore === "function") {
+            opts.onIgnore(result);
+          }
+          result.isMatch = false;
+          return returnObject ? result : false;
+        }
+        if (typeof opts.onMatch === "function") {
+          opts.onMatch(result);
+        }
+        return returnObject ? result : true;
+      };
+      if (returnState) {
+        matcher.state = state;
+      }
+      return matcher;
+    };
+    picomatch2.test = (input, regex, options, { glob, posix } = {}) => {
+      if (typeof input !== "string") {
+        throw new TypeError("Expected input to be a string");
+      }
+      if (input === "") {
+        return { isMatch: false, output: "" };
+      }
+      const opts = options || {};
+      const format = opts.format || (posix ? utils.toPosixSlashes : null);
+      let match = input === glob;
+      let output = match && format ? format(input) : input;
+      if (match === false) {
+        output = format ? format(input) : input;
+        match = output === glob;
+      }
+      if (match === false || opts.capture === true) {
+        if (opts.matchBase === true || opts.basename === true) {
+          match = picomatch2.matchBase(input, regex, options, posix);
+        } else {
+          match = regex.exec(output);
+        }
+      }
+      return { isMatch: Boolean(match), match, output };
+    };
+    picomatch2.matchBase = (input, glob, options, posix = options && options.windows) => {
+      const regex = glob instanceof RegExp ? glob : picomatch2.makeRe(glob, options);
+      return regex.test(utils.basename(input, { windows: posix }));
+    };
+    picomatch2.isMatch = (str, patterns, options) => picomatch2(patterns, options)(str);
+    picomatch2.parse = (pattern, options) => {
+      if (Array.isArray(pattern)) return pattern.map((p) => picomatch2.parse(p, options));
+      return parse4(pattern, { ...options, fastpaths: false });
+    };
+    picomatch2.scan = (input, options) => scan(input, options);
+    picomatch2.compileRe = (state, options, returnOutput = false, returnState = false) => {
+      if (returnOutput === true) {
+        return state.output;
+      }
+      const opts = options || {};
+      const prepend = opts.contains ? "" : "^";
+      const append = opts.contains ? "" : "$";
+      let source = `${prepend}(?:${state.output})${append}`;
+      if (state && state.negated === true) {
+        source = `^(?!${source}).*$`;
+      }
+      const regex = picomatch2.toRegex(source, options);
+      if (returnState === true) {
+        regex.state = state;
+      }
+      return regex;
+    };
+    picomatch2.makeRe = (input, options = {}, returnOutput = false, returnState = false) => {
+      if (!input || typeof input !== "string") {
+        throw new TypeError("Expected a non-empty string");
+      }
+      let parsed = { negated: false, fastpaths: true };
+      if (options.fastpaths !== false && (input[0] === "." || input[0] === "*")) {
+        parsed.output = parse4.fastpaths(input, options);
+      }
+      if (!parsed.output) {
+        parsed = parse4(input, options);
+      }
+      return picomatch2.compileRe(parsed, options, returnOutput, returnState);
+    };
+    picomatch2.toRegex = (source, options) => {
+      try {
+        const opts = options || {};
+        return new RegExp(source, opts.flags || (opts.nocase ? "i" : ""));
+      } catch (err) {
+        if (options && options.debug === true) throw err;
+        return /$^/;
+      }
+    };
+    picomatch2.constants = constants2;
+    module.exports = picomatch2;
+  }
+});
+
+// node_modules/picomatch/index.js
+var require_picomatch2 = __commonJS({
+  "node_modules/picomatch/index.js"(exports, module) {
+    "use strict";
+    var pico = require_picomatch();
+    var utils = require_utils2();
+    function picomatch2(glob, options, returnState = false) {
+      if (options && (options.windows === null || options.windows === void 0)) {
+        options = { ...options, windows: utils.isWindows() };
+      }
+      return pico(glob, options, returnState);
+    }
+    Object.assign(picomatch2, pico);
+    module.exports = picomatch2;
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 import process3 from "node:process";
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/core.js
+// node_modules/zod/v4/core/core.js
 var _a;
 // @__NO_SIDE_EFFECTS__
 function $constructor(name, initializer3, params) {
@@ -14325,7 +16072,7 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/util.js
+// node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -15021,7 +16768,7 @@ var Class = class {
   }
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 var initializer = (inst, def) => {
   inst.name = "$ZodError";
   Object.defineProperty(inst, "_zod", {
@@ -15090,7 +16837,7 @@ function formatError(error2, mapper = (issue2) => issue2.message) {
   return fieldErrors;
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? { ..._ctx, async: false } : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -15168,7 +16915,7 @@ var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
   return _safeParseAsync(_Err)(schema, value, _ctx);
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/regexes.js
+// node_modules/zod/v4/core/regexes.js
 var cuid = /^[cC][0-9a-z]{6,}$/;
 var cuid2 = /^[0-9a-z]+$/;
 var ulid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
@@ -15226,7 +16973,7 @@ var _null = /^null$/i;
 var lowercase = /^[^A-Z]*$/;
 var uppercase = /^[^a-z]*$/;
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a3;
   inst._zod ?? (inst._zod = {});
@@ -15616,7 +17363,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/doc.js
+// node_modules/zod/v4/core/doc.js
 var Doc = class {
   constructor(args = []) {
     this.content = [];
@@ -15652,14 +17399,14 @@ var Doc = class {
   }
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/versions.js
+// node_modules/zod/v4/core/versions.js
 var version = {
   major: 4,
   minor: 4,
   patch: 3
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a3;
   inst ?? (inst = {});
@@ -17139,7 +18886,7 @@ function handleRefineResult(result, payload, input, inst) {
   }
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/en.js
 var error = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
@@ -17252,7 +18999,7 @@ function en_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/registries.js
+// node_modules/zod/v4/core/registries.js
 var _a2;
 var $ZodRegistry = class {
   constructor() {
@@ -17300,7 +19047,7 @@ function registry() {
 (_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
 var globalRegistry = globalThis.__zod_globalRegistry;
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/api.js
+// node_modules/zod/v4/core/api.js
 // @__NO_SIDE_EFFECTS__
 function _string(Class2, params) {
   return new Class2({
@@ -17828,7 +19575,7 @@ function _check(fn, params) {
   return ch;
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -18187,7 +19934,7 @@ var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) =
   return finalize(ctx, schema);
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-processors.js
+// node_modules/zod/v4/core/json-schema-processors.js
 var formatMap = {
   guid: "uuid",
   url: "uri",
@@ -18520,7 +20267,7 @@ var optionalProcessor = (schema, ctx, _json, params) => {
   seen.ref = def.innerType;
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/iso.js
+// node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
   ZodISODate: () => ZodISODate,
@@ -18561,7 +20308,7 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/errors.js
+// node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -18600,7 +20347,7 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, {
   Parent: Error
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
@@ -18614,7 +20361,7 @@ var safeDecode = /* @__PURE__ */ _safeDecode(ZodRealError);
 var safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
 var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 var _installedGroups = /* @__PURE__ */ new WeakMap();
 function _installLazyMethods(inst, group, methods) {
   const proto = Object.getPrototypeOf(inst);
@@ -19456,10 +21203,10 @@ function preprocess(fn, schema) {
   });
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 config(en_default());
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
 var LATEST_PROTOCOL_VERSION = "2025-11-25";
 var SUPPORTED_PROTOCOL_VERSIONS = [LATEST_PROTOCOL_VERSION, "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
 var RELATED_TASK_META_KEY = "io.modelcontextprotocol/related-task";
@@ -20978,18 +22725,9 @@ var UrlElicitationRequiredError = class extends McpError {
   }
 };
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
-var STDIO_DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
 var ReadBuffer = class {
-  constructor(options) {
-    this._maxBufferSize = options?.maxBufferSize ?? STDIO_DEFAULT_MAX_BUFFER_SIZE;
-  }
   append(chunk) {
-    const newSize = (this._buffer?.length ?? 0) + chunk.length;
-    if (newSize > this._maxBufferSize) {
-      this.clear();
-      throw new Error(`ReadBuffer exceeded maximum size of ${this._maxBufferSize} bytes`);
-    }
     this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
   }
   readMessage() {
@@ -21015,26 +22753,20 @@ function serializeMessage(message) {
   return JSON.stringify(message) + "\n";
 }
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 var StdioServerTransport = class {
-  constructor(_stdin = process3.stdin, _stdout = process3.stdout, options) {
+  constructor(_stdin = process3.stdin, _stdout = process3.stdout) {
     this._stdin = _stdin;
     this._stdout = _stdout;
+    this._readBuffer = new ReadBuffer();
     this._started = false;
     this._ondata = (chunk) => {
-      try {
-        this._readBuffer.append(chunk);
-        this.processReadBuffer();
-      } catch (error2) {
-        this.onerror?.(error2);
-        this.close().catch(() => {
-        });
-      }
+      this._readBuffer.append(chunk);
+      this.processReadBuffer();
     };
     this._onerror = (error2) => {
       this.onerror?.(error2);
     };
-    this._readBuffer = new ReadBuffer({ maxBufferSize: options?.maxBufferSize });
   }
   /**
    * Starts listening for messages on stdin.
@@ -21071,12 +22803,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve7) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve5();
+        resolve7();
       } else {
-        this._stdout.once("drain", resolve5);
+        this._stdout.once("drain", resolve7);
       }
     });
   }
@@ -21086,7 +22818,7 @@ var StdioServerTransport = class {
 import { request } from "node:http";
 import { pathToFileURL } from "node:url";
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
   return !!schema._zod;
@@ -21149,15 +22881,15 @@ function getLiteralValue(schema) {
   return void 0;
 }
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
 function isTerminal(status) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
-// node_modules/.pnpm/zod-to-json-schema@3.25.2_zod@4.4.3/node_modules/zod-to-json-schema/dist/esm/parsers/string.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/string.js
 var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0123456789");
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
 function getMethodLiteral(schema) {
   const shape = getObjectShape(schema);
   const methodSchema = shape?.method;
@@ -21178,7 +22910,7 @@ function parseWithCompat(schema, data) {
   return result.data;
 }
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
 var DEFAULT_REQUEST_TIMEOUT_MSEC = 6e4;
 var Protocol = class {
   constructor(_options) {
@@ -21678,7 +23410,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -21695,7 +23427,7 @@ var Protocol = class {
    */
   request(request2, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve7, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -21773,7 +23505,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve5(parseResult.data);
+            resolve7(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -22034,12 +23766,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve7, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve5, interval);
+      const timeoutId = setTimeout(resolve7, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -22132,7 +23864,7 @@ function mergeCapabilities(base, additional) {
   return result;
 }
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
 var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist(), 1);
 function createDefaultAjvInstance() {
@@ -22200,7 +23932,7 @@ var AjvJsonSchemaValidator = class {
   }
 };
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 var ExperimentalServerTasks = class {
   constructor(_server) {
     this._server = _server;
@@ -22413,7 +24145,7 @@ var ExperimentalServerTasks = class {
   }
 };
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
 function assertToolsCallTaskCapability(requests, method, entityName) {
   if (!requests) {
     throw new Error(`${entityName} does not support task creation (required for ${method})`);
@@ -22448,7 +24180,7 @@ function assertClientRequestTaskCapability(requests, method, entityName) {
   }
 }
 
-// node_modules/.pnpm/@modelcontextprotocol+sdk@1.30.0_zod@4.4.3/node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
 var Server = class extends Protocol {
   /**
    * Initializes this server with the given name and version information.
@@ -22514,7 +24246,16 @@ var Server = class extends Protocol {
     if (!methodSchema) {
       throw new Error("Schema is missing a method literal");
     }
-    const methodValue = getLiteralValue(methodSchema);
+    let methodValue;
+    if (isZ4Schema(methodSchema)) {
+      const v4Schema = methodSchema;
+      const v4Def = v4Schema._zod?.def;
+      methodValue = v4Def?.value ?? v4Schema.value;
+    } else {
+      const v3Schema = methodSchema;
+      const legacyDef = v3Schema._def;
+      methodValue = legacyDef?.value ?? v3Schema.value;
+    }
     if (typeof methodValue !== "string") {
       throw new Error("Schema method literal must be a string");
     }
@@ -22842,7 +24583,7 @@ async function renameReplace(tmpPath, filePath) {
       return;
     } catch (error2) {
       if (attempt >= RENAME_RETRY_LIMIT || !isReplaceRetryableError(error2)) throw error2;
-      await new Promise((resolve5) => setTimeout(resolve5, RENAME_RETRY_DELAY_MS * (attempt + 1)));
+      await new Promise((resolve7) => setTimeout(resolve7, RENAME_RETRY_DELAY_MS * (attempt + 1)));
     }
   }
 }
@@ -23068,7 +24809,7 @@ var AppendLockTimeoutError = class extends Error {
     this.name = "AppendLockTimeoutError";
   }
 };
-var sleep = (ms) => new Promise((resolve5) => setTimeout(resolve5, ms));
+var sleep = (ms) => new Promise((resolve7) => setTimeout(resolve7, ms));
 async function isStaleLock(lockFile, staleMs) {
   try {
     const info = await stat(lockFile);
@@ -23672,15 +25413,15 @@ var BoardStore = class {
       if (current !== void 0 && (sinceEpoch === void 0 || Date.parse(current.ts) > sinceEpoch)) {
         return { kind: "now", payload: { status: "ready", entry: cloneEntry(current) } };
       }
-      const promise = new Promise((resolve5) => {
+      const promise = new Promise((resolve7) => {
         const waiter = {
           key: k,
           sinceEpoch,
-          resolve: resolve5,
+          resolve: resolve7,
           timer: setTimeout(() => {
             state.waiters.delete(waiter);
             this.stopPollIfIdle(state);
-            resolve5({ status: "timeout", retry: true });
+            resolve7({ status: "timeout", retry: true });
           }, effectiveTimeout)
         };
         state.waiters.add(waiter);
@@ -24721,13 +26462,13 @@ var DebateHub = class {
         return { kind: "now", payload: { status: "debate_complete", transcript: task.transcript } };
       }
       if (task.status === "closed") return { kind: "now", payload: { status: "closed" } };
-      const promise = new Promise((resolve5) => {
+      const promise = new Promise((resolve7) => {
         const waiter = {
           agentId,
-          resolve: resolve5,
+          resolve: resolve7,
           timer: setTimeout(() => {
             task.waiters.delete(waiter);
-            resolve5({ status: "timeout", retry: true });
+            resolve7({ status: "timeout", retry: true });
           }, this.waitCapMs)
         };
         task.waiters.add(waiter);
@@ -24812,16 +26553,16 @@ var DebateHub = class {
   async complete(taskId) {
     return this.enqueue(taskId, async () => {
       const task = this.getTask(taskId);
-      const { mkdir: mkdir6, writeFile: writeFile4 } = await import("node:fs/promises");
-      const { resolve: resolve5 } = await import("node:path");
-      const dir = resolve5(this.logsDir, taskId);
-      await mkdir6(dir, { recursive: true });
+      const { mkdir: mkdir7, writeFile: writeFile5 } = await import("node:fs/promises");
+      const { resolve: resolve7 } = await import("node:path");
+      const dir = resolve7(this.logsDir, taskId);
+      await mkdir7(dir, { recursive: true });
       const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
-      await writeFile4(
-        resolve5(dir, "probe.json"),
+      await writeFile5(
+        resolve7(dir, "probe.json"),
         JSON.stringify({ task_id: taskId, created_at: task.createdAt, agents: task.probes }, null, 2)
       );
-      await writeFile4(resolve5(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
+      await writeFile5(resolve7(dir, "events.jsonl"), task.transcript.map((t) => JSON.stringify(t)).join("\n") + "\n");
       const result = {
         task_id: taskId,
         status: task.status,
@@ -24835,7 +26576,7 @@ var DebateHub = class {
         result.reason = task.earlyClose.reason;
         result.signoffs = Object.fromEntries(task.signoffs);
       }
-      await writeFile4(resolve5(dir, "result.json"), JSON.stringify(result, null, 2));
+      await writeFile5(resolve7(dir, "result.json"), JSON.stringify(result, null, 2));
       if (this.board !== void 0) await this.board.archiveTask(taskId, dir);
       task.status = "closed";
       this.wakeAll(task, { status: "closed" });
@@ -26149,8 +27890,8 @@ function createTipsModule(tips) {
 }
 
 // src/adapters/control-plane.ts
-import { readFile as readFile7 } from "node:fs/promises";
-import { dirname as dirname3, isAbsolute as isAbsolute5, join as join8 } from "node:path";
+import { readFile as readFile8 } from "node:fs/promises";
+import { dirname as dirname5, isAbsolute as isAbsolute6, join as join10 } from "node:path";
 
 // src/core/store/archive-index.ts
 import { constants } from "node:fs";
@@ -26381,7 +28122,7 @@ import {
 } from "node:fs/promises";
 import { dirname as dirname2, isAbsolute as isAbsolute4, join as join6, resolve as resolve3 } from "node:path";
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/date.js
+// node_modules/smol-toml/dist/date.js
 var DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[T ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[-+]\d{2}:\d{2})?$/i;
 var TomlDate = class _TomlDate extends Date {
   #hasDate = false;
@@ -26473,7 +28214,7 @@ var TomlDate = class _TomlDate extends Date {
   }
 };
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/error.js
+// node_modules/smol-toml/dist/error.js
 function getLineColFromPtr(string3, ptr) {
   let lines = string3.slice(0, ptr).split(/\r\n|\n|\r/g);
   return [lines.length, lines.pop().length + 1];
@@ -26513,7 +28254,7 @@ ${codeblock}`, options);
   }
 };
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/primitive.js
+// node_modules/smol-toml/dist/primitive.js
 var INT_REGEX = /^((0x[0-9a-fA-F](_?[0-9a-fA-F])*)|(([+-]|0[ob])?\d(_?\d)*))$/;
 var FLOAT_REGEX = /^[+-]?\d(_?\d)*(\.\d(_?\d)*)?([eE][+-]?\d(_?\d)*)?$/;
 var LEADING_ZERO = /^[+-]?0[0-9_]/;
@@ -26672,7 +28413,7 @@ function parseValue(value, toml, ptr, integersAsBigInt) {
   return date3;
 }
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/util.js
+// node_modules/smol-toml/dist/util.js
 function indexOfNewline(str, start = 0, end = str.length) {
   let idx = str.indexOf("\n", start);
   if (str[idx - 1] === "\r")
@@ -26729,7 +28470,7 @@ function skipUntil(str, ptr, sep, end, banNewLines = false) {
   });
 }
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/extract.js
+// node_modules/smol-toml/dist/extract.js
 function sliceAndTrimEndOf(str, startPtr, endPtr) {
   let value = str.slice(startPtr, endPtr);
   let commentIdx = value.indexOf("#");
@@ -26796,7 +28537,7 @@ function extractValue(str, ptr, end, depth, integersAsBigInt) {
   ];
 }
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/struct.js
+// node_modules/smol-toml/dist/struct.js
 var KEY_PART_RE = /^[a-zA-Z0-9-_]+[ \t]*$/;
 function parseKey(str, ptr, end = "=") {
   let dot = ptr - 1;
@@ -26938,7 +28679,7 @@ function parseArray(str, ptr, depth, integersAsBigInt) {
   return [res, ptr];
 }
 
-// node_modules/.pnpm/smol-toml@1.7.1/node_modules/smol-toml/dist/parse.js
+// node_modules/smol-toml/dist/parse.js
 function peekTable(key, table, meta2, type) {
   let t = table;
   let m = meta2;
@@ -28602,6 +30343,21 @@ var StateFold = class {
   snapshotAgents() {
     return [...this.agents.values()].map((a) => this.cloneAgent(a));
   }
+  /**
+   * Resolve an engine agent id to one fold entry (B1-10). The same agent id
+   * can legitimately appear in several sessions (resume / multi-session
+   * mirroring), so a multiple-hit lookup is ambiguous: this picks the entry
+   * with the newest `lastSeen`. Consumers that need the full ambiguity set
+   * should use `snapshotAgents()` and filter themselves.
+   */
+  findAgentById(agentId) {
+    let best;
+    for (const agent of this.agents.values()) {
+      if (agent.agentId !== agentId) continue;
+      if (best === void 0 || agent.lastSeen > best.lastSeen) best = agent;
+    }
+    return best === void 0 ? void 0 : this.cloneAgent(best);
+  }
 };
 
 // src/modules/status/broadcast.ts
@@ -28697,7 +30453,7 @@ function classifySourceHealth(body, port) {
   };
 }
 function sleep2(ms) {
-  return new Promise((resolve5) => setTimeout(resolve5, ms));
+  return new Promise((resolve7) => setTimeout(resolve7, ms));
 }
 var OmkcSource = class {
   constructor(opts) {
@@ -28826,8 +30582,8 @@ var OmkcSource = class {
       };
       try {
         for (; ; ) {
-          const idle = new Promise((resolve5) => {
-            idleTimer = setTimeout(() => resolve5("idle"), this.readIdleTimeoutMs);
+          const idle = new Promise((resolve7) => {
+            idleTimer = setTimeout(() => resolve7("idle"), this.readIdleTimeoutMs);
           });
           const chunk = await Promise.race([reader.read(), idle]);
           if (idleTimer) clearTimeout(idleTimer);
@@ -28889,7 +30645,7 @@ function sessionsRoot(home) {
 var PUMP_CHUNK = 256 * 1024;
 var SCAN_YIELD_EVERY = 16;
 function yieldNow() {
-  return new Promise((resolve5) => setImmediate(resolve5));
+  return new Promise((resolve7) => setImmediate(resolve7));
 }
 async function readdirSafe(dir) {
   try {
@@ -29207,11 +30963,11 @@ var SWEEP_MS = 5e3;
 var AGENTS_CAP = 100;
 var REMOTE_STATUS_TIMEOUT_MS = 1500;
 async function fetchRemoteStatus(port, timeoutMs = REMOTE_STATUS_TIMEOUT_MS) {
-  return new Promise((resolve5) => {
+  return new Promise((resolve7) => {
     let deadline;
     const settle = (value) => {
       clearTimeout(deadline);
-      resolve5(value);
+      resolve7(value);
     };
     const req = get(
       { host: "127.0.0.1", port, path: "/status", timeout: timeoutMs },
@@ -29648,9 +31404,2882 @@ function createStatusModule(controller, opts = {}) {
   };
 }
 
+// src/modules/tower/paths.ts
+import { createHash as createHash3 } from "node:crypto";
+import { basename, dirname as dirname3, join as join7, resolve as resolve4 } from "node:path";
+var TOWER_NAME = "tower";
+var BROADCAST_NAME = "all";
+function worktreesRoot(repoRoot) {
+  return join7(dirname3(repoRoot), `${basename(repoRoot)}-worktrees`);
+}
+function worktreePath(repoRoot, slot) {
+  return join7(worktreesRoot(repoRoot), slot);
+}
+function normalizeTowerRoot(repoRoot) {
+  if (typeof repoRoot !== "string" || repoRoot.length === 0 || !/^[a-zA-Z]:[\\/]|^\//.test(repoRoot)) {
+    throw new Error(`repoRoot must be an absolute path, got: ${JSON.stringify(repoRoot)}`);
+  }
+  return resolve4(repoRoot);
+}
+function towerRepoKey(repoRoot) {
+  return createHash3("sha1").update(normalizeTowerRoot(repoRoot)).digest("hex").slice(0, 12);
+}
+function towerNamespace(repoRoot) {
+  return `tower/${towerRepoKey(repoRoot)}`;
+}
+function towerKeys(repoRoot) {
+  const ns = towerNamespace(repoRoot);
+  return {
+    ns,
+    repo: () => `${ns}/repo`,
+    state: () => `${ns}/state`,
+    mission: (id) => `${ns}/mission/${id}`,
+    inbox: (msgId) => `${ns}/inbox/${msgId}`,
+    finding: (id) => `${ns}/finding/${id}`,
+    review: (targetSlugged, reviewer, round) => `${ns}/review/${targetSlugged}/${reviewer}-r${round}`,
+    log: (ts, rand) => `${ns}/log/${ts}-${rand}`,
+    ci: (branch) => `${ns}/ci/${targetSlug(branch)}`,
+    ciLog: (branch, ts, rand) => `${ns}/ci/${targetSlug(branch)}/${ts}-${rand}`,
+    progress: (missionId) => `${ns}/progress/${missionId}`,
+    prefix: (kind) => `${ns}/${kind}/`
+  };
+}
+function dateStamp(now = /* @__PURE__ */ new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+function dateDash(now = /* @__PURE__ */ new Date()) {
+  const stamp = dateStamp(now);
+  return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`;
+}
+function slugify2(text, maxLength = 60) {
+  const slug = text.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "").slice(0, maxLength).replaceAll(/-+$/g, "");
+  return slug.length > 0 ? slug : "item";
+}
+function targetSlug(target) {
+  const cleaned = target.trim().replace(/^#/, "pr");
+  return slugify2(cleaned.replaceAll(/[/#]+/g, "-"));
+}
+
+// src/modules/tower/store.ts
+var import_picomatch = __toESM(require_picomatch2(), 1);
+import { spawn } from "node:child_process";
+import { randomUUID as randomUUID4 } from "node:crypto";
+import { access, mkdir as mkdir5, readFile as readFile5, readdir as readdir6, rename as rename3, rm, unlink as unlink5, writeFile as writeFile2 } from "node:fs/promises";
+import { dirname as dirname4, isAbsolute as isAbsolute5, join as join8 } from "node:path";
+
+// src/modules/tower/git.ts
+import { execFile } from "node:child_process";
+var GIT_TIMEOUT_MS = 6e4;
+var GitError = class extends Error {
+  constructor(args, stderr) {
+    super(`git ${args.join(" ")} failed: ${stderr.trim() || "unknown error"}`);
+    this.args = args;
+    this.stderr = stderr;
+    this.name = "GitError";
+  }
+  args;
+  stderr;
+};
+async function git(cwd, args) {
+  return new Promise((resolve7, reject) => {
+    execFile(
+      "git",
+      [...args],
+      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+      (error2, stdout, stderr) => {
+        if (error2 !== null) {
+          reject(new GitError(args, stderr || error2.message));
+          return;
+        }
+        resolve7(stdout.trimEnd());
+      }
+    );
+  });
+}
+async function tryGit(cwd, args) {
+  try {
+    return await git(cwd, args);
+  } catch {
+    return null;
+  }
+}
+async function isInsideRepo(cwd) {
+  return await tryGit(cwd, ["rev-parse", "--is-inside-work-tree"]) === "true";
+}
+async function hasAnyCommit(cwd) {
+  const out = await tryGit(cwd, ["rev-list", "-n", "1", "--all"]);
+  return out !== null && out.trim().length > 0;
+}
+async function currentBranch(cwd) {
+  const branch = await git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (branch === "HEAD") throw new Error("cannot determine base branch from a detached HEAD");
+  return branch;
+}
+async function branchTip(cwd, ref) {
+  return git(cwd, ["rev-parse", ref]);
+}
+async function branchExists(cwd, branch) {
+  return await tryGit(cwd, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]) !== null;
+}
+async function worktreeAdd(cwd, path2, branch, base) {
+  if (await branchExists(cwd, branch)) {
+    await git(cwd, ["worktree", "add", path2, branch]);
+    return;
+  }
+  await git(cwd, ["worktree", "add", path2, "-b", branch, base]);
+}
+async function worktreeRemove(cwd, path2, force) {
+  await git(cwd, ["worktree", "remove", ...force ? ["--force"] : [], path2]);
+}
+async function isWorktreeDirty(path2) {
+  const status = await tryGit(path2, ["status", "--porcelain"]);
+  return status !== null && status.trim().length > 0;
+}
+async function mergeNoFf(cwd, branch) {
+  await git(cwd, ["merge", "--no-ff", branch]);
+  return branchTip(cwd, "HEAD");
+}
+async function diffNameOnly(cwd, base, ref) {
+  const out = await git(cwd, ["diff", "--name-only", `${base}...${ref}`]);
+  return out.length === 0 ? [] : out.split("\n").filter((line) => line.trim().length > 0);
+}
+
+// src/modules/tower/identity.ts
+import { resolve as resolve5 } from "node:path";
+var IDENTITY_BLOCK_THRESHOLD = 3;
+function foldView(fold) {
+  if (fold === void 0) return void 0;
+  return {
+    findAgentById: (agentId) => fold.findAgentById(agentId),
+    snapshotSessions: () => fold.snapshotSessions()
+  };
+}
+function findFoldAgent(fold, agentId) {
+  return fold?.findAgentById(agentId);
+}
+function checkParentChild(fold, towerAgentId, workerAgentId) {
+  const worker = fold?.findAgentById(workerAgentId);
+  const tower = fold?.findAgentById(towerAgentId);
+  const parent = worker?.parentAgentId;
+  const wireOk = typeof parent === "string" && parent.length > 0 && parent === towerAgentId;
+  const wireDenies = typeof parent === "string" && parent.length > 0 && parent !== towerAgentId;
+  const subagents = tower?.subagents ?? [];
+  const omkcOk = subagents.some((s) => s.subagentId === workerAgentId);
+  const omkcDenies = subagents.length > 0 && !omkcOk;
+  if (wireOk || omkcOk) {
+    return { ok: true, missing: false, channel: wireOk ? "wire" : "omkc", reason: "ok" };
+  }
+  if (wireDenies || omkcDenies) {
+    return {
+      ok: false,
+      missing: false,
+      channel: wireDenies ? "wire" : "omkc",
+      reason: `parent-child mismatch on ${wireDenies ? "wire" : "omkc"} channel`
+    };
+  }
+  return {
+    ok: false,
+    missing: true,
+    channel: "none",
+    reason: "no parent-child data in the fold (parentAgentId absent and tower subagents unknown)"
+  };
+}
+function checkWorkdirSoft(fold, workerAgentId, repoRoot, worktree) {
+  const worker = fold?.findAgentById(workerAgentId);
+  if (worker === void 0) {
+    return { ok: false, missing: true, reason: "fold-entry-missing" };
+  }
+  const session = fold?.snapshotSessions().find((s) => s.sessionId === worker.sessionId);
+  if (session === void 0 || typeof session.workDir !== "string" || session.workDir.trim().length === 0) {
+    return { ok: false, missing: true, reason: "session-workdir-missing" };
+  }
+  const normalize = (p) => resolve5(p).toLowerCase();
+  const actual = normalize(session.workDir);
+  const candidates = [normalize(repoRoot)];
+  if (worktree !== void 0) candidates.push(normalize(worktree));
+  if (candidates.includes(actual)) return { ok: true, missing: false, reason: "ok" };
+  return {
+    ok: false,
+    missing: false,
+    reason: `session workDir ${JSON.stringify(session.workDir)} is neither the tower workspace nor the worker worktree`
+  };
+}
+function evaluateTowerIdentity(fold, towerAgentId) {
+  if (findFoldAgent(fold, towerAgentId) === void 0) {
+    return {
+      verified: false,
+      missing: true,
+      mismatch: false,
+      soft: false,
+      reason: "fold-entry-missing (tower)",
+      parentChild: { ok: false, missing: true, channel: "none", reason: "n/a \u2014 tower is the root (\u2460 only)" },
+      workdir: { ok: false, missing: true, reason: "n/a \u2014 tower is the root (\u2460 only)" }
+    };
+  }
+  return {
+    verified: true,
+    missing: false,
+    mismatch: false,
+    soft: false,
+    reason: "ok",
+    parentChild: { ok: true, missing: false, channel: "none", reason: "n/a \u2014 tower is the root (\u2460 only)" },
+    workdir: { ok: true, missing: false, reason: "n/a \u2014 tower is the root (\u2460 only)" }
+  };
+}
+function evaluateIdentity(fold, workerAgentId, towerAgentId, repoRoot, worktree) {
+  const reasons = [];
+  let missing = false;
+  let mismatch = false;
+  let soft = false;
+  if (findFoldAgent(fold, workerAgentId) === void 0) {
+    missing = true;
+    reasons.push("fold-entry-missing");
+  }
+  const pc = checkParentChild(fold, towerAgentId, workerAgentId);
+  if (!pc.ok) {
+    if (pc.missing) {
+      missing = true;
+      reasons.push("parent-child-missing");
+    } else {
+      mismatch = true;
+      reasons.push(pc.reason);
+    }
+  }
+  const wd = checkWorkdirSoft(fold, workerAgentId, repoRoot, worktree);
+  if (!wd.ok) {
+    if (wd.missing) {
+      missing = true;
+      reasons.push("workdir-missing");
+    } else {
+      soft = true;
+      reasons.push(wd.reason);
+    }
+  }
+  const verified = !missing && !mismatch && !soft;
+  return {
+    verified,
+    missing,
+    mismatch,
+    soft,
+    reason: verified ? "ok" : reasons.join("; "),
+    parentChild: pc,
+    workdir: wd
+  };
+}
+
+// src/modules/tower/store.ts
+var TowerProtocolError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "TowerProtocolError";
+  }
+};
+var FINDING_TYPES = ["bug", "improve", "vuln", "idea"];
+var STATUS_EMOJI = {
+  planned: "\u{1F7E1}",
+  active: "\u{1F535}",
+  completed: "\u{1F7E2}",
+  blocked: "\u{1F534}",
+  paused: "\u23F8\uFE0F",
+  merged: "\u2705"
+};
+var GUARD_MIRROR_FILE = ".tower-guard.json";
+var CI_TIMEOUT_MS = 10 * 60 * 1e3;
+var CI_LOG_MAX_LINES = 200;
+var CI_LOG_LINE_MAX_CHARS = 1e3;
+var CI_LOG_MAX_BYTES = 64 * 1024;
+var CI_OUTPUT_CAP_BYTES = 2 * 1024 * 1024;
+var PROGRESS_MAX_BYTES = 80 * 1024;
+function truncateCiLog(raw) {
+  const lines = raw.split(/\r?\n/).slice(-CI_LOG_MAX_LINES).map(
+    (line) => line.length > CI_LOG_LINE_MAX_CHARS ? `${line.slice(0, CI_LOG_LINE_MAX_CHARS)} \u2026[truncated]` : line
+  );
+  let text = lines.join("\n");
+  if (Buffer.byteLength(text, "utf8") > CI_LOG_MAX_BYTES) {
+    const parts = text.split("\n");
+    const kept = [];
+    let bytes = 0;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const lineBytes = Buffer.byteLength(parts[i], "utf8");
+      const separator = kept.length > 0 ? 1 : 0;
+      if (bytes + lineBytes + separator > CI_LOG_MAX_BYTES) break;
+      kept.unshift(parts[i]);
+      bytes += lineBytes + separator;
+    }
+    text = kept.join("\n");
+  }
+  return text;
+}
+function execCiCommand(cwd, command) {
+  return new Promise((resolve7) => {
+    const isWindows = process.platform === "win32";
+    const child = spawn(isWindows ? "cmd" : "/bin/sh", isWindows ? ["/c", command] : ["-c", command], {
+      cwd,
+      windowsHide: true,
+      env: process.env
+      // env 继承
+    });
+    let out = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, CI_TIMEOUT_MS);
+    const append = (chunk) => {
+      out += chunk.toString("utf8");
+      if (Buffer.byteLength(out, "utf8") > CI_OUTPUT_CAP_BYTES) {
+        out = out.slice(out.length - CI_OUTPUT_CAP_BYTES);
+      }
+    };
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
+    child.on("error", (error2) => {
+      clearTimeout(timer);
+      resolve7({ exitCode: null, output: `${out}
+[ci spawn failed: ${error2.message}]`.trim() });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      const suffix = timedOut ? `
+[ci timed out after ${CI_TIMEOUT_MS}ms \u2014 process killed]` : "";
+      resolve7({ exitCode: timedOut ? null : code, output: `${out}${suffix}` });
+    });
+  });
+}
+function truncateTail(text, maxBytes) {
+  if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
+  const parts = text.split("\n");
+  const kept = [];
+  let bytes = 0;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const lineBytes = Buffer.byteLength(parts[i], "utf8");
+    const separator = kept.length > 0 ? 1 : 0;
+    if (bytes + lineBytes + separator > maxBytes) break;
+    kept.unshift(parts[i]);
+    bytes += lineBytes + separator;
+  }
+  if (kept.length === 0) {
+    let last = parts[parts.length - 1] ?? "";
+    while (Buffer.byteLength(last, "utf8") > maxBytes) last = last.slice(0, Math.floor(last.length / 2));
+    return last;
+  }
+  return kept.join("\n");
+}
+var FENCE = "---";
+async function unlinkRootLinks(dir) {
+  let entries;
+  try {
+    entries = await readdir6(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const removed = [];
+  for (const entry of entries) {
+    if (!entry.isSymbolicLink()) continue;
+    try {
+      await unlink5(join8(dir, entry.name));
+      removed.push(entry.name);
+    } catch {
+    }
+  }
+  return removed;
+}
+function renderFrontmatter(fields) {
+  const lines = [FENCE];
+  for (const [key, value] of Object.entries(fields)) {
+    if (/[\r\n]/.test(value)) {
+      throw new Error(`frontmatter value for "${key}" must be single-line`);
+    }
+    lines.push(`${key}: ${value}`);
+  }
+  lines.push(FENCE);
+  return lines.join("\n");
+}
+function parseFrontmatter(text) {
+  const lines = text.split(/\r?\n/);
+  if (lines[0]?.trim() !== FENCE) return { fields: {}, body: text };
+  const close = lines.findIndex((line, index) => index > 0 && line.trim() === FENCE);
+  if (close === -1) return { fields: {}, body: text };
+  const fields = {};
+  for (const line of lines.slice(1, close)) {
+    const separator = line.indexOf(":");
+    if (separator <= 0) continue;
+    const key = line.slice(0, separator).trim();
+    fields[key] = line.slice(separator + 1).trim();
+  }
+  return { fields, body: lines.slice(close + 1).join("\n").trim() };
+}
+function boardEntry(key, value, author, ts, tags) {
+  return { key, value, author, ts, tags: tags ?? [] };
+}
+function stateFromEntries(keys, entries) {
+  const row = entries.get(keys.state());
+  if (row === void 0) {
+    throw new TowerProtocolError("tower is not booted in this repository \u2014 run moa_tower_boot first");
+  }
+  return JSON.parse(row.value);
+}
+function missionFromEntries(keys, entries, id) {
+  const row = entries.get(keys.mission(id));
+  if (row === void 0) throw new TowerProtocolError(`unknown mission "${id}"`);
+  return JSON.parse(row.value);
+}
+function missionsFromEntries(keys, entries, state) {
+  const missions = [];
+  for (const id of state.missions) missions.push(missionFromEntries(keys, entries, id));
+  return missions;
+}
+var TowerStore = class {
+  /** Normalized absolute path of the main checkout (the tower workspace root). */
+  repoRoot;
+  board;
+  keys;
+  constructor(repoRoot, board) {
+    this.repoRoot = normalizeTowerRoot(repoRoot);
+    this.board = board;
+    this.keys = towerKeys(this.repoRoot);
+  }
+  // ---------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------
+  /** True once `boot` has written the state document. */
+  async isInitialized() {
+    const rows = await this.board.read(this.keys.state(), void 0, "workspace", 1, this.repoRoot);
+    return rows.length > 0;
+  }
+  /**
+   * Boot the tower workspace (official `init`): state document + namespace
+   * identity doc + tower roster entry.
+   *
+   * 附录 A row 1: must be inside a git repository — `isInsideRepo` check.
+   * 附录 A row 2: needs ≥1 commit — `hasAnyCommit` check.
+   * 附录 A row 3: boot 幂等 — a repeated boot while booted reports an error
+   *   (per the plan landing); teardown clears the namespace so boot works again.
+   *   **B2-4 exception**: re-boot with a `ci_command` is the idempotent CI
+   *   configuration channel — it updates the `…/repo` doc instead of erroring.
+   *   **B2R-2**: that re-boot channel is caller-verified — the passed
+   *   `towerAgentId` must equal the boot-registered tower roster entry's
+   *   agentId, so no arbitrary MCP caller can implant a ciCommand.
+   * 附录 A row 4 (**偏差**): official writes `.tower/` to `.git/info/exclude`;
+   *   we are exempt — no `.tower/` directory is ever created inside the repo
+   *   (state lives in the board under `<home>/boards`, worktrees live in a
+   *   sibling `<repoName>-worktrees/`), so there is nothing to exclude.
+   *   **B2-12**: boot appends `.tower-guard.json` to `.git/info/exclude`
+   *   (idempotent — never duplicated) so the guard mirror file at the repo
+   *   root never shows up as untracked in the main checkout.
+   */
+  async boot(towerAgentId, opts = {}) {
+    if (!await isInsideRepo(this.repoRoot)) {
+      throw new TowerProtocolError(
+        "tower needs a git repository (the tower root is not inside one)"
+      );
+    }
+    if (!await hasAnyCommit(this.repoRoot)) {
+      throw new TowerProtocolError(
+        "the repository has no commits yet \u2014 create an initial commit first"
+      );
+    }
+    if (await this.isInitialized()) {
+      if (opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0) {
+        const state2 = await this.load();
+        const towerEntry = this.findAgent(state2, TOWER_NAME);
+        if (towerEntry === void 0 || towerEntry.agentId !== towerAgentId) {
+          throw new TowerProtocolError(
+            `tower_agent_id ${JSON.stringify(towerAgentId)} does not match the booted tower's registered agent id \u2014 only the booted tower may reconfigure the CI command`
+          );
+        }
+        const repoDoc2 = await this.updateCiCommand(opts.ciCommand.trim());
+        await this.appendLog(TOWER_NAME, "ci.configure", { command: opts.ciCommand.trim() });
+        return { base: repoDoc2.base, created: false, updated: true };
+      }
+      throw new TowerProtocolError(
+        "tower is already booted in this repository \u2014 teardown first (or reuse the existing workspace)"
+      );
+    }
+    if (typeof towerAgentId !== "string" || towerAgentId.trim().length === 0) {
+      throw new TowerProtocolError("towerAgentId is required \u2014 pass the orchestrator agent id");
+    }
+    const base = opts.base !== void 0 && opts.base.trim().length > 0 ? opts.base : await currentBranch(this.repoRoot);
+    const mode = opts.mode ?? "branch";
+    if (mode !== "branch") {
+      throw new TowerProtocolError(
+        `tower mode "${mode}" is not supported \u2014 v1 runs branch mode (pr is reserved for a future gh-backed mode)`
+      );
+    }
+    const createdAt = (/* @__PURE__ */ new Date()).toISOString();
+    const state = {
+      version: 1,
+      base,
+      mode,
+      createdAt,
+      roster: {
+        agents: [{ name: TOWER_NAME, agentId: towerAgentId, kind: "tower", spawnedAt: createdAt }]
+      },
+      missions: []
+    };
+    const repoDoc = {
+      repoRoot: this.repoRoot,
+      worktreesRoot: worktreesRoot(this.repoRoot),
+      base,
+      mode,
+      createdAt,
+      bootedAt: createdAt,
+      ...opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0 ? { ciCommand: opts.ciCommand.trim() } : {}
+    };
+    await this.addGuardExclude();
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        entries.set(this.keys.state(), boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts));
+        entries.set(this.keys.repo(), boardEntry(this.keys.repo(), JSON.stringify(repoDoc), TOWER_NAME, ts));
+      },
+      this.repoRoot
+    );
+    await this.appendLog(TOWER_NAME, "boot", {
+      base,
+      mode,
+      ci: opts.ciCommand !== void 0 && opts.ciCommand.trim().length > 0 ? "configured" : void 0
+    });
+    return { base, created: true };
+  }
+  /**
+   * B2-12 (附录 A row 4 deviation): append `.tower-guard.json` to the repo's
+   * `.git/info/exclude` — idempotent, never duplicated. The guard mirror file
+   * lives at the repo root, so without the exclude the main checkout's
+   * `git status` would always show it as untracked.
+   */
+  async addGuardExclude() {
+    const rawGitDir = await tryGit(this.repoRoot, ["rev-parse", "--git-dir"]);
+    const gitDir = rawGitDir === null ? ".git" : rawGitDir;
+    const gitDirAbs = isAbsolute5(gitDir) ? gitDir : join8(this.repoRoot, gitDir);
+    const excludeFile = join8(gitDirAbs, "info", "exclude");
+    await mkdir5(dirname4(excludeFile), { recursive: true });
+    let content = "";
+    try {
+      content = await readFile5(excludeFile, "utf8");
+    } catch {
+      content = "";
+    }
+    if (content.split(/\r?\n/).some((line) => line.trim() === GUARD_MIRROR_FILE)) return;
+    const prefix = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+    await writeFile2(excludeFile, `${content}${prefix}${GUARD_MIRROR_FILE}
+`, "utf8");
+  }
+  /**
+   * B2-4: idempotently set the repo doc's CI command (re-boot channel). A
+   * no-op when the command is unchanged.
+   */
+  async updateCiCommand(ciCommand) {
+    return this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const row = entries.get(this.keys.repo());
+        if (row === void 0) {
+          throw new TowerProtocolError(
+            "tower is not booted in this repository \u2014 run moa_tower_boot first"
+          );
+        }
+        const doc = JSON.parse(row.value);
+        if (doc.ciCommand === ciCommand) return doc;
+        const next = { ...doc, ciCommand };
+        entries.set(this.keys.repo(), boardEntry(this.keys.repo(), JSON.stringify(next), TOWER_NAME, ts));
+        return next;
+      },
+      this.repoRoot
+    );
+  }
+  async load() {
+    const rows = await this.board.read(this.keys.state(), void 0, "workspace", 1, this.repoRoot);
+    if (rows.length === 0) {
+      throw new TowerProtocolError(
+        "tower is not booted in this repository \u2014 run moa_tower_boot first"
+      );
+    }
+    const state = JSON.parse(rows[0].value);
+    if (state.version !== 1) {
+      throw new TowerProtocolError(`unsupported tower state version: ${String(state.version)}`);
+    }
+    return state;
+  }
+  /** The namespace identity doc (`…/repo`), or undefined when not booted. */
+  async loadRepoDoc() {
+    const rows = await this.board.read(this.keys.repo(), void 0, "workspace", 1, this.repoRoot);
+    return rows.length > 0 ? JSON.parse(rows[0].value) : void 0;
+  }
+  /** Resolve the state's mission ids to full mission documents (in plan order). */
+  async loadMissions(state) {
+    if (state.missions.length === 0) return [];
+    const entries = await this.board.readNamespace(
+      this.keys.prefix("mission"),
+      void 0,
+      "workspace",
+      1e3,
+      this.repoRoot
+    );
+    const byId = new Map(entries.map((row) => [row.key.slice(row.key.lastIndexOf("/") + 1), row]));
+    const missions = [];
+    for (const id of state.missions) {
+      const row = byId.get(id);
+      if (row === void 0) {
+        throw new TowerProtocolError(
+          `mission ${id} document is missing from the board \u2014 tower state is inconsistent`
+        );
+      }
+      missions.push(JSON.parse(row.value));
+    }
+    return missions;
+  }
+  // ---------------------------------------------------------------------
+  // Activity log — the ONLY writer of activity-log lines. One board key per
+  // line (`log/<ts>-<rand>`), appended after the mutation it records.
+  // ---------------------------------------------------------------------
+  async appendLog(actor, action, details = {}, ref) {
+    const kv = Object.entries(details).filter((entry) => entry[1] !== void 0).map(([key2, value]) => `${key2}=${value}`).join(" ");
+    const parts = [(/* @__PURE__ */ new Date()).toISOString(), actor, action];
+    if (kv.length > 0) parts.push(kv);
+    if (ref !== void 0) parts.push(`ref=${ref}`);
+    const line = parts.join(" ");
+    const key = this.keys.log(Date.now(), randomUUID4().slice(0, 8));
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        entries.set(key, boardEntry(key, line, actor, ts, ["log"]));
+      },
+      this.repoRoot
+    );
+  }
+  /** The last `lines` activity-log lines, oldest→newest (official semantics). */
+  async recentLog(lines) {
+    const entries = await this.board.readNamespace(
+      this.keys.prefix("log"),
+      void 0,
+      "workspace",
+      1e3,
+      this.repoRoot
+    );
+    const sorted = [...entries].sort((a, b) => a.key.localeCompare(b.key));
+    return sorted.slice(-Math.max(1, lines)).map((row) => row.value);
+  }
+  // ---------------------------------------------------------------------
+  // Roster / caller identity
+  // ---------------------------------------------------------------------
+  /**
+   * Map an engine agent id to its tower caller name.
+   *
+   * 附录 A row 7 (**偏差**, 决策 1): official maps `'main' → 'tower'` and
+   * requires every other id to be in the roster. Here the tower is the
+   * boot-registered orchestrator: the roster entry created by `boot` resolves
+   * to `'tower'`; a literal `'tower'` caller name requires boot to have
+   * happened; `'main'` is rejected outright (main is never the tower).
+   */
+  resolveCallerName(state, agentId) {
+    if (agentId === "main") {
+      throw new TowerProtocolError(
+        '"main" is not the control tower \u2014 the tower is the boot-registered orchestrator (moa_tower_boot with tower_agent_id first)'
+      );
+    }
+    if (agentId === TOWER_NAME) {
+      if (state.roster.agents.some((agent) => agent.name === TOWER_NAME)) return TOWER_NAME;
+      throw new TowerProtocolError(
+        "tower is not booted \u2014 only the booted tower and spawned workers/reviewers may use tower tools"
+      );
+    }
+    const entry = state.roster.agents.find((agent) => agent.agentId === agentId);
+    if (entry === void 0) {
+      throw new TowerProtocolError(
+        `agent "${agentId}" is not a tower participant \u2014 only the booted tower and spawned workers/reviewers can use tower tools`
+      );
+    }
+    return entry.name;
+  }
+  findAgent(state, name) {
+    return state.roster.agents.find((agent) => agent.name === name);
+  }
+  /** Alias of `findAgent` (official kept both spellings). */
+  findByName(state, name) {
+    return this.findAgent(state, name);
+  }
+  /**
+   * Shared roster-name collision judgment (B1R-1), read-only over `state`:
+   * rejects an exact duplicate, a slug collision with an existing roster
+   * member, or a reserved slug ("tower" / "all"). Throws the canonical
+   * TowerProtocolError naming the conflicting object.
+   *
+   * B1R-1: review keys embed `slugify(name)` (`review/<targetSlug>/<slug>-r<n>`),
+   * so names that normalize to the SAME slug ("Reviewer A" vs "reviewer-a")
+   * would silently LWW-overwrite each other's review doc on the same
+   * target+round and bypass the merge gate. Registration therefore rejects any
+   * name whose slug collides with an existing roster member or with the
+   * reserved tower/broadcast names — the error names the conflicting object.
+   *
+   * Single source of truth: `registerAgent` runs it inside its board mutate
+   * (defense in depth against concurrent spawns) AND the spawn tool runs it
+   * as a preflight BEFORE any side effect (worktree creation, mission
+   * activation) so a collision never leaves a half-spawned intermediate state.
+   */
+  assertNameAvailable(state, name) {
+    if (this.findAgent(state, name) !== void 0) {
+      throw new TowerProtocolError(`tower agent name "${name}" is already registered`);
+    }
+    const slug = slugify2(name, 30);
+    for (const agent of state.roster.agents) {
+      if (slugify2(agent.name, 30) === slug) {
+        throw new TowerProtocolError(
+          `tower agent name "${name}" collides with roster name "${agent.name}" \u2014 both normalize to review slug "${slug}"; choose a distinct name`
+        );
+      }
+    }
+    if (slug === slugify2(TOWER_NAME, 30) || slug === slugify2(BROADCAST_NAME, 30)) {
+      const reserved = slug === slugify2(TOWER_NAME, 30) ? TOWER_NAME : BROADCAST_NAME;
+      throw new TowerProtocolError(
+        `tower agent name "${name}" collides with reserved name "${reserved}" \u2014 review slug "${slug}" is reserved; choose a distinct name`
+      );
+    }
+  }
+  /**
+   * Register a spawned agent's roster entry (two-stage spawn: agentId is '' —
+   * pending — until moa_tower_register fills it).
+   * 附录 A row 6: roster names are unique — a duplicate name is an error.
+   * The collision judgment is `assertNameAvailable` (shared with the spawn
+   * tool's zero-side-effect preflight); kept here for defense in depth.
+   */
+  async registerAgent(entry) {
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        this.assertNameAvailable(state, entry.name);
+        state.roster.agents.push(entry);
+        entries.set(
+          this.keys.state(),
+          boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts)
+        );
+      },
+      this.repoRoot
+    );
+  }
+  /**
+   * B1 basic enrollment for the register tool: fill the real engine agent id
+   * into a pending roster entry (and any missing mission/review fields).
+   * Overwrite is allowed (resume/re-register) — this is the B2-9 lazy
+   * re-verify trigger, so B2 identity checks run through
+   * `verifyAgentIdentity` (called by the register tool and the status tool).
+   */
+  async updateRosterAgentId(name, agentId, extra = {}) {
+    if (typeof agentId !== "string" || agentId.trim().length === 0) {
+      throw new TowerProtocolError("agent_id is required for moa_tower_register");
+    }
+    const updated = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        const agent = state.roster.agents.find((candidate) => candidate.name === name);
+        if (agent === void 0) {
+          throw new TowerProtocolError(
+            `no roster entry named "${name}" \u2014 spawn the agent with moa_tower_spawn first`
+          );
+        }
+        const next = {
+          ...agent,
+          agentId,
+          ...extra.missionId !== void 0 ? { missionId: extra.missionId } : {},
+          ...extra.reviewTarget !== void 0 ? { reviewTarget: extra.reviewTarget } : {},
+          ...extra.worktree !== void 0 ? { worktree: extra.worktree } : {},
+          ...extra.branch !== void 0 ? { branch: extra.branch } : {}
+        };
+        const index = state.roster.agents.findIndex((candidate) => candidate.name === name);
+        state.roster.agents[index] = next;
+        entries.set(
+          this.keys.state(),
+          boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts)
+        );
+        return next;
+      },
+      this.repoRoot
+    );
+    return updated;
+  }
+  /**
+   * B2 identity cross-validation for one roster entry (基准 decision 2):
+   * ① fold entry exists; ② dual-channel parent-child; ③ soft workdir check
+   * (see identity.ts). Persists verified/verifiedAt/failedCount onto the
+   * roster entry inside one mutate; skips the write when nothing changed
+   * (cheap enough for the status-read lazy re-verify, B2-9).
+   *
+   * 缺失 ≠ 不匹配: a missing verdict never increments failedCount and never
+   * blocks. A ② mismatch increments failedCount (consecutive, reset on any
+   * verified:true); blocked is derived as failedCount ≥ IDENTITY_BLOCK_THRESHOLD.
+   * ③ soft mismatches only flip verified:false.
+   */
+  async verifyAgentIdentity(name, fold, towerAgentId) {
+    const outcome = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        const index = state.roster.agents.findIndex((candidate) => candidate.name === name);
+        if (index === -1) {
+          throw new TowerProtocolError(
+            `no roster entry named "${name}" \u2014 spawn the agent with moa_tower_spawn first`
+          );
+        }
+        const agent = state.roster.agents[index];
+        const verdict = agent.name === TOWER_NAME ? evaluateTowerIdentity(fold, agent.agentId) : evaluateIdentity(
+          fold,
+          agent.agentId,
+          towerAgentId,
+          this.repoRoot,
+          agent.worktree !== void 0 ? worktreePath(this.repoRoot, agent.worktree) : void 0
+        );
+        const failedCount = verdict.mismatch ? (agent.failedCount ?? 0) + 1 : verdict.verified ? 0 : agent.failedCount ?? 0;
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const next = {
+          ...agent,
+          verified: verdict.verified,
+          ...verdict.verified ? { verifiedAt: now } : agent.verifiedAt !== void 0 ? { verifiedAt: agent.verifiedAt } : {},
+          failedCount
+        };
+        const unchanged = next.verified === agent.verified && (next.verifiedAt ?? null) === (agent.verifiedAt ?? null) && (next.failedCount ?? 0) === (agent.failedCount ?? 0);
+        if (!unchanged) {
+          state.roster.agents[index] = next;
+          entries.set(
+            this.keys.state(),
+            boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts)
+          );
+        }
+        return { entry: next, verdict };
+      },
+      this.repoRoot
+    );
+    return outcome;
+  }
+  // ---------------------------------------------------------------------
+  // Guard mirror (B2-6 定稿): `agents` keeps NAME keys (B1 contract) with
+  // `{name, worktree, agentId: string|null}` entries — spawn writes pending
+  // entries (agentId:null, name-addressable), register fills the agentId and
+  // rewrites; teardown deletes the file (row 17). `worktrees: string[]` stays
+  // for the B3 hook allowlist; the omkc policy scans the agents map by
+  // agentId (a pending null never matches any real agentId → fail-open
+  // window, 基准 decision 4). Atomic tmp+rename; the tmp name carries
+  // pid+random (B2-8) so concurrent writers never share a tmp file.
+  // ---------------------------------------------------------------------
+  /** Rebuild `<repoRoot>/.tower-guard.json` from state + missions (atomic tmp+rename). */
+  async syncGuardMirror() {
+    const state = await this.load();
+    const missions = await this.loadMissions(state);
+    const agents = {};
+    for (const agent of state.roster.agents) {
+      if (agent.name === TOWER_NAME) continue;
+      agents[agent.name] = {
+        name: agent.name,
+        worktree: agent.worktree !== void 0 ? worktreePath(this.repoRoot, agent.worktree) : null,
+        agentId: agent.agentId === "" ? null : agent.agentId
+      };
+    }
+    const worktrees = [];
+    for (const mission of missions) {
+      if (mission.status === "merged") continue;
+      if (mission.worktree.length > 0) worktrees.push(worktreePath(this.repoRoot, mission.worktree));
+    }
+    const doc = {
+      version: 1,
+      repoRoot: this.repoRoot,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      agents,
+      worktrees
+    };
+    const file = join8(this.repoRoot, GUARD_MIRROR_FILE);
+    await mkdir5(dirname4(file), { recursive: true });
+    const tmp = `${file}.tmp-${process.pid}-${randomUUID4().slice(0, 8)}`;
+    await writeFile2(tmp, `${JSON.stringify(doc, null, 2)}
+`, "utf8");
+    await rename3(tmp, file);
+  }
+  /** Remove the guard mirror file (row 17: "我们额外删 guard 镜像文件"). */
+  async deleteGuardMirror() {
+    try {
+      await rm(join8(this.repoRoot, GUARD_MIRROR_FILE), { force: true });
+    } catch {
+    }
+  }
+  // ---------------------------------------------------------------------
+  // CI (B2) — `moa_tower_ci` runs the repo doc's ci_command in the mission's
+  // worktree and records `ci/<branchSlug>`; the merge gate reads it back
+  // (store.ts merge step 7b). The in-process serial queue lives on the
+  // controller (单塔台单会话 assumption — 风险台账 9/11: no cross-process
+  // mutex; a multi-tower v2 must add one).
+  // ---------------------------------------------------------------------
+  /**
+   * Run the CI command for a branch's mission worktree and persist the result
+   * under `ci/<branchSlug>` (LWW latest run — the run itself is serialized by
+   * the controller queue).
+   *
+   * Dirty-tree interception (B2-3): a dirty worktree is checked BEFORE any
+   * execution; the run is recorded as failed (exitCode null, dirty true) and
+   * the caller reports an error telling the tower to commit first. The merge
+   * gate requires a clean (dirty:false, exitCode:0) record.
+   *
+   * The run log is truncated (tail 200 lines + single-line truncation + ≤64KB
+   * total — B2-5) and stored under `ci/<branchSlug>/<ts>-<rand>`; if that log
+   * write fails the ci record still lands with `logError` set.
+   */
+  async runCi(branch, ciCommand) {
+    const state = await this.load();
+    const missions = await this.loadMissions(state);
+    const mission = missions.find((m) => m.branch === branch);
+    if (mission === void 0) {
+      throw new TowerProtocolError(`no tower mission owns branch "${branch}"`);
+    }
+    const absPath = worktreePath(this.repoRoot, mission.worktree);
+    try {
+      await access(absPath);
+    } catch {
+      throw new TowerProtocolError(
+        `worktree ${mission.worktree} does not exist \u2014 spawn the mission (moa_tower_spawn) before running CI`
+      );
+    }
+    const dirty = await isWorktreeDirty(absPath);
+    const tip = await branchTip(this.repoRoot, branch);
+    const ranAt = (/* @__PURE__ */ new Date()).toISOString();
+    let exitCode = null;
+    let logRef;
+    let logError;
+    if (!dirty) {
+      const outcome = await execCiCommand(absPath, ciCommand);
+      exitCode = outcome.exitCode;
+      const truncated = truncateCiLog(outcome.output);
+      try {
+        const logKey = this.keys.ciLog(branch, Date.now(), randomUUID4().slice(0, 8));
+        await this.board.mutate(
+          "workspace",
+          (entries, ts) => {
+            entries.set(logKey, boardEntry(logKey, truncated, TOWER_NAME, ts, ["ci-log"]));
+          },
+          this.repoRoot
+        );
+        logRef = logKey;
+      } catch (error2) {
+        logError = error2 instanceof Error ? error2.message : String(error2);
+      }
+    }
+    const record2 = { branch, commit: tip, exitCode, dirty, logRef, logError, ranAt };
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        entries.set(
+          this.keys.ci(branch),
+          boardEntry(this.keys.ci(branch), JSON.stringify(record2), TOWER_NAME, ts, ["ci"])
+        );
+      },
+      this.repoRoot
+    );
+    await this.appendLog(TOWER_NAME, "ci.run", {
+      branch,
+      exit_code: exitCode === null ? void 0 : exitCode,
+      dirty: dirty ? "yes" : void 0,
+      commit: tip.slice(0, 7)
+    });
+    return record2;
+  }
+  /** The latest `ci/<branchSlug>` result record, or undefined when none ran. */
+  async loadCiResult(branch) {
+    const rows = await this.board.read(this.keys.ci(branch), void 0, "workspace", 1, this.repoRoot);
+    if (rows.length === 0) return void 0;
+    return JSON.parse(rows[0].value);
+  }
+  // ---------------------------------------------------------------------
+  // Missions
+  // ---------------------------------------------------------------------
+  /**
+   * Split a tower goal into missions. Each mission gets an id, a branch, and
+   * a worktree slot; scopes must be pairwise disjoint and deps must reference
+   * known mission ids.
+   *
+   * 附录 A row 8 (**偏差**, B1-8): official branches are `feat/<slug(title)>`;
+   * we use `feat/M<n>-<slug(title)>` so two plans with the same title cannot
+   * collide on one branch (official merges by branch and could attach a
+   * mission to the wrong branch). Worktree slots stay `wt-<n>` (physical
+   * layout: sibling `<repoName>-worktrees/wt-<n>`, 基准 decision 8).
+   * 附录 A row 9: deps must be known (already planned or in this batch).
+   * 附录 A row 10: scope overlap check, verbatim (three-chained stem replace,
+   *  order fixed; empty stem = whole repo; conflict = prefix relation).
+   */
+  async plan(input) {
+    if (input.length === 0) {
+      throw new TowerProtocolError("TowerPlan needs at least one mission");
+    }
+    const missions = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        const existing = missionsFromEntries(this.keys, entries, state);
+        const startIndex = state.missions.length;
+        const planned = input.map((item, index) => {
+          const n = startIndex + index + 1;
+          const slug = slugify2(item.title, 40);
+          return {
+            id: `M${n}`,
+            title: item.title,
+            slug,
+            kind: item.kind ?? "build",
+            scope: [...item.scope],
+            // Row 8 deviation (B1-8): id-prefixed branch — 防同标题撞分支.
+            branch: `feat/M${n}-${slug}`,
+            worktree: `wt-${n}`,
+            deps: item.deps ?? [],
+            status: "planned",
+            tasks: (item.tasks ?? []).map((text) => ({ text, done: false })),
+            notes: [],
+            blockers: []
+          };
+        });
+        const knownIds = /* @__PURE__ */ new Set([...state.missions, ...planned.map((m) => m.id)]);
+        for (const mission of planned) {
+          for (const dep of mission.deps) {
+            if (!knownIds.has(dep)) {
+              throw new TowerProtocolError(
+                `mission ${mission.id} depends on unknown mission "${dep}"`
+              );
+            }
+          }
+        }
+        this.assertScopesDisjoint([
+          ...existing.filter((m) => m.status !== "merged"),
+          ...planned
+        ]);
+        state.missions.push(...planned.map((m) => m.id));
+        entries.set(
+          this.keys.state(),
+          boardEntry(this.keys.state(), JSON.stringify(state), TOWER_NAME, ts)
+        );
+        for (const mission of planned) {
+          entries.set(
+            this.keys.mission(mission.id),
+            boardEntry(this.keys.mission(mission.id), JSON.stringify(mission), TOWER_NAME, ts)
+          );
+        }
+        return planned;
+      },
+      this.repoRoot
+    );
+    await this.verifyMissionsOnDisk(missions.map((m) => m.id));
+    await this.appendLog(TOWER_NAME, "plan", { missions: missions.map((m) => m.id).join(",") });
+    return missions;
+  }
+  /** Post-plan persist verification (item 10 fallback for partial persistence). */
+  async verifyMissionsOnDisk(ids) {
+    for (const id of ids) {
+      const rows = await this.board.read(this.keys.mission(id), void 0, "workspace", 1, this.repoRoot);
+      if (rows.length === 0) {
+        throw new TowerProtocolError(
+          `plan persisted incompletely: mission ${id} is not on the board \u2014 tower state is inconsistent; re-run plan (the append-only JSONL keeps the audit trail)`
+        );
+      }
+    }
+  }
+  /**
+   * Conservative overlap check over the scopes that reserve write access —
+   * i.e. `build` missions only. Survey scopes are informational and reserve
+   * nothing, so they never conflict. Two build scopes conflict when one is a
+   * path prefix of the other after stripping trailing `**` / `*` wildcards.
+   * 附录 A row 10: verbatim port — the three-chained replace order is
+   * `/\*\*?$/ → ''`, then `/\*$/ → ''`, then `/\/+$/ → ''`, and must NOT be
+   * reordered (each strip feeds the next).
+   */
+  assertScopesDisjoint(missions) {
+    const scopes = [];
+    for (const mission of missions) {
+      if (mission.kind === "survey") continue;
+      for (const raw of mission.scope) {
+        const stem = raw.replace(/\/\*\*?$/, "").replace(/\*$/, "").replace(/\/+$/, "");
+        if (stem.length === 0) {
+          throw new TowerProtocolError(
+            `mission ${mission.id} scope "${raw}" covers the whole repo \u2014 narrow it down`
+          );
+        }
+        scopes.push({ id: mission.id, raw, stem });
+      }
+    }
+    for (let i = 0; i < scopes.length; i++) {
+      for (let j = i + 1; j < scopes.length; j++) {
+        const a = scopes[i];
+        const b = scopes[j];
+        if (a.id === b.id) continue;
+        if (a.stem === b.stem || a.stem.startsWith(`${b.stem}/`) || b.stem.startsWith(`${a.stem}/`)) {
+          throw new TowerProtocolError(
+            `mission scopes overlap: ${a.id} ("${a.raw}") vs ${b.id} ("${b.raw}") \u2014 split the shared files into exactly one mission`
+          );
+        }
+      }
+    }
+  }
+  /**
+   * Patch one mission. 附录 A row 11: only the tower or the owning worker may
+   * update a mission. 附录 A row 12: owner/scope are tower-only (scope changes
+   * re-run the disjoint check and are logged), a blocker sets status blocked,
+   * task_done must match an open task, no-op patches are suppressed, and a
+   * pure task tick does not touch the activity log.
+   */
+  async updateMission(callerName, id, patch, options = {}) {
+    const outcome = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const state = stateFromEntries(this.keys, entries);
+        const mission = missionFromEntries(this.keys, entries, id);
+        if (callerName !== TOWER_NAME) {
+          const caller = this.findAgent(state, callerName);
+          if (caller?.kind !== "worker" || caller.missionId !== id) {
+            throw new TowerProtocolError(
+              `agent "${callerName}" does not own mission ${id} \u2014 workers update only their own mission file`
+            );
+          }
+        }
+        const isNoOp = patch.status === mission.status && patch.note === void 0 && patch.blocker === void 0 && patch.clearBlockers === void 0 && patch.taskDone === void 0 && patch.owner === void 0 && patch.scope === void 0;
+        if (isNoOp) return { mission, wrote: false };
+        if (patch.owner !== void 0) {
+          if (callerName !== TOWER_NAME) {
+            throw new TowerProtocolError(
+              `agent "${callerName}" cannot assign mission ownership \u2014 only the tower sets owner`
+            );
+          }
+          mission.owner = patch.owner;
+        }
+        if (patch.scope !== void 0) {
+          if (callerName !== TOWER_NAME) {
+            throw new TowerProtocolError(
+              `agent "${callerName}" cannot change mission scope \u2014 only the tower widens a scope, and every change is logged`
+            );
+          }
+          const others = missionsFromEntries(this.keys, entries, state).filter(
+            (m) => m.id !== id && m.status !== "merged"
+          );
+          this.assertScopesDisjoint([...others, { ...mission, scope: [...patch.scope] }]);
+          mission.scope = [...patch.scope];
+        }
+        if (patch.status !== void 0) mission.status = patch.status;
+        if (patch.note !== void 0) mission.notes.push(patch.note);
+        if (patch.blocker !== void 0) {
+          mission.blockers.push(patch.blocker);
+          mission.status = "blocked";
+        }
+        if (patch.clearBlockers === true) mission.blockers = [];
+        if (patch.taskDone !== void 0) {
+          const task = mission.tasks.find((t) => !t.done && t.text.includes(patch.taskDone));
+          if (task === void 0) {
+            throw new TowerProtocolError(
+              `mission ${id} has no open task matching "${patch.taskDone}"`
+            );
+          }
+          task.done = true;
+        }
+        entries.set(
+          this.keys.mission(id),
+          boardEntry(this.keys.mission(id), JSON.stringify(mission), callerName, ts)
+        );
+        return { mission, wrote: true };
+      },
+      this.repoRoot
+    );
+    const taskTickOnly = patch.taskDone !== void 0 && patch.status === void 0 && patch.note === void 0 && patch.blocker === void 0 && patch.clearBlockers === void 0 && patch.owner === void 0 && patch.scope === void 0;
+    if (outcome.wrote && !taskTickOnly && options.silent !== true) {
+      await this.appendLog(callerName, "mission.update", {
+        id,
+        status: patch.status,
+        note: patch.note !== void 0 ? "added" : void 0,
+        blocker: patch.blocker !== void 0 ? "added" : void 0,
+        owner: patch.owner,
+        scope: patch.scope?.join(",")
+      });
+    }
+    return outcome.mission;
+  }
+  /** Board key of one mission document (for activity-log ref lines). */
+  missionRef(id) {
+    return this.keys.mission(id);
+  }
+  /** Human-readable mission view (replaces the official generated `missions/*.md`). */
+  missionView(mission) {
+    return [
+      `# Mission ${mission.id}: ${mission.title}${mission.kind === "survey" ? " \u{1F50D} (read-only survey)" : ""}`,
+      "",
+      "| Branch | Worktree | Status | Scope | Owner |",
+      "| ------ | -------- | ------ | ----- | ----- |",
+      `| ${mission.branch} | ${mission.worktree} | ${STATUS_EMOJI[mission.status]} ${mission.status} | ${mission.scope.join(", ")} | ${mission.owner ?? "\u2014"} |`,
+      "",
+      "## Tasks",
+      ...mission.tasks.length > 0 ? mission.tasks.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`) : ["- [ ] (no tasks recorded)"],
+      "",
+      "## Dependencies",
+      mission.deps.length > 0 ? mission.deps.join(", ") : "(none)",
+      "",
+      "## Blockers",
+      ...mission.blockers.length > 0 ? mission.blockers.map((b) => `- ${b}`) : ["- (none)"],
+      "",
+      "## Notes",
+      ...mission.notes.length > 0 ? mission.notes.map((n) => `- ${n}`) : ["- (none)"],
+      ""
+    ].join("\n");
+  }
+  // ---------------------------------------------------------------------
+  // Progress (B2) — one LWW key `progress/<missionId>` per mission; the owner
+  // worker (or the tower) appends a dated line. The value keeps the TAIL
+  // within PROGRESS_MAX_BYTES (headroom under the 96KB board ceiling). The
+  // write-frequency throttle is the profile's cron discipline (B4) — no code
+  // rate limit here.
+  // ---------------------------------------------------------------------
+  /**
+   * Post one progress note (row-11 ownership: only the tower or the mission's
+   * owning worker). Single key LWW; the accumulated value is truncated to the
+   * newest lines fitting in PROGRESS_MAX_BYTES.
+   */
+  async updateProgress(callerName, missionId, note) {
+    const trimmed = note.trim();
+    if (trimmed.length === 0) {
+      throw new TowerProtocolError("progress note must not be empty");
+    }
+    const state = await this.load();
+    if (callerName !== TOWER_NAME) {
+      const caller = this.findAgent(state, callerName);
+      if (caller?.kind !== "worker" || caller.missionId !== missionId) {
+        throw new TowerProtocolError(
+          `agent "${callerName}" does not own mission ${missionId} \u2014 only the tower or the owning worker posts progress`
+        );
+      }
+    }
+    const missions = await this.loadMissions(state);
+    if (!missions.some((m) => m.id === missionId)) {
+      throw new TowerProtocolError(
+        `unknown mission "${missionId}" \u2014 known missions: ${state.missions.join(", ") || "(none planned yet)"}`
+      );
+    }
+    const key = this.keys.progress(missionId);
+    const line = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${callerName}: ${trimmed}`;
+    const result = await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const existing = entries.get(key);
+        const value = existing === void 0 ? line : truncateTail(`${existing.value}
+${line}`, PROGRESS_MAX_BYTES);
+        entries.set(key, boardEntry(key, value, callerName, ts, ["progress"]));
+        return { key, bytes: Buffer.byteLength(value, "utf8") };
+      },
+      this.repoRoot
+    );
+    return result;
+  }
+  // ---------------------------------------------------------------------
+  // Inbox
+  // ---------------------------------------------------------------------
+  /**
+   * Deliver an inbox message. 附录 A row 13 (**偏差**): recipients must be
+   * `tower`, `all`, or a roster agent; self-send is forbidden. Official had no
+   * body cap; the board ceiling is 96KB, so an oversized body errors with a
+   * split hint. 附录 A row 18 (**偏差**): the message key is a random UUID —
+   * date-based names would collide under the board's same-key LWW.
+   */
+  async send(callerName, input) {
+    const state = await this.load();
+    const to = input.to.trim();
+    if (to !== TOWER_NAME && to !== BROADCAST_NAME && this.findAgent(state, to) === void 0) {
+      const known = [TOWER_NAME, BROADCAST_NAME, ...state.roster.agents.map((a) => a.name)];
+      throw new TowerProtocolError(
+        `unknown recipient "${to}" \u2014 address a roster agent, ${TOWER_NAME}, or ${BROADCAST_NAME} (known: ${known.join(", ")})`
+      );
+    }
+    if (to === callerName) {
+      throw new TowerProtocolError("cannot send an inbox message to yourself");
+    }
+    const sentAt = (/* @__PURE__ */ new Date()).toISOString();
+    const frontmatter = renderFrontmatter({
+      type: "inbox",
+      message_id: randomUUID4(),
+      from: callerName,
+      to,
+      subject: input.subject,
+      sent_at: sentAt,
+      ...input.scope !== void 0 ? { scope: input.scope } : {},
+      ...input.action !== void 0 ? { action: input.action } : {},
+      ...input.consentRef !== void 0 ? { consent_ref: input.consentRef } : {}
+    });
+    const content = `${frontmatter}
+
+${input.body.trim()}
+`;
+    const bodyBytes = Buffer.byteLength(input.body, "utf8");
+    const contentBytes = Buffer.byteLength(content, "utf8");
+    if (bodyBytes > BOARD_VALUE_MAX_BYTES || contentBytes > BOARD_VALUE_MAX_BYTES) {
+      throw new TowerProtocolError(
+        `message body too large: ${bodyBytes} bytes > ${BOARD_VALUE_MAX_BYTES} (board ceiling) \u2014 split it into multiple messages`
+      );
+    }
+    const rel = this.keys.inbox(randomUUID4());
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        entries.set(rel, boardEntry(rel, content, callerName, ts, ["inbox"]));
+      },
+      this.repoRoot
+    );
+    await this.appendLog(callerName, "inbox.send", { to, subject: slugify2(input.subject) }, rel);
+    return rel;
+  }
+  /** Newest-first messages addressed to `callerName` or broadcast. The tower sees everything. */
+  async readInbox(callerName, limit) {
+    const entries = await this.board.readNamespace(
+      this.keys.prefix("inbox"),
+      void 0,
+      "workspace",
+      1e3,
+      this.repoRoot
+    );
+    const items = [];
+    for (const row of entries) {
+      const { fields, body } = parseFrontmatter(row.value);
+      if (fields["type"] !== "inbox") continue;
+      const to = fields["to"] ?? "";
+      if (callerName !== TOWER_NAME && to !== callerName && to !== BROADCAST_NAME) continue;
+      items.push({
+        file: row.key,
+        from: fields["from"] ?? "unknown",
+        to,
+        subject: fields["subject"] ?? "",
+        sentAt: fields["sent_at"] ?? "",
+        scope: fields["scope"],
+        action: fields["action"],
+        consentRef: fields["consent_ref"],
+        body
+      });
+    }
+    items.sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+    return items.slice(0, Math.max(1, limit));
+  }
+  // ---------------------------------------------------------------------
+  // Findings
+  // ---------------------------------------------------------------------
+  /**
+   * File a structured finding. 附录 A row 14: type must be one of
+   * bug | improve | vuln | idea. 附录 A row 18 (**偏差**): key is a random
+   * UUID, not a date-based file name.
+   */
+  async fileFinding(callerName, input) {
+    if (!FINDING_TYPES.includes(input.type)) {
+      throw new TowerProtocolError(
+        `finding type must be one of ${FINDING_TYPES.join(" | ")}`
+      );
+    }
+    const state = await this.load();
+    const caller = this.findAgent(state, callerName);
+    const mission = caller?.missionId !== void 0 ? (await this.loadMissions(state)).find((m) => m.id === caller.missionId) : void 0;
+    const lines = [
+      `# Finding: ${input.title}`,
+      "",
+      `**Date**: ${dateDash().replaceAll("-", "")}`,
+      `**Agent**: ${callerName}`,
+      `**Type**: ${input.type}`,
+      `**Severity**: ${input.severity ?? "medium"}`,
+      `**Mission**: ${mission === void 0 ? "(none)" : `${mission.id} \u2014 ${mission.title}`}`,
+      "",
+      "---",
+      "",
+      "## Summary",
+      input.summary.trim(),
+      "",
+      "## Location",
+      (input.location ?? "(not specified)").trim(),
+      "",
+      "## Details",
+      input.details.trim(),
+      "",
+      "## Suggested Fix / Action",
+      input.suggestedFix.trim(),
+      "",
+      "## Why Not Fixed Directly",
+      mission === void 0 ? "This finding is outside the reporting agent\u2019s assignment. Assigning to the control tower for routing." : `This finding is outside the scope of mission ${mission.id} (${mission.scope.join(", ")}). Fixing it directly would violate scope isolation. Assigning to the control tower for routing.`,
+      "",
+      "---",
+      "",
+      `*Filed by tower agent ${callerName}*`,
+      ""
+    ];
+    const rel = this.keys.finding(randomUUID4());
+    const content = lines.join("\n");
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        entries.set(rel, boardEntry(rel, content, callerName, ts, ["finding", input.type]));
+      },
+      this.repoRoot
+    );
+    await this.appendLog(
+      callerName,
+      "finding.file",
+      { type: input.type, slug: slugify2(input.title) },
+      rel
+    );
+    return rel;
+  }
+  /**
+   * B4: enumerate every filed finding (newest first) for the panel's
+   * `GET /api/tower/findings` route. Findings are plain markdown — `fileFinding`
+   * renders `**Field**: value` lines (no YAML frontmatter), so the fields are
+   * extracted from those lines; the title is pulled from the `# Finding:`
+   * heading. Board keys are random UUIDs (row 18 deviation) — ordering is by
+   * date, newest first, then key for a stable tiebreak.
+   */
+  async listFindings() {
+    const entries = await this.board.readNamespace(
+      this.keys.prefix("finding"),
+      void 0,
+      "workspace",
+      1e3,
+      this.repoRoot
+    );
+    const findings = [];
+    for (const row of entries) {
+      const field = (name) => {
+        const match = new RegExp(`^\\*\\*${name}\\*\\*:\\s*(.+)$`, "m").exec(row.value);
+        return match === null ? "" : match[1].trim();
+      };
+      const titleMatch = /^#\s+Finding:\s*(.+)$/m.exec(row.value);
+      findings.push({
+        file: row.key,
+        date: field("Date"),
+        agent: field("Agent") || "unknown",
+        type: field("Type"),
+        severity: field("Severity") || "medium",
+        mission: field("Mission") || "(none)",
+        title: titleMatch !== null ? titleMatch[1].trim() : "(untitled)"
+      });
+    }
+    findings.sort((a, b) => b.date.localeCompare(a.date) || a.file.localeCompare(b.file));
+    return findings;
+  }
+  // ---------------------------------------------------------------------
+  // Reviews
+  // ---------------------------------------------------------------------
+  /**
+   * Submit a review verdict. 附录 A row 15: only an assigned reviewer (or the
+   * tower) may review a branch; status must match `/^(clean|p[12]-\d+items)$/`;
+   * merge verdict ∈ merge | fix-then-merge | hold; the round is the reviewer's
+   * own history + 1. `reviewedCommit` is the branch tip at submission time —
+   * **implementation moved to the controller/tool layer** (B1-6: the tool
+   * runs `git rev-parse <branch>` itself and passes it in; the LLM never
+   * self-reports it).
+   */
+  async submitReview(callerName, input, reviewedCommit) {
+    const state = await this.load();
+    if (callerName !== TOWER_NAME) {
+      const caller = this.findAgent(state, callerName);
+      if (caller?.kind !== "reviewer" || caller.reviewTarget !== input.target) {
+        throw new TowerProtocolError(
+          `agent "${callerName}" is not an assigned reviewer for "${input.target}"`
+        );
+      }
+    }
+    if (!/^(clean|p[12]-\d+items)$/.test(input.status)) {
+      throw new TowerProtocolError(
+        `review status must be clean | p1-Nitems | p2-Nitems, got "${input.status}"`
+      );
+    }
+    if (!["merge", "fix-then-merge", "hold"].includes(input.merge)) {
+      throw new TowerProtocolError(
+        `review merge verdict must be merge | fix-then-merge | hold, got "${input.merge}"`
+      );
+    }
+    if (typeof reviewedCommit !== "string" || reviewedCommit.trim().length === 0) {
+      throw new TowerProtocolError(
+        "reviewedCommit could not be resolved \u2014 the branch must exist before a review is submitted"
+      );
+    }
+    const existing = await this.reviewsFor(input.target);
+    const round = existing.filter((r) => r.reviewer === callerName).length + 1;
+    const frontmatter = renderFrontmatter({
+      date: dateDash(),
+      reviewer: callerName,
+      target: input.target,
+      round: String(round),
+      status: input.status,
+      merge: input.merge,
+      reviewed_commit: reviewedCommit
+    });
+    const checks = (input.checks ?? []).map((c) => `- [x] ${c}`).join("\n");
+    const content = [
+      frontmatter,
+      "",
+      "## Findings",
+      "",
+      input.findings.trim(),
+      "",
+      "## Checks",
+      checks.length > 0 ? checks : "- [x] (reviewer reported no formal checks)",
+      "",
+      "## Decision",
+      input.decision.trim(),
+      ""
+    ].join("\n");
+    const rel = this.keys.review(
+      targetSlug(input.target),
+      slugify2(callerName, 30),
+      round
+    );
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        if (entries.has(rel)) {
+          throw new TowerProtocolError(
+            `review ${rel} already exists \u2014 round ${String(round)} for "${input.target}" was already submitted; submit the next round (or register the reviewer under a distinct name)`
+          );
+        }
+        entries.set(rel, boardEntry(rel, content, callerName, ts, ["review"]));
+      },
+      this.repoRoot
+    );
+    await this.appendLog(
+      callerName,
+      "review.write",
+      { target: input.target, round, verdict: input.status, reviewed: reviewedCommit.slice(0, 7) },
+      rel
+    );
+    return rel;
+  }
+  /** All reviews for a target branch, sorted by round ascending. */
+  async reviewsFor(target) {
+    const prefix = `${this.keys.ns}/review/${targetSlug(target)}/`;
+    const entries = await this.board.readNamespace(prefix, void 0, "workspace", 1e3, this.repoRoot);
+    const reviews = [];
+    for (const row of entries) {
+      const { fields } = parseFrontmatter(row.value);
+      const round = Number.parseInt(fields["round"] ?? "", 10);
+      if (Number.isNaN(round)) continue;
+      reviews.push({
+        reviewer: fields["reviewer"] ?? "unknown",
+        target: fields["target"] ?? target,
+        round,
+        status: fields["status"] ?? "",
+        merge: fields["merge"] ?? "",
+        reviewedCommit: fields["reviewed_commit"] ?? "",
+        date: fields["date"] ?? "",
+        file: row.key
+      });
+    }
+    reviews.sort((a, b) => a.round - b.round);
+    return reviews;
+  }
+  /** The highest-round reviews of a branch (B1-12: the merge gate's "latest"). */
+  async latestReviewRound(target) {
+    const reviews = await this.reviewsFor(target);
+    if (reviews.length === 0) return [];
+    const maxRound = Math.max(...reviews.map((r) => r.round));
+    return reviews.filter((r) => r.round === maxRound);
+  }
+  /**
+   * B4: per-mission review-gate summary — the SHARED implementation behind the
+   * status tool's `review_gate` rows and the `/api/tower/missions` route's
+   * per-mission `review_gate` field (one source, no drift). Semantics match
+   * the status tool verbatim: no reviews → `{review:'none'}`; otherwise the
+   * highest round's reviewers/status and a sync verdict comparing each
+   * review's `reviewedCommit` against the live branch tip.
+   */
+  async reviewGateForMission(mission) {
+    const latestReviews = await this.latestReviewRound(mission.branch);
+    if (latestReviews.length === 0) {
+      return { branch: mission.branch, mission: mission.id, review: "none" };
+    }
+    const tip = await branchExists(this.repoRoot, mission.branch) ? await branchTip(this.repoRoot, mission.branch) : void 0;
+    return {
+      branch: mission.branch,
+      mission: mission.id,
+      round: latestReviews[0].round,
+      reviewers: latestReviews.map((r) => r.reviewer).join(", "),
+      status: latestReviews.map((r) => `${r.reviewer}=${r.status}`).join(", "),
+      sync: tip === void 0 ? "branch-not-created" : latestReviews.every((r) => r.reviewedCommit === tip) ? "reviewed-commit-matches-tip" : `stale \u2014 tip moved to ${tip.slice(0, 7)}, re-review required`
+    };
+  }
+  // ---------------------------------------------------------------------
+  // Merge — the hard gate. The tower LLM decides WHEN to call this; the gate
+  // itself decides WHETHER it happens.
+  // ---------------------------------------------------------------------
+  /**
+   * 附录 A row 16: the eight-step gate, order preserved verbatim —
+   * branch 属主 → deps-unmerged → survey zero-diff noop (**before** the review
+   * checks) → no-review → not-clean → tip-moved → out-of-scope (picomatch) →
+   * [B2 CI hard gate when a ci_command is configured] → mergeNoFf →
+   * conflictsWith. Every blocked step appends a `merge.blocked` activity-log
+   * line with the step reason.
+   *
+   * B1-12 deviation: "latest review clean" means EVERY review in the highest
+   * round is clean (round desc + date desc — the official readdir-order
+   * `latestReview` had a same-round bypass hole: two reviewers of one round,
+   * newest file wins regardless of the other reviewer's verdict).
+   *
+   * B2 (marked at the insertion point): the CI gate runs AFTER out-of-scope.
+   * When a ci_command is configured on the repo doc it is a HARD gate — a
+   * `ci/<branchSlug>` record with commit == current tip && exitCode == 0 &&
+   * !dirty is required, and a red run blocks with `reason=ci-failed`. When no
+   * ci_command is configured the step is skipped and logs
+   * `reason=ci-not-configured` (B2-11).
+   */
+  async merge(branch) {
+    const state = await this.load();
+    const missions = await this.loadMissions(state);
+    const mission = missions.find((m) => m.branch === branch);
+    if (mission === void 0) {
+      throw new TowerProtocolError(`no tower mission owns branch "${branch}"`);
+    }
+    const block = async (reason, message) => {
+      await this.appendLog(TOWER_NAME, "merge.blocked", { branch, reason });
+      return new TowerProtocolError(message);
+    };
+    const unmergedDeps = mission.deps.filter((dep) => {
+      const depMission = missions.find((m) => m.id === dep);
+      return depMission !== void 0 && depMission.status !== "merged";
+    });
+    if (unmergedDeps.length > 0) {
+      throw await block(
+        "deps-unmerged",
+        `merge blocked: dependencies not merged yet (${unmergedDeps.join(", ")}) \u2014 merge in Dependency Flow order`
+      );
+    }
+    if (mission.kind === "survey") {
+      const changed2 = await diffNameOnly(this.repoRoot, state.base, branch);
+      if (changed2.length > 0) {
+        throw await block(
+          "read-only-survey",
+          `merge blocked: survey mission ${mission.id} is read-only but ${branch} has ${String(changed2.length)} changed file(s): ${changed2.slice(0, 5).join(", ")} \u2014 investigate the worker; if the changes are worth keeping, move them onto a build mission's branch`
+        );
+      }
+      await this.saveMissionStatus(mission, "merged");
+      const tip2 = await branchTip(this.repoRoot, state.base);
+      await this.appendLog(TOWER_NAME, "merge.noop", { branch, kind: "survey" });
+      return { mergeCommit: tip2, conflictsWith: [], noop: true };
+    }
+    const reviews = await this.reviewsFor(branch);
+    if (reviews.length === 0) {
+      throw await block(
+        "no-review",
+        `merge blocked: ${branch} has no review \u2014 assign a reviewer first`
+      );
+    }
+    const maxRound = Math.max(...reviews.map((r) => r.round));
+    const latest = reviews.filter((r) => r.round === maxRound);
+    const dirty = latest.find((r) => r.status !== "clean");
+    if (dirty !== void 0) {
+      throw await block(
+        "not-clean",
+        `merge blocked: latest review round ${String(maxRound)} is not fully clean ("${dirty.status}" by ${dirty.reviewer}; round = ${latest.map((r) => `${r.reviewer}=${r.status}`).join(", ")}) \u2014 a clean round is required`
+      );
+    }
+    const tip = await branchTip(this.repoRoot, branch);
+    const moved = latest.find((r) => r.reviewedCommit !== tip);
+    if (moved !== void 0) {
+      throw await block(
+        "tip-moved",
+        `merge blocked: ${branch} moved since the clean review (reviewed ${moved.reviewedCommit.slice(0, 7)}, tip ${tip.slice(0, 7)}) \u2014 re-review required`
+      );
+    }
+    const changed = await diffNameOnly(this.repoRoot, state.base, branch);
+    const outOfScope = changed.filter(
+      (file) => !mission.scope.some((glob) => import_picomatch.default.isMatch(file, glob))
+    );
+    if (outOfScope.length > 0) {
+      throw await block(
+        "out-of-scope",
+        `merge blocked: ${branch} changed files outside mission ${mission.id} scope (${mission.scope.join(", ")}): ${outOfScope.join(", ")} \u2014 the tower must widen the mission scope (TowerMission scope patch) or revert those changes`
+      );
+    }
+    const repoDoc = await this.loadRepoDoc();
+    const ciCommand = repoDoc?.ciCommand?.trim();
+    if (ciCommand !== void 0 && ciCommand.length > 0) {
+      const ci = await this.loadCiResult(branch);
+      const tipMatch = ci !== void 0 && ci.commit === tip;
+      const green = ci !== void 0 && ci.exitCode === 0 && ci.dirty !== true;
+      if (!tipMatch || !green) {
+        const detail = ci === void 0 ? "no CI run recorded" : `recorded commit ${ci.commit.slice(0, 7)}${ci.commit !== tip ? ` \u2260 tip ${tip.slice(0, 7)}` : ""}, exitCode ${String(ci.exitCode)}, dirty ${String(ci.dirty)}`;
+        throw await block(
+          "ci-failed",
+          `merge blocked: CI is not green for ${branch} (${detail}) \u2014 run moa_tower_ci on the clean current tip`
+        );
+      }
+    } else {
+      await this.appendLog(TOWER_NAME, "merge.ci-skip", { branch, reason: "ci-not-configured" });
+    }
+    const mergeCommit = await mergeNoFf(this.repoRoot, branch);
+    await this.saveMissionStatus(mission, "merged");
+    const changedSet = new Set(changed);
+    const conflictsWith = [];
+    for (const other of missions) {
+      if (other.branch === branch || other.status === "merged") continue;
+      if (!await branchExists(this.repoRoot, other.branch)) continue;
+      const otherChanged = await diffNameOnly(this.repoRoot, state.base, other.branch);
+      const overlap = otherChanged.filter((file) => changedSet.has(file));
+      if (overlap.length > 0) {
+        conflictsWith.push({ branch: other.branch, files: overlap });
+      }
+    }
+    await this.appendLog(TOWER_NAME, "merge", {
+      branch,
+      base: state.base,
+      merge_commit: mergeCommit.slice(0, 7)
+    });
+    return { mergeCommit, conflictsWith };
+  }
+  /** Mark one mission merged (state doc + mission doc in one transaction). */
+  async saveMissionStatus(mission, status) {
+    await this.board.mutate(
+      "workspace",
+      (entries, ts) => {
+        const current = missionFromEntries(this.keys, entries, mission.id);
+        current.status = status;
+        entries.set(
+          this.keys.mission(mission.id),
+          boardEntry(this.keys.mission(mission.id), JSON.stringify(current), TOWER_NAME, ts)
+        );
+      },
+      this.repoRoot
+    );
+  }
+  // ---------------------------------------------------------------------
+  // Worktrees / teardown
+  // ---------------------------------------------------------------------
+  /**
+   * Create the physical worktree for a mission slot. The physical layout is
+   * `<repoRoot>` 同级 `<repoName>-worktrees/<slot>` (基准 decision 8) — never
+   * inside the repo (row 4: no `.tower/` tree).
+   */
+  async addWorktree(worktree, branch, base) {
+    const absPath = worktreePath(this.repoRoot, worktree);
+    await worktreeAdd(this.repoRoot, absPath, branch, base);
+    await this.appendLog(TOWER_NAME, "worktree.add", { worktree, branch, base });
+    return worktree;
+  }
+  /**
+   * Tear the tower down. 附录 A row 17: worktrees with uncommitted changes are
+   * kept unless `force`; official keeps state on disk — we additionally delete
+   * the guard mirror file, and (row 3 landing) clear the live board namespace
+   * so a fresh boot is possible. The append-only board JSONL remains the audit
+   * trail either way (documented deviation: official kept `.tower/comms/`).
+   */
+  async teardown(options = {}) {
+    const state = await this.load();
+    const missions = await this.loadMissions(state);
+    const report = [];
+    for (const mission of missions) {
+      const absPath = worktreePath(this.repoRoot, mission.worktree);
+      if (await isWorktreeDirty(absPath)) {
+        if (options.force !== true) {
+          report.push(`kept ${mission.worktree} (uncommitted changes \u2014 rerun with force to remove)`);
+          continue;
+        }
+      }
+      try {
+        const unlinked = await unlinkRootLinks(absPath);
+        if (unlinked.length > 0) {
+          report.push(`unlinked junctions in ${mission.worktree}: ${unlinked.join(", ")}`);
+        }
+        await worktreeRemove(this.repoRoot, absPath, options.force === true);
+        report.push(`removed ${mission.worktree}`);
+        await this.appendLog(TOWER_NAME, "worktree.remove", { worktree: mission.worktree });
+      } catch (error2) {
+        report.push(
+          `failed to remove ${mission.worktree}: ${error2 instanceof Error ? error2.message : String(error2)}`
+        );
+      }
+    }
+    await this.deleteGuardMirror();
+    await this.appendLog(TOWER_NAME, "teardown", {
+      force: options.force === true ? "yes" : void 0
+    });
+    await this.board.mutate(
+      "workspace",
+      (entries, _ts) => {
+        for (const key of [...entries.keys()]) {
+          if (key === this.keys.ns || key.startsWith(`${this.keys.ns}/`)) entries.delete(key);
+        }
+      },
+      this.repoRoot
+    );
+    return report;
+  }
+  /** Every log line mentioning `merge.blocked` (status/route convenience). */
+  async blockedMergeLog() {
+    const entries = await this.board.readNamespace(
+      this.keys.prefix("log"),
+      void 0,
+      "workspace",
+      1e3,
+      this.repoRoot
+    );
+    return [...entries].sort((a, b) => a.key.localeCompare(b.key)).map((row) => row.value).filter((line) => line.includes("merge.blocked"));
+  }
+};
+
+// src/modules/tower/routes.ts
+var LOG_LINES_DEFAULT = 100;
+var LOG_LINES_MAX = 1e3;
+function requireWorkspaceParam(ctx) {
+  const workspace = ctx.url.searchParams.get("workspace");
+  if (workspace === null || workspace.trim().length === 0) {
+    ctx.badRequest("tower routes require a ?workspace=<absolute repo root> query parameter");
+  }
+  return workspace;
+}
+function notReady(ctx) {
+  ctx.res.setHeader("retry-after", "2");
+  ctx.sendJson(503, { error: "tower_not_ready", started: false });
+}
+function towerRoutes(controller) {
+  const storeFor2 = (ctx) => {
+    if (controller === void 0) {
+      notReady(ctx);
+      throw new Error("tower_not_ready");
+    }
+    const board = controller.getBoard();
+    if (board === void 0) {
+      notReady(ctx);
+      throw new Error("tower_not_ready");
+    }
+    return new TowerStore(requireWorkspaceParam(ctx), board);
+  };
+  const readState = async (ctx) => {
+    const store = storeFor2(ctx);
+    try {
+      const state = await store.load();
+      const repo = await store.loadRepoDoc();
+      ctx.sendJson(200, {
+        booted: true,
+        base: state.base,
+        mode: state.mode,
+        createdAt: state.createdAt,
+        worktreesRoot: repo?.worktreesRoot ?? null,
+        roster: state.roster.agents.map((a) => {
+          const isTower = a.kind === "tower" || a.name === TOWER_NAME;
+          return {
+            name: a.name,
+            ...isTower ? {} : { agentId: a.agentId === "" ? null : a.agentId },
+            kind: a.kind,
+            verified: a.verified ?? false,
+            ...a.verifiedAt !== void 0 ? { verifiedAt: a.verifiedAt } : {},
+            failedCount: a.failedCount ?? 0,
+            // B2: blocked is derived from consecutive hard mismatches (缺失≠不匹配).
+            blocked: (a.failedCount ?? 0) >= 3,
+            ...a.missionId !== void 0 ? { missionId: a.missionId } : {},
+            ...a.reviewTarget !== void 0 ? { reviewTarget: a.reviewTarget } : {},
+            ...a.worktree !== void 0 ? { worktree: a.worktree } : {},
+            ...a.branch !== void 0 ? { branch: a.branch } : {}
+          };
+        }),
+        missions: state.missions
+      });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
+  const readMissions = async (ctx) => {
+    const store = storeFor2(ctx);
+    try {
+      const state = await store.load();
+      const missions = await store.loadMissions(state);
+      const rows = [];
+      for (const m of missions) {
+        const ci = await store.loadCiResult(m.branch);
+        rows.push({
+          id: m.id,
+          title: m.title,
+          kind: m.kind,
+          scope: [...m.scope],
+          branch: m.branch,
+          worktree: m.worktree,
+          deps: [...m.deps],
+          status: m.status,
+          owner: m.owner ?? null,
+          tasks: m.tasks.map((t) => ({ text: t.text, done: t.done })),
+          notes: [...m.notes],
+          blockers: [...m.blockers],
+          ci: ci === void 0 ? null : { commit: ci.commit, exitCode: ci.exitCode, ranAt: ci.ranAt },
+          review_gate: await store.reviewGateForMission(m)
+        });
+      }
+      ctx.sendJson(200, { booted: true, missions: rows });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
+  const readLog = async (ctx) => {
+    const store = storeFor2(ctx);
+    const rawLines = Number(ctx.url.searchParams.get("lines") ?? LOG_LINES_DEFAULT);
+    const lines = Number.isFinite(rawLines) && rawLines > 0 ? Math.min(Math.floor(rawLines), LOG_LINES_MAX) : LOG_LINES_DEFAULT;
+    try {
+      await store.load();
+      const log = await store.recentLog(lines);
+      ctx.sendJson(200, { booted: true, lines: [...log] });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
+  const readFindings = async (ctx) => {
+    const store = storeFor2(ctx);
+    try {
+      await store.load();
+      const findings = await store.listFindings();
+      ctx.sendJson(200, { booted: true, findings });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
+  const readReviews = async (ctx) => {
+    const store = storeFor2(ctx);
+    const branch = ctx.url.searchParams.get("branch");
+    if (branch === null || branch.trim().length === 0) {
+      ctx.badRequest("tower reviews require a ?branch=<target branch> query parameter");
+    }
+    try {
+      await store.load();
+      const reviews = await store.reviewsFor(branch);
+      ctx.sendJson(200, { booted: true, branch, reviews });
+    } catch (error2) {
+      if (error2 instanceof TowerProtocolError) {
+        ctx.sendJson(200, { booted: false, error: error2.message });
+        return;
+      }
+      throw error2;
+    }
+  };
+  return [
+    { method: "GET", path: "/api/tower/state", handler: (ctx) => readState(ctx) },
+    { method: "GET", path: "/api/tower/missions", handler: (ctx) => readMissions(ctx) },
+    { method: "GET", path: "/api/tower/log", handler: (ctx) => readLog(ctx) },
+    { method: "GET", path: "/api/tower/findings", handler: (ctx) => readFindings(ctx) },
+    { method: "GET", path: "/api/tower/reviews", handler: (ctx) => readReviews(ctx) }
+  ];
+}
+
+// src/modules/tower/tools.ts
+var STATUS_EMOJI2 = {
+  planned: "\u{1F7E1}",
+  active: "\u{1F535}",
+  completed: "\u{1F7E2}",
+  blocked: "\u{1F534}",
+  paused: "\u23F8\uFE0F",
+  merged: "\u2705"
+};
+var INBOX_COUNT_LIMIT = 1e3;
+var RECENT_LOG_LINES = 10;
+var WORKSPACE_ARG = {
+  type: "string",
+  description: "The absolute repo root (main checkout) this tower namespace anchors to. Required on every tower tool \u2014 the server cwd is never used as a fallback."
+};
+var CALLER_ARG = {
+  type: "string",
+  description: "Your engine agent id. The tower tools resolve it against the boot-registered roster (the booted tower, or a spawned worker/reviewer)."
+};
+function argString(args, key) {
+  const value = args[key];
+  return typeof value === "string" ? value : void 0;
+}
+function storeFor(controller, args) {
+  const board = controller.getBoard();
+  const workspace = argString(args, "workspace");
+  if (board === void 0) {
+    throw new TowerProtocolError("tower is not ready \u2014 no shared board mounted (start the server first)");
+  }
+  if (workspace === void 0 || workspace.trim().length === 0) {
+    throw new TowerProtocolError(
+      "workspace (the absolute repo root) is required \u2014 tower tools never fall back to the server cwd"
+    );
+  }
+  const repoRoot = normalizeTowerRoot(workspace);
+  return { store: new TowerStore(repoRoot, board), repoRoot };
+}
+async function resolveCaller(store, state, args) {
+  const agentId = argString(args, "caller_agent_id");
+  if (agentId === void 0 || agentId.trim().length === 0) {
+    throw new TowerProtocolError("caller_agent_id is required \u2014 pass your engine agent id");
+  }
+  return store.resolveCallerName(state, agentId);
+}
+async function requireTower(store, args) {
+  const state = await store.load();
+  const caller = await resolveCaller(store, state, args);
+  if (caller !== "tower") {
+    throw new TowerProtocolError(
+      `agent "${caller}" is not the control tower \u2014 only the booted tower may run this tool`
+    );
+  }
+  return { state, caller };
+}
+async function runTool(fn) {
+  try {
+    return await fn();
+  } catch (error2) {
+    if (error2 instanceof Error) {
+      return { output: error2.message, isError: true };
+    }
+    throw error2;
+  }
+}
+async function syncMirrorOrRetry(store) {
+  try {
+    await store.syncGuardMirror();
+    return void 0;
+  } catch (error2) {
+    return error2 instanceof Error ? error2.message : String(error2);
+  }
+}
+function towerTools(controller) {
+  return [
+    {
+      name: "moa_tower_boot",
+      description: 'Boot the tower workspace for a git repository: validates the repo (inside a git repo, \u22651 commit), writes the state + namespace identity docs to the shared board, and registers the tower roster entry (name "tower") with your orchestrator agent id. Idempotent lifecycle: repeated boot while booted errors; teardown clears the namespace so boot works again. No .tower/ directory is created inside the repo \u2014 state lives in the board, worktrees live in a sibling <repoName>-worktrees/ dir.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          repo_root: {
+            type: "string",
+            description: "Optional alias for the same value as workspace (must resolve to the identical absolute path when provided); defaults to workspace."
+          },
+          tower_agent_id: {
+            type: "string",
+            description: "Your orchestrator agent id \u2014 the roster entry for the tower is registered with it."
+          },
+          base: {
+            type: "string",
+            description: "Base branch for missions (default: the repo's current branch)."
+          },
+          mode: {
+            type: "string",
+            enum: ["branch", "pr"],
+            description: 'Tower mode (default "branch"; "pr" is reserved for a future gh-backed mode).'
+          },
+          ci_command: {
+            type: "string",
+            description: "Optional CI command (B2): moa_tower_ci runs it in each mission worktree and the merge gate turns hard (green ci/<branchSlug> record required) once set. Re-booting with ci_command is the idempotent configuration channel \u2014 it updates the repo doc instead of erroring."
+          }
+        },
+        required: ["workspace", "tower_agent_id"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store, repoRoot } = storeFor(controller, args);
+        const repoRootArg = argString(args, "repo_root");
+        if (repoRootArg !== void 0 && normalizeTowerRoot(repoRootArg) !== repoRoot) {
+          throw new TowerProtocolError(
+            "repo_root must resolve to the same absolute path as workspace"
+          );
+        }
+        const towerAgentId = argString(args, "tower_agent_id");
+        if (towerAgentId === void 0 || towerAgentId.trim().length === 0) {
+          throw new TowerProtocolError("tower_agent_id is required");
+        }
+        const base = argString(args, "base");
+        const modeArg = argString(args, "mode");
+        const ciCommand = argString(args, "ci_command");
+        const result = await store.boot(towerAgentId, {
+          ...base !== void 0 ? { base } : {},
+          ...modeArg !== void 0 ? { mode: modeArg } : {},
+          ...ciCommand !== void 0 && ciCommand.trim().length > 0 ? { ciCommand: ciCommand.trim() } : {}
+        });
+        const outcome = await store.verifyAgentIdentity(
+          TOWER_NAME,
+          foldView(controller.getFold()),
+          towerAgentId
+        );
+        return {
+          booted: result.created || result.updated === true,
+          ...result.updated === true ? { ci_command_updated: true } : {},
+          base: result.base,
+          mode: "branch",
+          workspace: repoRoot,
+          tower_agent_id: towerAgentId,
+          verified: outcome.entry.verified ?? false,
+          roster: ["tower"]
+        };
+      })
+    },
+    {
+      name: "moa_tower_plan",
+      description: "Split a tower goal into missions (tower-only): each mission gets an id (M<n>), a branch (feat/M<n>-<slug> \u2014 id-prefixed so same-titled missions never collide), and a worktree slot (wt-<n>). Build scopes must be pairwise disjoint (merged missions reserve nothing); deps must reference known mission ids. Survey missions are read-only and reserve no scope.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          missions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Short mission title; becomes the branch/worktree slug" },
+                scope: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: 'Files/globs this mission may touch (e.g. "src/build/**"). Scopes of different build missions must not overlap; "survey" scopes are informational and may overlap.'
+                },
+                tasks: { type: "array", items: { type: "string" }, description: "Checklist the worker ticks via moa_tower_mission task_done" },
+                deps: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: 'Mission ids (e.g. "M1") that must merge before this one can merge'
+                },
+                kind: {
+                  type: "string",
+                  enum: ["build", "survey"],
+                  description: '"survey" = read-only investigation (no review/git merge needed to close); default "build".'
+                }
+              },
+              required: ["title", "scope"],
+              additionalProperties: false
+            },
+            minItems: 1
+          }
+        },
+        required: ["workspace", "caller_agent_id", "missions"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        await requireTower(store, args);
+        const rawMissions = args.missions;
+        if (!Array.isArray(rawMissions) || rawMissions.length === 0) {
+          throw new TowerProtocolError("TowerPlan needs at least one mission");
+        }
+        const missions = await store.plan(
+          rawMissions.map((raw) => {
+            const item = raw ?? {};
+            const title = argString(item, "title");
+            const scope = item.scope;
+            if (title === void 0 || title.trim().length === 0) {
+              throw new TowerProtocolError("each mission needs a title");
+            }
+            if (!Array.isArray(scope) || scope.length === 0 || !scope.every((s) => typeof s === "string")) {
+              throw new TowerProtocolError(`mission "${title}" needs a non-empty string scope array`);
+            }
+            return {
+              title,
+              scope,
+              ...Array.isArray(item.tasks) ? { tasks: item.tasks } : {},
+              ...Array.isArray(item.deps) ? { deps: item.deps } : {},
+              ...item.kind === "survey" || item.kind === "build" ? { kind: item.kind } : {}
+            };
+          })
+        );
+        return {
+          planned: missions.length,
+          missions: missions.map((m) => ({
+            id: m.id,
+            title: m.title,
+            kind: m.kind,
+            branch: m.branch,
+            worktree: m.worktree,
+            scope: m.scope,
+            deps: [...m.deps],
+            status: m.status
+          })),
+          next: "TowerSpawn one worker per build mission, reviewers for their branches; survey missions close with a zero-diff TowerMerge."
+        };
+      })
+    },
+    {
+      name: "moa_tower_spawn",
+      description: "Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission's physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool in the FOREGROUND (never run_in_background=true \u2014 a backgrounded child cannot wake the tower when it completes): phase 1 does offline work only (workers: code + local commits; reviewers: read-only verdict draft) with no tower calls, then moa_tower_register(agent_id=\u2026) completes the enrollment and a foreground resume (phase 2) lets the agent submit tower reports under its own identity. Reviewers take review_target (a branch to review) instead of a mission.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          name: { type: "string", description: 'Unique tower name (e.g. "agent-build", "reviewer-a"); used for inbox addressing and mission ownership' },
+          kind: { type: "string", enum: ["worker", "reviewer"], description: "workers execute a mission in their worktree; reviewers review one branch" },
+          mission_id: { type: "string", description: 'Required for workers: the mission id (e.g. "M1") from moa_tower_plan' },
+          review_target: { type: "string", description: 'Required for reviewers: the branch to review (e.g. "feat/M2-x")' },
+          instructions: { type: "string", description: "Extra tower instructions for the agent briefing" }
+        },
+        required: ["workspace", "caller_agent_id", "name", "kind"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store, repoRoot } = storeFor(controller, args);
+        const { state } = await requireTower(store, args);
+        const name = argString(args, "name");
+        const kind = argString(args, "kind");
+        if (name === void 0 || name.trim().length === 0) {
+          throw new TowerProtocolError("spawn needs a unique agent name");
+        }
+        if (kind !== "worker" && kind !== "reviewer") {
+          throw new TowerProtocolError('kind must be "worker" or "reviewer"');
+        }
+        store.assertNameAvailable(state, name);
+        const notes = [];
+        let missionId;
+        let reviewTarget;
+        let worktree;
+        let branch;
+        if (kind === "worker") {
+          const rawMission = argString(args, "mission_id");
+          if (rawMission === void 0 || rawMission.trim().length === 0) {
+            throw new TowerProtocolError("worker spawns require mission_id");
+          }
+          const mission = (await store.loadMissions(state)).find((m) => m.id === rawMission);
+          if (mission === void 0) {
+            throw new TowerProtocolError(
+              `unknown mission "${rawMission}" \u2014 known missions: ${state.missions.join(", ") || "(none planned yet)"}`
+            );
+          }
+          missionId = mission.id;
+          worktree = mission.worktree;
+          branch = mission.branch;
+          try {
+            await store.addWorktree(mission.worktree, mission.branch, state.base);
+          } catch (error2) {
+            const message = error2 instanceof Error ? error2.message : String(error2);
+            if (!/already exists|already checked out|already a registered worktree/i.test(message)) {
+              throw new TowerProtocolError(
+                `spawn failed: cannot create worktree ${mission.worktree} for ${mission.branch} \u2014 ${message}`
+              );
+            }
+            notes.push(`worktree setup warning (continuing): ${message}`);
+          }
+          await store.updateMission("tower", mission.id, { status: "active", owner: name }, { silent: true });
+        } else {
+          reviewTarget = argString(args, "review_target");
+          if (reviewTarget === void 0 || reviewTarget.trim().length === 0) {
+            throw new TowerProtocolError("reviewer spawns require review_target");
+          }
+        }
+        await store.registerAgent({
+          name,
+          agentId: "",
+          // pending — moa_tower_register fills the real engine id
+          kind,
+          ...missionId !== void 0 ? { missionId } : {},
+          ...reviewTarget !== void 0 ? { reviewTarget } : {},
+          ...worktree !== void 0 ? { worktree } : {},
+          ...branch !== void 0 ? { branch } : {},
+          spawnedAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        const mirrorError = await syncMirrorOrRetry(store);
+        if (mirrorError !== void 0) {
+          return {
+            output: `guard mirror write failed: ${mirrorError} \u2014 the spawn side effects (worktree/mission/roster entry) are recorded; re-run moa_tower_register(name="${name}", agent_id=<engine id>) to retry the mirror write`,
+            isError: true
+          };
+        }
+        await store.appendLog(
+          "tower",
+          "spawn",
+          {
+            name,
+            kind,
+            mission: missionId,
+            target: reviewTarget
+          },
+          missionId !== void 0 ? store.missionRef(missionId) : void 0
+        );
+        return {
+          name,
+          kind,
+          mission_id: missionId,
+          review_target: reviewTarget,
+          branch,
+          worktree: worktree !== void 0 ? worktreePathOf(repoRoot, worktree) : void 0,
+          agent_id: "",
+          status: "pending-register",
+          notes,
+          next: `Launch the ${kind} with your Agent tool in the FOREGROUND (phase 1: offline work only, no tower calls \u2014 a backgrounded child cannot wake you), then complete enrollment: moa_tower_register(workspace, name="${name}", agent_id=<the engine agent id>), and resume it (foreground, phase 2) so it submits tower calls under its own identity.`
+        };
+      })
+    },
+    {
+      name: "moa_tower_register",
+      description: "Two-stage spawn completion (tower-only): fills the real engine agent id into the pending roster entry created by moa_tower_spawn, runs the B2 identity cross-validation (\u2460 fold entry exists; \u2461 dual-channel parent-child: wire parentAgentId == towerAgentId OR the tower fold entry lists this agent as a subagent; \u2462 soft session-workDir check), and rebuilds the guard mirror file (<repoRoot>/.tower-guard.json \u2014 name-keyed agents map with {name, worktree, agentId} + worktrees array). Missing fold data degrades to verified:false (never blocked); a hard mismatch increments failed_count (3 consecutive \u2192 blocked). Re-running register is allowed and re-verifies (B2-9).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          name: { type: "string", description: "The tower name registered by moa_tower_spawn" },
+          agent_id: { type: "string", description: "The engine agent id returned by your Agent tool" },
+          mission_id: { type: "string", description: "Optional: mission id if it was not recorded at spawn" },
+          review_target: { type: "string", description: "Optional: review target if it was not recorded at spawn" },
+          worktree: { type: "string", description: "Optional: worktree slot if it was not recorded at spawn" },
+          branch: { type: "string", description: "Optional: branch if it was not recorded at spawn" }
+        },
+        required: ["workspace", "caller_agent_id", "name", "agent_id"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const { state } = await requireTower(store, args);
+        const name = argString(args, "name");
+        const agentId = argString(args, "agent_id");
+        if (name === void 0 || name.trim().length === 0) {
+          throw new TowerProtocolError("register needs the roster name from moa_tower_spawn");
+        }
+        if (agentId === void 0 || agentId.trim().length === 0) {
+          throw new TowerProtocolError("agent_id is required \u2014 the engine agent id from your Agent tool");
+        }
+        const entry = await store.updateRosterAgentId(name, agentId, {
+          ...argString(args, "mission_id") !== void 0 ? { missionId: argString(args, "mission_id") } : {},
+          ...argString(args, "review_target") !== void 0 ? { reviewTarget: argString(args, "review_target") } : {},
+          ...argString(args, "worktree") !== void 0 ? { worktree: argString(args, "worktree") } : {},
+          ...argString(args, "branch") !== void 0 ? { branch: argString(args, "branch") } : {}
+        });
+        const towerAgentId = state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? "";
+        const outcome = await store.verifyAgentIdentity(
+          name,
+          foldView(controller.getFold()),
+          towerAgentId
+        );
+        const mirrorError = await syncMirrorOrRetry(store);
+        if (mirrorError !== void 0) {
+          return {
+            output: `guard mirror write failed: ${mirrorError} \u2014 the roster entry IS recorded (agentId ${agentId}); re-run moa_tower_register to retry the mirror write`,
+            isError: true
+          };
+        }
+        await store.appendLog("tower", "register", { name, agent: agentId });
+        return {
+          registered: true,
+          name: entry.name,
+          agent_id: entry.agentId,
+          kind: entry.kind,
+          verified: outcome.entry.verified ?? false,
+          failed_count: outcome.entry.failedCount ?? 0,
+          blocked: (outcome.entry.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
+          identity: outcome.verdict.reason,
+          ...entry.missionId !== void 0 ? { mission_id: entry.missionId } : {},
+          ...entry.reviewTarget !== void 0 ? { review_target: entry.reviewTarget } : {},
+          guard_mirror: `${store.repoRoot}/.tower-guard.json`,
+          next: "The agent can now use the tower tools under its own identity."
+        };
+      })
+    },
+    {
+      name: "moa_tower_mission",
+      description: "Read or patch a mission. With only an id, returns the rendered mission view. Patches go through the store: workers may only patch their own mission; ownership assignment and scope changes are tower-only (scope changes re-run the disjoint check and are logged); a blocker sets the mission blocked; task_done marks the first open task containing that text done.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          id: { type: "string", description: 'Mission id (e.g. "M1")' },
+          status: { type: "string", enum: ["planned", "active", "completed", "blocked", "paused", "merged"], description: "New lifecycle status" },
+          note: { type: "string", description: "Append a decision-log note" },
+          blocker: { type: "string", description: "Report a blocker (also sets status to blocked)" },
+          clear_blockers: { type: "boolean", description: "Clear all recorded blockers" },
+          task_done: { type: "string", description: "Mark the first open task containing this text as done" },
+          scope: { type: "array", items: { type: "string" }, description: "Tower only: replace the mission scope globs (picomatch \u2014 `**` crosses directories). Logged; widens what the merge gate accepts." }
+        },
+        required: ["workspace", "caller_agent_id", "id"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const id = argString(args, "id");
+        if (id === void 0 || id.trim().length === 0) {
+          throw new TowerProtocolError("mission id is required");
+        }
+        const hasPatch = argString(args, "status") !== void 0 || argString(args, "note") !== void 0 || argString(args, "blocker") !== void 0 || args.clear_blockers !== void 0 || argString(args, "task_done") !== void 0 || args.scope !== void 0;
+        if (!hasPatch) {
+          const missions = await store.loadMissions(state);
+          const mission2 = missions.find((m) => m.id === id);
+          if (mission2 === void 0) {
+            throw new TowerProtocolError(
+              `unknown mission "${id}" \u2014 known missions: ${state.missions.join(", ") || "(none planned yet)"}`
+            );
+          }
+          return { mission: id, view: store.missionView(mission2) };
+        }
+        const scopeArg = args.scope;
+        if (scopeArg !== void 0 && (!Array.isArray(scopeArg) || !scopeArg.every((s) => typeof s === "string"))) {
+          throw new TowerProtocolError("scope must be a string array");
+        }
+        const mission = await store.updateMission(caller, id, {
+          ...argString(args, "status") !== void 0 ? { status: argString(args, "status") } : {},
+          ...argString(args, "note") !== void 0 ? { note: argString(args, "note") } : {},
+          ...argString(args, "blocker") !== void 0 ? { blocker: argString(args, "blocker") } : {},
+          ...args.clear_blockers !== void 0 ? { clearBlockers: args.clear_blockers === true } : {},
+          ...argString(args, "task_done") !== void 0 ? { taskDone: argString(args, "task_done") } : {},
+          ...scopeArg !== void 0 ? { scope: scopeArg } : {}
+        });
+        return {
+          updated: true,
+          mission: mission.id,
+          status: mission.status,
+          open_tasks: mission.tasks.filter((t) => !t.done).length,
+          blockers: mission.blockers.length,
+          view: store.missionView(mission)
+        };
+      })
+    },
+    {
+      name: "moa_tower_send",
+      description: 'Deliver an inbox message to a roster agent, the tower, or "all" (broadcast). Self-send is forbidden; the body is capped at 96KB (board ceiling) \u2014 split larger content into multiple messages. Returns the message board key.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          to: { type: "string", description: 'Recipient: a roster agent name, "tower", or "all" (broadcast)' },
+          subject: { type: "string", description: "One-line subject; keep it greppable" },
+          body: { type: "string", description: "Full message body (markdown), \u2264 96KB" },
+          scope: { type: "string", description: "Optional scope tag (e.g. the mission id)" },
+          action: { type: "string", description: "Optional action tag for machine routing" },
+          consent_ref: { type: "string", description: "Optional reference to a consent/approval record this message relies on" }
+        },
+        required: ["workspace", "caller_agent_id", "to", "subject", "body"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const to = argString(args, "to");
+        const subject = argString(args, "subject");
+        const body = argString(args, "body");
+        if (to === void 0 || subject === void 0 || body === void 0) {
+          throw new TowerProtocolError("send requires to, subject and body");
+        }
+        const rel = await store.send(caller, {
+          to,
+          subject,
+          body,
+          ...argString(args, "scope") !== void 0 ? { scope: argString(args, "scope") } : {},
+          ...argString(args, "action") !== void 0 ? { action: argString(args, "action") } : {},
+          ...argString(args, "consent_ref") !== void 0 ? { consentRef: argString(args, "consent_ref") } : {}
+        });
+        return { sent: true, to, file: rel };
+      })
+    },
+    {
+      name: "moa_tower_inbox",
+      description: "Read the caller's inbox (messages addressed to you or broadcast; the tower sees everything), newest first.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          limit: { type: "number", description: "Max messages to return (default 20), newest first" }
+        },
+        required: ["workspace", "caller_agent_id"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const rawLimit = args.limit;
+        const limit = typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 20;
+        const items = await store.readInbox(caller, limit);
+        return {
+          caller,
+          count: items.length,
+          messages: items.map((item) => ({
+            file: item.file,
+            from: item.from,
+            to: item.to,
+            subject: item.subject,
+            sent_at: item.sentAt,
+            ...item.scope !== void 0 ? { scope: item.scope } : {},
+            ...item.action !== void 0 ? { action: item.action } : {},
+            body: item.body
+          }))
+        };
+      })
+    },
+    {
+      name: "moa_tower_finding",
+      description: "File a structured finding (bug | improve | vuln | idea) for the tower to route. Workers use it for anything notable outside their mission scope instead of fixing it directly. The finding is stored under a random UUID key.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          type: { type: "string", enum: ["bug", "improve", "vuln", "idea"], description: "Finding category" },
+          title: { type: "string", description: "Short finding title" },
+          severity: { type: "string", enum: ["low", "medium", "high", "critical"], description: "Optional severity (default medium)" },
+          summary: { type: "string", description: "What was found, in a sentence or two" },
+          location: { type: "string", description: "File/symbol the finding concerns" },
+          details: { type: "string", description: "Full details: evidence, reproduction, impact" },
+          suggested_fix: { type: "string", description: "What you would do about it" }
+        },
+        required: ["workspace", "caller_agent_id", "type", "title", "summary", "details", "suggested_fix"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const type = argString(args, "type");
+        const title = argString(args, "title");
+        const summary = argString(args, "summary");
+        const details = argString(args, "details");
+        const suggestedFix = argString(args, "suggested_fix");
+        if (type === void 0 || title === void 0 || summary === void 0 || details === void 0 || suggestedFix === void 0) {
+          throw new TowerProtocolError("finding requires type, title, summary, details and suggested_fix");
+        }
+        const rel = await store.fileFinding(caller, {
+          type,
+          title,
+          ...argString(args, "severity") !== void 0 ? { severity: argString(args, "severity") } : {},
+          summary,
+          ...argString(args, "location") !== void 0 ? { location: argString(args, "location") } : {},
+          details,
+          suggestedFix
+        });
+        return { filed: true, file: rel, next: "The tower will route it \u2014 do not fix out-of-scope issues yourself." };
+      })
+    },
+    {
+      name: "moa_tower_review",
+      description: 'Submit a review verdict for an assigned branch (reviewers and the tower only). The store assigns the round (your history + 1) and stamps the branch tip \u2014 the tool resolves the tip itself via git rev-parse, never trusting a self-reported commit. Only a "clean" review of the exact current tip passes the merge gate.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          target: { type: "string", description: "The branch you were assigned to review" },
+          status: { type: "string", pattern: "^(clean|p[12]-\\d+items)$", description: 'Verdict: "clean", or "p1-Nitems" / "p2-Nitems" with the number of findings at that priority' },
+          merge: { type: "string", enum: ["merge", "fix-then-merge", "hold"], description: "Merge recommendation for the tower" },
+          findings: { type: "string", description: 'Full findings text (markdown); write "none" when clean' },
+          checks: { type: "array", items: { type: "string" }, description: 'Checklist items you verified (e.g. "tests pass", "no secrets")' },
+          decision: { type: "string", description: "The reasoning behind your verdict" }
+        },
+        required: ["workspace", "caller_agent_id", "target", "status", "merge", "findings", "decision"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store, repoRoot } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const target = argString(args, "target");
+        const status = argString(args, "status");
+        const merge2 = argString(args, "merge");
+        const findings = argString(args, "findings");
+        const decision = argString(args, "decision");
+        if (target === void 0 || status === void 0 || merge2 === void 0 || findings === void 0 || decision === void 0) {
+          throw new TowerProtocolError("review requires target, status, merge, findings and decision");
+        }
+        const reviewedCommit = await branchTip(repoRoot, target);
+        const rel = await store.submitReview(caller, {
+          target,
+          status,
+          merge: merge2,
+          findings,
+          ...Array.isArray(args.checks) ? { checks: args.checks } : {},
+          decision
+        }, reviewedCommit);
+        return {
+          submitted: true,
+          file: rel,
+          round: Number(rel.slice(rel.lastIndexOf("-r") + 2)),
+          reviewed_commit: reviewedCommit,
+          next: "Also notify the branch author (or the tower) with moa_tower_send so the verdict is seen."
+        };
+      })
+    },
+    {
+      name: "moa_tower_merge",
+      description: "Merge a mission branch into the base (tower-only). The hard gate runs in fixed order: branch belongs to a mission \u2192 dependencies merged \u2192 survey zero-diff noop \u2192 review exists \u2192 latest round fully clean (every reviewer of the highest round) \u2192 branch tip unchanged since the clean review \u2192 changed files inside the mission scope (picomatch) \u2192 CI green (only when a ci_command is configured on boot \u2014 requires a ci/<branchSlug> record with commit == current tip && exitCode == 0 && clean worktree; otherwise skipped) \u2192 git merge --no-ff \u2192 conflicts report. Every blocked step records a merge.blocked activity-log line.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          branch: { type: "string", description: 'The mission branch to merge into the base branch (e.g. "feat/M1-x")' }
+        },
+        required: ["workspace", "caller_agent_id", "branch"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        await requireTower(store, args);
+        const branch = argString(args, "branch");
+        if (branch === void 0 || branch.trim().length === 0) {
+          throw new TowerProtocolError("merge needs the mission branch");
+        }
+        const { mergeCommit, conflictsWith, noop } = await store.merge(branch);
+        if (noop === true) {
+          return {
+            merged: true,
+            noop: true,
+            branch,
+            output: `${branch} is a read-only survey with a zero-diff branch \u2014 mission marked merged, no git merge needed.`
+          };
+        }
+        return {
+          merged: true,
+          branch,
+          merge_commit: mergeCommit,
+          conflicts_with: conflictsWith.map((c) => ({ branch: c.branch, files: [...c.files] })),
+          next: conflictsWith.length > 0 ? "Unmerged branches changed the same files \u2014 tell each affected worker to rebase onto the updated base and request a re-review." : "Continue with the remaining missions in Dependency Flow order."
+        };
+      })
+    },
+    {
+      name: "moa_tower_teardown",
+      description: "Tear the tower down (tower-only): remove mission worktrees (dirty ones are kept unless force) \u2014 root-level symlinks/junctions inside each worktree are unlinked first so junction targets are never touched (git for Windows follows junctions on recursive removal) \u2014 delete the guard mirror file, and clear the live tower namespace so a fresh boot is possible. The append-only board JSONL stays as the audit trail.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          force: { type: "boolean", description: "Remove worktrees even when they contain uncommitted changes" }
+        },
+        required: ["workspace", "caller_agent_id"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        await requireTower(store, args);
+        const report = await store.teardown({ force: args.force === true });
+        return {
+          torn_down: true,
+          report,
+          next: "The board JSONL keeps the full audit trail; boot again with moa_tower_boot when ready."
+        };
+      })
+    },
+    {
+      name: "moa_tower_status",
+      description: "Shared tower dashboard: mission table, roster (with B2 identity verified/failed_count/blocked columns), per-branch review-gate state (highest review round/status and whether it still matches the branch tip), CI summary (configured + per-branch latest result), the caller's inbox count, and the recent activity log. Reading status also re-verifies every roster entry against the status fold (lazy re-verify, B2-9) and persists the verdicts.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG
+        },
+        required: ["workspace", "caller_agent_id"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const missions = await store.loadMissions(state);
+        const towerAgentId = state.roster.agents.find((a) => a.name === TOWER_NAME)?.agentId ?? "";
+        const fold = foldView(controller.getFold());
+        for (const agent of state.roster.agents) {
+          await store.verifyAgentIdentity(agent.name, fold, towerAgentId);
+        }
+        const latest = await store.load();
+        const reviewGate = [];
+        for (const mission of missions.filter((m) => m.status !== "merged")) {
+          reviewGate.push(await store.reviewGateForMission(mission));
+        }
+        const inbox = await store.readInbox(caller, INBOX_COUNT_LIMIT);
+        const log = await store.recentLog(RECENT_LOG_LINES);
+        const repoDoc = await store.loadRepoDoc();
+        const ciConfigured = repoDoc?.ciCommand !== void 0 && repoDoc.ciCommand.trim().length > 0;
+        const ciPerBranch = {};
+        for (const mission of missions) {
+          const ci = await store.loadCiResult(mission.branch);
+          if (ci !== void 0) {
+            ciPerBranch[mission.branch] = { commit: ci.commit, exitCode: ci.exitCode, ranAt: ci.ranAt };
+          }
+        }
+        return {
+          caller,
+          base: state.base,
+          mode: state.mode,
+          booted: true,
+          missions: renderMissions(missions),
+          roster: renderRoster(latest),
+          review_gate: reviewGate,
+          ci: { configured: ciConfigured, "per-branch": ciPerBranch },
+          inbox_count: inbox.length,
+          recent_activity: [...log]
+        };
+      })
+    },
+    {
+      name: "moa_tower_ci",
+      description: "Run the configured CI command (boot ci_command) in the mission branch's worktree (tower-only). The run is serialized per tower process (single-tower single-session assumption \u2014 no cross-process mutex, \u98CE\u9669\u53F0\u8D26 11). A dirty worktree is intercepted BEFORE execution: the run errors asking for a commit first and records a dirty:true failed result. The outcome is stored under ci/<branchSlug> {commit (tip at run time), exitCode, dirty, logRef, ranAt}; the run log is truncated (last 200 lines, \u226464KB) and referenced by logRef. When a ci_command is configured, the merge gate requires a green (exitCode 0, clean, current tip) record before merging.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          branch: { type: "string", description: 'The mission branch to run CI against (e.g. "feat/M1-x")' }
+        },
+        required: ["workspace", "caller_agent_id", "branch"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        await requireTower(store, args);
+        const branch = argString(args, "branch");
+        if (branch === void 0 || branch.trim().length === 0) {
+          throw new TowerProtocolError("moa_tower_ci needs the mission branch");
+        }
+        const repoDoc = await store.loadRepoDoc();
+        const ciCommand = repoDoc?.ciCommand?.trim();
+        if (ciCommand === void 0 || ciCommand.length === 0) {
+          return {
+            output: 'no ci_command configured \u2014 set one by re-booting: moa_tower_boot(workspace, tower_agent_id, ci_command="\u2026")',
+            isError: true
+          };
+        }
+        const result = await controller.runCiSerial(() => store.runCi(branch, ciCommand));
+        if (result.dirty) {
+          return {
+            output: `ci skipped: the worktree for ${branch} has uncommitted changes \u2014 commit them first and re-run moa_tower_ci (a dirty run is recorded as failed)`,
+            isError: true,
+            dirty: true,
+            branch,
+            commit: result.commit,
+            ran_at: result.ranAt
+          };
+        }
+        return {
+          ran: true,
+          branch,
+          commit: result.commit,
+          exit_code: result.exitCode,
+          dirty: false,
+          log_ref: result.logRef ?? null,
+          ...result.logError !== void 0 ? { log_error: result.logError } : {},
+          ran_at: result.ranAt,
+          next: result.exitCode === 0 ? "CI green \u2014 the merge gate accepts this record while the branch tip stays put." : "CI failed \u2014 fix the failures, commit, and re-run moa_tower_ci."
+        };
+      })
+    },
+    {
+      name: "moa_tower_progress",
+      description: "Post a progress note to a mission (the mission's owning worker or the tower only \u2014 row-11 ownership). Notes accumulate under the single LWW key progress/<missionId>; the value keeps the newest lines within the board ceiling (80KB headroom). Write frequency is the profile's cron discipline (B4) \u2014 keep notes sparse.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          workspace: WORKSPACE_ARG,
+          caller_agent_id: CALLER_ARG,
+          mission_id: { type: "string", description: 'The mission id (e.g. "M1") you own' },
+          note: { type: "string", description: "A short progress note (timestamped and attributed automatically)" }
+        },
+        required: ["workspace", "caller_agent_id", "mission_id", "note"],
+        additionalProperties: false
+      },
+      handler: (args) => runTool(async () => {
+        const { store } = storeFor(controller, args);
+        const state = await store.load();
+        const caller = await resolveCaller(store, state, args);
+        const missionId = argString(args, "mission_id");
+        const note = argString(args, "note");
+        if (missionId === void 0 || missionId.trim().length === 0) {
+          throw new TowerProtocolError("moa_tower_progress needs mission_id");
+        }
+        if (note === void 0 || note.trim().length === 0) {
+          throw new TowerProtocolError("moa_tower_progress needs a non-empty note");
+        }
+        const result = await store.updateProgress(caller, missionId, note);
+        return {
+          posted: true,
+          mission: missionId,
+          file: result.key,
+          bytes: result.bytes
+        };
+      })
+    }
+  ];
+}
+function renderMissions(missions) {
+  if (missions.length === 0) return [];
+  return missions.map((m) => ({
+    id: m.id,
+    title: m.title,
+    kind: m.kind,
+    branch: m.branch,
+    worktree: m.worktree,
+    status: m.status,
+    emoji: STATUS_EMOJI2[m.status],
+    owner: m.owner ?? null,
+    scope: [...m.scope]
+  }));
+}
+function renderRoster(state) {
+  return state.roster.agents.map((a) => {
+    const isTower = a.kind === "tower" || a.name === TOWER_NAME;
+    return {
+      name: a.name,
+      kind: a.kind,
+      ...isTower ? {} : { agentId: a.agentId === "" ? null : a.agentId },
+      // B2 identity columns: verified / failed_count / blocked (derived from
+      // consecutive hard mismatches — missing data never counts, decision 2).
+      verified: a.verified ?? false,
+      ...a.verifiedAt !== void 0 ? { verified_at: a.verifiedAt } : {},
+      failed_count: a.failedCount ?? 0,
+      blocked: (a.failedCount ?? 0) >= IDENTITY_BLOCK_THRESHOLD,
+      ...a.missionId !== void 0 ? { mission_id: a.missionId } : {},
+      ...a.reviewTarget !== void 0 ? { review_target: a.reviewTarget } : {},
+      ...a.branch !== void 0 ? { branch: a.branch } : {},
+      ...a.worktree !== void 0 ? { worktree: a.worktree } : {}
+    };
+  });
+}
+function worktreePathOf(repoRoot, slot) {
+  return worktreePath(repoRoot, slot);
+}
+
+// src/modules/tower/controller.ts
+function createTowerController(opts = {}) {
+  let started = false;
+  let board = opts.board;
+  const foldAccessor = opts.foldAccessor ?? (() => void 0);
+  let ciTail = Promise.resolve();
+  return {
+    start() {
+      started = true;
+    },
+    stop() {
+      started = false;
+    },
+    isStarted: () => started,
+    // Reuse / not-started → the fold is empty: B2 identity checks read
+    // `getFold()` and must tolerate undefined (fold 滞后 → verified:false).
+    getFold: () => started ? foldAccessor() : void 0,
+    getBoard: () => board,
+    mountBoard: (mounted) => {
+      board = mounted;
+    },
+    runCiSerial(task) {
+      const run = ciTail.then(() => task());
+      ciTail = run.then(() => void 0, () => void 0);
+      return run;
+    }
+  };
+}
+
+// src/modules/tower/index.ts
+function createTowerModule(controller) {
+  return {
+    id: "tower",
+    tier: "experimental",
+    tools: controller === void 0 ? [] : towerTools(controller),
+    routes: towerRoutes(controller)
+  };
+}
+
 // src/core/store/project-migration.ts
-import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile5, rename as rename3, stat as stat4, truncate, unlink as unlink5, writeFile as writeFile2 } from "node:fs/promises";
-import { join as join7 } from "node:path";
+import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile6, rename as rename4, stat as stat4, truncate, unlink as unlink6, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join9 } from "node:path";
 async function fileSizeOrZero(file) {
   try {
     return (await stat4(file)).size;
@@ -29661,7 +34290,7 @@ async function fileSizeOrZero(file) {
 }
 async function rollbackToSize(file, size) {
   if (size === 0) {
-    await unlink5(file).catch(() => {
+    await unlink6(file).catch(() => {
     });
     return;
   }
@@ -29670,17 +34299,17 @@ async function rollbackToSize(file, size) {
 }
 async function archiveRename(from, to) {
   try {
-    await rename3(from, to);
+    await rename4(from, to);
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
   }
 }
 async function ensureProjectMetaCwd(boardsDir, projectId, cwd) {
-  const metaFile = join7(boardsDir, `project-${projectId}.meta.json`);
+  const metaFile = join9(boardsDir, `project-${projectId}.meta.json`);
   await withAppendLock(metaFile, async () => {
     let doc;
     try {
-      const parsed = JSON.parse(await readFile5(metaFile, "utf8"));
+      const parsed = JSON.parse(await readFile6(metaFile, "utf8"));
       if (parsed.projectId === projectId && Array.isArray(parsed.cwds) && parsed.cwds.every((entry) => typeof entry === "string") && typeof parsed.created_at === "string") {
         doc = parsed;
       }
@@ -29689,7 +34318,7 @@ async function ensureProjectMetaCwd(boardsDir, projectId, cwd) {
     if (doc !== void 0 && doc.cwds.includes(cwd)) return;
     const next = doc ?? { projectId, cwds: [], created_at: (/* @__PURE__ */ new Date()).toISOString() };
     if (!next.cwds.includes(cwd)) next.cwds = [...next.cwds, cwd];
-    await writeFile2(metaFile, JSON.stringify(next, null, 2));
+    await writeFile3(metaFile, JSON.stringify(next, null, 2));
   });
 }
 async function migrateWorkspaceToProject(workspace, opts = {}) {
@@ -29697,9 +34326,9 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
   const registry2 = opts.registry ?? new ProjectRegistry({ homeDir });
   const cwd = normalizeWorkspacePath(workspace);
   const pathHash = workspaceIdForPath(cwd);
-  const boardsDir = join7(homeDir, "boards");
-  const sourceFile = join7(boardsDir, `ws-${pathHash}.jsonl`);
-  const sourceMeta = join7(boardsDir, `ws-${pathHash}.meta.json`);
+  const boardsDir = join9(homeDir, "boards");
+  const sourceFile = join9(boardsDir, `ws-${pathHash}.jsonl`);
+  const sourceMeta = join9(boardsDir, `ws-${pathHash}.meta.json`);
   await registry2.refreshIfStale();
   const existing = registry2.resolveCached(pathHash);
   if (existing !== void 0) {
@@ -29723,13 +34352,13 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
   } else {
     projectId = await registry2.createProject(opts.name);
   }
-  const targetFile = join7(boardsDir, `project-${projectId}.jsonl`);
-  await mkdir5(boardsDir, { recursive: true });
+  const targetFile = join9(boardsDir, `project-${projectId}.jsonl`);
+  await mkdir6(boardsDir, { recursive: true });
   return withAppendLock(targetFile, async () => {
     const beforeSize = await fileSizeOrZero(targetFile);
     let raw = "";
     try {
-      raw = await readFile5(sourceFile, "utf8");
+      raw = await readFile6(sourceFile, "utf8");
     } catch (err) {
       if (err.code !== "ENOENT") throw err;
     }
@@ -29787,7 +34416,7 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
 
 // src/core/bus/disk-version.ts
 import { createRequire as createRequire2 } from "node:module";
-import { readFile as readFile6 } from "node:fs/promises";
+import { readFile as readFile7 } from "node:fs/promises";
 var DISK_VERSION_CACHE_MS = 5e3;
 var cached2 = null;
 function packageJsonPath() {
@@ -29807,7 +34436,7 @@ async function readDiskVersion() {
   const path2 = packageJsonPath();
   if (path2 !== void 0) {
     try {
-      const pkg = JSON.parse(await readFile6(path2, "utf8"));
+      const pkg = JSON.parse(await readFile7(path2, "utf8"));
       value = typeof pkg.version === "string" && pkg.version.length > 0 ? pkg.version : null;
     } catch {
       value = null;
@@ -31232,6 +35861,7 @@ select option {
 var SSE_FALLBACK_POLL_MS = 15e3;
 var RUNS_POLL_MS = 5e3;
 var SYSTEM_POLL_MS = 1e4;
+var TOWER_POLL_MS = 5e3;
 var LIB_JS = `
 (function(window) {
   'use strict';
@@ -31422,12 +36052,12 @@ var LIB_JS = `
     function connect() {
       if (stopped) return;
       sse = new EventSource(url);
-      if (onState) onState('connecting', '\u25CF sse');
+      if (onState) onState('connecting', 'sse');
 
       sse.onopen = function() {
         fails = 0;
         delay = 800;
-        if (onState) onState('open', '\u25CF sse');
+        if (onState) onState('open', 'sse');
       };
 
       sse.onmessage = function(ev) {
@@ -31479,7 +36109,8 @@ var LIB_JS = `
   var POLL_MS = {
     sseFallback: ${SSE_FALLBACK_POLL_MS},
     runs: ${RUNS_POLL_MS},
-    system: ${SYSTEM_POLL_MS}
+    system: ${SYSTEM_POLL_MS},
+    tower: ${TOWER_POLL_MS}
   };
 
   /**
@@ -31934,6 +36565,7 @@ var I18N_DICTIONARIES = {
     "app.memory": "Workspace Memory",
     "app.runs": "MoA Runs",
     "app.status": "Agent Status",
+    "app.tower": "Tower Workflow",
     "app.system": "System Health",
     "locale.group": "Language",
     "locale.zh": "\u4E2D\u6587",
@@ -32281,7 +36913,60 @@ var I18N_DICTIONARIES = {
     "status.unknown": "unknown",
     "status.ancestorBadge": "via sub-agent",
     "status.subtreeCollapse": "Collapse subtree",
-    "status.subtreeExpand": "Expand subtree"
+    "status.subtreeExpand": "Expand subtree",
+    "tower.title": "Tower Workflow",
+    "tower.polling": "live \xB7 5s poll",
+    "tower.scanning": "Scanning workspaces\u2026",
+    "tower.noBooted": "No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.",
+    "tower.notReady": "Tower controller is not running. Start or reuse a session to begin monitoring.",
+    "tower.repo": "Repo",
+    "tower.selectRepo": "Select a booted tower repo\u2026",
+    "tower.missions": "Missions",
+    "tower.roster": "Roster",
+    "tower.activity": "Activity log",
+    "tower.findings": "Findings",
+    "tower.reviews": "Reviews",
+    "tower.colMission": "Mission",
+    "tower.colTitle": "Title",
+    "tower.colKind": "Kind",
+    "tower.colStatus": "Status",
+    "tower.colOwner": "Owner",
+    "tower.colBranch": "Branch",
+    "tower.colCi": "CI",
+    "tower.colReview": "Review gate",
+    "tower.colName": "Name",
+    "tower.colVerified": "Verified",
+    "tower.colAgentId": "Agent id",
+    "tower.colRole": "Role",
+    "tower.colDetail": "Detail",
+    "tower.colDate": "Date",
+    "tower.colSeverity": "Severity",
+    "tower.colAgent": "Agent",
+    "tower.colRound": "Round",
+    "tower.colReviewer": "Reviewer",
+    "tower.colMerge": "Merge",
+    "tower.colCommit": "Commit",
+    "tower.ciNone": "\u2014",
+    "tower.ciPass": "pass",
+    "tower.ciFail": "fail",
+    "tower.ciSkip": "skipped",
+    "tower.ciAt": "{commit} \xB7 {time}",
+    "tower.reviewNone": "none",
+    "tower.verifiedYes": "verified",
+    "tower.verifiedNo": "unverified",
+    "tower.masked": "(masked)",
+    "tower.noMissions": "No missions yet.",
+    "tower.noRoster": "No roster entries yet.",
+    "tower.noLog": "No activity yet.",
+    "tower.noFindings": "No findings filed.",
+    "tower.noReviews": "No reviews for this branch.",
+    "tower.empty": "No data yet.",
+    "tower.expand": "Expand",
+    "tower.collapse": "Collapse",
+    "tower.reviewsFor": "Reviews for {branch}",
+    "tower.updatedAt": "Updated {time}",
+    "tower.countsMissions": "missions",
+    "tower.countsAgents": "agents"
   },
   "zh-CN": {
     "app.brand": "MOA \u5DE5\u4F5C\u533A",
@@ -32637,7 +37322,61 @@ var I18N_DICTIONARIES = {
     "status.unknown": "\u672A\u77E5",
     "status.ancestorBadge": "\u7ECF\u5B50 agent \u5E26\u51FA",
     "status.subtreeCollapse": "\u6536\u8D77\u5B50\u6811",
-    "status.subtreeExpand": "\u5C55\u5F00\u5B50\u6811"
+    "status.subtreeExpand": "\u5C55\u5F00\u5B50\u6811",
+    "app.tower": "\u5854\u53F0\u5DE5\u4F5C\u6D41",
+    "tower.title": "\u5854\u53F0\u5DE5\u4F5C\u6D41",
+    "tower.polling": "live \xB7 5 \u79D2\u8F6E\u8BE2",
+    "tower.scanning": "\u626B\u63CF\u5DE5\u4F5C\u533A\u4E2D\u2026",
+    "tower.noBooted": "\u5DF2\u6CE8\u518C\u7684\u5DE5\u4F5C\u533A\u4E2D\u672A\u627E\u5230\u5DF2 boot \u7684\u5854\u53F0\u3002\u8BF7\u5148\u7528 moa_tower_boot \u542F\u52A8\uFF0C\u518D\u5237\u65B0\u672C\u9875\u3002",
+    "tower.notReady": "\u5854\u53F0\u63A7\u5236\u5668\u672A\u542F\u52A8\u3002\u8BF7\u542F\u52A8\u6216\u590D\u7528\u4F1A\u8BDD\u540E\u5F00\u59CB\u76D1\u63A7\u3002",
+    "tower.repo": "\u4ED3\u5E93",
+    "tower.selectRepo": "\u9009\u62E9\u5DF2 boot \u7684\u5854\u53F0\u4ED3\u5E93\u2026",
+    "tower.missions": "\u4EFB\u52A1",
+    "tower.roster": "\u540D\u518C",
+    "tower.activity": "\u6D3B\u52A8\u65E5\u5FD7",
+    "tower.findings": "\u53D1\u73B0",
+    "tower.reviews": "\u8BC4\u5BA1",
+    "tower.colMission": "\u4EFB\u52A1",
+    "tower.colTitle": "\u6807\u9898",
+    "tower.colKind": "\u7C7B\u578B",
+    "tower.colStatus": "\u72B6\u6001",
+    "tower.colOwner": "\u5C5E\u4E3B",
+    "tower.colBranch": "\u5206\u652F",
+    "tower.colCi": "CI",
+    "tower.colReview": "\u8BC4\u5BA1\u95E8\u7981",
+    "tower.colName": "\u540D\u79F0",
+    "tower.colVerified": "\u5DF2\u9A8C\u8BC1",
+    "tower.colAgentId": "Agent id",
+    "tower.colRole": "\u89D2\u8272",
+    "tower.colDetail": "\u8BE6\u60C5",
+    "tower.colDate": "\u65E5\u671F",
+    "tower.colSeverity": "\u4E25\u91CD\u5EA6",
+    "tower.colAgent": "\u4EE3\u7406",
+    "tower.colRound": "\u8F6E\u6B21",
+    "tower.colReviewer": "\u8BC4\u5BA1",
+    "tower.colMerge": "\u5408\u5E76",
+    "tower.colCommit": "\u63D0\u4EA4",
+    "tower.ciNone": "\u2014",
+    "tower.ciPass": "\u901A\u8FC7",
+    "tower.ciFail": "\u5931\u8D25",
+    "tower.ciSkip": "\u5DF2\u8DF3\u8FC7",
+    "tower.ciAt": "{commit} \xB7 {time}",
+    "tower.reviewNone": "\u65E0",
+    "tower.verifiedYes": "\u5DF2\u9A8C\u8BC1",
+    "tower.verifiedNo": "\u672A\u9A8C\u8BC1",
+    "tower.masked": "\uFF08\u5DF2\u63A9\u7801\uFF09",
+    "tower.noMissions": "\u5C1A\u65E0\u4EFB\u52A1\u3002",
+    "tower.noRoster": "\u5C1A\u65E0\u540D\u518C\u6761\u76EE\u3002",
+    "tower.noLog": "\u6682\u65E0\u6D3B\u52A8\u3002",
+    "tower.noFindings": "\u6682\u65E0\u53D1\u73B0\u3002",
+    "tower.noReviews": "\u8BE5\u5206\u652F\u6682\u65E0\u8BC4\u5BA1\u3002",
+    "tower.empty": "\u6682\u65E0\u6570\u636E\u3002",
+    "tower.expand": "\u5C55\u5F00",
+    "tower.collapse": "\u6536\u8D77",
+    "tower.reviewsFor": "{branch} \u7684\u8BC4\u5BA1",
+    "tower.updatedAt": "\u66F4\u65B0\u4E8E {time}",
+    "tower.countsMissions": "\u4E2A\u4EFB\u52A1",
+    "tower.countsAgents": "\u4E2A\u4EE3\u7406"
   }
 };
 var SERIALIZED_DICTIONARIES = JSON.stringify(I18N_DICTIONARIES).replace(/</g, "\\u003c");
@@ -32729,6 +37468,7 @@ var NAV_ITEMS = [
   { id: "memoryNav", section: "memory", label: "Workspace Memory", i18n: "app.memory", href: "/control-plane?section=memory" },
   { id: "runsNav", section: "runs", label: "MoA Runs", i18n: "app.runs", href: "/control-plane?section=runs" },
   { id: "statusNav", section: "status", label: "Agent Status", i18n: "app.status", href: "/status-board" },
+  { id: "towerNav", section: "tower", label: "Tower Workflow", i18n: "app.tower", href: "/tower" },
   { id: "systemNav", section: "system", label: "System Health", i18n: "app.system", href: "/control-plane?section=system" }
 ];
 function renderAppHeader(active) {
@@ -37931,6 +42671,642 @@ ${STATUS_MODEL_JS}
 </html>
 `;
 
+// src/web/pages/tower.ts
+var TOWER_PAGE_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="tower.title">Tower Workflow</title>
+<style>
+${TOKENS_CSS}
+${COMPONENTS_CSS}
+
+/* Tower Workflow page specific styles (status-board design language). */
+.tw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+.tw-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  color: var(--accent-green);
+  box-shadow: var(--glow-ring);
+  animation: twPulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.tw-live.off {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
+@keyframes twPulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
+.tw-conn {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.tw-conn.ok { color: var(--accent-green); }
+.tw-conn.err { color: var(--accent-red); }
+.tw-counts {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tw-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--tint-amber);
+  color: var(--accent-amber);
+  font-size: 11px;
+}
+.tw-scan[hidden] { display: none; }
+.tw-scan .spin {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+}
+.tw-notready {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--tint-amber);
+  border: 1px solid var(--tint-amber-border);
+  border-radius: var(--r-md);
+  color: var(--accent-amber);
+  font-size: 13px;
+}
+.tw-notready[hidden] { display: none; }
+.tw-panel {
+  background: var(--solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.tw-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.tw-panel-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13px;
+}
+.tw-panel-sub {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tw-chevron {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.tw-panel.collapsed .tw-chevron { transform: rotate(-90deg); }
+.tw-panel-body { padding: 4px 14px 12px; }
+.tw-panel.collapsed .tw-panel-body { display: none; }
+.tw-colhead {
+  display: grid;
+  grid-template-columns: 64px minmax(160px, 2fr) 72px 90px 90px minmax(150px, 1.5fr) 90px minmax(170px, 1.5fr);
+  gap: 10px;
+  padding: 6px 14px;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+.tw-colhead.tw-colhead-roster {
+  grid-template-columns: minmax(140px, 1.5fr) 80px 110px minmax(130px, 1fr) minmax(160px, 1.5fr);
+}
+.tw-colhead.tw-colhead-findings,
+.tw-row.tw-row-findings {
+  grid-template-columns: 90px 72px 80px minmax(120px, 1fr) minmax(120px, 1fr) minmax(180px, 2fr);
+}
+.tw-colhead.tw-colhead-reviews,
+.tw-row.tw-row-reviews {
+  grid-template-columns: 56px minmax(120px, 1fr) 110px 110px 80px 90px;
+}
+.tw-row {
+  display: grid;
+  grid-template-columns: 64px minmax(160px, 2fr) 72px 90px 90px minmax(150px, 1.5fr) 90px minmax(170px, 1.5fr);
+  gap: 10px;
+  align-items: center;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.tw-row.tw-row-roster {
+  grid-template-columns: minmax(140px, 1.5fr) 80px 110px minmax(130px, 1fr) minmax(160px, 1.5fr);
+}
+.tw-row:last-child { border-bottom: none; }
+.tw-row:hover { background: var(--hover-tint-subtle); }
+.tw-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-cell.tw-agent { font-family: var(--font-mono); color: var(--accent-blue); }
+.tw-mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); }
+.tw-status, .tw-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: var(--r-pill); font-size: 11px; line-height: 18px; background: var(--surface-strong); color: var(--text-dim); }
+.tw-status { justify-self: start; }
+.tw-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.tw-status.tw-st-planned { background: var(--tint-amber); color: var(--accent-amber); }
+.tw-status.tw-st-active { background: var(--tint-blue); color: var(--accent-blue); }
+.tw-status.tw-st-active .tw-status-dot { animation: twPulse 2s ease-in-out infinite; }
+.tw-status.tw-st-completed { background: var(--tint-green); color: var(--accent-green); }
+.tw-status.tw-st-blocked { background: var(--tint-red); color: var(--accent-red); }
+.tw-status.tw-st-paused { background: var(--tint-purple); color: var(--accent-purple); }
+.tw-status.tw-st-merged { background: var(--tint-green); color: var(--accent-green); }
+.tw-badge.tw-ci-ok { background: var(--tint-green); color: var(--accent-green); }
+.tw-badge.tw-ci-fail { background: var(--tint-red); color: var(--accent-red); }
+.tw-badge.tw-ci-skip { background: var(--tint-amber); color: var(--accent-amber); }
+.tw-badge-sub { font-family: var(--font-mono); font-size: 10.5px; opacity: 0.8; }
+.tw-verified { color: var(--accent-green); }
+.tw-log {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 14px;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.tw-log-line { white-space: pre-wrap; word-break: break-all; }
+.tw-empty { padding: 16px 14px; text-align: center; color: var(--text-faint); }
+.tw-body[hidden] { display: none; }
+</style>
+${THEME_BOOTSTRAP}
+${I18N_BOOTSTRAP}
+</head>
+<body>
+<div class="aurora-bg"></div>
+<div class="shell">
+  ${renderAppHeader("tower")}
+  <div class="tw-toolbar">
+    <span class="tw-live" id="twLive"></span>
+    <span class="tw-conn" id="twConn" data-i18n="tower.polling">live \xB7 5s poll</span>
+    <label for="twRepo" class="tw-repo-label" data-i18n="tower.repo">Repo</label>
+    <select id="twRepo" aria-label="Booted tower repo"></select>
+    <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces\u2026</span></span>
+    <span class="tw-counts" id="twCounts"></span>
+  </div>
+  <div class="tw-notready" id="twNotReady" hidden data-i18n="tower.noBooted">No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.</div>
+  <div class="tw-panel" id="twMissionsPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.missions">Missions</span>
+      <span class="tw-panel-sub" id="twMissionsCount"></span>
+    </div>
+    <div class="tw-colhead">
+      <span data-i18n="tower.colMission">Mission</span>
+      <span data-i18n="tower.colTitle">Title</span>
+      <span data-i18n="tower.colKind">Kind</span>
+      <span data-i18n="tower.colStatus">Status</span>
+      <span data-i18n="tower.colOwner">Owner</span>
+      <span data-i18n="tower.colBranch">Branch</span>
+      <span data-i18n="tower.colCi">CI</span>
+      <span data-i18n="tower.colReview">Review gate</span>
+    </div>
+    <div id="twMissionsBody"></div>
+  </div>
+  <div class="tw-panel" id="twRosterPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.roster">Roster</span>
+      <span class="tw-panel-sub" id="twRosterCount"></span>
+    </div>
+    <div class="tw-colhead tw-colhead-roster">
+      <span data-i18n="tower.colName">Name</span>
+      <span data-i18n="tower.colRole">Role</span>
+      <span data-i18n="tower.colVerified">Verified</span>
+      <span data-i18n="tower.colAgentId">Agent id</span>
+      <span data-i18n="tower.colDetail">Detail</span>
+    </div>
+    <div id="twRosterBody"></div>
+  </div>
+  <div class="tw-panel" id="twLogPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.activity">Activity log</span>
+      <span class="tw-panel-sub" id="twLogCount"></span>
+    </div>
+    <div class="tw-log" id="twLog"></div>
+  </div>
+  <div class="tw-panel collapsed" id="twFindingsPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.findings">Findings</span>
+      <span class="tw-panel-sub" id="twFindingsCount"></span>
+    </div>
+    <div class="tw-panel-body" id="twFindingsBody"></div>
+  </div>
+  <div class="tw-panel collapsed" id="twReviewsPanel">
+    <div class="tw-panel-head">
+      <span class="tw-chevron"></span>
+      <span class="tw-panel-title" data-i18n="tower.reviews">Reviews</span>
+      <span class="tw-panel-sub tw-reviews-branch" id="twReviewsBranchLabel"></span>
+      <span class="tw-panel-sub" id="twReviewsCount"></span>
+    </div>
+    <div class="tw-panel-body" id="twReviewsBody"></div>
+  </div>
+</div>
+<script>
+${I18N_JS}
+${LIB_JS}
+(function () {
+  'use strict';
+  var tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
+  var lib = window.__moaLib;
+  var api = lib.api;
+  var POLL_MS = (lib.POLL_MS && lib.POLL_MS.tower) || 5000;
+  var REPO_KEY = 'moamcp-tower-repo';
+
+  var liveEl = document.getElementById('twLive');
+  var connEl = document.getElementById('twConn');
+  var countsEl = document.getElementById('twCounts');
+  var scanEl = document.getElementById('twScan');
+  var notReadyEl = document.getElementById('twNotReady');
+  var repoSelect = document.getElementById('twRepo');
+  var missionsBody = document.getElementById('twMissionsBody');
+  var rosterBody = document.getElementById('twRosterBody');
+  var logEl = document.getElementById('twLog');
+  var findingsPanel = document.getElementById('twFindingsPanel');
+  var findingsBody = document.getElementById('twFindingsBody');
+  var reviewsPanel = document.getElementById('twReviewsPanel');
+  var reviewsBody = document.getElementById('twReviewsBody');
+  var reviewsBranchLabel = document.getElementById('twReviewsBranchLabel');
+
+  var bootedRepos = [];
+  var current = null; // { cwd, name }
+  var lastState = null;
+  var lastMissions = null;
+  var lastLog = null;
+  var findingsOpen = false;
+  var reviewsOpen = false;
+  var poll = null;
+
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmt(iso) { return lib.fmtClock ? lib.fmtClock(iso) : (iso || '\u2013'); }
+  function setConn(state, msg) {
+    connEl.textContent = msg;
+    connEl.className = 'tw-conn' + (state === 'open' ? ' ok' : (state === 'error' ? ' err' : ''));
+    liveEl.className = 'tw-live' + (state === 'open' ? '' : ' off');
+  }
+  function setScan(on) { if (scanEl) scanEl.hidden = !on; }
+  function makeCell(text, cls) {
+    var cell = document.createElement('div');
+    cell.className = 'tw-cell' + (cls ? ' ' + cls : '');
+    cell.textContent = text;
+    return cell;
+  }
+  function appendEmpty(container, key) {
+    var none = document.createElement('div');
+    none.className = 'tw-empty';
+    none.textContent = tr(key);
+    container.appendChild(none);
+  }
+  function stateUrl() { return '/api/tower/state?workspace=' + encodeURIComponent(current.cwd); }
+
+  // \u2500\u2500 Roster (tower row's agentId is masked by the route; the page never
+  //    falls back to rendering a real id). \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function renderRoster() {
+    rosterBody.textContent = '';
+    var rows = (lastState && lastState.roster) || [];
+    if (!rows.length) { appendEmpty(rosterBody, 'tower.noRoster'); return; }
+    for (var i = 0; i < rows.length; i++) {
+      var a = rows[i];
+      var row = document.createElement('div');
+      row.className = 'tw-row tw-row-roster';
+      var isTower = a.kind === 'tower' || a.name === 'tower';
+      row.appendChild(makeCell(a.name, 'tw-agent'));
+      row.appendChild(makeCell(a.kind));
+      var verified = document.createElement('div');
+      verified.className = 'tw-cell' + (a.verified ? ' tw-verified' : '');
+      verified.textContent = (a.verified ? '\u2713 ' : '') + (a.verified ? tr('tower.verifiedYes') : tr('tower.verifiedNo'));
+      row.appendChild(verified);
+      row.appendChild(makeCell(isTower ? tr('tower.masked') : (a.agentId === undefined || a.agentId === null ? '\u2014' : a.agentId), 'tw-mono'));
+      var detail = a.missionId ? 'mission ' + a.missionId : (a.reviewTarget ? 'review ' + a.reviewTarget : '\u2014');
+      row.appendChild(makeCell(detail, 'tw-mono'));
+      rosterBody.appendChild(row);
+    }
+  }
+
+  // \u2500\u2500 Missions table with CI badge + review gate. \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function ciBadge(ci) {
+    var badge = document.createElement('span');
+    badge.className = 'tw-badge';
+    if (!ci) { badge.textContent = tr('tower.ciNone'); return badge; }
+    if (ci.exitCode === 0) { badge.className += ' tw-ci-ok'; badge.textContent = tr('tower.ciPass'); }
+    else if (ci.exitCode === null) { badge.className += ' tw-ci-skip'; badge.textContent = tr('tower.ciSkip'); }
+    else { badge.className += ' tw-ci-fail'; badge.textContent = tr('tower.ciFail'); }
+    var sub = document.createElement('span');
+    sub.className = 'tw-badge-sub';
+    sub.textContent = tr('tower.ciAt', { commit: String(ci.commit).slice(0, 7), time: fmt(ci.ranAt) });
+    badge.appendChild(sub);
+    return badge;
+  }
+  function reviewGateText(g) {
+    if (!g || g.review === 'none') return tr('tower.reviewNone');
+    return 'r' + g.round + ' \xB7 ' + g.status + ' \xB7 ' + g.sync;
+  }
+  function renderMissions() {
+    missionsBody.textContent = '';
+    var missions = (lastMissions && lastMissions.missions) || [];
+    if (!missions.length) { appendEmpty(missionsBody, 'tower.noMissions'); return; }
+    for (var i = 0; i < missions.length; i++) {
+      var m = missions[i];
+      var row = document.createElement('div');
+      row.className = 'tw-row';
+      row.appendChild(makeCell(m.id, 'tw-mono'));
+      row.appendChild(makeCell(m.title));
+      row.appendChild(makeCell(m.kind));
+      var status = document.createElement('div');
+      status.className = 'tw-cell';
+      var badge = document.createElement('span');
+      badge.className = 'tw-status' + (m.status ? ' tw-st-' + m.status : '');
+      var dot = document.createElement('span');
+      dot.className = 'tw-status-dot';
+      badge.appendChild(dot);
+      badge.appendChild(document.createTextNode(m.status || ''));
+      status.appendChild(badge);
+      row.appendChild(status);
+      row.appendChild(makeCell(m.owner || '\u2014'));
+      row.appendChild(makeCell(m.branch, 'tw-mono'));
+      var ciCell = document.createElement('div');
+      ciCell.className = 'tw-cell';
+      ciCell.appendChild(ciBadge(m.ci));
+      row.appendChild(ciCell);
+      row.appendChild(makeCell(reviewGateText(m.review_gate), 'tw-mono'));
+      missionsBody.appendChild(row);
+    }
+  }
+  function renderLog() {
+    logEl.textContent = '';
+    var lines = (lastLog && lastLog.lines) || [];
+    if (!lines.length) { appendEmpty(logEl, 'tower.noLog'); return; }
+    for (var i = 0; i < lines.length; i++) {
+      var line = document.createElement('div');
+      line.className = 'tw-log-line';
+      line.textContent = lines[i];
+      logEl.appendChild(line);
+    }
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function renderCounts() {
+    var missions = (lastMissions && lastMissions.missions) || [];
+    var roster = (lastState && lastState.roster) || [];
+    var updated = new Date().toISOString();
+    countsEl.textContent = missions.length + ' ' + tr('tower.countsMissions') + ' \xB7 ' + roster.length + ' ' + tr('tower.countsAgents') + ' \xB7 ' + tr('tower.updatedAt', { time: fmt(updated) });
+  }
+  function renderAll() {
+    renderRoster();
+    renderMissions();
+    renderLog();
+    renderCounts();
+  }
+
+  // \u2500\u2500 Findings / reviews panels (B4 route faces; loaded when expanded). \u2500\u2500\u2500
+  function loadFindings() {
+    if (!current) return;
+    api('/api/tower/findings?workspace=' + encodeURIComponent(current.cwd)).then(function (data) {
+      var findings = (data && data.findings) || [];
+      var count = document.getElementById('twFindingsCount');
+      if (count) count.textContent = findings.length ? findings.length + '' : '';
+      if (!findingsOpen) return;
+      findingsBody.textContent = '';
+      if (!findings.length) { appendEmpty(findingsBody, 'tower.noFindings'); return; }
+      var table = document.createElement('div');
+      table.className = 'tw-colhead tw-colhead-findings';
+      [tr('tower.colDate'), tr('tower.colKind'), tr('tower.colSeverity'), tr('tower.colAgent'), tr('tower.colMission'), tr('tower.colTitle')].forEach(function (h) {
+        var span = document.createElement('span');
+        span.textContent = h;
+        table.appendChild(span);
+      });
+      findingsBody.appendChild(table);
+      for (var i = 0; i < findings.length; i++) {
+        var f = findings[i];
+        var row = document.createElement('div');
+        row.className = 'tw-row tw-row-findings';
+        row.appendChild(makeCell(f.date || '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(f.type || '\u2014'));
+        row.appendChild(makeCell(f.severity || '\u2014'));
+        row.appendChild(makeCell(f.agent || '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(f.mission || '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(f.title || '\u2014'));
+        findingsBody.appendChild(row);
+      }
+    }).catch(function () {
+      findingsBody.textContent = '';
+      appendEmpty(findingsBody, 'tower.noFindings');
+    });
+  }
+  function reviewBranches() {
+    var branches = [];
+    var missions = (lastMissions && lastMissions.missions) || [];
+    for (var i = 0; i < missions.length; i++) {
+      if (missions[i].status !== 'merged') branches.push(missions[i].branch);
+    }
+    return branches;
+  }
+  function loadReviews() {
+    if (!current) return;
+    var branches = reviewBranches();
+    var branch = branches.length ? branches[0] : '';
+    if (reviewsBranchLabel) reviewsBranchLabel.textContent = branch ? tr('tower.reviewsFor', { branch: branch }) : '';
+    if (!branch) {
+      reviewsBody.textContent = '';
+      appendEmpty(reviewsBody, 'tower.noReviews');
+      return;
+    }
+    api('/api/tower/reviews?workspace=' + encodeURIComponent(current.cwd) + '&branch=' + encodeURIComponent(branch)).then(function (data) {
+      var reviews = (data && data.reviews) || [];
+      var count = document.getElementById('twReviewsCount');
+      if (count) count.textContent = reviews.length ? reviews.length + '' : '';
+      if (!reviewsOpen) return;
+      reviewsBody.textContent = '';
+      if (!reviews.length) { appendEmpty(reviewsBody, 'tower.noReviews'); return; }
+      var table = document.createElement('div');
+      table.className = 'tw-colhead tw-colhead-reviews';
+      [tr('tower.colRound'), tr('tower.colReviewer'), tr('tower.colStatus'), tr('tower.colMerge'), tr('tower.colCommit'), tr('tower.colDate')].forEach(function (h) {
+        var span = document.createElement('span');
+        span.textContent = h;
+        table.appendChild(span);
+      });
+      reviewsBody.appendChild(table);
+      for (var i = 0; i < reviews.length; i++) {
+        var r = reviews[i];
+        var row = document.createElement('div');
+        row.className = 'tw-row tw-row-reviews';
+        row.appendChild(makeCell('r' + r.round, 'tw-mono'));
+        row.appendChild(makeCell(r.reviewer, 'tw-agent'));
+        row.appendChild(makeCell(r.status, 'tw-mono'));
+        row.appendChild(makeCell(r.merge, 'tw-mono'));
+        row.appendChild(makeCell(r.reviewedCommit ? String(r.reviewedCommit).slice(0, 7) : '\u2014', 'tw-mono'));
+        row.appendChild(makeCell(r.date || '\u2014', 'tw-mono'));
+        reviewsBody.appendChild(row);
+      }
+    }).catch(function () {
+      reviewsBody.textContent = '';
+      appendEmpty(reviewsBody, 'tower.noReviews');
+    });
+  }
+
+  // \u2500\u2500 Refresh + polling (shared startPoll, TOWER_POLL_MS). \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function refresh() {
+    if (!current) return;
+    var ws = encodeURIComponent(current.cwd);
+    setConn('open', tr('tower.polling'));
+    Promise.all([
+      api('/api/tower/state?workspace=' + ws),
+      api('/api/tower/missions?workspace=' + ws),
+      api('/api/tower/log?workspace=' + ws + '&lines=100')
+    ]).then(function (results) {
+      lastState = results[0];
+      lastMissions = results[1];
+      lastLog = results[2];
+      renderAll();
+      setConn('open', tr('tower.polling'));
+      if (findingsOpen) loadFindings();
+      if (reviewsOpen) loadReviews();
+    }).catch(function (err) {
+      setConn('error', '\u2717 ' + (err && err.message ? err.message : 'error'));
+    });
+  }
+  function startPolling() {
+    if (poll) poll.stop();
+    poll = lib.startPoll(refresh, POLL_MS);
+  }
+
+  // \u2500\u2500 Repo discovery: /api/workspaces + per-workspace boot probe. \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function fillRepoOptions() {
+    repoSelect.textContent = '';
+    if (!bootedRepos.length) {
+      var opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = tr('tower.noBooted');
+      repoSelect.appendChild(opt);
+      repoSelect.disabled = true;
+      return;
+    }
+    repoSelect.disabled = false;
+    var saved = '';
+    try { saved = localStorage.getItem(REPO_KEY) || ''; } catch (_) {}
+    var foundSaved = false;
+    for (var i = 0; i < bootedRepos.length; i++) {
+      var o = document.createElement('option');
+      o.value = bootedRepos[i].cwd;
+      o.textContent = bootedRepos[i].name;
+      repoSelect.appendChild(o);
+      if (saved && bootedRepos[i].cwd === saved) foundSaved = true;
+    }
+    var pick = foundSaved ? saved : bootedRepos[0].cwd;
+    repoSelect.value = pick;
+    selectRepo(pick);
+  }
+  function selectRepo(cwd) {
+    current = { cwd: cwd };
+    try { localStorage.setItem(REPO_KEY, cwd); } catch (_) {}
+    lastState = lastMissions = lastLog = null;
+    findingsOpen = reviewsOpen = false;
+    findingsPanel.className = 'tw-panel collapsed';
+    reviewsPanel.className = 'tw-panel collapsed';
+    notReadyEl.hidden = true;
+    setConn('open', tr('tower.polling'));
+    refresh();
+  }
+  function discover() {
+    setScan(true);
+    api('/api/workspaces').then(function (data) {
+      var workspaces = (data && data.workspaces) || [];
+      var found = [];
+      var probes = workspaces.map(function (w) {
+        return api('/api/tower/state?workspace=' + encodeURIComponent(w.cwd))
+          .then(function (st) {
+            if (st && st.booted) found.push({ cwd: w.cwd, name: w.name || w.cwd });
+          })
+          .catch(function () {});
+      });
+      return Promise.all(probes).then(function () { return found; });
+    }).then(function (found) {
+      bootedRepos = found;
+      setScan(false);
+      if (!bootedRepos.length) {
+        notReadyEl.hidden = false;
+        setConn('connecting', '\u25CB ' + tr('tower.noBooted'));
+        return;
+      }
+      fillRepoOptions();
+      startPolling();
+    }).catch(function () {
+      setScan(false);
+      notReadyEl.hidden = false;
+      setConn('error', '\u2717 ' + tr('tower.notReady'));
+    });
+  }
+
+  if (repoSelect) repoSelect.addEventListener('change', function () {
+    if (repoSelect.value) selectRepo(repoSelect.value);
+  });
+  if (findingsPanel) findingsPanel.querySelector('.tw-panel-head').addEventListener('click', function () {
+    findingsOpen = !findingsOpen;
+    findingsPanel.className = 'tw-panel' + (findingsOpen ? '' : ' collapsed');
+    if (findingsOpen) loadFindings();
+  });
+  if (reviewsPanel) reviewsPanel.querySelector('.tw-panel-head').addEventListener('click', function () {
+    reviewsOpen = !reviewsOpen;
+    reviewsPanel.className = 'tw-panel' + (reviewsOpen ? '' : ' collapsed');
+    if (reviewsOpen) loadReviews();
+  });
+  if (window.addEventListener) window.addEventListener('moamcp:localechange', function () {
+    tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
+    renderAll();
+  });
+
+  discover();
+})();
+</script>
+</body>
+</html>
+`;
+
 // src/adapters/control-plane.ts
 var CONTROL_PLANE_BODY_MAX_BYTES = BOARD_VALUE_MAX_BYTES * 2 + 16 * 1024;
 var WORKSPACE_ID = /^[0-9a-f]{16}$/;
@@ -38201,11 +43577,13 @@ var ControlPlane = class {
   runtime;
   agentConfig;
   statusController;
+  towerController;
   exactRoutes = /* @__PURE__ */ new Map();
   patternRoutes = [];
-  constructor(board, tips, agentConfig = new WorkspaceAgentConfigService(), statusController) {
+  constructor(board, tips, agentConfig = new WorkspaceAgentConfigService(), statusController, towerController) {
     this.agentConfig = agentConfig;
     this.statusController = statusController;
+    this.towerController = towerController;
     this.registerRoutes();
     if (board !== void 0) this.mount(board, tips);
   }
@@ -38225,7 +43603,8 @@ var ControlPlane = class {
   registerRoutes() {
     const modules = [
       createAgentConfigModule(this.agentConfig),
-      createStatusModule(this.statusController)
+      createStatusModule(this.statusController),
+      createTowerModule(this.towerController)
     ];
     const routes = [
       ...modules.flatMap((module) => module.routes ?? []),
@@ -38368,6 +43747,18 @@ var ControlPlane = class {
         "content-type": "text/html; charset=utf-8"
       });
       res.end(STATUS_BOARD_HTML);
+      return true;
+    }
+    if (path2 === "/tower") {
+      if (req.method !== "GET") {
+        methodNotAllowed(res, "GET");
+        return true;
+      }
+      res.writeHead(200, {
+        "cache-control": "no-store",
+        "content-type": "text/html; charset=utf-8"
+      });
+      res.end(TOWER_PAGE_HTML);
       return true;
     }
     let route;
@@ -38528,7 +43919,7 @@ var ControlPlane = class {
     if (!PROJECT_ID_PATTERN.test(projectId)) {
       throw new ApiValidationError("workspace must be a 16-character workspace sidecar id or project:<projectId>");
     }
-    const metaFile = join8(this.stores().board.boardsDir(), `project-${projectId}.meta.json`);
+    const metaFile = join10(this.stores().board.boardsDir(), `project-${projectId}.meta.json`);
     let cwd = await this.validProjectMetaCwd(metaFile, projectId);
     if (cwd === void 0) {
       const repaired = await this.stores().board.repairProjectMeta(projectId);
@@ -38541,13 +43932,13 @@ var ControlPlane = class {
   async validProjectMetaCwd(metaFile, projectId) {
     let parsed;
     try {
-      parsed = JSON.parse(await readFile7(metaFile, "utf8"));
+      parsed = JSON.parse(await readFile8(metaFile, "utf8"));
     } catch (err) {
       if (err.code === "ENOENT" || err instanceof SyntaxError) return void 0;
       throw err;
     }
     const cwds = parsed.cwds;
-    if (parsed.projectId !== projectId || !Array.isArray(cwds) || cwds.length === 0 || typeof cwds[0] !== "string" || !isAbsolute5(cwds[0])) {
+    if (parsed.projectId !== projectId || !Array.isArray(cwds) || cwds.length === 0 || typeof cwds[0] !== "string" || !isAbsolute6(cwds[0])) {
       return void 0;
     }
     return cwds[0];
@@ -38653,7 +44044,7 @@ var ControlPlane = class {
     const board = this.stores().board;
     let cwds = [];
     try {
-      const parsed = JSON.parse(await readFile7(join8(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
+      const parsed = JSON.parse(await readFile8(join10(board.boardsDir(), `project-${projectId}.meta.json`), "utf8"));
       if (Array.isArray(parsed.cwds)) cwds = parsed.cwds.filter((cwd) => typeof cwd === "string");
     } catch {
     }
@@ -38679,7 +44070,7 @@ var ControlPlane = class {
     if (name !== void 0 && (typeof name !== "string" || name.length === 0)) {
       throw new ApiValidationError("name must be a non-empty string");
     }
-    const homeDir = dirname3(this.stores().board.boardsDir());
+    const homeDir = dirname5(this.stores().board.boardsDir());
     const result = await migrateWorkspaceToProject(workspace.cwd, {
       homeDir,
       // Reuse the mounted registry so its in-process projection sees the alias
@@ -38897,7 +44288,7 @@ function statusTool(bus) {
     })
   };
 }
-function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule) {
+function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule, towerModule) {
   const boardStore = board ?? new BoardStore();
   const tips = tipStore ?? new TipStore(boardStore);
   const handoffs = new HandoffStore(boardStore);
@@ -38909,6 +44300,7 @@ function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule)
     createHandoffModule(handoffs, boardStore)
   ];
   if (statusModule) modules.push(statusModule);
+  if (towerModule) modules.push(towerModule);
   const tools = [
     ...modules.flatMap((module) => module.tools ?? []),
     statusTool(bus)
@@ -38933,9 +44325,9 @@ function createServer(hub = new DebateHub(), bus, board, tipStore, statusModule)
 
 // src/core/bus/bus.ts
 import { createServer as createServer2, get as get2 } from "node:http";
-import { writeFile as writeFile3, readFile as readFile8, rm } from "node:fs/promises";
+import { writeFile as writeFile4, readFile as readFile9, rm as rm2 } from "node:fs/promises";
 import { rmSync } from "node:fs";
-import { join as join9, resolve as resolve4 } from "node:path";
+import { join as join11, resolve as resolve6 } from "node:path";
 
 // src/core/store/run-read-model.ts
 var KNOWN_EVENTS = /* @__PURE__ */ new Set([
@@ -39188,6 +44580,25 @@ ${COMPONENTS_CSS}
   box-shadow: var(--shadow-1);
 }
 .debate-context .badge { margin-left: auto; }
+/* Live dot: mirrors status-board's .sb-live (pulse when open, static grey when off). */
+.dc-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: var(--glow-ring);
+  animation: dcPulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.dc-live.off {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
+@keyframes dcPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+}
 .debate-content {
   max-width: 960px;
   margin: 0 auto;
@@ -39700,6 +45111,7 @@ ${I18N_BOOTSTRAP}
   ${renderAppHeader("debate")}
   <div class="debate-context" aria-label="Current debate context" data-i18n-aria="debate.context">
     <span class="task" id="taskId"></span>
+    <span class="dc-live off" id="dcLive"></span>
     <span id="conn"></span>
     <span class="badge" id="badge" data-i18n="debate.connecting">connecting</span>
   </div>
@@ -40765,13 +46177,17 @@ ${STATUS_MODEL_JS}
   /* Shared lib.ts connectSSE: the same 3-fail backoff reconnect this page
      used to hand-roll; the waiting hint still arms 3s after every open.
      'connecting' is skipped so #conn stays empty until the stream opens
-     or errors, exactly as with the hand-rolled version. */
+     or errors, exactly as with the hand-rolled version. The #dcLive dot
+     mirrors status-board's .sb-live: off when disconnected/errored, pulsing
+     on open. */
   window.__moaLib.connectSSE('/subscribe?task_id=' + encodeURIComponent(taskId), function (data) {
     gotAny = true;
     onEvent(data);
   }, function (state, msg) {
     if (state === 'connecting') return;
     setConn(msg);
+    var liveEl = document.getElementById('dcLive');
+    if (liveEl) liveEl.className = 'dc-live' + (state === 'open' ? '' : ' off');
     if (state === 'open') {
       setTimeout(function () {
         if (!gotAny) showWaitingHint();
@@ -40864,13 +46280,13 @@ var Bus = class {
     this.requestedPort = opts.port ?? envBusPort() ?? 39813;
     this.cwd = opts.cwd ?? process.cwd();
     this.replayLimit = opts.replayLimit ?? 200;
-    this.logsDir = resolve4(opts.logsDir ?? "logs");
+    this.logsDir = resolve6(opts.logsDir ?? "logs");
     this.archiveIndex = new ArchiveIndex(this.logsDir);
     this.portRetryLimit = opts.portRetryLimit ?? PORT_RETRY_LIMIT;
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
     this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
     this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
-    this.controlPlane = new ControlPlane(opts.board, opts.tipStore, void 0, opts.statusController);
+    this.controlPlane = new ControlPlane(opts.board, opts.tipStore, void 0, opts.statusController, opts.towerController);
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
     this.controlPlane.mountRuntime({
       listRuns: () => this.runReadModel.list(),
@@ -40911,11 +46327,11 @@ var Bus = class {
    * process (which never wrote it) never deletes the owner's file.
    */
   removePortFileIfOwnedSync() {
-    if (this.ownsPortFile) rmSync(join9(this.cwd, "bus.port"), { force: true });
+    if (this.ownsPortFile) rmSync(join11(this.cwd, "bus.port"), { force: true });
   }
   /** P3: async twin used by stop()/releaseAndReattach() teardown. */
   async removePortFileIfOwned() {
-    if (this.ownsPortFile) await rm(join9(this.cwd, "bus.port"), { force: true });
+    if (this.ownsPortFile) await rm2(join11(this.cwd, "bus.port"), { force: true });
   }
   /** Mount the BoardStore/TipStore authority used by Control Plane API routes. */
   mountControlPlane(board, tips) {
@@ -41028,7 +46444,7 @@ var Bus = class {
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
-    await new Promise((resolve5) => this.server.close(() => resolve5()));
+    await new Promise((resolve7) => this.server.close(() => resolve7()));
     await this.releaseRegistration();
     await this.removePortFileIfOwned();
     this.wrotePortFile = false;
@@ -41054,7 +46470,7 @@ var Bus = class {
     for (const subs of this.subscribers.values()) for (const res of subs) res.end();
     this.subscribers.clear();
     this.server.closeAllConnections();
-    await new Promise((resolve5) => this.server.close(() => resolve5()));
+    await new Promise((resolve7) => this.server.close(() => resolve7()));
     await this.releaseRegistration();
     await this.removePortFileIfOwned();
     this.released = true;
@@ -41137,7 +46553,7 @@ var Bus = class {
     });
   }
   async writePortFile() {
-    await writeFile3(join9(this.cwd, "bus.port"), String(this.port));
+    await writeFile4(join11(this.cwd, "bus.port"), String(this.port));
     this.wrotePortFile = true;
     this.released = false;
   }
@@ -41306,7 +46722,7 @@ var Bus = class {
         return;
       }
       try {
-        const content = await readFile8(resolve4(this.logsDir, taskId, file), "utf8");
+        const content = await readFile9(resolve6(this.logsDir, taskId, file), "utf8");
         res.writeHead(200, { "content-type": contentType });
         res.end(content);
       } catch {
@@ -41355,7 +46771,7 @@ var Bus = class {
 };
 
 // src/core/bus/daemon-spawn.ts
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 import { fileURLToPath } from "node:url";
 function defaultDaemonScript() {
   return fileURLToPath(new URL("./bus-daemon.js", import.meta.url));
@@ -41368,7 +46784,7 @@ function spawnBusDaemon(opts) {
     return false;
   }
   try {
-    const child = spawn(process.execPath, [script], {
+    const child = spawn2(process.execPath, [script], {
       cwd: opts.cwd,
       detached: true,
       stdio: "ignore",
@@ -41386,6 +46802,10 @@ function spawnBusDaemon(opts) {
 
 // src/server.ts
 function syncStatusOnTakeover(result, controller) {
+  if (result.mode === "own") controller.start();
+  else controller.stop();
+}
+function syncTowerOnTakeover(result, controller) {
   if (result.mode === "own") controller.start();
   else controller.stop();
 }
@@ -41427,6 +46847,9 @@ async function main() {
   const watchFailThreshold = Number(process.env.MOAMCP_BUS_WATCH_FAILS);
   const logsDir = defaultLogsDir();
   const statusController = createStatusController();
+  const towerController = createTowerController({
+    foldAccessor: () => statusController.getFold()
+  });
   const bus = new Bus({
     ...Number.isFinite(busPort) && busPort > 0 ? { port: busPort } : {},
     ...Number.isFinite(watchIntervalMs) && watchIntervalMs > 0 ? { reuseWatchIntervalMs: watchIntervalMs } : {},
@@ -41434,7 +46857,8 @@ async function main() {
     ...Number.isFinite(watchFailThreshold) && watchFailThreshold > 0 ? { reuseWatchFailThreshold: watchFailThreshold } : {},
     cwd: process.cwd(),
     logsDir,
-    statusController
+    statusController,
+    towerController
   });
   let actualPort;
   try {
@@ -41449,7 +46873,10 @@ async function main() {
   }
   const startResult = bus.startResult;
   statusController.setPort(startResult.port);
-  if (startResult.mode === "own") statusController.start();
+  if (startResult.mode === "own") {
+    statusController.start();
+    towerController.start();
+  }
   bus.onRelease = () => {
     spawnBusDaemon({ port: bus.startResult.port, cwd: process.cwd() });
   };
@@ -41460,6 +46887,7 @@ async function main() {
     sink = result.mode === "own" ? (taskId, event) => bus.publish(taskId, event) : reusePublishForwarder(result.port);
     statusController.setPort(result.port);
     syncStatusOnTakeover(result, statusController);
+    syncTowerOnTakeover(result, towerController);
     console.error(
       result.mode === "own" ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)` : `[moamcp] takeover: lost the port race; reusing new Bus at http://127.0.0.1:${result.port}/`
     );
@@ -41477,7 +46905,15 @@ async function main() {
     board
   });
   const tips = new TipStore(board);
-  const server = createServer(hub, bus, board, tips, createStatusModule(statusController));
+  towerController.mountBoard(board);
+  const server = createServer(
+    hub,
+    bus,
+    board,
+    tips,
+    createStatusModule(statusController),
+    createTowerModule(towerController)
+  );
   await server.connect(new StdioServerTransport());
   if (startResult.mode === "reuse") {
     console.error(
@@ -41492,6 +46928,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     statusController.stop();
+    towerController.stop();
     void bus.stop().finally(() => process.exit(0));
   };
   server.onclose = () => shutdown();
@@ -41522,7 +46959,8 @@ if (isMain) {
 export {
   cardUrl,
   createServer,
-  syncStatusOnTakeover
+  syncStatusOnTakeover,
+  syncTowerOnTakeover
 };
 /*! Bundled license information:
 

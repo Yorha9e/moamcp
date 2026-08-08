@@ -55,6 +55,7 @@ import { createRegistry, pidAlive, VERSION, type InstanceRegistration } from './
 import { RunReadModel } from '../store/run-read-model.js';
 import { DEBATE_CARD_HTML } from '../../web/debate-card.js';
 import type { StatusController } from '../../modules/status/index.js';
+import type { TowerController } from '../../modules/tower/controller.js';
 
 /** Maximum consecutive `EADDRINUSE` port+1 retries (mirrors kap-server `PORT_RETRY_LIMIT`). */
 export const PORT_RETRY_LIMIT = 100;
@@ -107,6 +108,12 @@ export interface BusOptions {
    * while it is absent or not started.
    */
   statusController?: StatusController;
+  /**
+   * Tower controller mounted on the Control Plane's /api/tower/* routes
+   * (B1 injection seam). Optional: the routes 503 (tower_not_ready) while it
+   * is absent or its shared board is not mounted.
+   */
+  towerController?: TowerController;
 }
 
 /** Files the /archive endpoint is allowed to serve, with their content types. */
@@ -203,7 +210,7 @@ export class Bus {
     this.watchIntervalMs = opts.reuseWatchIntervalMs ?? REUSE_WATCH_INTERVAL_MS;
     this.watchTimeoutMs = opts.reuseWatchTimeoutMs ?? REUSE_WATCH_TIMEOUT_MS;
     this.watchFailThreshold = opts.reuseWatchFailThreshold ?? REUSE_WATCH_FAIL_THRESHOLD;
-    this.controlPlane = new ControlPlane(opts.board, opts.tipStore, undefined, opts.statusController);
+    this.controlPlane = new ControlPlane(opts.board, opts.tipStore, undefined, opts.statusController, opts.towerController);
     this.registry = createRegistry({ instancesDir: opts.instancesDir });
     this.controlPlane.mountRuntime({
       listRuns: () => this.runReadModel.list(),

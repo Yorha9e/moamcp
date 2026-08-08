@@ -22,6 +22,11 @@ import {
   createStatusModule,
   type StatusController,
 } from './modules/status/index.js';
+import {
+  createTowerController,
+  createTowerModule,
+  type TowerController,
+} from './modules/tower/index.js';
 import { TipStore } from './modules/tips/tips.js';
 
 // Public entry surface: tests and embedders import createServer from here.
@@ -38,6 +43,23 @@ export { createServer };
 export function syncStatusOnTakeover(
   result: BusStartResult,
   controller: Pick<StatusController, 'start' | 'stop'>,
+): void {
+  if (result.mode === 'own') controller.start();
+  else controller.stop();
+}
+
+/**
+ * Tower-module side of a Bus takeover (B1, mirrors syncStatusOnTakeover):
+ * winning the port race (re)starts the tower controller so its /api/tower/*
+ * routes and tools serve the shared board; losing it (own → reuse) stops the
+ * controller. The tower has no per-process watchers of its own in B1 — the
+ * board is process-shared under MOAMCP_HOME — so start/stop only flip the
+ * controller's started flag (B2 identity checks read it). Both directions are
+ * idempotent.
+ */
+export function syncTowerOnTakeover(
+  result: BusStartResult,
+  controller: Pick<TowerController, 'start' | 'stop'>,
 ): void {
   if (result.mode === 'own') controller.start();
   else controller.stop();
@@ -106,6 +128,14 @@ async function main(): Promise<void> {
   // Bus's Control Plane can mount its /status route; the actual port is set
   // once bus.start() settles (below).
   const statusController = createStatusController();
+  // Tower module (B1): the controller is built before the Bus so the Bus's
+  // Control Plane can mount its /api/tower/* routes. Its fold accessor comes
+  // from the status controller (B2 identity checks consume it); in reuse mode
+  // / before start the fold is empty (controller.getFold() → undefined) — B1
+  // only leaves this seam ready, the ①②③ checks land in B2.
+  const towerController = createTowerController({
+    foldAccessor: () => statusController.getFold(),
+  });
   const bus = new Bus({
     ...(Number.isFinite(busPort) && busPort > 0 ? { port: busPort } : {}),
     ...(Number.isFinite(watchIntervalMs) && watchIntervalMs > 0 ? { reuseWatchIntervalMs: watchIntervalMs } : {}),
@@ -114,6 +144,7 @@ async function main(): Promise<void> {
     cwd: process.cwd(),
     logsDir,
     statusController,
+    towerController,
   });
   let actualPort: number;
   try {
@@ -136,7 +167,10 @@ async function main(): Promise<void> {
   // process owns the Bus. In reuse mode another process's watchers already
   // cover the homes — starting a second set here would double-tail every
   // wire. Takeover-time sync is handled by syncStatusOnTakeover below.
-  if (startResult.mode === 'own') statusController.start();
+  if (startResult.mode === 'own') {
+    statusController.start();
+    towerController.start();
+  }
   // Controlled restart (task D): once this owner releases the port, spawn the
   // headless bus daemon from the current disk build so the panel recovers on
   // the new code without waiting for a fresh session. Evaluated at release
@@ -169,6 +203,7 @@ async function main(): Promise<void> {
     // directions are idempotent. The port follows the takeover either way.
     statusController.setPort(result.port);
     syncStatusOnTakeover(result, statusController);
+    syncTowerOnTakeover(result, towerController);
     console.error(
       result.mode === 'own'
         ? `[moamcp] takeover: now owns the Bus at http://127.0.0.1:${result.port}/ (registry entry restored, card_url re-pointed, events served locally)`
@@ -193,7 +228,17 @@ async function main(): Promise<void> {
     board,
   });
   const tips = new TipStore(board);
-  const server = createServer(hub, bus, board, tips, createStatusModule(statusController));
+  // The tower controller serves the shared board directly (process-shared via
+  // MOAMCP_HOME); mount it after the Bus settled so routes/tools see the board.
+  towerController.mountBoard(board);
+  const server = createServer(
+    hub,
+    bus,
+    board,
+    tips,
+    createStatusModule(statusController),
+    createTowerModule(towerController),
+  );
   await server.connect(new StdioServerTransport());
   if (startResult.mode === 'reuse') {
     console.error(
@@ -214,6 +259,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     statusController.stop();
+    towerController.stop();
     void bus.stop().finally(() => process.exit(0));
   };
   // Shutdown when the MCP transport closes (parent exited / stdin closed).

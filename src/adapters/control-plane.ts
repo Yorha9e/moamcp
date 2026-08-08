@@ -23,6 +23,7 @@ import {
 } from '../modules/agentconfig/agent-config.js';
 import { createAgentConfigModule } from '../modules/agentconfig/index.js';
 import { createStatusModule, type StatusController } from '../modules/status/index.js';
+import { createTowerModule, type TowerController } from '../modules/tower/index.js';
 import {
   BOARD_VALUE_MAX_BYTES,
   BoardStore,
@@ -40,6 +41,7 @@ import type { TipsAuthority } from '../core/store/tips-authority.js';
 import type { JsonObject, MoaModule, MoaRouteContext, MoaRouteDef } from '../modules/types.js';
 import { CONTROL_PLANE_HTML } from '../web/control-plane-page.js';
 import { STATUS_BOARD_HTML } from '../web/status-board.js';
+import { TOWER_PAGE_HTML } from '../web/pages/tower.js';
 import {
   HANDOFF_ID_PATTERN,
   HANDOFF_STATES,
@@ -432,6 +434,7 @@ export class ControlPlane {
   private runtime?: RuntimeReadProvider;
   private agentConfig: WorkspaceAgentConfigService;
   private statusController?: StatusController;
+  private towerController?: TowerController;
   private exactRoutes = new Map<string, MoaRouteDef[]>();
   private patternRoutes: PatternRouteGroup[] = [];
 
@@ -440,9 +443,11 @@ export class ControlPlane {
     tips?: TipsAuthority,
     agentConfig: WorkspaceAgentConfigService = new WorkspaceAgentConfigService(),
     statusController?: StatusController,
+    towerController?: TowerController,
   ) {
     this.agentConfig = agentConfig;
     this.statusController = statusController;
+    this.towerController = towerController;
     this.registerRoutes();
     if (board !== undefined) this.mount(board, tips);
   }
@@ -467,9 +472,12 @@ export class ControlPlane {
     // The status module's /status route closes over a possibly-undefined
     // controller: it 503s (status_not_ready) until one is wired and started
     // (batch 1c P2), so a Bus without a status controller still answers.
+    // The tower module's /api/tower/* routes behave the same (tower_not_ready
+    // until the tower controller is wired and its board mounted — B1).
     const modules: MoaModule[] = [
       createAgentConfigModule(this.agentConfig),
       createStatusModule(this.statusController),
+      createTowerModule(this.towerController),
     ];
     const routes: MoaRouteDef[] = [
       ...modules.flatMap((module) => module.routes ?? []),
@@ -619,6 +627,20 @@ export class ControlPlane {
         'content-type': 'text/html; charset=utf-8',
       });
       res.end(STATUS_BOARD_HTML);
+      return true;
+    }
+
+    // B4: tower workflow panel — same static exact-path precedent.
+    if (path === '/tower') {
+      if (req.method !== 'GET') {
+        methodNotAllowed(res, 'GET');
+        return true;
+      }
+      res.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'text/html; charset=utf-8',
+      });
+      res.end(TOWER_PAGE_HTML);
       return true;
     }
 

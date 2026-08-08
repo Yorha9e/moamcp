@@ -5,6 +5,14 @@
   "agents": "./agents",
   "skills": ["./skills"],
   "commands": ["./commands"],
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "Write|Edit",
+      "command": "node ./hooks/tower-write-guard.mjs",
+      "timeout": 10
+    }
+  ],
   "sessionStart": {
     "skill": "using-moamcp"
   },

@@ -47,6 +47,7 @@ export function createServer(
   board?: BoardStore,
   tipStore?: TipStore,
   statusModule?: MoaModule,
+  towerModule?: MoaModule,
 ): Server {
   const boardStore = board ?? new BoardStore();
   const tips = tipStore ?? new TipStore(boardStore);
@@ -59,6 +60,7 @@ export function createServer(
     createHandoffModule(handoffs, boardStore),
   ];
   if (statusModule) modules.push(statusModule); // appended last (status module, batch 1a)
+  if (towerModule) modules.push(towerModule); // tower module (B1), appended after status
   const tools: MoaToolDef[] = [
     ...modules.flatMap((module) => module.tools ?? []),
     statusTool(bus),
