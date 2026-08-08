@@ -311,7 +311,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_spawn',
       description:
-        'Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission\'s physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool (run_in_background=true) and completes the enrollment with moa_tower_register(agent_id=…). Reviewers take review_target (a branch to review) instead of a mission.',
+        'Two-stage spawn (tower-only, B1 bookkeeping stage): creates the mission\'s physical git worktree (sibling <repoName>-worktrees/wt-<n>, never inside the repo), marks the mission active with the agent as owner, and registers the roster entry with a PENDING agent id. The tower then launches the agent with its own Agent tool in the FOREGROUND (never run_in_background=true — a backgrounded child cannot wake the tower when it completes): phase 1 does offline work only (workers: code + local commits; reviewers: read-only verdict draft) with no tower calls, then moa_tower_register(agent_id=…) completes the enrollment and a foreground resume (phase 2) lets the agent submit tower reports under its own identity. Reviewers take review_target (a branch to review) instead of a mission.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -434,7 +434,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             agent_id: '',
             status: 'pending-register',
             notes,
-            next: `Launch the ${kind} with your Agent tool (run_in_background=true), then complete enrollment: moa_tower_register(workspace, name="${name}", agent_id=<the engine agent id>).`,
+            next: `Launch the ${kind} with your Agent tool in the FOREGROUND (phase 1: offline work only, no tower calls — a backgrounded child cannot wake you), then complete enrollment: moa_tower_register(workspace, name="${name}", agent_id=<the engine agent id>), and resume it (foreground, phase 2) so it submits tower calls under its own identity.`,
           };
         }),
     },
