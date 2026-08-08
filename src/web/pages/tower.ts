@@ -430,7 +430,7 @@ ${LIB_JS}
     var missions = (lastMissions && lastMissions.missions) || [];
     var roster = (lastState && lastState.roster) || [];
     var updated = new Date().toISOString();
-    countsEl.textContent = missions.length + ' missions · ' + roster.length + ' agents · ' + tr('tower.updatedAt', { time: fmt(updated) });
+    countsEl.textContent = missions.length + ' ' + tr('tower.countsMissions') + ' · ' + roster.length + ' ' + tr('tower.countsAgents') + ' · ' + tr('tower.updatedAt', { time: fmt(updated) });
   }
   function renderAll() {
     renderRoster();

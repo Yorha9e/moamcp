@@ -345,7 +345,8 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'tower.noLog': '暂无活动。', 'tower.noFindings': '暂无发现。',
     'tower.noReviews': '该分支暂无评审。', 'tower.empty': '暂无数据。',
     'tower.expand': '展开', 'tower.collapse': '收起',
-    'tower.reviewsFor': '{branch} 的评审', 'tower.updatedAt': '更新于 {time}'
+    'tower.reviewsFor': '{branch} 的评审', 'tower.updatedAt': '更新于 {time}',
+    'tower.countsMissions': '个任务', 'tower.countsAgents': '个代理'
   }
 };
 
