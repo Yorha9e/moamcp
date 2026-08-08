@@ -995,7 +995,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_wait',
       description:
-        'Long-poll wait primitive for the tower domain (M1), modeled on moa_board_wait / moa_wait_turn: block until the requested condition holds, then return {status:"ok", ...observed payload}; at the safety cap (default 25min, MOAMCP_WAIT_CAP_MS / timeoutMs tune it — timeoutMs is clamped to the cap) return {status:"timeout", retry:true}. wait.kind:"ci" → block until the ci/<branchSlug> record exists AND its commit matches the branch\'s CURRENT tip (a stale record from an older tip does NOT satisfy it); payload = the ci record. wait.kind:"inbox" → block until the caller\'s tower inbox has at least one message (same set moa_tower_inbox returns); payload = the messages. wait.kind:"mission" → block until the mission doc\'s status changes from what it was at call time; payload = the mission doc (a closed task scope returns {status:"closed"} instead of timing out). Any registered roster member (tower/worker/reviewer) may wait; a delegator is rejected — delegators may only call moa_tower_send addressed to the tower.',
+        'Long-poll wait primitive for the tower domain (M1), modeled on moa_board_wait / moa_wait_turn: block until the requested condition holds, then return {status:"ok", ...observed payload}; at the safety cap (default 25min, MOAMCP_WAIT_CAP_MS / timeoutMs tune it — timeoutMs is clamped to the cap) return {status:"timeout", retry:true}. wait.kind:"ci" → block until the ci/<branchSlug> record exists AND its commit matches the branch\'s CURRENT tip (a stale record from an older tip does NOT satisfy it); payload = the ci record. wait.kind:"inbox" → block until the caller\'s tower inbox has at least one message (same set moa_tower_inbox returns); payload = the messages. wait.kind:"mission" → block until the mission doc\'s status changes from what it was at call time; payload = the mission doc (a closed task scope returns {status:"closed"} instead of timing out). wait.kind:"deps" → block until EVERY mission id in mission(mission_id).deps has status "merged" — the dependency-driven parallel-dispatch primitive: all missions are dispatched at once and a dependent parks here, waking when its deps land (a successful moa_tower_merge always writes the dep mission doc, which wakes the wait); already-merged deps return immediately, an empty deps list is satisfied vacuously, and a dep id with no mission document is a protocol error (deps are validated at plan time, so a missing doc means corruption); payload = {mission_id, deps:[{id,status}...]}. Any registered roster member (tower/worker/reviewer) may wait; a delegator is rejected — delegators may only call moa_tower_send addressed to the tower.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -1003,11 +1003,12 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           caller_agent_id: CALLER_ARG,
           wait: {
             type: 'object',
-            description: 'What to wait for. kind:"ci" needs branch; kind:"mission" needs id; kind:"inbox" needs nothing.',
+            description: 'What to wait for. kind:"ci" needs branch; kind:"mission" needs id; kind:"deps" needs mission_id; kind:"inbox" needs nothing.',
             properties: {
-              kind: { type: 'string', enum: ['ci', 'inbox', 'mission'], description: 'Wait target kind' },
+              kind: { type: 'string', enum: ['ci', 'inbox', 'mission', 'deps'], description: 'Wait target kind' },
               branch: { type: 'string', description: 'kind=ci: the mission branch whose ci/<branchSlug> record to await (matched against the current tip)' },
               id: { type: 'string', description: 'kind=mission: the mission id (e.g. "M1") whose status change to await' },
+              mission_id: { type: 'string', description: 'kind=deps: the mission id (e.g. "M1") whose deps to await — blocks until every dep mission has status "merged"' },
             },
             required: ['kind'],
             additionalProperties: false,
@@ -1024,7 +1025,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
           const caller = await resolveCallerNonDelegator(store, state, args);
           const rawWait = args.wait as Record<string, unknown> | undefined;
           if (rawWait === undefined || typeof rawWait !== 'object' || Array.isArray(rawWait)) {
-            throw new TowerProtocolError('moa_tower_wait needs a wait object ({kind:"ci"|"inbox"|"mission", ...})');
+            throw new TowerProtocolError('moa_tower_wait needs a wait object ({kind:"ci"|"inbox"|"mission"|"deps", ...})');
           }
           const kind = rawWait['kind'];
           const timeoutMs = typeof args.timeoutMs === 'number' ? (args.timeoutMs as number) : undefined;
@@ -1071,7 +1072,17 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
               mission,
             };
           }
-          throw new TowerProtocolError('wait.kind must be one of "ci" | "inbox" | "mission"');
+          if (kind === 'deps') {
+            const missionId = typeof rawWait['mission_id'] === 'string' ? (rawWait['mission_id'] as string) : undefined;
+            if (missionId === undefined || missionId.trim().length === 0) {
+              throw new TowerProtocolError('wait kind=deps needs the mission id');
+            }
+            const outcome = await store.waitForDeps(missionId, timeoutMs);
+            if (outcome.status === 'timeout') return { status: 'timeout', retry: true };
+            if (outcome.status === 'closed') return { status: 'closed', kind: 'deps', mission_id: missionId };
+            return { status: 'ok', kind: 'deps', mission_id: missionId, deps: outcome.deps.map((dep) => ({ id: dep.id, status: dep.status })) };
+          }
+          throw new TowerProtocolError('wait.kind must be one of "ci" | "inbox" | "mission" | "deps"');
         }),
     },
     {
