@@ -634,7 +634,8 @@ ${STATUS_MODEL_JS}
 
   /** M1: whether entry sits on the ACTIVE partition side. Reads the partition's
    *  effActive closure (seeds + ancestor inheritance) stashed on the session
-   *  info by renderFullSession/renderHeadOnly; falls back to the raw
+   *  info by updateSessionEl (r1 p2-1: every partition recompute routes through
+   *  it, including the localechange re-render); falls back to the raw
    *  isActiveAgent when no partition is stashed yet (defensive only). The side
    *  logic MUST use this (not isActiveAgent) so an effectively-active ancestor
    *  nests like an active row and its busy descendants are not duplicated. */
@@ -891,6 +892,13 @@ ${STATUS_MODEL_JS}
   function updateSessionEl(sessionId, part) {
     var info = sessionEls[sessionId];
     if (!info) return;
+    // M1 (r1 p2-1): EVERY partition recompute refreshes the side closure here —
+    // updateSessionEl receives part, so this is the single chokepoint that
+    // keeps info.effActive in sync (renderFullSession/renderHeadOnly and the
+    // localechange re-render all route through it). Side logic
+    // (isOnActiveSide/sameSideChildren/isSideRoot) must never read a stale
+    // closure from an older partition.
+    info.effActive = part.effActive;
     var row = model.sessions[sessionId] || {};
     info.title.textContent = row.title || sessionId;
     info.sub.textContent = row.workDir || (row.home || '');
@@ -1042,11 +1050,10 @@ ${STATUS_MODEL_JS}
   function renderFullSession(sessionId, dirInfo) {
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
-    // M1: stash the partition's effective-active closure (seeds + ancestor
-    // inheritance) so sameSideChildren/isSideRoot/createRowEl side logic is
-    // consistent with the partition this render is built from.
-    info.effActive = part.effActive;
     applySessionMode(info, 'full');
+    // M1: updateSessionEl stashes part.effActive (single chokepoint) before the
+    // rows below are built, so sameSideChildren/isSideRoot/createRowEl side
+    // logic is consistent with the partition this render is built from.
     updateSessionEl(sessionId, part);
     var active = part.active;
     // Clear + rebuild the active rows container every pass, then re-append the
@@ -1085,9 +1092,8 @@ ${STATUS_MODEL_JS}
   function renderHeadOnly(sessionId, dirInfo) {
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
-    info.effActive = part.effActive; // M1: keep the side closure consistent
     applySessionMode(info, 'head');
-    updateSessionEl(sessionId, part);
+    updateSessionEl(sessionId, part); // M1: stashes part.effActive (chokepoint)
     if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
   }
 

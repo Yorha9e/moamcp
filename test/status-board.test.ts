@@ -532,6 +532,48 @@ describe('Status Board page behavior (vm + fake DOM)', () => {
     expect(subtreeOf(rows[2])).toBeNull();
   });
 
+  it('localechange re-render refreshes the effActive side closure from the recomputed partition (r1 p2-1)', async () => {
+    const page = runStatusPage(await fetchPage(), offlineFetch);
+    page.dispatch('snapshot', snap({
+      agents: [
+        { sessionId: 's1', agentId: 'main', kind: 'main', busy: false, stale: false, lastSeen: 1000, firstSeen: 100, subagents: [], model: 'kimi-k2' },
+        { sessionId: 's1', agentId: 'worker', kind: 'sub', parentAgentId: 'main', busy: true, stale: false, lastSeen: 900, firstSeen: 200, subagents: [], model: 'kimi-k2' },
+      ],
+    }));
+    await flush();
+    const group = sessionGroups(page.el('sbList'))[0];
+    // render-time closure: main (ancestor) + worker (seed) on the active side.
+    expect(rowIds(group)).toEqual(['s1:main', 's1:worker']);
+
+    // The localechange handler recomputes M.partitionSession for every session
+    // and must re-stash that fresh closure (updateSessionEl is the chokepoint).
+    // Make the recompute disagree with the render-time closure — worker is no
+    // longer effectively active — so a STALE stash would keep the worker nested
+    // under main while the fresh closure must drop it.
+    const sandbox = page.sandbox as {
+      __moaStatusModel: {
+        partitionSession: (m: unknown, sid: string) => {
+          active: string[];
+          inactive: string[];
+          effActive: Record<string, boolean>;
+        };
+      };
+    };
+    const origPartition = sandbox.__moaStatusModel.partitionSession;
+    sandbox.__moaStatusModel.partitionSession = (m, sid) => {
+      const part = origPartition(m, sid);
+      if (sid !== 's1') return part;
+      return { active: part.active, inactive: part.inactive, effActive: { 's1:main': true } };
+    };
+
+    setLocale(page, 'zh-CN'); // fires moamcp:localechange -> recompute + updateSessionEl + refreshVisibleRows
+    // updateRowEl's tree-chrome sync reads the FRESH closure: main has no
+    // same-side child -> its .sb-subtree (worker row) is removed from the DOM.
+    expect(rowIds(group)).toEqual(['s1:main']);
+    // restore so later teardown renders behave normally
+    sandbox.__moaStatusModel.partitionSession = origPartition;
+  });
+
   it('shows the scanning bar when snapshot.scan.scanning is true (E6)', async () => {
     const page = runStatusPage(await fetchPage(), offlineFetch);
     expect(page.el('sbScan').hidden).toBe(true);
