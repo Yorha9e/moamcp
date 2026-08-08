@@ -19648,6 +19648,10 @@ var I18N_DICTIONARIES = {
     "debate.aggregateActive": "Aggregating \u2014 waiting for moa_complete to write the archive",
     "debate.verdictLoading": "Archive written; loading VERDICT details\u2026",
     "debate.speaking": "speaking",
+    "debate.verdictLoadError": "Failed to load VERDICT details from the archive.",
+    "debate.findingsLoadError": "Failed to load findings from the archive.",
+    "debate.noFindings": "No findings in the archive.",
+    "debate.retry": "Retry",
     "debate.waiting": "waiting",
     "debate.turnCount": "{count} turn",
     "debate.turnCountPlural": "{count} turns",
@@ -19934,6 +19938,7 @@ var I18N_DICTIONARIES = {
     "tower.polling": "live \xB7 5s poll",
     "tower.scanning": "Scanning workspaces\u2026",
     "tower.noBooted": "No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.",
+    "tower.waitingBoot": "Waiting for the tower to become ready \u2014 retrying automatically\u2026",
     "tower.notReady": "Tower controller is not running. Start or reuse a session to begin monitoring.",
     "tower.repo": "Repo",
     "tower.selectRepo": "Select a booted tower repo\u2026",
@@ -19977,10 +19982,12 @@ var I18N_DICTIONARIES = {
     "tower.noFindings": "No findings filed.",
     "tower.noReviews": "No reviews for this branch.",
     "tower.empty": "No data yet.",
+    "tower.loadError": "Failed to load \u2014 the next poll will retry automatically.",
     "tower.expand": "Expand",
     "tower.collapse": "Collapse",
     "tower.reviewsFor": "Reviews for {branch}",
     "tower.updatedAt": "Updated {time}",
+    "tower.branch": "Branch",
     "tower.countsMissions": "missions",
     "tower.countsAgents": "agents"
   },
@@ -20056,6 +20063,10 @@ var I18N_DICTIONARIES = {
     "debate.aggregateDone": "\u5F52\u6863\u5DF2\u5199\u5165\uFF0C\u88C1\u51B3\u5DF2\u8F93\u51FA",
     "debate.aggregateActive": "\u6C47\u603B\u4E2D \u2014 \u7B49\u5F85 moa_complete \u5199\u5165\u5F52\u6863",
     "debate.verdictLoading": "\u5F52\u6863\u5DF2\u5199\u5165\uFF0CVERDICT \u8BE6\u60C5\u52A0\u8F7D\u4E2D\u2026",
+    "debate.verdictLoadError": "\u4ECE\u5F52\u6863\u52A0\u8F7D VERDICT \u8BE6\u60C5\u5931\u8D25\u3002",
+    "debate.findingsLoadError": "\u4ECE\u5F52\u6863\u52A0\u8F7D FINDINGS \u8BE6\u60C5\u5931\u8D25\u3002",
+    "debate.noFindings": "\u5F52\u6863\u4E2D\u6682\u65E0 FINDINGS\u3002",
+    "debate.retry": "\u91CD\u8BD5",
     "debate.speaking": "\u53D1\u8A00\u4E2D",
     "debate.waiting": "\u7B49\u5F85\u4E2D",
     "debate.turnCount": "{count} \u6B21\u53D1\u8A00",
@@ -20344,6 +20355,7 @@ var I18N_DICTIONARIES = {
     "tower.polling": "live \xB7 5 \u79D2\u8F6E\u8BE2",
     "tower.scanning": "\u626B\u63CF\u5DE5\u4F5C\u533A\u4E2D\u2026",
     "tower.noBooted": "\u5DF2\u6CE8\u518C\u7684\u5DE5\u4F5C\u533A\u4E2D\u672A\u627E\u5230\u5DF2 boot \u7684\u5854\u53F0\u3002\u8BF7\u5148\u7528 moa_tower_boot \u542F\u52A8\uFF0C\u518D\u5237\u65B0\u672C\u9875\u3002",
+    "tower.waitingBoot": "\u6B63\u5728\u7B49\u5F85\u5854\u53F0\u5C31\u7EEA\uFF0C\u81EA\u52A8\u91CD\u8BD5\u4E2D\u2026",
     "tower.notReady": "\u5854\u53F0\u63A7\u5236\u5668\u672A\u542F\u52A8\u3002\u8BF7\u542F\u52A8\u6216\u590D\u7528\u4F1A\u8BDD\u540E\u5F00\u59CB\u76D1\u63A7\u3002",
     "tower.repo": "\u4ED3\u5E93",
     "tower.selectRepo": "\u9009\u62E9\u5DF2 boot \u7684\u5854\u53F0\u4ED3\u5E93\u2026",
@@ -20387,10 +20399,12 @@ var I18N_DICTIONARIES = {
     "tower.noFindings": "\u6682\u65E0\u53D1\u73B0\u3002",
     "tower.noReviews": "\u8BE5\u5206\u652F\u6682\u65E0\u8BC4\u5BA1\u3002",
     "tower.empty": "\u6682\u65E0\u6570\u636E\u3002",
+    "tower.loadError": "\u52A0\u8F7D\u5931\u8D25\uFF0C\u4E0B\u6B21\u8F6E\u8BE2\u5C06\u81EA\u52A8\u91CD\u8BD5\u3002",
     "tower.expand": "\u5C55\u5F00",
     "tower.collapse": "\u6536\u8D77",
     "tower.reviewsFor": "{branch} \u7684\u8BC4\u5BA1",
     "tower.updatedAt": "\u66F4\u65B0\u4E8E {time}",
+    "tower.branch": "\u5206\u652F",
     "tower.countsMissions": "\u4E2A\u4EFB\u52A1",
     "tower.countsAgents": "\u4E2A\u4EE3\u7406"
   }
@@ -21823,8 +21837,16 @@ var INBOX_PAGE_JS = `  var inboxMode = 'inbox';
     detail.appendChild(dl);
     row.appendChild(detail);
   }
+  var inboxListSig = '';
   function renderInboxList(handoffs) {
     var list = document.getElementById('inboxList');
+    clearListLoading(list);
+    var sig = JSON.stringify(handoffs);
+    // No-op refresh: identical data must not tear down the DOM \u2014 the expanded
+    // .ho-detail rows (pure DOM state) and the scroll position survive. A list
+    // left empty by the loading sweep re-renders so the empty state returns.
+    if (sig === inboxListSig && list.children.length > 0) return;
+    inboxListSig = sig;
     list.textContent = '';
     if (!handoffs.length) {
       var empty = document.createElement('div');
@@ -21867,6 +21889,17 @@ var INBOX_PAGE_JS = `  var inboxMode = 'inbox';
   document.getElementById('inboxState').addEventListener('change', function () { loadInbox().catch(function (error) { setNotice(error.message, true); }); });
   document.getElementById('inboxViewButton').addEventListener('click', function () { switchInboxMode('inbox').catch(function (error) { setNotice(error.message, true); }); });
   document.getElementById('outboxViewButton').addEventListener('click', function () { switchInboxMode('outbox').catch(function (error) { setNotice(error.message, true); }); });
+  /* Real-time refresh: the runs live view's 5s poll pattern (lib.ts
+     POLL_MS.runs). switchView() starts it when the inbox tab becomes active
+     and stops it on every other view; closeSectionResources() stops it too. */
+  var inboxPollTimer = null;
+  function startInboxPolling() {
+    stopInboxPolling();
+    inboxPollTimer = window.__moaLib.startPoll(function () { loadInbox().catch(function () {}); }, window.__moaLib.POLL_MS.runs);
+  }
+  function stopInboxPolling() {
+    if (inboxPollTimer) { inboxPollTimer.stop(); inboxPollTimer = null; }
+  }
 `;
 
 // src/web/control-plane-page.ts
@@ -23285,6 +23318,7 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     if (runsPollTimer) { runsPollTimer.stop(); runsPollTimer = null; }
     if (systemPollTimer) { systemPollTimer.stop(); systemPollTimer = null; }
     if (runSearchTimer) { clearTimeout(runSearchTimer); runSearchTimer = null; }
+    stopInboxPolling();
   }
   function switchRunsView(view) {
     activeRunsView = view;
@@ -23318,8 +23352,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     if (view === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
     else if (view === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
     else if (view === 'projects') loadProjects().catch(function (error) { setNotice(error.message, true); });
-    else if (view === 'inbox') loadInbox().catch(function (error) { setNotice(error.message, true); });
-    else loadTips().catch(function (error) { setNotice(error.message, true); });
+    else if (view === 'inbox') { loadInbox().catch(function (error) { setNotice(error.message, true); }); startInboxPolling(); }
+    else { stopInboxPolling(); loadTips().catch(function (error) { setNotice(error.message, true); }); }
   }
   workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
   document.getElementById('renameWorkspaceButton').addEventListener('click', openWorkspaceRename);
@@ -25883,6 +25917,15 @@ ${COMPONENTS_CSS}
 }
 .tw-log-line { white-space: pre-wrap; word-break: break-all; }
 .tw-empty { padding: 16px 14px; text-align: center; color: var(--text-faint); }
+.tw-error { color: var(--accent-red); }
+.tw-reviews-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 0;
+}
+.tw-reviews-bar[hidden] { display: none; }
+.tw-reviews-bar select { min-width: 200px; }
 .tw-body[hidden] { display: none; }
 </style>
 ${THEME_BOOTSTRAP}
@@ -25900,7 +25943,7 @@ ${I18N_BOOTSTRAP}
     <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces\u2026</span></span>
     <span class="tw-counts" id="twCounts"></span>
   </div>
-  <div class="tw-notready" id="twNotReady" hidden data-i18n="tower.noBooted">No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.</div>
+  <div class="tw-notready" id="twNotReady" hidden data-i18n="tower.waitingBoot">Waiting for the tower to become ready \u2014 retrying automatically\u2026</div>
   <div class="tw-panel" id="twMissionsPanel">
     <div class="tw-panel-head">
       <span class="tw-chevron"></span>
@@ -25957,7 +26000,13 @@ ${I18N_BOOTSTRAP}
       <span class="tw-panel-sub tw-reviews-branch" id="twReviewsBranchLabel"></span>
       <span class="tw-panel-sub" id="twReviewsCount"></span>
     </div>
-    <div class="tw-panel-body" id="twReviewsBody"></div>
+    <div class="tw-panel-body" id="twReviewsBody">
+      <div class="tw-reviews-bar" id="twReviewsBar">
+        <label for="twReviewsBranch" data-i18n="tower.branch">Branch</label>
+        <select id="twReviewsBranch" data-i18n-aria="tower.branch"></select>
+      </div>
+      <div id="twReviewsTable"></div>
+    </div>
   </div>
 </div>
 <script>
@@ -25983,7 +26032,9 @@ ${LIB_JS}
   var findingsPanel = document.getElementById('twFindingsPanel');
   var findingsBody = document.getElementById('twFindingsBody');
   var reviewsPanel = document.getElementById('twReviewsPanel');
-  var reviewsBody = document.getElementById('twReviewsBody');
+  var reviewsBar = document.getElementById('twReviewsBar');
+  var reviewsTable = document.getElementById('twReviewsTable');
+  var reviewsBranchSelect = document.getElementById('twReviewsBranch');
   var reviewsBranchLabel = document.getElementById('twReviewsBranchLabel');
 
   var bootedRepos = [];
@@ -25994,6 +26045,10 @@ ${LIB_JS}
   var findingsOpen = false;
   var reviewsOpen = false;
   var poll = null;
+  var discoverTimer = null;
+  var discoverBusy = false; // in-flight guard: never run two discovers concurrently
+  var discoverSeq = 0;      // epoch token: only the latest round's result may apply
+  var DISCOVER_RETRY_MS = 10000;
 
   function esc(s) {
     return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -26016,6 +26071,12 @@ ${LIB_JS}
   function appendEmpty(container, key) {
     var none = document.createElement('div');
     none.className = 'tw-empty';
+    none.textContent = tr(key);
+    container.appendChild(none);
+  }
+  function appendError(container, key) {
+    var none = document.createElement('div');
+    none.className = 'tw-empty tw-error';
     none.textContent = tr(key);
     container.appendChild(none);
   }
@@ -26151,7 +26212,7 @@ ${LIB_JS}
       }
     }).catch(function () {
       findingsBody.textContent = '';
-      appendEmpty(findingsBody, 'tower.noFindings');
+      appendError(findingsBody, 'tower.loadError');
     });
   }
   function reviewBranches() {
@@ -26162,14 +26223,29 @@ ${LIB_JS}
     }
     return branches;
   }
+  function renderReviewsBranches() {
+    var branches = reviewBranches();
+    var prev = reviewsBranchSelect.value;
+    reviewsBranchSelect.textContent = '';
+    for (var i = 0; i < branches.length; i++) {
+      var o = document.createElement('option');
+      o.value = branches[i];
+      o.textContent = branches[i];
+      reviewsBranchSelect.appendChild(o);
+    }
+    var keep = prev && branches.indexOf(prev) !== -1;
+    reviewsBranchSelect.value = keep ? prev : (branches.length ? branches[0] : '');
+    reviewsBranchSelect.disabled = !branches.length;
+    if (reviewsBar) reviewsBar.hidden = !branches.length;
+  }
   function loadReviews() {
     if (!current) return;
-    var branches = reviewBranches();
-    var branch = branches.length ? branches[0] : '';
+    renderReviewsBranches();
+    var branch = reviewsBranchSelect.value;
     if (reviewsBranchLabel) reviewsBranchLabel.textContent = branch ? tr('tower.reviewsFor', { branch: branch }) : '';
     if (!branch) {
-      reviewsBody.textContent = '';
-      appendEmpty(reviewsBody, 'tower.noReviews');
+      reviewsTable.textContent = '';
+      appendEmpty(reviewsTable, 'tower.noReviews');
       return;
     }
     api('/api/tower/reviews?workspace=' + encodeURIComponent(current.cwd) + '&branch=' + encodeURIComponent(branch)).then(function (data) {
@@ -26177,8 +26253,8 @@ ${LIB_JS}
       var count = document.getElementById('twReviewsCount');
       if (count) count.textContent = reviews.length ? reviews.length + '' : '';
       if (!reviewsOpen) return;
-      reviewsBody.textContent = '';
-      if (!reviews.length) { appendEmpty(reviewsBody, 'tower.noReviews'); return; }
+      reviewsTable.textContent = '';
+      if (!reviews.length) { appendEmpty(reviewsTable, 'tower.noReviews'); return; }
       var table = document.createElement('div');
       table.className = 'tw-colhead tw-colhead-reviews';
       [tr('tower.colRound'), tr('tower.colReviewer'), tr('tower.colStatus'), tr('tower.colMerge'), tr('tower.colCommit'), tr('tower.colDate')].forEach(function (h) {
@@ -26186,7 +26262,7 @@ ${LIB_JS}
         span.textContent = h;
         table.appendChild(span);
       });
-      reviewsBody.appendChild(table);
+      reviewsTable.appendChild(table);
       for (var i = 0; i < reviews.length; i++) {
         var r = reviews[i];
         var row = document.createElement('div');
@@ -26197,11 +26273,11 @@ ${LIB_JS}
         row.appendChild(makeCell(r.merge, 'tw-mono'));
         row.appendChild(makeCell(r.reviewedCommit ? String(r.reviewedCommit).slice(0, 7) : '\u2014', 'tw-mono'));
         row.appendChild(makeCell(r.date || '\u2014', 'tw-mono'));
-        reviewsBody.appendChild(row);
+        reviewsTable.appendChild(row);
       }
     }).catch(function () {
-      reviewsBody.textContent = '';
-      appendEmpty(reviewsBody, 'tower.noReviews');
+      reviewsTable.textContent = '';
+      appendError(reviewsTable, 'tower.loadError');
     });
   }
 
@@ -26255,11 +26331,14 @@ ${LIB_JS}
     }
     var pick = foundSaved ? saved : bootedRepos[0].cwd;
     repoSelect.value = pick;
-    selectRepo(pick);
+    // Only re-select when there is no active selection or the pick itself
+    // changed \u2014 never clobber the user's chosen repo on a refresh.
+    if (!current || current.cwd !== pick) selectRepo(pick);
   }
   function selectRepo(cwd) {
     current = { cwd: cwd };
     try { localStorage.setItem(REPO_KEY, cwd); } catch (_) {}
+    stopDiscoverRetry();
     lastState = lastMissions = lastLog = null;
     findingsOpen = reviewsOpen = false;
     findingsPanel.className = 'tw-panel collapsed';
@@ -26269,6 +26348,9 @@ ${LIB_JS}
     refresh();
   }
   function discover() {
+    if (discoverBusy) return; // in-flight guard: the retry timer must not stack rounds
+    discoverBusy = true;
+    var seq = ++discoverSeq;
     setScan(true);
     api('/api/workspaces').then(function (data) {
       var workspaces = (data && data.workspaces) || [];
@@ -26282,20 +26364,40 @@ ${LIB_JS}
       });
       return Promise.all(probes).then(function () { return found; });
     }).then(function (found) {
-      bootedRepos = found;
+      if (seq !== discoverSeq) return; // stale round \u2014 a newer discover superseded it
+      discoverBusy = false;
       setScan(false);
-      if (!bootedRepos.length) {
+      if (!found.length) {
+        // If the page is already ready and polling, keep the live view \u2014
+        // never flip it back to not-ready on a late/empty probe result.
+        if (poll) return;
+        bootedRepos = [];
         notReadyEl.hidden = false;
-        setConn('connecting', '\u25CB ' + tr('tower.noBooted'));
+        setConn('connecting', '\u25CB ' + tr('tower.waitingBoot'));
+        startDiscoverRetry();
         return;
       }
+      bootedRepos = found;
+      stopDiscoverRetry();
+      notReadyEl.hidden = true;
       fillRepoOptions();
       startPolling();
     }).catch(function () {
+      if (seq !== discoverSeq) return;
+      discoverBusy = false;
       setScan(false);
+      if (poll) return;
       notReadyEl.hidden = false;
-      setConn('error', '\u2717 ' + tr('tower.notReady'));
+      setConn('error', '\u2717 ' + tr('tower.waitingBoot'));
+      startDiscoverRetry();
     });
+  }
+  function startDiscoverRetry() {
+    if (discoverTimer) return;
+    discoverTimer = setInterval(function () { discover(); }, DISCOVER_RETRY_MS);
+  }
+  function stopDiscoverRetry() {
+    if (discoverTimer) { clearInterval(discoverTimer); discoverTimer = null; }
   }
 
   if (repoSelect) repoSelect.addEventListener('change', function () {
@@ -26311,6 +26413,7 @@ ${LIB_JS}
     reviewsPanel.className = 'tw-panel' + (reviewsOpen ? '' : ' collapsed');
     if (reviewsOpen) loadReviews();
   });
+  if (reviewsBranchSelect) reviewsBranchSelect.addEventListener('change', function () { loadReviews(); });
   if (window.addEventListener) window.addEventListener('moamcp:localechange', function () {
     tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
     renderAll();
@@ -28788,6 +28891,16 @@ ${COMPONENTS_CSS}
   background: var(--tint-green);
   box-shadow: var(--glow-green-btn);
 }
+.verdict-error {
+  font-size: 13px;
+  color: var(--accent-red);
+  margin: 4px 0 8px;
+}
+.verdict-error .secondary {
+  margin-left: 10px;
+  padding: 3px 12px;
+  border-radius: var(--r-sm);
+}
 
 #picker h2 {
   font-size: 14px;
@@ -29139,11 +29252,26 @@ ${STATUS_MODEL_JS}
     for (var i = 0; i < agents.length; i++) if (agents[i].id === id) agents[i].turns++;
   }
 
-  function loadArchive(file, cb) {
+  function loadArchive(file, cb, failCb) {
     fetch('/archive?task_id=' + encodeURIComponent(taskId) + '&file=' + file)
       .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
       .then(cb)
-      .catch(function () {});
+      .catch(function (err) { if (failCb) failCb(err); });
+  }
+  function renderArchiveError(box, key, file, onSuccess) {
+    box.textContent = '';
+    var err = document.createElement('div');
+    err.className = 'verdict-error';
+    err.textContent = tr(key);
+    box.appendChild(err);
+    var retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'secondary';
+    retry.textContent = tr('debate.retry');
+    retry.addEventListener('click', function () {
+      loadArchive(file, onSuccess, function () { renderArchiveError(box, key, file, onSuccess); });
+    });
+    box.appendChild(retry);
   }
   function putStat(box, k, v) {
     box.appendChild(document.createTextNode(k + ' '));
@@ -29157,7 +29285,7 @@ ${STATUS_MODEL_JS}
     verdictSummary = tr('debate.archiveWritten', { archive: e.archive || 'logs/' + taskId });
     setStage(STEPS, e.ts);
     document.getElementById('verdict').hidden = false;
-    loadArchive('result.json', function (text) {
+    function renderVerdictResult(text) {
       var r;
       try { r = JSON.parse(text); } catch (_) { return; }
       var vb = document.getElementById('verdictBody');
@@ -29183,15 +29311,21 @@ ${STATUS_MODEL_JS}
         (r.rounds_configured != null ? r.rounds_configured : '\u2013') + ' \xB7 ' + tr('debate.turnsLabel') + ' ' +
         (r.turns != null ? r.turns : '\u2013');
       refreshDetailIfOpen(4);
+    }
+    loadArchive('result.json', renderVerdictResult, function () {
+      verdictSummary = tr('debate.verdictLoadError');
+      refreshDetailIfOpen(4);
+      renderArchiveError(document.getElementById('verdictBody'), 'debate.verdictLoadError', 'result.json', renderVerdictResult);
     });
-    loadArchive('events.jsonl', function (text) {
+    function renderVerdictFindings(text) {
+      var box = document.getElementById('verdictFindings');
+      box.textContent = '';
       var lines = text.split('\\n');
+      var rendered = false;
       for (var i = lines.length - 1; i >= 0; i--) {
         if (!lines[i]) continue;
         var t;
         try { t = JSON.parse(lines[i]); } catch (_) { continue; }
-        var box = document.getElementById('verdictFindings');
-        box.textContent = '';
         var h = document.createElement('div');
         h.className = 'findings-head';
         h.textContent = 'FINDINGS \xB7 ' + (t.speaker || '\u2013') + ' \xB7 round ' + (t.round != null ? t.round : '\u2013');
@@ -29201,13 +29335,26 @@ ${STATUS_MODEL_JS}
         c.textContent = content.length > 1200 ? content.slice(0, 1200) + '\u2026' : content;
         box.appendChild(h);
         box.appendChild(c);
+        rendered = true;
         break;
       }
+      if (!rendered) {
+        // A 200 with an empty/unparseable events.jsonl must not leave the
+        // previous error + retry state on screen \u2014 show an empty state.
+        var none = document.createElement('div');
+        none.className = 'hint';
+        none.textContent = tr('debate.noFindings');
+        box.appendChild(none);
+      }
+    }
+    loadArchive('events.jsonl', renderVerdictFindings, function () {
+      renderArchiveError(document.getElementById('verdictFindings'), 'debate.findingsLoadError', 'events.jsonl', renderVerdictFindings);
     });
   }
   document.getElementById('fullBtn').addEventListener('click', function () {
-    this.hidden = true;
-    loadArchive('events.jsonl', function (text) {
+    var btn = this;
+    btn.hidden = true;
+    function renderFullTranscript(text) {
       document.getElementById('transcript').textContent = '';
       lastRound = 0;
       var lines = text.split('\\n');
@@ -29218,6 +29365,12 @@ ${STATUS_MODEL_JS}
           addTurn(t.speaker, t.round, t.turn, t.content, t.timestamp, t.signoff === true);
         } catch (_) {}
       }
+    }
+    loadArchive('events.jsonl', renderFullTranscript, function () {
+      // Fetch failed: restore the button and surface the error + inline retry
+      // (same renderArchiveError mechanism as the verdict findings pane).
+      btn.hidden = false;
+      renderArchiveError(document.getElementById('transcript'), 'debate.findingsLoadError', 'events.jsonl', renderFullTranscript);
     });
   });
 

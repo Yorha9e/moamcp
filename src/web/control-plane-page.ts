@@ -1446,6 +1446,7 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     if (runsPollTimer) { runsPollTimer.stop(); runsPollTimer = null; }
     if (systemPollTimer) { systemPollTimer.stop(); systemPollTimer = null; }
     if (runSearchTimer) { clearTimeout(runSearchTimer); runSearchTimer = null; }
+    stopInboxPolling();
   }
   function switchRunsView(view) {
     activeRunsView = view;
@@ -1479,8 +1480,8 @@ ${TIPS_PAGE_JS}${BOARD_LIST_JS}${AGENTS_PAGE_JS}${BOARD_FORM_JS}${RUNS_PAGE_JS}$
     if (view === 'board') loadBoard().catch(function (error) { setNotice(error.message, true); });
     else if (view === 'agents') loadAgentSummary().catch(function (error) { setNotice(tr('agent.error') + error.message, true); });
     else if (view === 'projects') loadProjects().catch(function (error) { setNotice(error.message, true); });
-    else if (view === 'inbox') loadInbox().catch(function (error) { setNotice(error.message, true); });
-    else loadTips().catch(function (error) { setNotice(error.message, true); });
+    else if (view === 'inbox') { loadInbox().catch(function (error) { setNotice(error.message, true); }); startInboxPolling(); }
+    else { stopInboxPolling(); loadTips().catch(function (error) { setNotice(error.message, true); }); }
   }
   workspaceSelect.addEventListener('change', function () { applyWorkspace(workspaceSelect.value); });
   document.getElementById('renameWorkspaceButton').addEventListener('click', openWorkspaceRename);

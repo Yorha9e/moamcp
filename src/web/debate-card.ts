@@ -524,6 +524,16 @@ ${COMPONENTS_CSS}
   background: var(--tint-green);
   box-shadow: var(--glow-green-btn);
 }
+.verdict-error {
+  font-size: 13px;
+  color: var(--accent-red);
+  margin: 4px 0 8px;
+}
+.verdict-error .secondary {
+  margin-left: 10px;
+  padding: 3px 12px;
+  border-radius: var(--r-sm);
+}
 
 #picker h2 {
   font-size: 14px;
@@ -875,11 +885,26 @@ ${STATUS_MODEL_JS}
     for (var i = 0; i < agents.length; i++) if (agents[i].id === id) agents[i].turns++;
   }
 
-  function loadArchive(file, cb) {
+  function loadArchive(file, cb, failCb) {
     fetch('/archive?task_id=' + encodeURIComponent(taskId) + '&file=' + file)
       .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
       .then(cb)
-      .catch(function () {});
+      .catch(function (err) { if (failCb) failCb(err); });
+  }
+  function renderArchiveError(box, key, file, onSuccess) {
+    box.textContent = '';
+    var err = document.createElement('div');
+    err.className = 'verdict-error';
+    err.textContent = tr(key);
+    box.appendChild(err);
+    var retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'secondary';
+    retry.textContent = tr('debate.retry');
+    retry.addEventListener('click', function () {
+      loadArchive(file, onSuccess, function () { renderArchiveError(box, key, file, onSuccess); });
+    });
+    box.appendChild(retry);
   }
   function putStat(box, k, v) {
     box.appendChild(document.createTextNode(k + ' '));
@@ -893,7 +918,7 @@ ${STATUS_MODEL_JS}
     verdictSummary = tr('debate.archiveWritten', { archive: e.archive || 'logs/' + taskId });
     setStage(STEPS, e.ts);
     document.getElementById('verdict').hidden = false;
-    loadArchive('result.json', function (text) {
+    function renderVerdictResult(text) {
       var r;
       try { r = JSON.parse(text); } catch (_) { return; }
       var vb = document.getElementById('verdictBody');
@@ -919,15 +944,21 @@ ${STATUS_MODEL_JS}
         (r.rounds_configured != null ? r.rounds_configured : '–') + ' · ' + tr('debate.turnsLabel') + ' ' +
         (r.turns != null ? r.turns : '–');
       refreshDetailIfOpen(4);
+    }
+    loadArchive('result.json', renderVerdictResult, function () {
+      verdictSummary = tr('debate.verdictLoadError');
+      refreshDetailIfOpen(4);
+      renderArchiveError(document.getElementById('verdictBody'), 'debate.verdictLoadError', 'result.json', renderVerdictResult);
     });
-    loadArchive('events.jsonl', function (text) {
+    function renderVerdictFindings(text) {
+      var box = document.getElementById('verdictFindings');
+      box.textContent = '';
       var lines = text.split('\\n');
+      var rendered = false;
       for (var i = lines.length - 1; i >= 0; i--) {
         if (!lines[i]) continue;
         var t;
         try { t = JSON.parse(lines[i]); } catch (_) { continue; }
-        var box = document.getElementById('verdictFindings');
-        box.textContent = '';
         var h = document.createElement('div');
         h.className = 'findings-head';
         h.textContent = 'FINDINGS · ' + (t.speaker || '–') + ' · round ' + (t.round != null ? t.round : '–');
@@ -937,13 +968,26 @@ ${STATUS_MODEL_JS}
         c.textContent = content.length > 1200 ? content.slice(0, 1200) + '…' : content;
         box.appendChild(h);
         box.appendChild(c);
+        rendered = true;
         break;
       }
+      if (!rendered) {
+        // A 200 with an empty/unparseable events.jsonl must not leave the
+        // previous error + retry state on screen — show an empty state.
+        var none = document.createElement('div');
+        none.className = 'hint';
+        none.textContent = tr('debate.noFindings');
+        box.appendChild(none);
+      }
+    }
+    loadArchive('events.jsonl', renderVerdictFindings, function () {
+      renderArchiveError(document.getElementById('verdictFindings'), 'debate.findingsLoadError', 'events.jsonl', renderVerdictFindings);
     });
   }
   document.getElementById('fullBtn').addEventListener('click', function () {
-    this.hidden = true;
-    loadArchive('events.jsonl', function (text) {
+    var btn = this;
+    btn.hidden = true;
+    function renderFullTranscript(text) {
       document.getElementById('transcript').textContent = '';
       lastRound = 0;
       var lines = text.split('\\n');
@@ -954,6 +998,12 @@ ${STATUS_MODEL_JS}
           addTurn(t.speaker, t.round, t.turn, t.content, t.timestamp, t.signoff === true);
         } catch (_) {}
       }
+    }
+    loadArchive('events.jsonl', renderFullTranscript, function () {
+      // Fetch failed: restore the button and surface the error + inline retry
+      // (same renderArchiveError mechanism as the verdict findings pane).
+      btn.hidden = false;
+      renderArchiveError(document.getElementById('transcript'), 'debate.findingsLoadError', 'events.jsonl', renderFullTranscript);
     });
   });
 

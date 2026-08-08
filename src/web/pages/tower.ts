@@ -213,6 +213,15 @@ ${COMPONENTS_CSS}
 }
 .tw-log-line { white-space: pre-wrap; word-break: break-all; }
 .tw-empty { padding: 16px 14px; text-align: center; color: var(--text-faint); }
+.tw-error { color: var(--accent-red); }
+.tw-reviews-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 0;
+}
+.tw-reviews-bar[hidden] { display: none; }
+.tw-reviews-bar select { min-width: 200px; }
 .tw-body[hidden] { display: none; }
 </style>
 ${THEME_BOOTSTRAP}
@@ -230,7 +239,7 @@ ${I18N_BOOTSTRAP}
     <span class="tw-scan" id="twScan" hidden><span class="spin"></span><span data-i18n="tower.scanning">Scanning workspaces…</span></span>
     <span class="tw-counts" id="twCounts"></span>
   </div>
-  <div class="tw-notready" id="twNotReady" hidden data-i18n="tower.noBooted">No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.</div>
+  <div class="tw-notready" id="twNotReady" hidden data-i18n="tower.waitingBoot">Waiting for the tower to become ready — retrying automatically…</div>
   <div class="tw-panel" id="twMissionsPanel">
     <div class="tw-panel-head">
       <span class="tw-chevron"></span>
@@ -287,7 +296,13 @@ ${I18N_BOOTSTRAP}
       <span class="tw-panel-sub tw-reviews-branch" id="twReviewsBranchLabel"></span>
       <span class="tw-panel-sub" id="twReviewsCount"></span>
     </div>
-    <div class="tw-panel-body" id="twReviewsBody"></div>
+    <div class="tw-panel-body" id="twReviewsBody">
+      <div class="tw-reviews-bar" id="twReviewsBar">
+        <label for="twReviewsBranch" data-i18n="tower.branch">Branch</label>
+        <select id="twReviewsBranch" data-i18n-aria="tower.branch"></select>
+      </div>
+      <div id="twReviewsTable"></div>
+    </div>
   </div>
 </div>
 <script>
@@ -313,7 +328,9 @@ ${LIB_JS}
   var findingsPanel = document.getElementById('twFindingsPanel');
   var findingsBody = document.getElementById('twFindingsBody');
   var reviewsPanel = document.getElementById('twReviewsPanel');
-  var reviewsBody = document.getElementById('twReviewsBody');
+  var reviewsBar = document.getElementById('twReviewsBar');
+  var reviewsTable = document.getElementById('twReviewsTable');
+  var reviewsBranchSelect = document.getElementById('twReviewsBranch');
   var reviewsBranchLabel = document.getElementById('twReviewsBranchLabel');
 
   var bootedRepos = [];
@@ -324,6 +341,10 @@ ${LIB_JS}
   var findingsOpen = false;
   var reviewsOpen = false;
   var poll = null;
+  var discoverTimer = null;
+  var discoverBusy = false; // in-flight guard: never run two discovers concurrently
+  var discoverSeq = 0;      // epoch token: only the latest round's result may apply
+  var DISCOVER_RETRY_MS = 10000;
 
   function esc(s) {
     return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -346,6 +367,12 @@ ${LIB_JS}
   function appendEmpty(container, key) {
     var none = document.createElement('div');
     none.className = 'tw-empty';
+    none.textContent = tr(key);
+    container.appendChild(none);
+  }
+  function appendError(container, key) {
+    var none = document.createElement('div');
+    none.className = 'tw-empty tw-error';
     none.textContent = tr(key);
     container.appendChild(none);
   }
@@ -481,7 +508,7 @@ ${LIB_JS}
       }
     }).catch(function () {
       findingsBody.textContent = '';
-      appendEmpty(findingsBody, 'tower.noFindings');
+      appendError(findingsBody, 'tower.loadError');
     });
   }
   function reviewBranches() {
@@ -492,14 +519,29 @@ ${LIB_JS}
     }
     return branches;
   }
+  function renderReviewsBranches() {
+    var branches = reviewBranches();
+    var prev = reviewsBranchSelect.value;
+    reviewsBranchSelect.textContent = '';
+    for (var i = 0; i < branches.length; i++) {
+      var o = document.createElement('option');
+      o.value = branches[i];
+      o.textContent = branches[i];
+      reviewsBranchSelect.appendChild(o);
+    }
+    var keep = prev && branches.indexOf(prev) !== -1;
+    reviewsBranchSelect.value = keep ? prev : (branches.length ? branches[0] : '');
+    reviewsBranchSelect.disabled = !branches.length;
+    if (reviewsBar) reviewsBar.hidden = !branches.length;
+  }
   function loadReviews() {
     if (!current) return;
-    var branches = reviewBranches();
-    var branch = branches.length ? branches[0] : '';
+    renderReviewsBranches();
+    var branch = reviewsBranchSelect.value;
     if (reviewsBranchLabel) reviewsBranchLabel.textContent = branch ? tr('tower.reviewsFor', { branch: branch }) : '';
     if (!branch) {
-      reviewsBody.textContent = '';
-      appendEmpty(reviewsBody, 'tower.noReviews');
+      reviewsTable.textContent = '';
+      appendEmpty(reviewsTable, 'tower.noReviews');
       return;
     }
     api('/api/tower/reviews?workspace=' + encodeURIComponent(current.cwd) + '&branch=' + encodeURIComponent(branch)).then(function (data) {
@@ -507,8 +549,8 @@ ${LIB_JS}
       var count = document.getElementById('twReviewsCount');
       if (count) count.textContent = reviews.length ? reviews.length + '' : '';
       if (!reviewsOpen) return;
-      reviewsBody.textContent = '';
-      if (!reviews.length) { appendEmpty(reviewsBody, 'tower.noReviews'); return; }
+      reviewsTable.textContent = '';
+      if (!reviews.length) { appendEmpty(reviewsTable, 'tower.noReviews'); return; }
       var table = document.createElement('div');
       table.className = 'tw-colhead tw-colhead-reviews';
       [tr('tower.colRound'), tr('tower.colReviewer'), tr('tower.colStatus'), tr('tower.colMerge'), tr('tower.colCommit'), tr('tower.colDate')].forEach(function (h) {
@@ -516,7 +558,7 @@ ${LIB_JS}
         span.textContent = h;
         table.appendChild(span);
       });
-      reviewsBody.appendChild(table);
+      reviewsTable.appendChild(table);
       for (var i = 0; i < reviews.length; i++) {
         var r = reviews[i];
         var row = document.createElement('div');
@@ -527,11 +569,11 @@ ${LIB_JS}
         row.appendChild(makeCell(r.merge, 'tw-mono'));
         row.appendChild(makeCell(r.reviewedCommit ? String(r.reviewedCommit).slice(0, 7) : '—', 'tw-mono'));
         row.appendChild(makeCell(r.date || '—', 'tw-mono'));
-        reviewsBody.appendChild(row);
+        reviewsTable.appendChild(row);
       }
     }).catch(function () {
-      reviewsBody.textContent = '';
-      appendEmpty(reviewsBody, 'tower.noReviews');
+      reviewsTable.textContent = '';
+      appendError(reviewsTable, 'tower.loadError');
     });
   }
 
@@ -585,11 +627,14 @@ ${LIB_JS}
     }
     var pick = foundSaved ? saved : bootedRepos[0].cwd;
     repoSelect.value = pick;
-    selectRepo(pick);
+    // Only re-select when there is no active selection or the pick itself
+    // changed — never clobber the user's chosen repo on a refresh.
+    if (!current || current.cwd !== pick) selectRepo(pick);
   }
   function selectRepo(cwd) {
     current = { cwd: cwd };
     try { localStorage.setItem(REPO_KEY, cwd); } catch (_) {}
+    stopDiscoverRetry();
     lastState = lastMissions = lastLog = null;
     findingsOpen = reviewsOpen = false;
     findingsPanel.className = 'tw-panel collapsed';
@@ -599,6 +644,9 @@ ${LIB_JS}
     refresh();
   }
   function discover() {
+    if (discoverBusy) return; // in-flight guard: the retry timer must not stack rounds
+    discoverBusy = true;
+    var seq = ++discoverSeq;
     setScan(true);
     api('/api/workspaces').then(function (data) {
       var workspaces = (data && data.workspaces) || [];
@@ -612,20 +660,40 @@ ${LIB_JS}
       });
       return Promise.all(probes).then(function () { return found; });
     }).then(function (found) {
-      bootedRepos = found;
+      if (seq !== discoverSeq) return; // stale round — a newer discover superseded it
+      discoverBusy = false;
       setScan(false);
-      if (!bootedRepos.length) {
+      if (!found.length) {
+        // If the page is already ready and polling, keep the live view —
+        // never flip it back to not-ready on a late/empty probe result.
+        if (poll) return;
+        bootedRepos = [];
         notReadyEl.hidden = false;
-        setConn('connecting', '○ ' + tr('tower.noBooted'));
+        setConn('connecting', '○ ' + tr('tower.waitingBoot'));
+        startDiscoverRetry();
         return;
       }
+      bootedRepos = found;
+      stopDiscoverRetry();
+      notReadyEl.hidden = true;
       fillRepoOptions();
       startPolling();
     }).catch(function () {
+      if (seq !== discoverSeq) return;
+      discoverBusy = false;
       setScan(false);
+      if (poll) return;
       notReadyEl.hidden = false;
-      setConn('error', '✗ ' + tr('tower.notReady'));
+      setConn('error', '✗ ' + tr('tower.waitingBoot'));
+      startDiscoverRetry();
     });
+  }
+  function startDiscoverRetry() {
+    if (discoverTimer) return;
+    discoverTimer = setInterval(function () { discover(); }, DISCOVER_RETRY_MS);
+  }
+  function stopDiscoverRetry() {
+    if (discoverTimer) { clearInterval(discoverTimer); discoverTimer = null; }
   }
 
   if (repoSelect) repoSelect.addEventListener('change', function () {
@@ -641,6 +709,7 @@ ${LIB_JS}
     reviewsPanel.className = 'tw-panel' + (reviewsOpen ? '' : ' collapsed');
     if (reviewsOpen) loadReviews();
   });
+  if (reviewsBranchSelect) reviewsBranchSelect.addEventListener('change', function () { loadReviews(); });
   if (window.addEventListener) window.addEventListener('moamcp:localechange', function () {
     tr = window.__moaI18n ? window.__moaI18n.t : function (k) { return k; };
     renderAll();

@@ -45,6 +45,7 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'debate.roundDetail': 'Round {round}/{rounds} · Current speaker {speaker} · {turns} turns submitted',
     'debate.aggregateDone': 'Archive written; verdict is available', 'debate.aggregateActive': 'Aggregating — waiting for moa_complete to write the archive',
     'debate.verdictLoading': 'Archive written; loading VERDICT details…', 'debate.speaking': 'speaking',
+    'debate.verdictLoadError': 'Failed to load VERDICT details from the archive.', 'debate.findingsLoadError': 'Failed to load findings from the archive.', 'debate.noFindings': 'No findings in the archive.', 'debate.retry': 'Retry',
     'debate.waiting': 'waiting', 'debate.turnCount': '{count} turn', 'debate.turnCountPlural': '{count} turns',
     'debate.signoff': '✍ Sign-off', 'debate.closed': 'closed', 'debate.initialized': 'initialized',
     'debate.debating': 'debating', 'debate.debateComplete': 'debate complete', 'debate.earlyClose': 'Closed early (unanimous sign-off)',
@@ -188,6 +189,7 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'status.subtreeCollapse': 'Collapse subtree', 'status.subtreeExpand': 'Expand subtree',
     'tower.title': 'Tower Workflow', 'tower.polling': 'live · 5s poll', 'tower.scanning': 'Scanning workspaces…',
     'tower.noBooted': 'No booted tower found in any registered workspace. Boot one with moa_tower_boot, then reload.',
+    'tower.waitingBoot': 'Waiting for the tower to become ready — retrying automatically…',
     'tower.notReady': 'Tower controller is not running. Start or reuse a session to begin monitoring.',
     'tower.repo': 'Repo', 'tower.selectRepo': 'Select a booted tower repo…',
     'tower.missions': 'Missions', 'tower.roster': 'Roster', 'tower.activity': 'Activity log',
@@ -207,8 +209,10 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'tower.noMissions': 'No missions yet.', 'tower.noRoster': 'No roster entries yet.',
     'tower.noLog': 'No activity yet.', 'tower.noFindings': 'No findings filed.',
     'tower.noReviews': 'No reviews for this branch.', 'tower.empty': 'No data yet.',
+    'tower.loadError': 'Failed to load — the next poll will retry automatically.',
     'tower.expand': 'Expand', 'tower.collapse': 'Collapse',
     'tower.reviewsFor': 'Reviews for {branch}', 'tower.updatedAt': 'Updated {time}',
+    'tower.branch': 'Branch',
     'tower.countsMissions': 'missions', 'tower.countsAgents': 'agents'
   },
   'zh-CN': {
@@ -226,6 +230,7 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'debate.pending.0': '等待页面连接建立（加载后自动连接）', 'debate.pending.1': '等待 moa_init 完成任务初始化（task_initialized）', 'debate.pending.2': '等待 moa_start_debate 注入参考池并启动辩论（debate_started）', 'debate.pending.3': '等待所有辩手完成发言（debate_complete）', 'debate.pending.4': '等待 moa_complete 写入三层归档（task_closed）',
     'debate.notStarted': '该阶段尚未开始 — {reason}', 'debate.consensusDone': '任务已初始化，共识准备完成', 'debate.consensusActive': '已连接，等待 moa_init 初始化任务', 'debate.referenceSummary': 'reference_results 摘要：{value}', 'debate.referenceMissing': '快照未携带 reference_results（moa_start_debate 会直接注入辩手上下文）。',
     'debate.roundDetail': '轮次 {round}/{rounds} · 当前发言人 {speaker} · 已提交 {turns} 次发言', 'debate.aggregateDone': '归档已写入，裁决已输出', 'debate.aggregateActive': '汇总中 — 等待 moa_complete 写入归档', 'debate.verdictLoading': '归档已写入，VERDICT 详情加载中…',
+    'debate.verdictLoadError': '从归档加载 VERDICT 详情失败。', 'debate.findingsLoadError': '从归档加载 FINDINGS 详情失败。', 'debate.noFindings': '归档中暂无 FINDINGS。', 'debate.retry': '重试',
     'debate.speaking': '发言中', 'debate.waiting': '等待中', 'debate.turnCount': '{count} 次发言', 'debate.turnCountPlural': '{count} 次发言', 'debate.signoff': '✍ 签字', 'debate.closed': '已关闭', 'debate.initialized': '已初始化', 'debate.debating': '辩论中', 'debate.debateComplete': '辩论完成', 'debate.earlyClose': '提前结束（全体一致签字）',
     'debate.archiveWritten': '归档已写入 · {archive}', 'debate.finishedAt': '完成时间', 'debate.archive': '归档', 'debate.signers': '签字人', 'debate.roundsLabel': '轮次', 'debate.turnsLabel': '发言数', 'debate.archivedAfterComplete': '辩论记录将在 moa_complete 后归档。', 'debate.signoffReset': '签字重置（{agent} 提出异议）— 辩论按原定轮次继续',
     'debate.waitingBadge': '等待中', 'debate.connecting': '连接中…', 'debate.connectedNoEventsBefore': '已连接，但任务 ', 'debate.connectedNoEventsAfter': ' 还没有任何事件。辩论可能尚未开始，或 Bus 进程重启过（事件日志在内存中）。', 'debate.backToTasks': '返回任务列表', 'debate.transient': '○ 临时中断 {count}/3', 'debate.backoff': '○ {seconds} 秒后重连', 'debate.error': '✗ 错误',
@@ -325,6 +330,7 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'app.tower': '塔台工作流',
     'tower.title': '塔台工作流', 'tower.polling': 'live · 5 秒轮询', 'tower.scanning': '扫描工作区中…',
     'tower.noBooted': '已注册的工作区中未找到已 boot 的塔台。请先用 moa_tower_boot 启动，再刷新本页。',
+    'tower.waitingBoot': '正在等待塔台就绪，自动重试中…',
     'tower.notReady': '塔台控制器未启动。请启动或复用会话后开始监控。',
     'tower.repo': '仓库', 'tower.selectRepo': '选择已 boot 的塔台仓库…',
     'tower.missions': '任务', 'tower.roster': '名册', 'tower.activity': '活动日志',
@@ -344,8 +350,10 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'tower.noMissions': '尚无任务。', 'tower.noRoster': '尚无名册条目。',
     'tower.noLog': '暂无活动。', 'tower.noFindings': '暂无发现。',
     'tower.noReviews': '该分支暂无评审。', 'tower.empty': '暂无数据。',
+    'tower.loadError': '加载失败，下次轮询将自动重试。',
     'tower.expand': '展开', 'tower.collapse': '收起',
     'tower.reviewsFor': '{branch} 的评审', 'tower.updatedAt': '更新于 {time}',
+    'tower.branch': '分支',
     'tower.countsMissions': '个任务', 'tower.countsAgents': '个代理'
   }
 };

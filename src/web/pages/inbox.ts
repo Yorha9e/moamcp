@@ -95,8 +95,16 @@ export const INBOX_PAGE_JS = `  var inboxMode = 'inbox';
     detail.appendChild(dl);
     row.appendChild(detail);
   }
+  var inboxListSig = '';
   function renderInboxList(handoffs) {
     var list = document.getElementById('inboxList');
+    clearListLoading(list);
+    var sig = JSON.stringify(handoffs);
+    // No-op refresh: identical data must not tear down the DOM — the expanded
+    // .ho-detail rows (pure DOM state) and the scroll position survive. A list
+    // left empty by the loading sweep re-renders so the empty state returns.
+    if (sig === inboxListSig && list.children.length > 0) return;
+    inboxListSig = sig;
     list.textContent = '';
     if (!handoffs.length) {
       var empty = document.createElement('div');
@@ -139,4 +147,15 @@ export const INBOX_PAGE_JS = `  var inboxMode = 'inbox';
   document.getElementById('inboxState').addEventListener('change', function () { loadInbox().catch(function (error) { setNotice(error.message, true); }); });
   document.getElementById('inboxViewButton').addEventListener('click', function () { switchInboxMode('inbox').catch(function (error) { setNotice(error.message, true); }); });
   document.getElementById('outboxViewButton').addEventListener('click', function () { switchInboxMode('outbox').catch(function (error) { setNotice(error.message, true); }); });
+  /* Real-time refresh: the runs live view's 5s poll pattern (lib.ts
+     POLL_MS.runs). switchView() starts it when the inbox tab becomes active
+     and stops it on every other view; closeSectionResources() stops it too. */
+  var inboxPollTimer = null;
+  function startInboxPolling() {
+    stopInboxPolling();
+    inboxPollTimer = window.__moaLib.startPoll(function () { loadInbox().catch(function () {}); }, window.__moaLib.POLL_MS.runs);
+  }
+  function stopInboxPolling() {
+    if (inboxPollTimer) { inboxPollTimer.stop(); inboxPollTimer = null; }
+  }
 `;
