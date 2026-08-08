@@ -133,6 +133,19 @@ moamcp 的多 agent 塔台工作流（移植自 kimi-code `pr-2633-tower` 协议
 
 无 `moa_tower_*` 工具面的子代理会话可用仓库根的 stdio 桥脚本 `scripts/tower-cli.mjs`（MCP 走 stdio 连 `dist/server.js`，payload 内联 JSON 或 `@file`）驱动塔台：`node scripts/tower-cli.mjs <tool> '<json>|@file' [timeoutMs]`。
 
+### 宿主配置建议
+
+塔台编排常常跨小时级（等 worker 施工、等 reviewer 评审、等 CI），而宿主 CLI 的子代理任务级墙钟超时默认只有 2 小时（`DEFAULT_SUBAGENT_TIMEOUT_MS = 7200000`，前台/后台子代理、Agent/AgentSwarm 一视同仁）——对长生命周期的 `tower-orchestrator` 偏短，撞墙会被杀掉，只能 resume 续命（塔台状态都在 board 上不丢，但浪费编排回合）。建议在 `config.toml` 调大：
+
+```toml
+[subagent]
+timeout_ms = 28800000   # 8 小时
+```
+
+取值语义：默认 `7200000`（2 小时）；`0` = 不限时（失控子代理失去自动绞索，不建议）；env `KIMI_SUBAGENT_TIMEOUT_MS` 可 per-run 覆盖（正整数，不写盘）。
+
+改动只对新派遣 / resume 的子代理生效，不影响已在跑的任务。
+
 ### `/tower` 面板页与写守卫
 
 - `/tower`（GET 静态页）：repo 选择器（自动探测已 boot 的塔台，5s 轮询）；missions 表带状态 / CI 徽标（绿 `exitCode 0`、红失败、灰跳过）/ 评审门禁列；名册表带 `✓ verified` 标记（tower 行 agent id 打码）；活动日志（最近 100 行）；findings / reviews 两个折叠面板（展开时按需加载）。
