@@ -19,6 +19,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { BoardStore } from '../src/core/store/board.js';
 import { createServer } from '../src/server.js';
 import { createTowerController, createTowerModule, towerRepoKey } from '../src/modules/tower/index.js';
+import { ciRunChainCount } from '../src/modules/tower/store.js';
 
 vi.setConfig({ testTimeout: 30000 });
 
@@ -130,6 +131,8 @@ async function readyBranch(env: CiAsyncEnv): Promise<{ branch: string; worktree:
   return { branch, worktree };
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** The ci/<branchSlug> board key for the test branch. */
 function ciKey(repoRoot: string): string {
   return `tower/${towerRepoKey(repoRoot)}/ci/feat-m1-build-the-parser`;
@@ -153,6 +156,9 @@ it('moa_tower_ci returns immediately with run_id/started_at/status=started while
   expect(typeof ci.run_id).toBe('string');
   expect(typeof ci.started_at).toBe('string');
 
+  // The run is in flight → the per-worktree chain entry exists (not yet pruned).
+  expect(ciRunChainCount()).toBeGreaterThanOrEqual(1);
+
   // The record must NOT have landed yet — the run is still in flight.
   const rowsBefore = await env.board.read(ciKey(repoRoot), undefined, 'workspace', 1, repoRoot);
   expect(rowsBefore).toHaveLength(0);
@@ -173,6 +179,10 @@ it('moa_tower_ci returns immediately with run_id/started_at/status=started while
 
   const status = await call(client, 'moa_tower_status', { workspace: repoRoot, caller_agent_id: 'agent-orch' });
   expect(status.ci['per-branch'][branch]).toMatchObject({ commit: tip, exitCode: 0 });
+
+  // Once the run completes, its chain entry is pruned (module-level map).
+  for (let i = 0; i < 100 && ciRunChainCount() > 0; i++) await sleep(50);
+  expect(ciRunChainCount()).toBe(0);
   await env.close();
 });
 

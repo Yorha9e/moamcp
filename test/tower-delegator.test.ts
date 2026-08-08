@@ -46,9 +46,12 @@ interface DelegatorEnv {
   repoRoot: string;
 }
 
-/** Boot with a delegator agent id (and a worker so send-to-non-tower has a
- *  real target). */
-async function makeEnv(): Promise<DelegatorEnv> {
+/** Boot (optionally with a delegator agent id and/or a worker target). */
+async function makeEnv(
+  opts: { readonly withDelegator?: boolean; readonly withWorker?: boolean } = {},
+): Promise<DelegatorEnv> {
+  const withDelegator = opts.withDelegator ?? true;
+  const withWorker = opts.withWorker ?? true;
   const home = await mkdtemp(join(tmpdir(), 'moamcp-tower-delegator-'));
   homes.push(home);
   const repoRoot = join(home, 'repo');
@@ -69,26 +72,26 @@ async function makeEnv(): Promise<DelegatorEnv> {
   const client = new Client({ name: 'tower-delegator-test', version: '0.0.1' });
   await client.connect(clientTransport);
 
-  const boot = await call(client, 'moa_tower_boot', {
-    workspace: repoRoot,
-    tower_agent_id: 'agent-orch',
-    delegator_agent_id: 'agent-deleg',
-  });
+  const bootArgs: Record<string, unknown> = { workspace: repoRoot, tower_agent_id: 'agent-orch' };
+  if (withDelegator) bootArgs.delegator_agent_id = 'agent-deleg';
+  const boot = await call(client, 'moa_tower_boot', bootArgs);
   expect(boot).toMatchObject({ booted: true, base: 'main' });
-  expect(boot.roster).toEqual(['tower', 'delegator']);
+  if (withDelegator) expect(boot.roster).toEqual(['tower', 'delegator']);
 
-  // A real worker target for the send-to-non-tower rejection.
-  await call(client, 'moa_tower_plan', {
-    workspace: repoRoot,
-    caller_agent_id: 'agent-orch',
-    missions: [{ title: 'Build the parser', scope: ['src/**'] }],
-  });
-  await call(client, 'moa_tower_spawn', {
-    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w1', kind: 'worker', mission_id: 'M1',
-  });
-  await call(client, 'moa_tower_register', {
-    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w1', agent_id: 'agent-w1',
-  });
+  if (withWorker) {
+    // A real worker target for the send-to-non-tower rejection.
+    await call(client, 'moa_tower_plan', {
+      workspace: repoRoot,
+      caller_agent_id: 'agent-orch',
+      missions: [{ title: 'Build the parser', scope: ['src/**'] }],
+    });
+    await call(client, 'moa_tower_spawn', {
+      workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w1', kind: 'worker', mission_id: 'M1',
+    });
+    await call(client, 'moa_tower_register', {
+      workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'w1', agent_id: 'agent-w1',
+    });
+  }
   return { client, close: () => client.close(), repoRoot };
 }
 
@@ -239,6 +242,25 @@ it('caller-resolved tools reject the delegator (status / inbox / mission / findi
   });
   expect(wait.isError).toBe(true);
   expect(wait.output).toMatch(expected);
+  await env.close();
+});
+
+it('the "delegator" name slug is reserved — a spawned worker can never be registered under it', async () => {
+  // Boot WITHOUT a delegator entry so the spawn hits the RESERVED-SLUG branch
+  // (with an entry present it would instead hit the duplicate-name branch).
+  const env = await makeEnv({ withDelegator: false, withWorker: false });
+  const { client, repoRoot } = env;
+  const spawn = await call(client, 'moa_tower_spawn', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'delegator', kind: 'worker', mission_id: 'M1',
+  });
+  expect(spawn.isError).toBe(true);
+  expect(spawn.output).toMatch(/collides with reserved name "delegator"/);
+  // Slug-level reservation: any casing normalizes to the same reserved slug.
+  const spawnCased = await call(client, 'moa_tower_spawn', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', name: 'Delegator', kind: 'worker', mission_id: 'M1',
+  });
+  expect(spawnCased.isError).toBe(true);
+  expect(spawnCased.output).toMatch(/collides with reserved name "delegator"/);
   await env.close();
 });
 

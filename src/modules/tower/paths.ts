@@ -35,7 +35,9 @@ export const BROADCAST_NAME = 'all';
 /**
  * Reserved roster name for the optional boot-registered delegator (M1 — the
  * delegation channel). A delegator may ONLY call `moa_tower_send` addressed
- * to the tower; every other tower tool rejects it (see tools.ts).
+ * to the tower; every other tower tool rejects it (see tools.ts). The name
+ * slug is reserved for spawned agents too (assertNameAvailable) so a
+ * worker/reviewer can never be registered as "delegator".
  */
 export const DELEGATOR_NAME = 'delegator';
 

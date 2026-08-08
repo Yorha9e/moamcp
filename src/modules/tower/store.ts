@@ -191,20 +191,35 @@ export function towerWaitCapMs(): number {
 /**
  * M1 async CI — in-process per-worktree serialization. TowerStore instances
  * are constructed per tool call (storeFor), so the chain MUST live at module
- * level to survive across calls — same single-tower single-process assumption
- * as the controller's CI queue (风险台账 9/11: no cross-process mutex; a
- * multi-tower v2 must add one). A run's COMPLETION only starts after the
- * previous run for the same worktree finished, so concurrent moa_tower_ci
- * calls can never overlap on one worktree.
+ * level to survive across calls (单塔台单会话 assumption, 风险台账 9/11: no
+ * cross-process mutex; a multi-tower v2 must add one). A run's COMPLETION
+ * only starts after the previous run for the same worktree finished, so
+ * concurrent moa_tower_ci calls can never overlap on one worktree. Entries
+ * are pruned once their tail settles (see chainCiRun) — the map only ever
+ * holds in-flight (unswept) runs.
  */
 const ciRunChains = new Map<string, Promise<unknown>>();
+
+/** Number of worktrees with an in-flight CI chain in this process — test/
+ *  diagnostics observability (0 = no CI run pending; entries are pruned on
+ *  settle). */
+export function ciRunChainCount(): number {
+  return ciRunChains.size;
+}
 
 function chainCiRun<T>(key: string, task: () => Promise<T>): Promise<T> {
   const previous = ciRunChains.get(key) ?? Promise.resolve();
   const completion = previous.then(task);
   // The chain tail swallows rejections so a failed run never poisons the next
-  // one (mirrors the controller queue's `run.then(noop, noop)`).
-  ciRunChains.set(key, completion.then(() => undefined, () => undefined));
+  // one.
+  const tail = completion.then(() => undefined, () => undefined);
+  ciRunChains.set(key, tail);
+  // Prune once the tail settles — but only if the map still holds THIS tail:
+  // a newer run chained onto the same worktree meanwhile must not be evicted
+  // (its own entry is the one that should be pruned when IT settles).
+  void tail.then(() => {
+    if (ciRunChains.get(key) === tail) ciRunChains.delete(key);
+  });
   return completion;
 }
 
@@ -808,15 +823,16 @@ export class TowerStore {
   /**
    * Shared roster-name collision judgment (B1R-1), read-only over `state`:
    * rejects an exact duplicate, a slug collision with an existing roster
-   * member, or a reserved slug ("tower" / "all"). Throws the canonical
-   * TowerProtocolError naming the conflicting object.
+   * member, or a reserved slug ("tower" / "all" / "delegator"). Throws the
+   * canonical TowerProtocolError naming the conflicting object.
    *
    * B1R-1: review keys embed `slugify(name)` (`review/<targetSlug>/<slug>-r<n>`),
    * so names that normalize to the SAME slug ("Reviewer A" vs "reviewer-a")
    * would silently LWW-overwrite each other's review doc on the same
    * target+round and bypass the merge gate. Registration therefore rejects any
    * name whose slug collides with an existing roster member or with the
-   * reserved tower/broadcast names — the error names the conflicting object.
+   * reserved tower/broadcast/delegator names — the error names the
+   * conflicting object.
    *
    * Single source of truth: `registerAgent` runs it inside its board mutate
    * (defense in depth against concurrent spawns) AND the spawn tool runs it
@@ -835,8 +851,19 @@ export class TowerStore {
         );
       }
     }
-    if (slug === slugify(TOWER_NAME, 30) || slug === slugify(BROADCAST_NAME, 30)) {
-      const reserved = slug === slugify(TOWER_NAME, 30) ? TOWER_NAME : BROADCAST_NAME;
+    // M1: 'delegator' is boot-reserved (the delegator channel entry) — a
+    // spawned worker/reviewer must never squat on the name/slug.
+    if (
+      slug === slugify(TOWER_NAME, 30) ||
+      slug === slugify(BROADCAST_NAME, 30) ||
+      slug === slugify(DELEGATOR_NAME, 30)
+    ) {
+      const reserved =
+        slug === slugify(TOWER_NAME, 30)
+          ? TOWER_NAME
+          : slug === slugify(BROADCAST_NAME, 30)
+            ? BROADCAST_NAME
+            : DELEGATOR_NAME;
       throw new TowerProtocolError(
         `tower agent name "${name}" collides with reserved name "${reserved}" — review slug "${slug}" is reserved; choose a distinct name`,
       );
@@ -1294,12 +1321,18 @@ export class TowerStore {
    * from what it was at call time (baseline captured first, then compared).
    * Event-based: BoardStore.wait on the exact mission key with `since` =
    * baseline ts wakes us on the next mission write; a write that leaves the
-   * status unchanged (e.g. a note) loops with the new ts.
+   * status unchanged (e.g. a note) loops with the new ts. A board 'closed'
+   * result (the task scope was archived/closed out from under the waiter) is
+   * surfaced distinctly as {status:'closed'} — it is NOT a retryable timeout.
    */
   async waitForMission(
     id: string,
     timeoutMs?: number,
-  ): Promise<{ status: 'ok'; mission: TowerMission } | { status: 'timeout'; retry: true }> {
+  ): Promise<
+    | { status: 'ok'; mission: TowerMission }
+    | { status: 'timeout'; retry: true }
+    | { status: 'closed' }
+  > {
     const baselineRows = await this.board.read(this.keys.mission(id), undefined, 'workspace', 1, this.repoRoot);
     if (baselineRows.length === 0) {
       throw new TowerProtocolError(`unknown mission "${id}" — known missions require moa_tower_plan first`);
@@ -1312,7 +1345,11 @@ export class TowerStore {
       const remaining = deadline - Date.now();
       if (remaining <= 0) return { status: 'timeout', retry: true };
       const wake = await this.board.wait(this.keys.mission(id), 'workspace', remaining, since, this.repoRoot);
-      if (wake.status !== 'ready') return { status: 'timeout', retry: true };
+      // 'closed' is terminal and distinct from a timeout; any other non-ready
+      // result (a board-internal cap chunk) just loops to the deadline like
+      // waitForCi does.
+      if (wake.status === 'closed') return { status: 'closed' };
+      if (wake.status !== 'ready') continue;
       const mission = JSON.parse(wake.entry.value) as TowerMission;
       if (mission.status !== baselineStatus) return { status: 'ok', mission };
       since = wake.entry.ts;

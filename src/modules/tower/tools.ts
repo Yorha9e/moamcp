@@ -986,7 +986,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
     {
       name: 'moa_tower_wait',
       description:
-        'Long-poll wait primitive for the tower domain (M1), modeled on moa_board_wait / moa_wait_turn: block until the requested condition holds, then return {status:"ok", ...observed payload}; at the safety cap (default 25min, MOAMCP_WAIT_CAP_MS / timeoutMs tune it — timeoutMs is clamped to the cap) return {status:"timeout", retry:true}. wait.kind:"ci" → block until the ci/<branchSlug> record exists AND its commit matches the branch\'s CURRENT tip (a stale record from an older tip does NOT satisfy it); payload = the ci record. wait.kind:"inbox" → block until the caller\'s tower inbox has at least one message (same set moa_tower_inbox returns); payload = the messages. wait.kind:"mission" → block until the mission doc\'s status changes from what it was at call time; payload = the mission doc. Any registered roster member (tower/worker/reviewer/delegator is rejected — delegators may only call moa_tower_send) may wait.',
+        'Long-poll wait primitive for the tower domain (M1), modeled on moa_board_wait / moa_wait_turn: block until the requested condition holds, then return {status:"ok", ...observed payload}; at the safety cap (default 25min, MOAMCP_WAIT_CAP_MS / timeoutMs tune it — timeoutMs is clamped to the cap) return {status:"timeout", retry:true}. wait.kind:"ci" → block until the ci/<branchSlug> record exists AND its commit matches the branch\'s CURRENT tip (a stale record from an older tip does NOT satisfy it); payload = the ci record. wait.kind:"inbox" → block until the caller\'s tower inbox has at least one message (same set moa_tower_inbox returns); payload = the messages. wait.kind:"mission" → block until the mission doc\'s status changes from what it was at call time; payload = the mission doc (a closed task scope returns {status:"closed"} instead of timing out). Any registered roster member (tower/worker/reviewer) may wait; a delegator is rejected — delegators may only call moa_tower_send addressed to the tower.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -1052,6 +1052,7 @@ export function towerTools(controller: TowerController): MoaToolDef[] {
             }
             const outcome = await store.waitForMission(id, timeoutMs);
             if (outcome.status === 'timeout') return { status: 'timeout', retry: true };
+            if (outcome.status === 'closed') return { status: 'closed', kind: 'mission', mission_id: id };
             const mission = outcome.mission;
             return {
               status: 'ok',

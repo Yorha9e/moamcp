@@ -17,7 +17,7 @@ export { createTowerController } from './controller.js';
 export type { TowerController, TowerControllerOptions } from './controller.js';
 export * from './paths.js';
 export { GitError } from './git.js';
-export { TowerProtocolError, TowerStore, towerWaitCapMs, truncateCiLog } from './store.js';
+export { TowerProtocolError, TowerStore, ciRunChainCount, towerWaitCapMs, truncateCiLog } from './store.js';
 export type {
   CiProcessHandle,
   TowerCiResult,

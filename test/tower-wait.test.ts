@@ -362,6 +362,28 @@ it('wait kind=mission: times out when the status never changes', async () => {
   await env.close();
 });
 
+it('wait kind=mission: a closed board scope is surfaced as {status:"closed"}, NOT a retryable timeout', async () => {
+  const env = await makeEnv();
+  const { client, repoRoot } = env;
+  await call(client, 'moa_tower_plan', {
+    workspace: repoRoot,
+    caller_agent_id: 'agent-orch',
+    missions: [{ title: 'Build the parser', scope: ['src/**'] }],
+  });
+  const waiting = call(client, 'moa_tower_wait', {
+    workspace: repoRoot,
+    caller_agent_id: 'agent-orch',
+    wait: { kind: 'mission', id: 'M1' },
+    timeoutMs: 10_000,
+  });
+  await sleep(150); // the waiter is registered before the scope closes
+  await env.board.close(); // resolves every suspended waiter with {status:'closed'}
+  const outcome = await waiting;
+  expect(outcome).toEqual({ status: 'closed', kind: 'mission', mission_id: 'M1' });
+  // No further board calls after close — client.close() alone is safe.
+  await env.close();
+});
+
 it('wait kind=mission: rejects an unknown mission id', async () => {
   const env = await makeEnv();
   const { client, repoRoot } = env;
