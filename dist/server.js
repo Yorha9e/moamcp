@@ -25760,8 +25760,9 @@ var BoardStore = class {
    * `ws-<hash>.meta.json.migrated-*` archive back to the live
    * `ws-<hash>.meta.json` so the directory reappears in the workspace list.
    * No archive (or a live sidecar already present) leaves the state untouched
-   * and returns false. The board file is deliberately NOT restored — the
-   * project keeps its records; the directory's next write starts a fresh board.
+   * and returns false. The board file is restored separately by
+   * `restoreWorkspaceBoard` — alias detach rolls the directory back to its
+   * pre-migration snapshot while the project keeps its records too.
    */
   async restoreWorkspaceSidecar(pathHash) {
     this.assertOpen();
@@ -25786,12 +25787,58 @@ var BoardStore = class {
     return true;
   }
   /**
+   * Restore a detached workspace's board file (un-merge, mailbox task 6b): the
+   * symmetric half of `restoreWorkspaceSidecar`. Renames the newest
+   * `ws-<hash>.jsonl.migrated-*` archive back to the live `ws-<hash>.jsonl` so
+   * the directory's pre-migration records (board writes and tips alike) are
+   * recovered — detach = rollback to the pre-merge snapshot. No archive (or a
+   * live board already present) leaves the state untouched and returns false;
+   * the directory's next write then starts a fresh board (legacy behavior).
+   * The rename runs under the board file's append lock so a concurrent
+   * appender can never write into a file mid-rename, and the live-board
+   * existence check is re-run under that lock so a board a concurrent writer
+   * created meanwhile is never overwritten (review p2-1 TOCTOU).
+   */
+  async restoreWorkspaceBoard(pathHash) {
+    this.assertOpen();
+    if (typeof pathHash !== "string" || !/^[0-9a-f]{16}$/.test(pathHash)) {
+      throw new Error("pathHash must be a 16-hex workspace id");
+    }
+    const dir = this.boardsDir();
+    let names;
+    try {
+      names = await readdir2(dir);
+    } catch (err) {
+      if (err.code === "ENOENT") return false;
+      throw err;
+    }
+    const liveName = `ws-${pathHash}.jsonl`;
+    if (names.includes(liveName)) return false;
+    const prefix = `${liveName}.migrated-`;
+    const archives = names.filter((name) => name.startsWith(prefix)).sort((a, b) => archiveStamp(a, prefix) - archiveStamp(b, prefix));
+    if (archives.length === 0) return false;
+    const newest = archives[archives.length - 1];
+    return withAppendLock(join3(dir, liveName), async () => {
+      let liveExists = false;
+      try {
+        await stat3(join3(dir, liveName));
+        liveExists = true;
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+      if (liveExists) return false;
+      await rename2(join3(dir, newest), join3(dir, liveName));
+      return true;
+    });
+  }
+  /**
    * Alias detach file work (un-merge, mailbox task 6b): the symmetric half of a
    * merge. Removes the detached directory's cwd from the project's `cwds[]`
-   * sidecar and restores its archived workspace sidecar so it reappears as an
-   * independent workspace. The caller has already dropped the registry alias
-   * (`registry.removeAlias`); the project's existing records stay in the
-   * project board — nothing is deleted.
+   * sidecar and restores its archived workspace sidecar + board file, so it
+   * reappears as an independent workspace with its pre-migration records back
+   * (rollback to the pre-merge snapshot). The caller has already dropped the
+   * registry alias (`registry.removeAlias`); the project's records stay in the
+   * project board — nothing is deleted, the merge records never flow back.
    */
   async detachProjectAlias(projectId, pathHash) {
     this.assertOpen();
@@ -25819,7 +25866,13 @@ var BoardStore = class {
     }
     if (removedCwd !== void 0) await this.removeProjectCwd(projectId, removedCwd);
     const restoredSidecar = await this.restoreWorkspaceSidecar(pathHash);
-    return { ...removedCwd !== void 0 ? { removedCwd } : {}, restoredSidecar };
+    const restoredBoard = await this.restoreWorkspaceBoard(pathHash);
+    const wsState = this.scopes.get(`workspace:${pathHash}`);
+    if (wsState !== void 0) {
+      wsState.metaWritten = false;
+      wsState.loaded = false;
+    }
+    return { ...removedCwd !== void 0 ? { removedCwd } : {}, restoredSidecar, restoredBoard };
   }
   /**
    * Archive a project (mailbox task 6c, soft delete): write the registry
@@ -31488,7 +31541,7 @@ async function git(cwd, args) {
     execFile(
       "git",
       [...args],
-      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024, windowsHide: true },
       (error2, stdout, stderr) => {
         if (error2 !== null) {
           reject(new GitError(args, stderr || error2.message));
@@ -34278,7 +34331,7 @@ function createTowerModule(controller) {
 }
 
 // src/core/store/project-migration.ts
-import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile6, rename as rename4, stat as stat4, truncate, unlink as unlink6, writeFile as writeFile3 } from "node:fs/promises";
+import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile6, readdir as readdir7, rename as rename4, stat as stat4, truncate, unlink as unlink6, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join9 } from "node:path";
 async function fileSizeOrZero(file) {
   try {
@@ -34302,6 +34355,19 @@ async function archiveRename(from, to) {
     await rename4(from, to);
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
+  }
+}
+async function pruneOlderMigratedArchives(boardsDir, pathHash, keepStamp) {
+  const prefixes = [`ws-${pathHash}.jsonl.migrated-`, `ws-${pathHash}.meta.json.migrated-`];
+  const names = await readdir7(boardsDir).catch(() => []);
+  for (const name of names) {
+    const prefix = prefixes.find((candidate) => name.startsWith(candidate));
+    if (prefix === void 0) continue;
+    const stamp = Number(name.slice(prefix.length));
+    if (!Number.isFinite(stamp) || stamp === keepStamp) continue;
+    await unlink6(join9(boardsDir, name)).catch((err) => {
+      if (err.code !== "ENOENT") throw err;
+    });
   }
 }
 async function ensureProjectMetaCwd(boardsDir, projectId, cwd) {
@@ -34404,6 +34470,7 @@ async function migrateWorkspaceToProject(workspace, opts = {}) {
     try {
       await archiveRename(sourceFile, `${sourceFile}.migrated-${stamp}`);
       await archiveRename(sourceMeta, `${sourceMeta}.migrated-${stamp}`);
+      await pruneOlderMigratedArchives(boardsDir, pathHash, stamp);
     } catch (err) {
       await registry2.removeAlias(pathHash).catch(() => {
       });
@@ -40927,7 +40994,9 @@ function sessionDirKey(model, sessionId) {
 function partitionSession(model, sessionId) {
   const active = [];
   const inactive = [];
+  const effActive = {};
   const visited = {};
+  const order = [];
   const stack = [];
   const rs = model.roots[sessionId] || [];
   for (let i = rs.length - 1; i >= 0; i--) stack.push(rs[i]);
@@ -40938,14 +41007,28 @@ function partitionSession(model, sessionId) {
     visited[key] = true;
     const e = model.byKey[key];
     if (!e) continue;
-    if (isActiveAgent(e)) active.push(key);
-    else inactive.push(key);
+    order.push(key);
+    if (isActiveAgent(e)) effActive[key] = true;
     const children = e.children;
     for (let j = children.length - 1; j >= 0; j--) {
       if (!visited[children[j]]) stack.push(children[j]);
     }
   }
-  return { active, inactive };
+  for (let i = 0; i < order.length; i++) {
+    if (!effActive[order[i]]) continue;
+    let cur = model.byKey[order[i]].parentKey || null;
+    while (cur && !effActive[cur]) {
+      effActive[cur] = true;
+      const e = model.byKey[cur];
+      if (!e) break;
+      cur = e.parentKey || null;
+    }
+  }
+  for (let i = 0; i < order.length; i++) {
+    if (effActive[order[i]]) active.push(order[i]);
+    else inactive.push(order[i]);
+  }
+  return { active, inactive, effActive };
 }
 function listDirectories(model) {
   function dirLabel(model2, dirKey, sessionId) {
@@ -41031,11 +41114,11 @@ function activeAgentKeysWithAncestors(model) {
       const ak = ancestors[j];
       if (seen[ak]) continue;
       seen[ak] = true;
-      out.push({ key: ak, rollupActive: true });
+      out.push({ key: ak, rollupActive: !isActiveAgent(model.byKey[ak]) });
     }
     if (!seen[leaf]) {
       seen[leaf] = true;
-      out.push({ key: leaf, rollupActive: false });
+      out.push({ key: leaf, rollupActive: !isActiveAgent(model.byKey[leaf]) });
     }
   }
   return out;
@@ -41760,16 +41843,36 @@ ${STATUS_MODEL_JS}
     return cell;
   }
 
+  /** M1: whether entry sits on the ACTIVE partition side. Reads the partition's
+   *  effActive closure (seeds + ancestor inheritance) stashed on the session
+   *  info by updateSessionEl (r1 p2-1: every partition recompute routes through
+   *  it, including the localechange re-render); falls back to the raw
+   *  isActiveAgent when no partition is stashed yet (defensive only). The side
+   *  logic MUST use this (not isActiveAgent) so an effectively-active ancestor
+   *  nests like an active row and its busy descendants are not duplicated. */
+  function isOnActiveSide(entry) {
+    if (!entry) return false;
+    var info = sessionEls[entry.sessionId];
+    var effActive = info ? info.effActive : null;
+    return effActive ? effActive[entry.key] === true : M.isActiveAgent(entry);
+  }
+
   /** Same-partition children of an entry (0.11.0): a row's chevron/subtree only
    *  covers children on its own side (active rows nest active descendants,
    *  inactive rows nest inactive descendants); the other side lives behind the
-   *  fold bar and is managed by the master inactiveOpen control. */
+   *  fold bar and is managed by the master inactiveOpen control. M1: side
+   *  membership follows the partition's effActive closure, not raw isActiveAgent. */
   function sameSideChildren(entry, sideActive) {
     var out = [];
     if (!entry || !entry.children) return out;
+    var info = sessionEls[entry.sessionId];
+    var effActive = info ? info.effActive : null;
     for (var i = 0; i < entry.children.length; i++) {
-      var ce = model.byKey[entry.children[i]];
-      if (ce && M.isActiveAgent(ce) === sideActive) out.push(entry.children[i]);
+      var ck = entry.children[i];
+      var ce = model.byKey[ck];
+      if (!ce) continue;
+      var onActive = effActive ? effActive[ck] === true : M.isActiveAgent(ce);
+      if (onActive === sideActive) out.push(ck);
     }
     return out;
   }
@@ -41825,7 +41928,7 @@ ${STATUS_MODEL_JS}
       // Subtree container INSIDE the row (grid-column 1/-1): removing the row
       // removes the whole subtree; collapse keeps the container empty + drops
       // the subtree keys from rowEls (anti-ghost), expand lazily rebuilds.
-      var sideActive = M.isActiveAgent(entry);
+      var sideActive = isOnActiveSide(entry);
       var kids = sameSideChildren(entry, sideActive);
       if (kids.length > 0) {
         chevron.hidden = false;
@@ -41875,7 +41978,7 @@ ${STATUS_MODEL_JS}
     // 0.11.0: tree chrome sync (chevron visibility/aria, subtree container,
     // collapse class). Skipped for active-section rows (flat, no nesting).
     if (map !== activeRowEls) {
-      var sideActive = M.isActiveAgent(entry);
+      var sideActive = isOnActiveSide(entry);
       var kids = sameSideChildren(entry, sideActive);
       var hasKids = kids.length > 0;
       if (row.__chevron) {
@@ -42000,6 +42103,13 @@ ${STATUS_MODEL_JS}
   function updateSessionEl(sessionId, part) {
     var info = sessionEls[sessionId];
     if (!info) return;
+    // M1 (r1 p2-1): EVERY partition recompute refreshes the side closure here \u2014
+    // updateSessionEl receives part, so this is the single chokepoint that
+    // keeps info.effActive in sync (renderFullSession/renderHeadOnly and the
+    // localechange re-render all route through it). Side logic
+    // (isOnActiveSide/sameSideChildren/isSideRoot) must never read a stale
+    // closure from an older partition.
+    info.effActive = part.effActive;
     var row = model.sessions[sessionId] || {};
     info.title.textContent = row.title || sessionId;
     info.sub.textContent = row.workDir || (row.home || '');
@@ -42035,10 +42145,10 @@ ${STATUS_MODEL_JS}
    *  under this container, so only those are removed. */
   function clearSubtreeRowEls(key) {
     var keys = M.subtreeKeys(model, key);
-    var sideActive = M.isActiveAgent(model.byKey[key]);
+    var sideActive = isOnActiveSide(model.byKey[key]);
     for (var i = 1; i < keys.length; i++) {
       var e = model.byKey[keys[i]];
-      if (e && M.isActiveAgent(e) === sideActive) delete rowEls[keys[i]];
+      if (e && isOnActiveSide(e) === sideActive) delete rowEls[keys[i]];
     }
   }
 
@@ -42050,7 +42160,11 @@ ${STATUS_MODEL_JS}
   function isSideRoot(entry, sideActive) {
     if (!entry || !entry.parentKey) return true;
     var p = model.byKey[entry.parentKey];
-    return !p || M.isActiveAgent(p) !== sideActive;
+    if (!p) return true;
+    var info = sessionEls[entry.sessionId];
+    var effActive = info ? info.effActive : null;
+    var parentActive = effActive ? effActive[entry.parentKey] === true : M.isActiveAgent(p);
+    return parentActive !== sideActive;
   }
 
   /** Append key's row into the given container and (when expanded) its
@@ -42107,7 +42221,7 @@ ${STATUS_MODEL_JS}
       );
     }
     var subtree = row.__subtree;
-    var sideActive = M.isActiveAgent(entry);
+    var sideActive = isOnActiveSide(entry);
     if (collapsedSubtrees[key]) {
       while (subtree.firstChild) subtree.removeChild(subtree.firstChild);
       clearSubtreeRowEls(key);
@@ -42148,6 +42262,9 @@ ${STATUS_MODEL_JS}
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
     applySessionMode(info, 'full');
+    // M1: updateSessionEl stashes part.effActive (single chokepoint) before the
+    // rows below are built, so sameSideChildren/isSideRoot/createRowEl side
+    // logic is consistent with the partition this render is built from.
     updateSessionEl(sessionId, part);
     var active = part.active;
     // Clear + rebuild the active rows container every pass, then re-append the
@@ -42187,7 +42304,7 @@ ${STATUS_MODEL_JS}
     var part = M.partitionSession(model, sessionId);
     var info = ensureSessionEl(sessionId);
     applySessionMode(info, 'head');
-    updateSessionEl(sessionId, part);
+    updateSessionEl(sessionId, part); // M1: stashes part.effActive (chokepoint)
     if (dirInfo) attachSessionGroup(dirInfo, sessionId, info.group);
   }
 
@@ -42394,11 +42511,14 @@ ${STATUS_MODEL_JS}
     return out;
   }
   // B1 (0.11.0): ancestor-closure order derived directly from the shared
-  // listDirectories result (dirs order -> sessionIds order -> DFS active list),
-  // inserting each active leaf's ancestor chain before it (reverse chain order
-  // -> leaf). No global reorder \u2014 activeAgentKeys is the stable order. The
-  // serialized model function activeAgentKeysWithAncestors is the API twin of
-  // this page-local derivation (kept in sync by tests / D2).
+  // listDirectories result (dirs order -> sessionIds order -> DFS active list).
+  // M1: partitionSession.active already carries the seeds + ancestor closure, so
+  // the chain-walk below is only a safety net (entries are already seen); the
+  // rollup badge follows isActiveAgent \u2014 members brought out only by a live
+  // descendant keep rollupActive=true (B2). No global reorder \u2014 activeAgentKeys
+  // is the stable order. The serialized model function
+  // activeAgentKeysWithAncestors is the API twin of this page-local derivation
+  // (kept in sync by tests / D2).
   function activeKeysWithAncestorsFromDirs(dirs) {
     var seeds = activeKeysFromDirs(dirs);
     var out = []; // { key, rollupActive }
@@ -42419,11 +42539,11 @@ ${STATUS_MODEL_JS}
         var ak = ancestors[j];
         if (seen[ak]) continue;
         seen[ak] = true;
-        out.push({ key: ak, rollupActive: true });
+        out.push({ key: ak, rollupActive: !M.isActiveAgent(model.byKey[ak]) });
       }
       if (!seen[leaf]) {
         seen[leaf] = true;
-        out.push({ key: leaf, rollupActive: false });
+        out.push({ key: leaf, rollupActive: !M.isActiveAgent(model.byKey[leaf]) });
       }
     }
     return out;
@@ -44235,7 +44355,8 @@ var ControlPlane = class {
       projectId,
       pathHash,
       removedCwd: result.removedCwd ?? null,
-      restoredSidecar: result.restoredSidecar
+      restoredSidecar: result.restoredSidecar,
+      restoredBoard: result.restoredBoard
     });
   }
   async handoffInbox(url, res) {
