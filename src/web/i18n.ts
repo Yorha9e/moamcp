@@ -208,7 +208,8 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'tower.noLog': 'No activity yet.', 'tower.noFindings': 'No findings filed.',
     'tower.noReviews': 'No reviews for this branch.', 'tower.empty': 'No data yet.',
     'tower.expand': 'Expand', 'tower.collapse': 'Collapse',
-    'tower.reviewsFor': 'Reviews for {branch}', 'tower.updatedAt': 'Updated {time}'
+    'tower.reviewsFor': 'Reviews for {branch}', 'tower.updatedAt': 'Updated {time}',
+    'tower.countsMissions': 'missions', 'tower.countsAgents': 'agents'
   },
   'zh-CN': {
     'app.brand': 'MOA 工作区', 'app.nav': '主导航', 'app.debate': 'MOA 辩论', 'app.memory': '工作区记忆', 'app.runs': 'MoA 运行', 'app.status': 'Agent 状态', 'app.system': '系统健康',
@@ -344,7 +345,8 @@ export const I18N_DICTIONARIES: Record<Locale, Dictionary> = {
     'tower.noLog': '暂无活动。', 'tower.noFindings': '暂无发现。',
     'tower.noReviews': '该分支暂无评审。', 'tower.empty': '暂无数据。',
     'tower.expand': '展开', 'tower.collapse': '收起',
-    'tower.reviewsFor': '{branch} 的评审', 'tower.updatedAt': '更新于 {time}'
+    'tower.reviewsFor': '{branch} 的评审', 'tower.updatedAt': '更新于 {time}',
+    'tower.countsMissions': '个任务', 'tower.countsAgents': '个代理'
   }
 };
 
