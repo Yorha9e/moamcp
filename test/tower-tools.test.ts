@@ -528,6 +528,40 @@ it('merge (tower-only) passes the full gate and lands on the base branch; status
   await env.close();
 });
 
+it('teardown tool (M2): a kept-dirty worktree returns isError:true + torn_down:false with a truthful report and the tower stays booted; a force teardown then returns torn_down:true', async () => {
+  const env = await makeToolEnv();
+  await bootPlanSpawnRegister(env);
+  const { client, repoRoot } = env;
+  const workerWt = join(repoRoot, '..', 'repo-worktrees', 'wt-1');
+  await commitFile(workerWt, 'src/parser.ts', 'export const n = 1;\n', 'parser work');
+  // Dirty the worktree with an uncommitted file → the worktree is kept.
+  await writeFile(join(workerWt, 'src', 'uncommitted.txt'), 'dirty\n');
+  const mirror = join(repoRoot, '.tower-guard.json');
+  await expect(readFile(mirror, 'utf8')).resolves.toContain('"worktrees"');
+
+  // Partial teardown: the tool makes the not-torn-down state EXPLICIT —
+  // isError:true + torn_down:false + a truthful report naming the kept slot.
+  const partial = await call(client, 'moa_tower_teardown', { workspace: repoRoot, caller_agent_id: 'agent-orch' });
+  expect(partial.isError).toBe(true);
+  expect(partial.torn_down).toBe(false);
+  expect(Array.isArray(partial.report)).toBe(true);
+  expect(partial.report.some((line: string) => line.includes('kept wt-1 (uncommitted changes'))).toBe(true);
+  expect(partial.output).toMatch(/teardown incomplete/);
+  // Boot state intact: the guard mirror survives and the tower still answers.
+  await expect(readFile(mirror, 'utf8')).resolves.toContain('"worktrees"');
+  const status = await call(client, 'moa_tower_status', { workspace: repoRoot, caller_agent_id: 'agent-orch' });
+  expect(status.booted).toBe(true);
+
+  // Force teardown succeeds — only then torn_down:true + mirror deleted.
+  const forced = await call(client, 'moa_tower_teardown', {
+    workspace: repoRoot, caller_agent_id: 'agent-orch', force: true,
+  });
+  expect(forced.torn_down).toBe(true);
+  expect(forced.report.some((line: string) => line.includes('removed wt-1'))).toBe(true);
+  await expect(readFile(mirror, 'utf8')).rejects.toThrow();
+  await env.close();
+});
+
 // ---------------------------------------------------------------------------
 // /api/tower/* routes on a live Bus
 // ---------------------------------------------------------------------------
