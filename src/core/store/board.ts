@@ -927,7 +927,9 @@ export class BoardStore {
    * live board already present) leaves the state untouched and returns false;
    * the directory's next write then starts a fresh board (legacy behavior).
    * The rename runs under the board file's append lock so a concurrent
-   * appender can never write into a file mid-rename.
+   * appender can never write into a file mid-rename, and the live-board
+   * existence check is re-run under that lock so a board a concurrent writer
+   * created meanwhile is never overwritten (review p2-1 TOCTOU).
    */
   async restoreWorkspaceBoard(pathHash: unknown): Promise<boolean> {
     this.assertOpen();
@@ -943,7 +945,7 @@ export class BoardStore {
       throw err;
     }
     const liveName = `ws-${pathHash}.jsonl`;
-    if (names.includes(liveName)) return false; // already a live board
+    if (names.includes(liveName)) return false; // already a live board (fast path)
     const prefix = `${liveName}.migrated-`;
     const archives = names
       .filter((name) => name.startsWith(prefix))
@@ -952,10 +954,22 @@ export class BoardStore {
     const newest = archives[archives.length - 1];
     // The lock file is created beside the board, so the boards dir must exist
     // before acquisition (readdir above guarantees it; mirrors releaseWorkspace).
-    await withAppendLock(join(dir, liveName), async () => {
+    // The live-board check is re-run INSIDE the lock: a concurrent writer can
+    // append a fresh ws-<hash>.jsonl between the readdir snapshot above and
+    // this rename, and that board must never be silently overwritten (review
+    // p2-1 TOCTOU). Both paths return false without touching the live board.
+    return withAppendLock(join(dir, liveName), async () => {
+      let liveExists = false;
+      try {
+        await stat(join(dir, liveName));
+        liveExists = true;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      }
+      if (liveExists) return false; // a live board appeared mid-flight: leave it
       await rename(join(dir, newest), join(dir, liveName));
+      return true;
     });
-    return true;
   }
 
   /**
