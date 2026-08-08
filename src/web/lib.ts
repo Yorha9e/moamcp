@@ -208,12 +208,12 @@ export const LIB_JS = `
     function connect() {
       if (stopped) return;
       sse = new EventSource(url);
-      if (onState) onState('connecting', '● sse');
+      if (onState) onState('connecting', 'sse');
 
       sse.onopen = function() {
         fails = 0;
         delay = 800;
-        if (onState) onState('open', '● sse');
+        if (onState) onState('open', 'sse');
       };
 
       sse.onmessage = function(ev) {
