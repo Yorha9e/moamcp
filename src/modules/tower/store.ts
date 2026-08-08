@@ -168,7 +168,7 @@ const CI_OUTPUT_CAP_BYTES = 2 * 1024 * 1024;
 /** M1 tower wait (moa_tower_wait): inbox poll cadence. Inbox keys are random
  *  UUIDs — there is no fixed board key to wait on, so kind=inbox polls the
  *  caller's inbox at this interval (the board wait's "poll fallback" path);
- *  kind=ci and kind=mission use the board's event-based key wait. */
+ *  kind=ci, kind=mission and kind=deps use the board's event-based key wait. */
 const WAIT_INBOX_POLL_MS = 100;
 
 function sleep(ms: number): Promise<void> {
@@ -1370,6 +1370,71 @@ export class TowerStore {
       const mission = JSON.parse(wake.entry.value) as TowerMission;
       if (mission.status !== baselineStatus) return { status: 'ok', mission };
       since = wake.entry.ts;
+    }
+  }
+
+  /**
+   * Wait kind=deps: block until EVERY mission id in `mission(mission_id).deps`
+   * has status 'merged' (dependency-driven parallel dispatch — all missions go
+   * out at once, dependents park here and wake when their deps land). The full
+   * deps set is evaluated first: if every dep is already merged at call time
+   * the wait returns immediately (an empty deps list is vacuously satisfied).
+   * While any dep is unmerged we wait on THAT dep's exact mission-doc key via
+   * the event-based BoardStore.wait path, with a `since` cursor on the doc ts
+   * observed at the last evaluation — a successful moa_tower_merge ALWAYS
+   * writes the dep mission doc (status → 'merged', see saveMissionStatus), and
+   * that write is exactly what wakes us. Every wake re-evaluates the FULL deps
+   * set and only resolves when all are merged. A board 'closed' result is
+   * surfaced distinctly as {status:'closed'} — it is NOT a retryable timeout.
+   */
+  async waitForDeps(
+    missionId: string,
+    timeoutMs?: number,
+  ): Promise<
+    | { status: 'ok'; deps: ReadonlyArray<{ readonly id: string; readonly status: TowerMissionStatus }> }
+    | { status: 'timeout'; retry: true }
+    | { status: 'closed' }
+  > {
+    // The target mission must exist (consistent with waitForMission's
+    // unknown-id handling).
+    const missionRows = await this.board.read(this.keys.mission(missionId), undefined, 'workspace', 1, this.repoRoot);
+    if (missionRows.length === 0) {
+      throw new TowerProtocolError(`unknown mission "${missionId}" — known missions require moa_tower_plan first`);
+    }
+    const mission = JSON.parse(missionRows[0]!.value) as TowerMission;
+    const effectiveTimeout = this.waitTimeout(timeoutMs);
+    const deadline = Date.now() + effectiveTimeout;
+    for (;;) {
+      // Evaluate the FULL deps set from the board on every pass. A dep id with
+      // no mission document is corruption — deps are validated at plan time
+      // (附录 A row 9) and mission docs are never deleted, so it is an error at
+      // call time rather than something a wait could ever satisfy.
+      const deps: Array<{ readonly id: string; readonly status: TowerMissionStatus }> = [];
+      const seenTs = new Map<string, string>();
+      for (const dep of mission.deps) {
+        const rows = await this.board.read(this.keys.mission(dep), undefined, 'workspace', 1, this.repoRoot);
+        if (rows.length === 0) {
+          throw new TowerProtocolError(
+            `mission "${missionId}" lists dep "${dep}" but no mission document exists — tower state is inconsistent (deps are validated at plan time)`,
+          );
+        }
+        seenTs.set(dep, rows[0]!.ts);
+        deps.push({ id: dep, status: (JSON.parse(rows[0]!.value) as TowerMission).status });
+      }
+      if (deps.every((dep) => dep.status === 'merged')) return { status: 'ok', deps };
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return { status: 'timeout', retry: true };
+      // Park on the FIRST unmerged dep's mission-doc key (with `since` = the ts
+      // seen above, so a re-write of the SAME doc state cannot falsely satisfy
+      // the wait). Merges of other deps are irrelevant while this one is still
+      // unmerged — the loop re-evaluates everything on every wake.
+      const target = deps.find((dep) => dep.status !== 'merged')!;
+      const wake = await this.board.wait(this.keys.mission(target.id), 'workspace', remaining, seenTs.get(target.id), this.repoRoot);
+      // 'closed' is terminal and distinct from a timeout; any other non-ready
+      // result (a board-internal cap chunk) just loops to the deadline.
+      if (wake.status === 'closed') return { status: 'closed' };
+      if (wake.status !== 'ready') continue;
+      // Woken by a dep-mission write — loop and re-evaluate the full set.
     }
   }
 
